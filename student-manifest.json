@@ -1,8 +1,7 @@
 {
-  "name": "Maktab4Life Student",
-  "short_name": "Student",
-  "start_url": "/student/",
-  "scope": "/student/",
+  "name": "Maktab4Life",
+  "short_name": "Maktab",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#234569",
