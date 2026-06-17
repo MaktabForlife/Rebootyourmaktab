@@ -1,8 +1,7 @@
 {
   "name": "Maktab4Life Admin",
-  "short_name": "Admin",
-  "start_url": "/admin/",
-  "scope": "/admin/",
+  "short_name": "Maktab",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#2f8f8f",
