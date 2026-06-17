@@ -26,7 +26,7 @@ function initApp() {
     return;
   }
 
-  if (parts[0] === "u" && parts[1]) {
+  if (parts[0] === "student" && parts[1]) {
     state.portalType = "student";
     state.uniqueid = parts[1];
   setAuthTheme("student");
@@ -36,7 +36,7 @@ function initApp() {
 
   document.getElementById("portal-title").innerText = "Maktab4Life";
   document.getElementById("portal-subtitle").innerText =
-    "You require a personal URL to access the Maktab4Life Daashboard";
+    "You require a personal URL to access the Maktab4Life Dashboard";
 }
 
 function showScreen(id) {
