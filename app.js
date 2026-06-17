@@ -1,4 +1,4 @@
-const API_BASE = "https://developmentm4lworker.maktab4life.workers.dev/";
+const API_BASE = "https://developmentm4lworker.maktab4life.workers.dev";
 
 const state = {
   portalType: null,
