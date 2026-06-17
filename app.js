@@ -2897,7 +2897,7 @@ async function renderViewAttendanceScreen(startDate, endDate) {
 
   let html = `
     <div class="nav-header">
-      <h2>View Attendance for a Date Range</h2>
+      <h2>View Attendance Records</h2>
       <button class="small-btn manual-refresh-btn" title="Refresh" aria-label="Refresh" onclick="refreshViewAttendance(this)">↻</button>
       <button class="small-btn" onclick="showScreen('attendance-dashboard')">Back</button>
     </div>
