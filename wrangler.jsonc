@@ -4,7 +4,7 @@
   "main": "src/worker.js",
   "compatibility_date": "2026-06-01",
   "vars": {
-    "APPS_SCRIPT_URL": "https://script.google.com/macros/s/AKfycbzwZBxxDRv-Ei2Vh7nQwu2MVTW0xqJ6QlKnKcfQnKs0d3L923grvP9TMjiXE_JiU8jJ/exec"
+    "APPS_SCRIPT_URL": "https://script.google.com/macros/s/AKfycbwwmDx0WuJWTj0gLRUnE3yC7v6gUrc8muEjENJJZ872taaRKxUFSjCGFOtsfelu2fcW/exec"
 
 },
   "r2_buckets": [
