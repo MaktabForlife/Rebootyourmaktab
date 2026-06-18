@@ -3131,6 +3131,25 @@ async function openMarkRegister() {
   renderAttendanceRegister(getLocalDateString());
 }
 
+function getAttendanceInitials(name) {
+  const cleanName = String(name || "").trim();
+
+  if (!cleanName) {
+    return "?";
+  }
+
+  const parts = cleanName
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .split(/\s+/)
+    .filter(Boolean);
+
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[1][0]).toUpperCase();
+  }
+
+  return cleanName.slice(0, 2).toUpperCase();
+}
+
 function renderAttendanceRegister(dateValue) {
   const container = document.getElementById("attendance-register-content");
   const students = [...attendanceStudentsCache].sort(sortAttendanceStudents);
@@ -3138,17 +3157,38 @@ function renderAttendanceRegister(dateValue) {
   const absentCount = students.filter(student => attendanceState[student.studentid] === "Absent").length;
 
   let html = `
-    <div class="nav-header">
+    <div class="attendance-modern-header">
       <h2>Attendance</h2>
       <button class="small-btn save-return-btn attendance-save-btn" onclick="submitAttendanceRegister()">Save Attendance →</button>
     </div>
 
-    <div class="attendance-date-row attendance-date-row-compact">
-      <input type="date" id="attendance-date" value="${escapeHtml(dateValue)}">
-      <span class="attendance-date-label">DATE</span>
+    <div class="attendance-register-sticky">
+      <div class="attendance-summary-card">
+        <div class="attendance-summary-item">
+          <span class="attendance-summary-icon" aria-hidden="true">📅</span>
+          <div class="attendance-summary-text">
+            <span class="attendance-summary-label">Date</span>
+            <input type="date" id="attendance-date" value="${escapeHtml(dateValue)}">
+          </div>
+        </div>
+
+        <div class="attendance-summary-divider" aria-hidden="true"></div>
+
+        <div class="attendance-summary-item">
+          <span class="attendance-summary-icon" aria-hidden="true">👥</span>
+          <div class="attendance-summary-text">
+            <span class="attendance-summary-label">Absent</span>
+            <strong class="attendance-absence-feedback">${absentCount} student${absentCount === 1 ? "" : "s"}</strong>
+            <span class="attendance-summary-subtext">marked absent</span>
+          </div>
+        </div>
+      </div>
     </div>
 
-    <p class="attendance-absence-feedback">${absentCount} student${absentCount === 1 ? "" : "s"} marked absent</p>
+    <div class="attendance-list-heading">
+      <span class="attendance-list-icon" aria-hidden="true">👥</span>
+      <span>Student List</span>
+    </div>
   `;
 
   if (students.length === 0) {
@@ -3166,10 +3206,14 @@ function renderAttendanceRegister(dateValue) {
 
     const status = attendanceState[student.studentid] || "Present";
     const isPresent = status === "Present";
+    const displayName = student.username || student.studentid;
 
     html += `
       <div class="attendance-register-row">
-        <div class="attendance-student-name">${escapeHtml(student.username || student.studentid)}</div>
+        <div class="attendance-student-main">
+          <span class="attendance-student-avatar" aria-hidden="true">${escapeHtml(getAttendanceInitials(displayName))}</span>
+          <div class="attendance-student-name">${escapeHtml(displayName)}</div>
+        </div>
         <button
           class="attendance-toggle ${isPresent ? "is-present" : "is-absent"}"
           onclick="toggleAttendanceStatus('${escapeJs(student.studentid)}')"
