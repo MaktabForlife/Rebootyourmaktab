@@ -3157,12 +3157,13 @@ function renderAttendanceRegister(dateValue) {
   const absentCount = students.filter(student => attendanceState[student.studentid] === "Absent").length;
 
   let html = `
+    <div class="attendance-register-sticky">
     <div class="attendance-modern-header">
       <h2>Attendance</h2>
       <button class="small-btn save-return-btn attendance-save-btn" onclick="submitAttendanceRegister()">Save Attendance →</button>
     </div>
 
-    <div class="attendance-register-sticky">
+    
       <div class="attendance-summary-card">
         <div class="attendance-summary-item">
           <span class="attendance-summary-icon" aria-hidden="true">📅</span>
