@@ -697,85 +697,14 @@ const STUDENT_RESOURCE_CATEGORIES = [
   }
 ];
 
-
-
-function ensureResourceScreensExist() {
-  const appShell = document.querySelector(".app-shell") || document.body;
-  if (!appShell) return;
-
-  const screenHtml = [];
-
-  if (!document.getElementById("student-resources-subjects")) {
-    screenHtml.push(`
-      <section id="student-resources-subjects" class="screen student-theme">
-        <div class="nav-header">
-          <h2>Resources</h2>
-          <button class="small-btn" onclick="showScreen('student-home')">Back</button>
-        </div>
-        <div id="student-resource-subject-list" class="list-stack">
-          <p class="helper-text">Loading resources...</p>
-        </div>
-      </section>
-    `);
-  }
-
-  if (!document.getElementById("student-resources-media")) {
-    screenHtml.push(`
-      <section id="student-resources-media" class="screen student-theme">
-        <div class="nav-header">
-          <h2 id="student-resource-media-title">Resources</h2>
-          <button class="small-btn" onclick="showScreen('student-resources-subjects')">Back</button>
-        </div>
-        <div id="student-resource-media-list" class="list-stack">
-          <p class="helper-text">Loading media types...</p>
-        </div>
-      </section>
-    `);
-  }
-
-  if (!document.getElementById("student-resources-modules")) {
-    screenHtml.push(`
-      <section id="student-resources-modules" class="screen student-theme">
-        <div class="nav-header">
-          <h2 id="student-resource-module-title">Modules</h2>
-          <button class="small-btn" onclick="showScreen('student-resources-media')">Back</button>
-        </div>
-        <div id="student-resource-module-list" class="list-stack">
-          <p class="helper-text">Loading modules...</p>
-        </div>
-      </section>
-    `);
-  }
-
-  if (!document.getElementById("student-resources-detail")) {
-    screenHtml.push(`
-      <section id="student-resources-detail" class="screen student-theme">
-        <div class="nav-header">
-          <h2 id="student-resource-detail-title">Resources</h2>
-          <button class="small-btn" onclick="showScreen('student-resources-subjects')">Back</button>
-        </div>
-        <div id="student-resource-detail-content" class="list-stack">
-          <p class="helper-text">Loading resources...</p>
-        </div>
-      </section>
-    `);
-  }
-
-  if (screenHtml.length > 0) {
-    appShell.insertAdjacentHTML("beforeend", screenHtml.join(""));
-  }
-}
-
 async function showStudentResources() {
   studentResourceViewMode = "student";
-  ensureResourceScreensExist();
   setResourceScreensForStudent();
   await loadResourceCategories("/api/resources/list", {});
 }
 
 async function showAdminResources() {
   studentResourceViewMode = "admin";
-  ensureResourceScreensExist();
   setResourceScreensForAdmin();
   await loadResourceCategories("/api/resources/list", {});
 }
@@ -1401,6 +1330,7 @@ function buildMediaResourceGroups(category) {
             taskid: resource.taskid || resource.taskId || "",
             taskname: label,
             label,
+            sublabel: format,
             format,
             link,
             type,
@@ -1468,6 +1398,7 @@ function buildMediaResourceGroups(category) {
         taskid: "",
         taskname: "Subject Resource",
         label: getResourceName(resource),
+        sublabel: getResourceFormat(resource, type),
         format: getResourceFormat(resource, type),
         link: getResourceLink(resource),
         type,
@@ -1492,6 +1423,7 @@ function buildMediaResourceGroups(category) {
           taskid: task.taskid,
           taskname: task.taskname || getResourceName(resource),
           label: task.taskname || getResourceName(resource),
+          sublabel: getResourceFormat(resource, type),
           format: getResourceFormat(resource, type),
           link: getResourceLink(resource),
           type,
@@ -1574,6 +1506,7 @@ function renderStudentResourceRow(row) {
   const disabled = link ? "" : " disabled";
   const buttonLabel = getSmallResourceButtonLabel(type);
   const rowId = makeResourceRowId(row);
+  const format = row.format || row.sublabel || getDisplayResourceType(type);
   const isAudio = type === "AUDIO";
   const isVideo = type === "VIDEO";
 
