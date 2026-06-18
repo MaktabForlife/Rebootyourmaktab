@@ -661,7 +661,11 @@ let studentResourceGroupsByType = {};
 let currentStudentResourceMode = "";
 let currentStudentResourceSubjectKey = "";
 let currentStudentResourceSubjectName = "";
+let currentStudentResourceSubjectCategoryCounts = {};
+let currentStudentResourceModuleKey = "";
+let currentStudentResourceModuleName = "";
 let studentResourceViewMode = "student";
+const RESOURCE_MODULE_DRILLDOWN_THRESHOLD = 8;
 
 const PDFJS_VIEWER_PATH = "/pdfjs-6/web/viewer.html";
 
@@ -706,7 +710,7 @@ async function showAdminResources() {
 }
 
 function setResourceScreensForStudent() {
-  ["student-resources-subjects", "student-resources-media", "student-resources-detail"].forEach(id => {
+  ["student-resources-subjects", "student-resources-media", "student-resources-modules", "student-resources-detail"].forEach(id => {
     const screen = document.getElementById(id);
     if (!screen) return;
     screen.classList.remove("admin-theme");
@@ -728,15 +732,21 @@ function setResourceScreensForStudent() {
     mediaBackButton.setAttribute("onclick", "showScreen('student-resources-subjects')");
   }
 
+  const moduleBackButton = document.querySelector("#student-resources-modules .small-btn");
+  if (moduleBackButton) {
+    moduleBackButton.innerText = "Back";
+    moduleBackButton.setAttribute("onclick", "showScreen('student-resources-media')");
+  }
+
   const detailBackButton = document.querySelector("#student-resources-detail .small-btn");
   if (detailBackButton) {
     detailBackButton.innerText = "Back";
-    detailBackButton.setAttribute("onclick", "showScreen('student-resources-media')");
+    detailBackButton.setAttribute("onclick", "goBackFromStudentResourceDetail()");
   }
 }
 
 function setResourceScreensForAdmin() {
-  ["student-resources-subjects", "student-resources-media", "student-resources-detail"].forEach(id => {
+  ["student-resources-subjects", "student-resources-media", "student-resources-modules", "student-resources-detail"].forEach(id => {
     const screen = document.getElementById(id);
     if (!screen) return;
     screen.classList.remove("student-theme");
@@ -758,10 +768,16 @@ function setResourceScreensForAdmin() {
     mediaBackButton.setAttribute("onclick", "showScreen('student-resources-subjects')");
   }
 
+  const moduleBackButton = document.querySelector("#student-resources-modules .small-btn");
+  if (moduleBackButton) {
+    moduleBackButton.innerText = "Back";
+    moduleBackButton.setAttribute("onclick", "showScreen('student-resources-media')");
+  }
+
   const detailBackButton = document.querySelector("#student-resources-detail .small-btn");
   if (detailBackButton) {
     detailBackButton.innerText = "Back";
-    detailBackButton.setAttribute("onclick", "showScreen('student-resources-media')");
+    detailBackButton.setAttribute("onclick", "goBackFromStudentResourceDetail()");
   }
 }
 
@@ -882,11 +898,51 @@ function getSubjectModules(subject) {
 
   const directResources = getDirectSubjectResources(subject);
   if (directResources.length > 0) {
-    return [{
-      moduleid: subject.moduleid || "",
-      modulename: subject.modulename || "General",
-      resources: directResources
-    }];
+    const moduleMap = new Map();
+
+    directResources.forEach(resource => {
+      const moduleId = String(
+        resource.moduleid ||
+        resource.moduleId ||
+        resource.ModuleId ||
+        resource.ModuleID ||
+        resource.Moduleld ||
+        subject.moduleid ||
+        subject.moduleId ||
+        subject.ModuleId ||
+        subject.ModuleID ||
+        ""
+      ).trim();
+
+      const moduleName = String(
+        resource.modulename ||
+        resource.moduleName ||
+        resource.ModuleName ||
+        subject.modulename ||
+        subject.moduleName ||
+        subject.ModuleName ||
+        "General"
+      ).trim() || "General";
+
+      const moduleKey = moduleId ? `id:${moduleId.toUpperCase()}` : `name:${moduleName.toUpperCase()}`;
+
+      if (!moduleMap.has(moduleKey)) {
+        moduleMap.set(moduleKey, {
+          moduleid: moduleId,
+          modulename: moduleName,
+          resources: []
+        });
+      }
+
+      moduleMap.get(moduleKey).resources.push(resource);
+    });
+
+    return Array.from(moduleMap.values()).sort((a, b) => {
+      return String(a.modulename || "").localeCompare(String(b.modulename || ""), undefined, {
+        numeric: true,
+        sensitivity: "base"
+      });
+    });
   }
 
   return [];
@@ -918,7 +974,7 @@ function countResourcesInSubjects(subjects) {
 
 
 function getResourceSubjectKey(subjectGroup) {
-  const rawId = subjectGroup && (subjectGroup.subjectid || subjectGroup.SubjectId || subjectGroup.SubjectID || subjectGroup.id || "");
+  const rawId = subjectGroup && (subjectGroup.subjectid || subjectGroup.subjectId || subjectGroup.SubjectId || subjectGroup.SubjectID || subjectGroup.id || "");
   const rawName = subjectGroup && (subjectGroup.subjectname || subjectGroup.SubjectName || subjectGroup.name || "Subject");
   const id = String(rawId || "").trim();
   const name = String(rawName || "Subject").trim();
@@ -970,6 +1026,9 @@ function renderStudentResourceSubjects() {
   currentStudentResourceMode = "";
   currentStudentResourceSubjectKey = "";
   currentStudentResourceSubjectName = "";
+  currentStudentResourceSubjectCategoryCounts = {};
+  currentStudentResourceModuleKey = "";
+  currentStudentResourceModuleName = "";
 
   const subjects = buildStudentResourceSubjectSummaries();
 
@@ -1000,6 +1059,10 @@ function openStudentResourceSubject(subjectKey) {
 
   currentStudentResourceSubjectKey = selectedSubject.key;
   currentStudentResourceSubjectName = selectedSubject.name;
+  currentStudentResourceSubjectCategoryCounts = { ...(selectedSubject.categoryCounts || {}) };
+  currentStudentResourceMode = "";
+  currentStudentResourceModuleKey = "";
+  currentStudentResourceModuleName = "";
 
   const title = document.getElementById("student-resource-media-title");
   if (title) title.innerText = selectedSubject.name;
@@ -1019,7 +1082,7 @@ function renderStudentResourceCategories(selectedSubject = null) {
     const disabledAttr = count === 0 ? " disabled" : "";
 
     return `
-      <button class="resource-category-button${disabledClass}" onclick="openStudentResourceCategory('${escapeForAttribute(category.key)}')"${disabledAttr}>
+      <button class="resource-category-button${disabledClass}" onclick="openStudentResourceCategory('${escapeForAttribute(category.key)}', ${Number(count) || 0})"${disabledAttr}>
         <span class="resource-category-main">
           <span class="resource-category-title">${escapeHtml(category.label)}</span>
           <span class="resource-category-subtitle">${escapeHtml(category.subtitle)}</span>
@@ -1038,7 +1101,7 @@ function renderStudentResourceCategories(selectedSubject = null) {
   `;
 }
 
-function openStudentResourceCategory(categoryKey) {
+function openStudentResourceCategory(categoryKey, knownCount = null) {
   const category = STUDENT_RESOURCE_CATEGORIES.find(item => item.key === categoryKey);
 
   if (!category) {
@@ -1047,6 +1110,24 @@ function openStudentResourceCategory(categoryKey) {
   }
 
   currentStudentResourceMode = categoryKey;
+  currentStudentResourceModuleKey = "";
+  currentStudentResourceModuleName = "";
+
+  const groupedCount = countRowsInResourceSubjectGroups(getCurrentSubjectGroupsForCategory(category));
+  const storedSubjectCount = Number(currentStudentResourceSubjectCategoryCounts && currentStudentResourceSubjectCategoryCounts[category.key] || 0);
+  const buttonCount = Number(knownCount || 0);
+  const totalForSubjectAndMedia = Math.max(groupedCount, storedSubjectCount, buttonCount);
+
+  if (totalForSubjectAndMedia > RESOURCE_MODULE_DRILLDOWN_THRESHOLD) {
+    const title = document.getElementById("student-resource-module-title");
+    if (title) {
+      title.innerText = currentStudentResourceSubjectName ? `${currentStudentResourceSubjectName} - ${category.label}` : category.label;
+    }
+
+    showScreen("student-resources-modules");
+    renderStudentResourceModules(category);
+    return;
+  }
 
   const title = document.getElementById("student-resource-detail-title");
   if (title) {
@@ -1065,23 +1146,152 @@ function filterResourceGroupsByCurrentSubject(subjectGroups) {
   });
 }
 
+function getCurrentSubjectGroupsForCategory(category) {
+  return filterResourceGroupsByCurrentSubject(buildMediaResourceGroups(category));
+}
+
+function countRowsInResourceSubjectGroups(subjectGroups) {
+  return (subjectGroups || []).reduce((subjectTotal, subjectGroup) => {
+    return subjectTotal + (subjectGroup.modules || []).reduce((moduleTotal, moduleGroup) => {
+      return moduleTotal + ((moduleGroup.rows || []).length);
+    }, 0);
+  }, 0);
+}
+
+function getResourceModuleKey(moduleGroup) {
+  const rawId = moduleGroup && (moduleGroup.moduleid || moduleGroup.moduleId || moduleGroup.ModuleId || moduleGroup.ModuleID || "");
+  const rawName = moduleGroup && (moduleGroup.modulename || moduleGroup.ModuleName || moduleGroup.name || "General");
+  const id = String(rawId || "").trim();
+  const name = String(rawName || "General").trim();
+  return id ? `id:${id.toUpperCase()}` : `name:${name.toUpperCase()}`;
+}
+
+function getResourceModuleName(moduleGroup) {
+  return String(moduleGroup && (moduleGroup.modulename || moduleGroup.ModuleName || moduleGroup.name) || "General").trim() || "General";
+}
+
+function buildCurrentResourceModuleSummaries(category) {
+  const moduleMap = new Map();
+
+  getCurrentSubjectGroupsForCategory(category).forEach(subjectGroup => {
+    (subjectGroup.modules || []).forEach(moduleGroup => {
+      const rows = moduleGroup.rows || [];
+      if (rows.length === 0) return;
+
+      const key = getResourceModuleKey(moduleGroup);
+      const name = getResourceModuleName(moduleGroup);
+
+      if (!moduleMap.has(key)) {
+        moduleMap.set(key, {
+          key,
+          name,
+          total: 0
+        });
+      }
+
+      moduleMap.get(key).total += rows.length;
+    });
+  });
+
+  return Array.from(moduleMap.values()).sort((a, b) => {
+    return String(a.name || "").localeCompare(String(b.name || ""), undefined, {
+      numeric: true,
+      sensitivity: "base"
+    });
+  });
+}
+
+function renderStudentResourceModules(category) {
+  const container = document.getElementById("student-resource-module-list");
+  if (!container) return;
+
+  const modules = buildCurrentResourceModuleSummaries(category);
+
+  if (modules.length === 0) {
+    container.innerHTML = `<p class="helper-text">No modules are available for this media type.</p>`;
+    return;
+  }
+
+  container.innerHTML = `
+    <div class="resource-subject-button-grid">
+      ${modules.map(module => `
+        <button class="resource-subject-drill-button" onclick="openStudentResourceModule('${escapeForAttribute(module.key)}')">
+          <span class="resource-subject-button-title">${escapeHtml(module.name)}</span>
+        </button>
+      `).join("")}
+    </div>
+  `;
+}
+
+function openStudentResourceModule(moduleKey) {
+  const category = STUDENT_RESOURCE_CATEGORIES.find(item => item.key === currentStudentResourceMode);
+
+  if (!category) {
+    alert("Resource category not found. Please reload resources.");
+    return;
+  }
+
+  const selectedModule = buildCurrentResourceModuleSummaries(category).find(module => module.key === moduleKey);
+
+  if (!selectedModule) {
+    alert("Module not found. Please reload resources.");
+    return;
+  }
+
+  currentStudentResourceModuleKey = selectedModule.key;
+  currentStudentResourceModuleName = selectedModule.name;
+
+  const title = document.getElementById("student-resource-detail-title");
+  if (title) {
+    title.innerText = `${selectedModule.name} - ${category.label}`;
+  }
+
+  showScreen("student-resources-detail");
+  renderStudentResourceCategoryDetail(category);
+}
+
+function goBackFromStudentResourceDetail() {
+  if (currentStudentResourceModuleKey) {
+    showScreen("student-resources-modules");
+    return;
+  }
+
+  showScreen("student-resources-media");
+}
+
 function renderStudentResourceCategoryDetail(category) {
   const container = document.getElementById("student-resource-detail-content");
   if (!container) return;
 
-  const subjectGroups = filterResourceGroupsByCurrentSubject(buildMediaResourceGroups(category));
+  const subjectGroups = getCurrentSubjectGroupsForCategory(category);
 
   if (subjectGroups.length === 0) {
     container.innerHTML = `<p class="helper-text">No ${escapeHtml(category.label)} resources are available yet.</p>`;
     return;
   }
 
-  container.innerHTML = subjectGroups.map(subjectGroup => `
+  const filteredSubjectGroups = subjectGroups.map(subjectGroup => {
+    const modules = (subjectGroup.modules || []).filter(moduleGroup => {
+      return !currentStudentResourceModuleKey || getResourceModuleKey(moduleGroup) === currentStudentResourceModuleKey;
+    });
+
+    return {
+      ...subjectGroup,
+      modules
+    };
+  }).filter(subjectGroup => subjectGroup.modules.length > 0);
+
+  if (filteredSubjectGroups.length === 0) {
+    container.innerHTML = `<p class="helper-text">No ${escapeHtml(category.label)} resources are available for this module.</p>`;
+    return;
+  }
+
+  container.innerHTML = filteredSubjectGroups.map(subjectGroup => `
     <div class="resource-section resource-subject-group">
-      <h3>${escapeHtml(subjectGroup.subjectname || "Subject")}</h3>
+      ${currentStudentResourceModuleKey ? "" : `<h3>${escapeHtml(subjectGroup.subjectname || "Subject")}</h3>`}
       ${subjectGroup.modules.map(moduleGroup => `
         <div class="resource-module-block">
-          <div class="resource-module-heading">${escapeHtml(moduleGroup.modulename || "General")}</div>
+          ${currentStudentResourceModuleKey ? "" : `<div class="resource-module-heading">${escapeHtml(moduleGroup.modulename || "General")}</div>`}
           <div class="resource-task-list">
             ${moduleGroup.rows.map(row => renderStudentResourceRow(row)).join("")}
           </div>
@@ -1132,7 +1342,7 @@ function buildMediaResourceGroups(category) {
 
         if (rows.length > 0) {
           moduleGroups.push({
-            moduleid: module.moduleid || module.ModuleId || module.ModuleID || "",
+            moduleid: module.moduleid || module.moduleId || module.ModuleId || module.ModuleID || "",
             modulename: module.modulename || module.ModuleName || module.name || "General",
             rows
           });
@@ -1148,7 +1358,7 @@ function buildMediaResourceGroups(category) {
 
       if (moduleGroups.length > 0) {
         subjectGroups.push({
-          subjectid: subject.subjectid || subject.SubjectId || subject.SubjectID || "",
+          subjectid: subject.subjectid || subject.subjectId || subject.SubjectId || subject.SubjectID || "",
           subjectname: subject.subjectname || subject.SubjectName || subject.name || "Subject",
           modules: moduleGroups
         });
@@ -1248,8 +1458,8 @@ function addUniqueResourceRow(rows, seenRows, row) {
 }
 
 function getResourceDedupeKey(row) {
-  const subjectId = String(row.subject && (row.subject.subjectid || row.subject.SubjectId || row.subject.SubjectID) || "").trim().toUpperCase();
-  const moduleId = String(row.module && (row.module.moduleid || row.module.ModuleId || row.module.ModuleID) || "").trim().toUpperCase();
+  const subjectId = String(row.subject && (row.subject.subjectid || row.subject.subjectId || row.subject.SubjectId || row.subject.SubjectID) || "").trim().toUpperCase();
+  const moduleId = String(row.module && (row.module.moduleid || row.module.moduleId || row.module.ModuleId || row.module.ModuleID) || "").trim().toUpperCase();
   const taskId = String(row.taskid || "").trim().toUpperCase();
   const resource = row.resource || {};
   const resourceId = String(
@@ -1259,6 +1469,22 @@ function getResourceDedupeKey(row) {
     resource.ResourceId ||
     resource.taskresourceid ||
     resource.taskResourceId ||
+    resource.VideoId ||
+    resource.videoId ||
+    resource.videoid ||
+    resource.AudioId ||
+    resource.audioId ||
+    resource.audioid ||
+    resource.EbookId ||
+    resource.eBookId ||
+    resource.ebookId ||
+    resource.ebookid ||
+    resource.PrintableId ||
+    resource.printableId ||
+    resource.printableid ||
+    resource.OtherResourceId ||
+    resource.otherResourceId ||
+    resource.otherresourceid ||
     ""
   ).trim().toUpperCase();
   const type = String(row.type || "").trim().toUpperCase();
@@ -1494,11 +1720,29 @@ function getResourceName(resource) {
   return String(
     resource.name ||
     resource.label ||
+    resource.title ||
+    resource.Title ||
     resource.resourcename ||
     resource.resourceName ||
     resource.ResourceName ||
     resource.taskresourcename ||
     resource.taskResourceName ||
+    resource.VideoName ||
+    resource.videoName ||
+    resource.videoname ||
+    resource.AudioName ||
+    resource.audioName ||
+    resource.audioname ||
+    resource.EbookName ||
+    resource.eBookName ||
+    resource.ebookName ||
+    resource.ebookname ||
+    resource.PrintableName ||
+    resource.printableName ||
+    resource.printablename ||
+    resource.OtherResourceName ||
+    resource.otherResourceName ||
+    resource.otherresourcename ||
     "Resource"
   ).trim();
 }
@@ -1547,7 +1791,10 @@ function getResourceLink(resource) {
       resource.VideoLink ||
       resource.videolink ||
       resource.OtherResourceLink ||
-      resource.otherresourcelink
+      resource.otherResourceLink ||
+      resource.otherresourcelink ||
+      resource.url ||
+      resource.URL
     ) ||
     ""
   ).trim();
