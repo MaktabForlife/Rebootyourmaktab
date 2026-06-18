@@ -173,10 +173,21 @@
       </div>
     </section>
 
+    <section id="student-resources-modules" class="screen student-theme">
+      <div class="nav-header">
+        <h2 id="student-resource-module-title">Modules</h2>
+        <button class="small-btn" onclick="showScreen('student-resources-media')">Back</button>
+      </div>
+
+      <div id="student-resource-module-list" class="list-stack">
+        <p class="helper-text">Loading modules...</p>
+      </div>
+    </section>
+
     <section id="student-resources-detail" class="screen student-theme">
       <div class="nav-header">
         <h2 id="student-resource-detail-title">Resources</h2>
-        <button class="small-btn" onclick="showScreen('student-resources-subjects')">Back</button>
+        <button class="small-btn" onclick="goBackFromStudentResourceDetail()">Back</button>
       </div>
 
       <div id="student-resource-detail-content" class="list-stack">

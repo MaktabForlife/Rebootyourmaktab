@@ -1980,3 +1980,9 @@ button:active {
     font-size: 0.9rem;
   }
 }
+
+
+/* Student Resources: module drill-down screen uses the same two-column button layout as subjects */
+#student-resources-modules .resource-subject-button-grid {
+  margin-top: 12px;
+}
