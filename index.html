@@ -8,6 +8,16 @@
 </head>
 
 <body>
+
+  <!-- Splash Screen -->
+  <div id="splashScreen" class="splash-screen">
+    <div class="splash-card">
+      <img src="/logo.png" alt="Maktab4Life Logo" class="splash-logo" />
+      <div class="splash-loading-text">Loading...</div>
+    </div>
+  </div>
+
+  <!-- Main App -->
   <main class="app-shell">
     <section class="screen active">
       <img src="/logo.png" alt="Maktab4Life Logo" class="app-logo" />
@@ -15,5 +25,22 @@
       <p class="subtitle">Please use your personal student or admin link.</p>
     </section>
   </main>
+
+  <script>
+    window.addEventListener("load", function () {
+      setTimeout(function () {
+        const splash = document.getElementById("splashScreen");
+
+        if (splash) {
+          splash.classList.add("splash-hidden");
+
+          setTimeout(function () {
+            splash.remove();
+          }, 400);
+        }
+      }, 900);
+    });
+  </script>
+
 </body>
 </html>
