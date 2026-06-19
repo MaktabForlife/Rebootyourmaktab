@@ -534,15 +534,11 @@ async function checkStudentDuplicateAdmin(request, env) {
   const body = await request.json();
 
   const username = body.username;
-  const whatsapp6 = body.whatsapp6;
+  const whatsapp6 = normalizeWhatsapp6(body.whatsapp6);
   const classgroup = body.classgroup;
 
   if (!username) {
     return json({ success: false, error: "Missing username" }, 400);
-  }
-
-  if (!/^\d{6}$/.test(String(whatsapp6))) {
-    return json({ success: false, error: "whatsapp6 must be exactly 6 digits" }, 400);
   }
 
   if (!classgroup) {
@@ -571,7 +567,7 @@ async function registerStudentAdmin(request, env) {
   const body = await request.json();
 
   const username = String(body.username || "").trim();
-  const whatsapp6 = String(body.whatsapp6 || "").replace(/\D/g, "").slice(-6);
+  const whatsapp6 = normalizeWhatsapp6(body.whatsapp6);
   const classgroup = String(body.classgroup || "1").trim();
   const confirmDuplicate = body.confirmDuplicate === true;
   const assignmentMode = body.assignmentMode === "selected" ? "selected" : "all";
@@ -579,10 +575,6 @@ async function registerStudentAdmin(request, env) {
 
   if (!username) {
     return json({ success: false, error: "Missing username" }, 400);
-  }
-
-  if (!/^\d{6}$/.test(String(whatsapp6))) {
-    return json({ success: false, error: "whatsapp6 must be exactly 6 digits" }, 400);
   }
 
   if (!classgroup) {
@@ -637,10 +629,6 @@ async function updateStudentAdmin(request, env) {
     return json({ success: false, error: "Username cannot be empty" }, 400);
   }
 
-  if (body.whatsapp6 !== undefined && !/^\d{6}$/.test(String(body.whatsapp6))) {
-    return json({ success: false, error: "whatsapp6 must be exactly 6 digits" }, 400);
-  }
-
   if (body.classgroup !== undefined && String(body.classgroup).trim() === "") {
     return json({ success: false, error: "classgroup cannot be empty" }, 400);
   }
@@ -661,7 +649,7 @@ async function updateStudentAdmin(request, env) {
   }
 
   if (body.whatsapp6 !== undefined) {
-    updateData.whatsapp6 = String(body.whatsapp6).trim();
+    updateData.whatsapp6 = normalizeWhatsapp6(body.whatsapp6);
   }
 
   if (body.classgroup !== undefined) {
@@ -1447,6 +1435,16 @@ async function hashPin(pin, secret) {
   return [...new Uint8Array(hashBuffer)]
     .map(b => b.toString(16).padStart(2, "0"))
     .join("");
+}
+
+function normalizeWhatsapp6(value) {
+  const digits = String(value || "").replace(/\D/g, "");
+
+  if (!digits) {
+    return "999999";
+  }
+
+  return digits.slice(-6).padStart(6, "0");
 }
 
 async function callAppsScript(env, payload) {

@@ -3099,3 +3099,154 @@ body.pdf-viewer-open #pdf-viewer-screen.screen {
     font-size: 0.82rem;
   }
 }
+
+/* Manage Students: final modify-list refinements */
+#manage-students-screen .student-search-panel .student-admin-help {
+  margin-top: 8px;
+}
+
+.managed-student-group-heading {
+  display: none !important;
+}
+
+.managed-student-group-separator {
+  height: 8px;
+  background: var(--teal-dark);
+  border-radius: 999px;
+  margin: 12px 0 7px;
+}
+
+.managed-student-list .managed-student-group-separator:first-child {
+  margin-top: 2px;
+}
+
+.student-search-row {
+  background: #777;
+  color: var(--white);
+  grid-template-columns: minmax(0, 1fr) 78px;
+  min-height: 38px;
+  padding: 8px 10px;
+  margin-top: 2px;
+  border-radius: 7px;
+}
+
+.student-search-row-name {
+  font-size: 0.92rem;
+  line-height: 1.12;
+}
+
+.student-search-row-number {
+  color: #e5e4e2;
+  font-size: 0.86rem;
+  letter-spacing: 0.04em;
+}
+
+.student-reset-pin-btn,
+.student-active-toggle.is-active,
+.student-active-toggle.is-inactive {
+  background: #e5e4e2;
+  color: var(--teal-dark);
+  border: 1px solid rgba(0, 128, 128, 0.22);
+  box-shadow: none;
+}
+
+.student-active-toggle {
+  width: 100%;
+  margin: 8px 0 14px;
+  background: #e5e4e2;
+  color: var(--teal-dark);
+  border: 1px solid rgba(0, 128, 128, 0.22);
+  box-shadow: none;
+}
+
+.student-active-toggle.is-inactive {
+  color: #666;
+  border-color: rgba(80, 80, 80, 0.25);
+}
+
+.selected-student-edit-card {
+  margin-top: 12px;
+}
+
+#manage-student-edit-screen .student-reset-pin-btn {
+  margin-bottom: 10px;
+}
+
+#manage-student-edit-screen .student-prefilled-input {
+  color: #777;
+  background: #f2f3f3;
+}
+
+#manage-student-edit-screen .student-prefilled-input:focus {
+  color: #14313a;
+  background: #ffffff;
+}
+
+@media (max-width: 520px) {
+  .managed-student-group-separator {
+    height: 8px;
+    margin: 10px 0 6px;
+  }
+
+  .student-search-row {
+    grid-template-columns: minmax(0, 1fr) 70px;
+    padding: 8px 9px;
+    min-height: 36px;
+  }
+}
+
+/* Manage Students: selected student edit layout fixes */
+.student-edit-two-column-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+  align-items: end;
+  margin-top: 4px;
+}
+
+.student-edit-field-half {
+  min-width: 0;
+}
+
+.student-edit-field-half .student-admin-label {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+}
+
+.student-edit-field-half input,
+.student-edit-field-half button {
+  width: 100%;
+  margin: 0;
+}
+
+#manage-student-edit-screen .student-reset-pin-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 48px;
+  background: #e5e4e2;
+  color: var(--teal-dark) !important;
+  border: 1px solid rgba(0, 128, 128, 0.22);
+  font-weight: 900;
+  line-height: 1.2;
+  text-align: center;
+  box-shadow: none;
+}
+
+#manage-student-edit-screen .student-reset-pin-text {
+  color: var(--teal-dark) !important;
+  display: inline-block;
+}
+
+@media (max-width: 360px) {
+  .student-edit-two-column-row {
+    gap: 8px;
+  }
+
+  .student-edit-field-half .student-admin-label {
+    font-size: 0.72rem;
+    letter-spacing: 0.10em;
+  }
+}

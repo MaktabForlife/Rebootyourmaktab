@@ -2159,8 +2159,7 @@ function renderRegisterStudentPanel() {
       <input id="student-register-name" type="text" placeholder="Student name" autocomplete="off" />
 
       <label class="student-admin-label" for="student-register-whatsapp">WhatsApp Number</label>
-      <input id="student-register-whatsapp" type="tel" inputmode="tel" placeholder="Full WhatsApp number" autocomplete="off" />
-      <p class="student-admin-help">Only the last 6 digits will be stored.</p>
+      <input id="student-register-whatsapp" type="tel" inputmode="tel" placeholder="WhatsApp number" autocomplete="off" />
 
       <label class="student-admin-label" for="student-register-group">Group</label>
       <input id="student-register-group" type="number" inputmode="numeric" min="1" value="${DEFAULT_STUDENT_GROUP}" />
@@ -2296,11 +2295,6 @@ async function submitRegisterStudent(confirmDuplicate) {
     return;
   }
 
-  if (!/^\d{6}$/.test(whatsapp6)) {
-    alert("Enter a WhatsApp number with at least 6 digits.");
-    return;
-  }
-
   if (assignmentMode === "selected" && selectedModules.length === 0) {
     alert("Select at least one subject/module, or choose Assign all active subjects and modules.");
     return;
@@ -2414,13 +2408,13 @@ function renderModifyStudentPanel() {
   return `
     <div class="student-admin-card student-search-panel">
       <div class="student-admin-card-title">Find Student</div>
-      <label class="student-admin-label" for="student-search-query">Search by name or WhatsApp last 6</label>
+      <label class="student-admin-label" for="student-search-query">Search by name or WhatsApp number</label>
 
       <div class="student-search-dropdown-row">
         <input
           id="student-search-query"
           type="text"
-          placeholder="Type a name or last 6 digits"
+          placeholder="Type a name or WhatsApp number"
           autocomplete="off"
           value="${escapeAttribute(manageStudentsState.searchQuery || "")}"
           oninput="filterManagedStudentsFromInput()"
@@ -2487,12 +2481,38 @@ async function loadManagedStudentList(forceRefresh) {
   }
 }
 
+function getManagedStudentDisplayGroup(student) {
+  const rawGroup = String(student && student.classgroup !== undefined ? student.classgroup : "").trim();
+  const groupNumber = Number(rawGroup);
+  const isGroupZero = rawGroup === "0" || groupNumber === 0;
+  const isInactive = !(student && student.active === true);
+
+  if (isInactive || isGroupZero) {
+    return "inactive";
+  }
+
+  return rawGroup || String(DEFAULT_STUDENT_GROUP);
+}
+
+function getManagedStudentGroupSortValue(student) {
+  const displayGroup = getManagedStudentDisplayGroup(student);
+
+  if (displayGroup === "inactive") {
+    return Number.NEGATIVE_INFINITY;
+  }
+
+  const groupNumber = Number(displayGroup);
+
+  if (Number.isFinite(groupNumber)) {
+    return groupNumber;
+  }
+
+  return 0;
+}
+
 function sortManagedStudents(students) {
   return (students || []).slice().sort((a, b) => {
-    const groupCompare = String(a.classgroup || "").localeCompare(String(b.classgroup || ""), undefined, {
-      numeric: true,
-      sensitivity: "base"
-    });
+    const groupCompare = getManagedStudentGroupSortValue(b) - getManagedStudentGroupSortValue(a);
 
     if (groupCompare !== 0) return groupCompare;
 
@@ -2522,17 +2542,17 @@ function renderManagedStudentList() {
   let html = "";
 
   rows.forEach(student => {
-    const group = String(student.classgroup || "-");
+    const group = getManagedStudentDisplayGroup(student);
 
     if (group !== currentGroup) {
       currentGroup = group;
-      html += `<div class="managed-student-group-heading">Group ${escapeHtml(group)}</div>`;
+      html += `<div class="managed-student-group-separator" aria-hidden="true"></div>`;
     }
 
     html += `
       <button type="button" class="student-search-row" onclick="selectManagedStudentByUniqueId('${escapeJsString(student.uniqueid)}')">
         <span class="student-search-row-name">${escapeHtml(student.username || "Student")}</span>
-        <span class="student-search-row-number">${escapeHtml(student.whatsapp6 || "------")}</span>
+        <span class="student-search-row-number">${escapeHtml(student.whatsapp6 || "999999")}</span>
       </button>
     `;
   });
@@ -2679,30 +2699,56 @@ function renderSelectedStudentEditor() {
       <div class="selected-student-heading compact-selected-student-heading">
         <div>
           <strong>${escapeHtml(student.username || "Student")}</strong>
-          <small>${escapeHtml(student.whatsapp6 || "------")}</small>
+          <small>${escapeHtml(student.whatsapp6 || "999999")}</small>
         </div>
       </div>
+    </div>
+
+    <div class="student-admin-action-grid">
+      <button type="button" class="student-reset-pin-btn" onclick="resetManagedStudentPin()">
+        <span class="student-reset-pin-text">Reset PIN</span>
+      </button>
+    </div>
+
+    <div class="student-admin-card selected-student-edit-card">
+      <div class="student-admin-card-title">Edit Student Details</div>
 
       <label class="student-admin-label" for="student-edit-name">Name</label>
       <input id="student-edit-name" class="student-prefilled-input" type="text" value="${escapeAttribute(student.username || "")}" />
 
-      <label class="student-admin-label" for="student-edit-whatsapp">WhatsApp Number / Last 6</label>
+      <label class="student-admin-label" for="student-edit-whatsapp">WhatsApp Number</label>
       <input id="student-edit-whatsapp" class="student-prefilled-input" type="tel" inputmode="tel" value="${escapeAttribute(student.whatsapp6 || "")}" />
-      <p class="student-admin-help">Only the last 6 digits are stored. You may paste a full new number or edit the last 6.</p>
 
-      <label class="student-admin-label" for="student-edit-group">Group</label>
-      <input id="student-edit-group" class="student-prefilled-input" type="number" inputmode="numeric" min="1" value="${escapeAttribute(student.classgroup || DEFAULT_STUDENT_GROUP)}" />
+      <div class="student-edit-two-column-row">
+        <div class="student-edit-field-half">
+          <label class="student-admin-label" for="student-edit-group">Group</label>
+          <input
+            id="student-edit-group"
+            class="student-prefilled-input"
+            type="number"
+            inputmode="numeric"
+            min="0"
+            value="${escapeAttribute(student.classgroup || DEFAULT_STUDENT_GROUP)}"
+          />
+        </div>
 
-      <label class="student-admin-label" for="student-edit-active">Active Status</label>
-      <select id="student-edit-active" class="student-prefilled-input">
-        <option value="true" ${student.active ? "selected" : ""}>Active</option>
-        <option value="false" ${!student.active ? "selected" : ""}>Inactive</option>
-      </select>
+        <div class="student-edit-field-half">
+          <label class="student-admin-label" for="student-edit-active">Active Status</label>
+          <button
+            id="student-edit-active"
+            type="button"
+            class="student-active-toggle ${student.active ? "is-active" : "is-inactive"}"
+            data-active="${student.active ? "true" : "false"}"
+            onclick="toggleSelectedStudentActive()"
+          >
+            ${student.active ? "Active" : "Inactive"}
+          </button>
+        </div>
+      </div>
     </div>
 
-    <div class="student-admin-action-grid two-col">
+    <div class="student-admin-action-grid">
       <button type="button" onclick="saveManagedStudentChanges()">Confirm Changes</button>
-      <button type="button" onclick="resetManagedStudentPin()">Reset PIN</button>
     </div>
 
     ${renderStudentMessageResult(student, "selected")}
@@ -2719,9 +2765,8 @@ function toggleSelectedStudentActive() {
 
   button.classList.toggle("is-active", manageStudentsState.selectedStudentActiveDraft);
   button.classList.toggle("is-inactive", !manageStudentsState.selectedStudentActiveDraft);
-  button.textContent = manageStudentsState.selectedStudentActiveDraft
-    ? "Active — tap to make inactive"
-    : "Inactive — tap to make active";
+  button.dataset.active = manageStudentsState.selectedStudentActiveDraft ? "true" : "false";
+  button.textContent = manageStudentsState.selectedStudentActiveDraft ? "Active" : "Inactive";
 }
 
 async function saveManagedStudentChanges() {
@@ -2733,8 +2778,10 @@ async function saveManagedStudentChanges() {
   const username = document.getElementById("student-edit-name").value.trim();
   const whatsappRaw = document.getElementById("student-edit-whatsapp").value.trim();
   const classgroup = document.getElementById("student-edit-group").value.trim() || String(DEFAULT_STUDENT_GROUP);
-  const activeSelect = document.getElementById("student-edit-active");
-  const active = activeSelect ? activeSelect.value === "true" : student.active === true;
+  const activeButton = document.getElementById("student-edit-active");
+  const active = activeButton
+    ? activeButton.dataset.active === "true"
+    : manageStudentsState.selectedStudentActiveDraft === true;
 
   if (!username) {
     alert("Name cannot be empty.");
@@ -2748,17 +2795,10 @@ async function saveManagedStudentChanges() {
     active
   };
 
-  if (whatsappRaw) {
-    const whatsapp6 = getLastSixDigits(whatsappRaw);
+  const whatsapp6 = getLastSixDigits(whatsappRaw);
 
-    if (!/^\d{6}$/.test(whatsapp6)) {
-      alert("Enter a WhatsApp number with at least 6 digits.");
-      return;
-    }
-
-    if (whatsapp6 !== student.whatsapp6) {
-      payload.whatsapp6 = whatsapp6;
-    }
+  if (whatsapp6 !== student.whatsapp6) {
+    payload.whatsapp6 = whatsapp6;
   }
 
   if (feedback) feedback.textContent = "Saving changes...";
@@ -2946,7 +2986,12 @@ async function copyTextToClipboard(text) {
 
 function getLastSixDigits(value) {
   const digits = String(value || "").replace(/\D/g, "");
-  return digits.slice(-6);
+
+  if (!digits) {
+    return "999999";
+  }
+
+  return digits.slice(-6).padStart(6, "0");
 }
 
 function getInitials(value) {
