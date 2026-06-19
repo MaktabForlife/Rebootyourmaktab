@@ -1670,10 +1670,28 @@ function openPdfResource(link, title = "PDF Viewer") {
     viewerTitle.innerText = title || "PDF Viewer";
   }
 
-  viewerFrame.src = `${PDFJS_VIEWER_PATH}?file=${encodeURIComponent(link)}`;
+  const cleanLink = String(link || "").trim();
+
+  let pdfFileForViewer;
+
+  if (cleanLink.startsWith("http://") || cleanLink.startsWith("https://")) {
+    pdfFileForViewer = `/pdf-proxy?url=${encodeURIComponent(cleanLink)}`;
+  } else {
+    pdfFileForViewer = cleanLink;
+  }
+
+  viewerFrame.src = `${PDFJS_VIEWER_PATH}?file=${encodeURIComponent(pdfFileForViewer)}`;
+
   document.body.classList.add("pdf-viewer-open");
   showScreen("pdf-viewer-screen");
 }
+
+
+
+
+
+
+
 
 function closePdfViewer() {
   const viewerFrame = document.getElementById("pdf-viewer-frame");
