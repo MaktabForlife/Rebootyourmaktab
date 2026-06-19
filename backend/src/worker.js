@@ -11,7 +11,7 @@ export default {
     if (url.pathname === "/") {
       return json({
         success: true,
-        service: "maktab4lifeworker",
+        service: "rebootworker",
         version: "1.0"
       });
     }
