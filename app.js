@@ -667,7 +667,9 @@ let currentStudentResourceModuleName = "";
 let studentResourceViewMode = "student";
 const RESOURCE_MODULE_DRILLDOWN_THRESHOLD = 8;
 
-const PDFJS_VIEWER_PATH = "/pdfjs-6/web/viewer.html";
+const PDFJS_VIEWER_PATH = "/pdfjs/web/viewer.html";
+let previousPdfScreenId = "";
+let currentPdfDirectLink = "";
 
 const STUDENT_RESOURCE_CATEGORIES = [
   {
@@ -1517,7 +1519,7 @@ function renderStudentResourceRow(row) {
       </button>
     `
     : `
-      <button class="resource-arrow-btn" onclick="openStudentResourceLink('${escapeForAttribute(link)}', '${escapeForAttribute(type)}')"${disabled} aria-label="${escapeForAttribute(buttonLabel)}">
+      <button class="resource-arrow-btn" onclick="openStudentResourceLink('${escapeForAttribute(link)}', '${escapeForAttribute(type)}', '${escapeForAttribute(title)}')"${disabled} aria-label="${escapeForAttribute(buttonLabel)}">
         ›
       </button>
     `;
@@ -1621,7 +1623,7 @@ function toggleInlineAudioPlayer(playerId, link) {
   toggleInlineResourcePreview(playerId, link, "AUDIO");
 }
 
-function openStudentResourceLink(link, type) {
+function openStudentResourceLink(link, type, title = "PDF Viewer") {
   if (!link) {
     return;
   }
@@ -1629,17 +1631,69 @@ function openStudentResourceLink(link, type) {
   const resourceType = String(type || "").toUpperCase();
 
   if (resourceType === "EBOOKS" || resourceType === "EBOOK" || resourceType === "PRINTABLES" || resourceType === "PRINTABLE" || isPdfLink(link)) {
-    openPdfResource(link);
+    openPdfResource(link, title || "PDF Viewer");
     return;
   }
 
   window.open(link, "_blank", "noopener,noreferrer");
 }
 
-function openPdfResource(link) {
-  // PDF.js v6 blocks cross-origin R2 files through ?file=.
-  // Open public R2 PDFs directly for now.
-  window.open(link, "_blank", "noopener,noreferrer");
+function openPdfResource(link, title = "PDF Viewer") {
+  if (!link) {
+    return;
+  }
+
+  const viewerScreen = document.getElementById("pdf-viewer-screen");
+  const viewerFrame = document.getElementById("pdf-viewer-frame");
+  const viewerTitle = document.getElementById("pdf-viewer-title");
+
+  // Safety fallback: if the PDF viewer screen was not added to index.html,
+  // still allow the resource to open normally.
+  if (!viewerScreen || !viewerFrame) {
+    window.open(link, "_blank", "noopener,noreferrer");
+    return;
+  }
+
+  const activeScreen = document.querySelector(".screen.active");
+  previousPdfScreenId = activeScreen ? activeScreen.id : "";
+  currentPdfDirectLink = link;
+
+  viewerScreen.classList.remove("student-theme", "admin-theme");
+  if (activeScreen && activeScreen.classList.contains("admin-theme")) {
+    viewerScreen.classList.add("admin-theme");
+  } else {
+    viewerScreen.classList.add("student-theme");
+  }
+
+  if (viewerTitle) {
+    viewerTitle.innerText = title || "PDF Viewer";
+  }
+
+  viewerFrame.src = `${PDFJS_VIEWER_PATH}?file=${encodeURIComponent(link)}`;
+  document.body.classList.add("pdf-viewer-open");
+  showScreen("pdf-viewer-screen");
+}
+
+function closePdfViewer() {
+  const viewerFrame = document.getElementById("pdf-viewer-frame");
+
+  if (viewerFrame) {
+    viewerFrame.src = "";
+  }
+
+  document.body.classList.remove("pdf-viewer-open");
+
+  if (previousPdfScreenId && document.getElementById(previousPdfScreenId)) {
+    showScreen(previousPdfScreenId);
+  } else {
+    goHome();
+  }
+}
+
+function openCurrentPdfDirect() {
+  if (currentPdfDirectLink) {
+    window.open(currentPdfDirectLink, "_blank", "noopener,noreferrer");
+  }
 }
 
 function isPdfLink(link) {

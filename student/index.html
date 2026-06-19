@@ -356,6 +356,24 @@
       </div>
     </section>
 
+
+    <!-- PDF VIEWER -->
+    <section id="pdf-viewer-screen" class="screen student-theme">
+      <div class="nav-header pdf-viewer-header">
+        <h2 id="pdf-viewer-title">PDF Viewer</h2>
+        <div class="pdf-viewer-actions">
+          <button class="small-btn pdf-direct-btn" onclick="openCurrentPdfDirect()">Open</button>
+          <button class="small-btn" onclick="closePdfViewer()">Back</button>
+        </div>
+      </div>
+
+      <iframe
+        id="pdf-viewer-frame"
+        class="pdf-viewer-frame"
+        title="PDF Viewer"
+      ></iframe>
+    </section>
+
     <!-- PLACEHOLDER SCREEN -->
     <section id="placeholder-screen" class="screen">
       <div class="nav-header">
