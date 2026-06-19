@@ -665,8 +665,6 @@ let currentStudentResourceSubjectCategoryCounts = {};
 let currentStudentResourceModuleKey = "";
 let currentStudentResourceModuleName = "";
 let studentResourceViewMode = "student";
-const RESOURCE_MODULE_DRILLDOWN_THRESHOLD = 8;
-
 const PDFJS_VIEWER_PATH = "/pdf-viewer/web/viewer.html";
 
 let previousPdfScreenId = "";
@@ -929,23 +927,24 @@ function getSubjectModules(subject) {
 
       const moduleKey = moduleId ? `id:${moduleId.toUpperCase()}` : `name:${moduleName.toUpperCase()}`;
 
+      const moduleSortOrder = getResourceModuleSortOrder(resource);
+
       if (!moduleMap.has(moduleKey)) {
         moduleMap.set(moduleKey, {
           moduleid: moduleId,
           modulename: moduleName,
+          modulesortorder: moduleSortOrder,
           resources: []
         });
+      } else {
+        const existing = moduleMap.get(moduleKey);
+        existing.modulesortorder = Math.min(existing.modulesortorder, moduleSortOrder);
       }
 
       moduleMap.get(moduleKey).resources.push(resource);
     });
 
-    return Array.from(moduleMap.values()).sort((a, b) => {
-      return String(a.modulename || "").localeCompare(String(b.modulename || ""), undefined, {
-        numeric: true,
-        sensitivity: "base"
-      });
-    });
+    return Array.from(moduleMap.values()).sort((a, b) => compareResourceModuleGroups(a, b));
   }
 
   return [];
@@ -976,16 +975,129 @@ function countResourcesInSubjects(subjects) {
 
 
 
+function compareResourceIds(a, b) {
+  return String(a || "").localeCompare(String(b || ""), undefined, {
+    numeric: true,
+    sensitivity: "base"
+  });
+}
+
+function getResourceSubjectId(subjectGroup) {
+  return String(subjectGroup && (
+    subjectGroup.subjectid ||
+    subjectGroup.subjectId ||
+    subjectGroup.SubjectId ||
+    subjectGroup.SubjectID ||
+    subjectGroup.id
+  ) || "").trim();
+}
+
 function getResourceSubjectKey(subjectGroup) {
-  const rawId = subjectGroup && (subjectGroup.subjectid || subjectGroup.subjectId || subjectGroup.SubjectId || subjectGroup.SubjectID || subjectGroup.id || "");
-  const rawName = subjectGroup && (subjectGroup.subjectname || subjectGroup.SubjectName || subjectGroup.name || "Subject");
-  const id = String(rawId || "").trim();
-  const name = String(rawName || "Subject").trim();
+  const id = getResourceSubjectId(subjectGroup);
+  const name = getResourceSubjectName(subjectGroup);
   return id ? `id:${id.toUpperCase()}` : `name:${name.toUpperCase()}`;
 }
 
 function getResourceSubjectName(subjectGroup) {
   return String(subjectGroup && (subjectGroup.subjectname || subjectGroup.SubjectName || subjectGroup.name) || "Subject").trim() || "Subject";
+}
+
+function getResourceModuleId(moduleGroup) {
+  return String(moduleGroup && (
+    moduleGroup.moduleid ||
+    moduleGroup.moduleId ||
+    moduleGroup.ModuleId ||
+    moduleGroup.ModuleID ||
+    moduleGroup.id
+  ) || "").trim();
+}
+
+function getResourceModuleSortOrder(moduleGroup) {
+  if (!moduleGroup) {
+    return Number.MAX_SAFE_INTEGER;
+  }
+
+  const possibleValues = [
+    moduleGroup.modulesortorder,
+    moduleGroup.moduleSortOrder,
+    moduleGroup.ModuleSortOrder,
+    moduleGroup.ModuleSortorder,
+    moduleGroup.modulesort,
+    moduleGroup.moduleSort,
+    moduleGroup.ModuleSort,
+    moduleGroup.sortorder,
+    moduleGroup.sortOrder,
+    moduleGroup.SortOrder,
+    moduleGroup.moduleorder,
+    moduleGroup.moduleOrder,
+    moduleGroup.ModuleOrder
+  ];
+
+  const raw = possibleValues.find(value => value !== undefined && value !== null && String(value).trim() !== "");
+  const numberValue = Number(raw);
+
+  if (Number.isFinite(numberValue)) {
+    return numberValue;
+  }
+
+  return Number.MAX_SAFE_INTEGER;
+}
+
+function getResourceModuleIdFromRows(rows) {
+  for (const row of rows || []) {
+    const id = getResourceModuleId(row && row.module) || getResourceModuleId(row && row.resource);
+    if (id) return id;
+  }
+
+  return "";
+}
+
+function getResourceModuleSortOrderFromRows(rows) {
+  let sortOrder = Number.MAX_SAFE_INTEGER;
+
+  (rows || []).forEach(row => {
+    sortOrder = Math.min(sortOrder, getResourceModuleSortOrder(row && row.module));
+    sortOrder = Math.min(sortOrder, getResourceModuleSortOrder(row && row.resource));
+  });
+
+  return sortOrder;
+}
+
+function compareResourceModuleGroups(a, b) {
+  const sortA = getResourceModuleSortOrder(a);
+  const sortB = getResourceModuleSortOrder(b);
+
+  if (sortA !== sortB) {
+    return sortA - sortB;
+  }
+
+  const idA = getResourceModuleId(a);
+  const idB = getResourceModuleId(b);
+
+  if (idA || idB) {
+    return compareResourceIds(idA, idB);
+  }
+
+  return String(getResourceModuleName(a) || "").localeCompare(String(getResourceModuleName(b) || ""), undefined, {
+    numeric: true,
+    sensitivity: "base"
+  });
+}
+
+function countDistinctModuleIdsForCurrentResourceCategory(category) {
+  const moduleIds = new Set();
+
+  getCurrentSubjectGroupsForCategory(category).forEach(subjectGroup => {
+    (subjectGroup.modules || []).forEach(moduleGroup => {
+      const moduleId = getResourceModuleId(moduleGroup) || getResourceModuleIdFromRows(moduleGroup.rows);
+
+      if (moduleId) {
+        moduleIds.add(moduleId.toUpperCase());
+      }
+    });
+  });
+
+  return moduleIds.size;
 }
 
 function buildStudentResourceSubjectSummaries() {
@@ -999,9 +1111,12 @@ function buildStudentResourceSubjectSummaries() {
         return sum + ((moduleGroup.rows || []).length);
       }, 0);
 
+      const subjectid = getResourceSubjectId(subjectGroup);
+
       if (!subjectMap.has(key)) {
         subjectMap.set(key, {
           key,
+          subjectid,
           name,
           total: 0,
           categoryCounts: {}
@@ -1015,6 +1130,13 @@ function buildStudentResourceSubjectSummaries() {
   });
 
   return Array.from(subjectMap.values()).sort((a, b) => {
+    const idA = a.subjectid || "";
+    const idB = b.subjectid || "";
+
+    if (idA || idB) {
+      return compareResourceIds(idA, idB);
+    }
+
     return String(a.name || "").localeCompare(String(b.name || ""), undefined, {
       numeric: true,
       sensitivity: "base"
@@ -1116,12 +1238,9 @@ function openStudentResourceCategory(categoryKey, knownCount = null) {
   currentStudentResourceModuleKey = "";
   currentStudentResourceModuleName = "";
 
-  const groupedCount = countRowsInResourceSubjectGroups(getCurrentSubjectGroupsForCategory(category));
-  const storedSubjectCount = Number(currentStudentResourceSubjectCategoryCounts && currentStudentResourceSubjectCategoryCounts[category.key] || 0);
-  const buttonCount = Number(knownCount || 0);
-  const totalForSubjectAndMedia = Math.max(groupedCount, storedSubjectCount, buttonCount);
+  const distinctModuleIdCount = countDistinctModuleIdsForCurrentResourceCategory(category);
 
-  if (totalForSubjectAndMedia > RESOURCE_MODULE_DRILLDOWN_THRESHOLD) {
+  if (distinctModuleIdCount > 1) {
     const title = document.getElementById("student-resource-module-title");
     if (title) {
       title.innerText = currentStudentResourceSubjectName ? `${currentStudentResourceSubjectName} - ${category.label}` : category.label;
@@ -1162,10 +1281,8 @@ function countRowsInResourceSubjectGroups(subjectGroups) {
 }
 
 function getResourceModuleKey(moduleGroup) {
-  const rawId = moduleGroup && (moduleGroup.moduleid || moduleGroup.moduleId || moduleGroup.ModuleId || moduleGroup.ModuleID || "");
-  const rawName = moduleGroup && (moduleGroup.modulename || moduleGroup.ModuleName || moduleGroup.name || "General");
-  const id = String(rawId || "").trim();
-  const name = String(rawName || "General").trim();
+  const id = getResourceModuleId(moduleGroup);
+  const name = getResourceModuleName(moduleGroup);
   return id ? `id:${id.toUpperCase()}` : `name:${name.toUpperCase()}`;
 }
 
@@ -1184,24 +1301,35 @@ function buildCurrentResourceModuleSummaries(category) {
       const key = getResourceModuleKey(moduleGroup);
       const name = getResourceModuleName(moduleGroup);
 
+      const moduleid = getResourceModuleId(moduleGroup) || getResourceModuleIdFromRows(rows);
+      const modulesortorder = Math.min(
+        getResourceModuleSortOrder(moduleGroup),
+        getResourceModuleSortOrderFromRows(rows)
+      );
+
       if (!moduleMap.has(key)) {
         moduleMap.set(key, {
           key,
+          moduleid,
           name,
+          modulesortorder,
           total: 0
         });
+      } else {
+        const existing = moduleMap.get(key);
+
+        if (!existing.moduleid && moduleid) {
+          existing.moduleid = moduleid;
+        }
+
+        existing.modulesortorder = Math.min(existing.modulesortorder, modulesortorder);
       }
 
       moduleMap.get(key).total += rows.length;
     });
   });
 
-  return Array.from(moduleMap.values()).sort((a, b) => {
-    return String(a.name || "").localeCompare(String(b.name || ""), undefined, {
-      numeric: true,
-      sensitivity: "base"
-    });
-  });
+  return Array.from(moduleMap.values()).sort((a, b) => compareResourceModuleGroups(a, b));
 }
 
 function renderStudentResourceModules(category) {
@@ -1345,19 +1473,18 @@ function buildMediaResourceGroups(category) {
 
         if (rows.length > 0) {
           moduleGroups.push({
-            moduleid: module.moduleid || module.moduleId || module.ModuleId || module.ModuleID || "",
+            moduleid: getResourceModuleId(module) || getResourceModuleIdFromRows(rows),
             modulename: module.modulename || module.ModuleName || module.name || "General",
+            modulesortorder: Math.min(
+              getResourceModuleSortOrder(module),
+              getResourceModuleSortOrderFromRows(rows)
+            ),
             rows
           });
         }
       });
 
-      moduleGroups.sort((a, b) => {
-        return String(a.modulename || "").localeCompare(String(b.modulename || ""), undefined, {
-          numeric: true,
-          sensitivity: "base"
-        });
-      });
+      moduleGroups.sort((a, b) => compareResourceModuleGroups(a, b));
 
       if (moduleGroups.length > 0) {
         subjectGroups.push({
@@ -1369,6 +1496,13 @@ function buildMediaResourceGroups(category) {
     });
 
     subjectGroups.sort((a, b) => {
+      const idA = getResourceSubjectId(a);
+      const idB = getResourceSubjectId(b);
+
+      if (idA || idB) {
+        return compareResourceIds(idA, idB);
+      }
+
       return String(a.subjectname || "").localeCompare(String(b.subjectname || ""), undefined, {
         numeric: true,
         sensitivity: "base"
@@ -1441,7 +1575,12 @@ function buildMediaResourceGroups(category) {
       subjectGroups.push({
         subjectid: subject.subjectid,
         subjectname: subject.subjectname || "Subject",
-        modules: [{ modulename: "General", rows }]
+        modules: [{
+          moduleid: "",
+          modulename: "General",
+          modulesortorder: Number.MAX_SAFE_INTEGER,
+          rows
+        }]
       });
     }
   });
@@ -1746,6 +1885,13 @@ function getSmallResourceButtonLabel(type) {
 
 function getSortedResourceSubjects() {
   return [...studentResourceSubjects].sort((a, b) => {
+    const idA = getResourceSubjectId(a);
+    const idB = getResourceSubjectId(b);
+
+    if (idA || idB) {
+      return compareResourceIds(idA, idB);
+    }
+
     return String(a.subjectname || "").localeCompare(String(b.subjectname || ""), undefined, {
       numeric: true,
       sensitivity: "base"
