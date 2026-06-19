@@ -1675,7 +1675,7 @@ function openPdfResource(link, title = "PDF Viewer") {
 let pdfFileForViewer;
 
 if (cleanLink.startsWith("http://") || cleanLink.startsWith("https://")) {
-  pdfFileForViewer = `/pdf-proxy?url=${encodeURIComponent(cleanLink)}`;
+  pdfFileForViewer = `/pdf-file/${base64UrlEncode(cleanLink)}`;
 } else {
   pdfFileForViewer = cleanLink;
 }
@@ -1686,7 +1686,19 @@ document.body.classList.add("pdf-viewer-open");
 showScreen("pdf-viewer-screen");
 }
 
+function base64UrlEncode(value) {
+  const utf8 = encodeURIComponent(String(value || "")).replace(
+    /%([0-9A-F]{2})/g,
+    function (_, hex) {
+      return String.fromCharCode(parseInt(hex, 16));
+    }
+  );
 
+  return btoa(utf8)
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/g, "");
+}
 
 
 
