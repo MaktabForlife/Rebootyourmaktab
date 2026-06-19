@@ -2066,7 +2066,11 @@ function countResourcesForSubject(subject) {
 const manageStudentsState = {
   mode: "register",
   assignmentOptions: null,
+  allStudents: [],
   searchResults: [],
+  searchQuery: "",
+  studentListLoaded: false,
+  studentListLoading: false,
   selectedStudent: null,
   lastRegisteredStudent: null,
   selectedStudentActiveDraft: true
@@ -2075,6 +2079,7 @@ const manageStudentsState = {
 function showManageStudents() {
   manageStudentsState.mode = "register";
   manageStudentsState.searchResults = [];
+  manageStudentsState.searchQuery = "";
   manageStudentsState.selectedStudent = null;
   manageStudentsState.lastRegisteredStudent = null;
   manageStudentsState.selectedStudentActiveDraft = true;
@@ -2103,6 +2108,13 @@ async function loadStudentAssignmentOptions() {
 function setManageStudentsMode(mode) {
   manageStudentsState.mode = mode === "modify" ? "modify" : "register";
   manageStudentsState.lastRegisteredStudent = null;
+
+  if (manageStudentsState.mode === "modify") {
+    renderManageStudentsScreen();
+    loadManagedStudentList(false);
+    return;
+  }
+
   renderManageStudentsScreen();
 }
 
@@ -2161,12 +2173,14 @@ function renderRegisterStudentPanel() {
         <span>Assign all active subjects and modules</span>
       </label>
 
-      <label class="student-admin-radio-row">
-        <input type="radio" name="student-assignment-mode" value="selected" onchange="toggleStudentAssignmentMode()" />
-        <span>Select subjects/modules manually</span>
+      <label class="student-admin-radio-row is-disabled" title="Manual task selection will be added later.">
+        <input type="radio" name="student-assignment-mode" value="selected" disabled />
+        <span>Select subjects/modules manually <small class="student-admin-coming-soon">Coming soon</small></span>
       </label>
 
-      <div id="student-assignment-options" class="student-assignment-options hidden">
+      <p class="student-admin-help">Manual subject/module selection is temporarily disabled. New students will receive all active tasks.</p>
+
+      <div id="student-assignment-options" class="student-assignment-options hidden" aria-hidden="true">
         ${renderStudentAssignmentOptions()}
       </div>
     </div>
@@ -2244,7 +2258,12 @@ function toggleStudentAssignmentMode() {
 
 function getSelectedStudentAssignmentMode() {
   const selected = document.querySelector('input[name="student-assignment-mode"]:checked');
-  return selected ? selected.value : "all";
+
+  if (!selected || selected.disabled) {
+    return "all";
+  }
+
+  return selected.value === "selected" ? "selected" : "all";
 }
 
 function toggleStudentSubjectModules(subjectId, checked) {
@@ -2338,32 +2357,200 @@ function renderModifyStudentPanel() {
     ? renderSelectedStudentEditor()
     : "";
 
-  const resultRows = manageStudentsState.searchResults.map((student, index) => `
-    <button type="button" class="student-search-card" onclick="selectManagedStudent(${index})">
-      <span class="attendance-student-avatar">${escapeHtml(getInitials(student.username))}</span>
-      <span class="student-search-main">
-        <strong>${escapeHtml(student.username || "Student")}</strong>
-        <small>Group ${escapeHtml(student.classgroup || "-")} · WhatsApp ${escapeHtml(student.whatsapp6 || "-")}</small>
-      </span>
-      <span class="student-status-badge ${student.active ? "is-active" : "is-inactive"}">${student.active ? "Active" : "Inactive"}</span>
-    </button>
-  `).join("");
+  const listHtml = renderManagedStudentList();
+  const loadingText = manageStudentsState.studentListLoading
+    ? `<p class="student-admin-help">Loading student list...</p>`
+    : "";
 
   return `
     <div class="student-admin-card">
-      <div class="student-admin-card-title">Search Student</div>
-      <label class="student-admin-label" for="student-search-query">Name or WhatsApp last 6</label>
-      <input id="student-search-query" type="text" placeholder="Search by name or last 6 digits" autocomplete="off" onkeydown="handleStudentSearchKey(event)" />
-      <button type="button" onclick="searchManagedStudents()">Search</button>
+      <div class="student-admin-card-title">Find Student</div>
+      <label class="student-admin-label" for="student-search-query">Search by name or WhatsApp last 6</label>
+      <input
+        id="student-search-query"
+        type="text"
+        placeholder="Type a name or last 6 digits"
+        autocomplete="off"
+        value="${escapeAttribute(manageStudentsState.searchQuery || "")}"
+        oninput="filterManagedStudentsFromInput()"
+        onkeydown="handleStudentSearchKey(event)"
+      />
+      <div class="student-admin-action-grid two-col compact-actions">
+        <button type="button" onclick="searchManagedStudents()">Search</button>
+        <button type="button" onclick="loadManagedStudentList(true)">Refresh List</button>
+      </div>
       <div id="student-search-feedback" class="student-admin-feedback"></div>
+      ${loadingText}
     </div>
 
-    <div class="student-search-results">
-      ${resultRows || ""}
+    <div class="student-admin-card student-list-card">
+      <div class="student-admin-card-title">Student List</div>
+      <p class="student-admin-help">Scroll the list or use search. Students are grouped by group and sorted alphabetically.</p>
+      <div class="managed-student-list">
+        ${listHtml}
+      </div>
     </div>
 
     ${selectedHtml}
   `;
+}
+
+async function loadManagedStudentList(forceRefresh) {
+  if (manageStudentsState.studentListLoading) return;
+
+  if (manageStudentsState.studentListLoaded && forceRefresh !== true) {
+    applyManagedStudentFilter(manageStudentsState.searchQuery || "");
+    renderManageStudentsScreen();
+    return;
+  }
+
+  manageStudentsState.studentListLoading = true;
+  renderManageStudentsScreen();
+
+  const result = await apiPost("/api/admin/students/search", {
+    query: "",
+    listAll: true
+  }, state.token);
+
+  manageStudentsState.studentListLoading = false;
+
+  if (!result.success) {
+    manageStudentsState.allStudents = [];
+    manageStudentsState.searchResults = [];
+    manageStudentsState.studentListLoaded = true;
+    renderManageStudentsScreen();
+    const feedback = document.getElementById("student-search-feedback");
+    if (feedback) feedback.textContent = result.error || "Could not load student list.";
+    return;
+  }
+
+  manageStudentsState.allStudents = sortManagedStudents((result.students || []).map(normalizeManagedStudent));
+  manageStudentsState.studentListLoaded = true;
+  applyManagedStudentFilter(manageStudentsState.searchQuery || "");
+  renderManageStudentsScreen();
+
+  const feedback = document.getElementById("student-search-feedback");
+  if (feedback) {
+    feedback.textContent = `${manageStudentsState.searchResults.length} student${manageStudentsState.searchResults.length === 1 ? "" : "s"} shown.`;
+  }
+}
+
+function sortManagedStudents(students) {
+  return (students || []).slice().sort((a, b) => {
+    const groupCompare = String(a.classgroup || "").localeCompare(String(b.classgroup || ""), undefined, {
+      numeric: true,
+      sensitivity: "base"
+    });
+
+    if (groupCompare !== 0) return groupCompare;
+
+    return String(a.username || "").localeCompare(String(b.username || ""), undefined, {
+      numeric: true,
+      sensitivity: "base"
+    });
+  });
+}
+
+function renderManagedStudentList() {
+  if (manageStudentsState.studentListLoading && !manageStudentsState.studentListLoaded) {
+    return `<p class="helper-text">Loading students...</p>`;
+  }
+
+  if (!manageStudentsState.studentListLoaded) {
+    return `<p class="helper-text">Open Modify to load the student list.</p>`;
+  }
+
+  const rows = manageStudentsState.searchResults || [];
+
+  if (rows.length === 0) {
+    return `<p class="helper-text">No matching students found.</p>`;
+  }
+
+  let currentGroup = "__NONE__";
+  let html = "";
+
+  rows.forEach(student => {
+    const group = String(student.classgroup || "-");
+
+    if (group !== currentGroup) {
+      currentGroup = group;
+      html += `<div class="managed-student-group-heading">Group ${escapeHtml(group)}</div>`;
+    }
+
+    html += `
+      <button type="button" class="student-search-card" onclick="selectManagedStudentByUniqueId('${escapeJsString(student.uniqueid)}')">
+        <span class="attendance-student-avatar">${escapeHtml(getInitials(student.username))}</span>
+        <span class="student-search-main">
+          <strong>${escapeHtml(student.username || "Student")}</strong>
+          <small>WhatsApp ${escapeHtml(student.whatsapp6 || "-")}</small>
+        </span>
+        <span class="student-status-badge ${student.active ? "is-active" : "is-inactive"}">${student.active ? "Active" : "Inactive"}</span>
+      </button>
+    `;
+  });
+
+  return html;
+}
+
+function filterManagedStudentsFromInput() {
+  const input = document.getElementById("student-search-query");
+  const query = input ? input.value : "";
+  manageStudentsState.searchQuery = query;
+  applyManagedStudentFilter(query);
+  updateManagedStudentListOnly();
+}
+
+function updateManagedStudentListOnly() {
+  const list = document.querySelector(".managed-student-list");
+  const feedback = document.getElementById("student-search-feedback");
+
+  if (list) {
+    list.innerHTML = renderManagedStudentList();
+  }
+
+  if (feedback) {
+    feedback.textContent = `${manageStudentsState.searchResults.length} student${manageStudentsState.searchResults.length === 1 ? "" : "s"} shown.`;
+  }
+}
+
+function applyManagedStudentFilter(query) {
+  const rawQuery = String(query || "").trim();
+  const normalizedQuery = normalizeStudentSearchText(rawQuery);
+  const queryWords = normalizedQuery ? normalizedQuery.split(" ").filter(Boolean) : [];
+  const queryDigits = rawQuery.replace(/\D/g, "");
+
+  if (!rawQuery) {
+    manageStudentsState.searchResults = sortManagedStudents(manageStudentsState.allStudents || []);
+    return;
+  }
+
+  manageStudentsState.searchResults = sortManagedStudents((manageStudentsState.allStudents || []).filter(student => {
+    const normalizedName = normalizeStudentSearchText(student.username || "");
+    const whatsappDigits = String(student.whatsapp6 || "").replace(/\D/g, "");
+
+    const nameMatches = normalizedQuery && (
+      normalizedName.indexOf(normalizedQuery) !== -1 ||
+      queryWords.every(word => normalizedName.indexOf(word) !== -1)
+    );
+
+    const whatsappMatches = Boolean(
+      queryDigits && whatsappDigits && (
+        whatsappDigits === queryDigits ||
+        whatsappDigits.endsWith(queryDigits) ||
+        whatsappDigits.indexOf(queryDigits) !== -1
+      )
+    );
+
+    return nameMatches || whatsappMatches;
+  }));
+}
+
+function normalizeStudentSearchText(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .replace(/\s+/g, " ");
 }
 
 function handleStudentSearchKey(event) {
@@ -2375,38 +2562,26 @@ function handleStudentSearchKey(event) {
 
 async function searchManagedStudents() {
   const input = document.getElementById("student-search-query");
-  const feedback = document.getElementById("student-search-feedback");
   const rawQuery = input ? input.value.trim() : "";
-  const whatsapp6 = getLastSixDigits(rawQuery);
+  manageStudentsState.searchQuery = rawQuery;
 
-  if (!rawQuery) {
-    alert("Enter a name or WhatsApp last 6 digits.");
-    return;
+  if (!manageStudentsState.studentListLoaded) {
+    await loadManagedStudentList(false);
+  } else {
+    applyManagedStudentFilter(rawQuery);
+    updateManagedStudentListOnly();
   }
+}
 
-  if (feedback) {
-    feedback.textContent = "Searching...";
-  }
+function selectManagedStudentByUniqueId(uniqueid) {
+  const student = (manageStudentsState.allStudents || []).find(row => row.uniqueid === uniqueid) ||
+    (manageStudentsState.searchResults || []).find(row => row.uniqueid === uniqueid);
 
-  const result = await apiPost("/api/admin/students/search", {
-    query: rawQuery,
-    whatsapp6: whatsapp6.length === 6 ? whatsapp6 : ""
-  }, state.token);
+  if (!student) return;
 
-  if (!result.success) {
-    if (feedback) feedback.textContent = result.error || "Search failed.";
-    return;
-  }
-
-  manageStudentsState.searchResults = (result.students || []).map(normalizeManagedStudent);
-  manageStudentsState.selectedStudent = null;
-  manageStudentsState.selectedStudentActiveDraft = true;
+  manageStudentsState.selectedStudent = student;
+  manageStudentsState.selectedStudentActiveDraft = student.active === true;
   renderManageStudentsScreen();
-
-  const newFeedback = document.getElementById("student-search-feedback");
-  if (newFeedback) {
-    newFeedback.textContent = `${manageStudentsState.searchResults.length} result${manageStudentsState.searchResults.length === 1 ? "" : "s"} found.`;
-  }
 }
 
 function selectManagedStudent(index) {
@@ -2421,7 +2596,6 @@ function selectManagedStudent(index) {
 
 function renderSelectedStudentEditor() {
   const student = manageStudentsState.selectedStudent;
-  const loginLink = buildStudentLoginLink(student.uniqueid);
 
   return `
     <div class="student-admin-card selected-student-card">
@@ -2435,14 +2609,14 @@ function renderSelectedStudentEditor() {
       </div>
 
       <label class="student-admin-label" for="student-edit-name">Name</label>
-      <input id="student-edit-name" type="text" value="${escapeAttribute(student.username || "")}" />
+      <input id="student-edit-name" class="student-prefilled-input" type="text" value="${escapeAttribute(student.username || "")}" />
 
-      <label class="student-admin-label" for="student-edit-whatsapp">New WhatsApp Number</label>
-      <input id="student-edit-whatsapp" type="tel" inputmode="tel" placeholder="Leave blank to keep current last 6" />
-      <p class="student-admin-help">Only enter this if the number has changed.</p>
+      <label class="student-admin-label" for="student-edit-whatsapp">WhatsApp Number / Last 6</label>
+      <input id="student-edit-whatsapp" class="student-prefilled-input" type="tel" inputmode="tel" value="${escapeAttribute(student.whatsapp6 || "")}" />
+      <p class="student-admin-help">Only the last 6 digits are stored. You may paste a full new number or edit the last 6.</p>
 
       <label class="student-admin-label" for="student-edit-group">Group</label>
-      <input id="student-edit-group" type="number" inputmode="numeric" min="1" value="${escapeAttribute(student.classgroup || DEFAULT_STUDENT_GROUP)}" />
+      <input id="student-edit-group" class="student-prefilled-input" type="number" inputmode="numeric" min="1" value="${escapeAttribute(student.classgroup || DEFAULT_STUDENT_GROUP)}" />
 
       <button
         type="button"
@@ -2484,7 +2658,7 @@ async function saveManagedStudentChanges() {
   if (!student) return;
 
   const username = document.getElementById("student-edit-name").value.trim();
-  const newWhatsappRaw = document.getElementById("student-edit-whatsapp").value.trim();
+  const whatsappRaw = document.getElementById("student-edit-whatsapp").value.trim();
   const classgroup = document.getElementById("student-edit-group").value.trim() || String(DEFAULT_STUDENT_GROUP);
 
   if (!username) {
@@ -2499,15 +2673,17 @@ async function saveManagedStudentChanges() {
     active: manageStudentsState.selectedStudentActiveDraft === true
   };
 
-  if (newWhatsappRaw) {
-    const whatsapp6 = getLastSixDigits(newWhatsappRaw);
+  if (whatsappRaw) {
+    const whatsapp6 = getLastSixDigits(whatsappRaw);
 
     if (!/^\d{6}$/.test(whatsapp6)) {
-      alert("Enter a WhatsApp number with at least 6 digits, or leave it blank.");
+      alert("Enter a WhatsApp number with at least 6 digits.");
       return;
     }
 
-    payload.whatsapp6 = whatsapp6;
+    if (whatsapp6 !== student.whatsapp6) {
+      payload.whatsapp6 = whatsapp6;
+    }
   }
 
   if (feedback) feedback.textContent = "Saving changes...";
@@ -2522,17 +2698,20 @@ async function saveManagedStudentChanges() {
   manageStudentsState.selectedStudent = normalizeManagedStudent({
     ...student,
     ...result,
+    username,
+    classgroup,
     active: payload.active,
     whatsapp6: payload.whatsapp6 || student.whatsapp6
   });
 
-  manageStudentsState.searchResults = manageStudentsState.searchResults.map(row => {
+  manageStudentsState.allStudents = manageStudentsState.allStudents.map(row => {
     if (row.uniqueid === student.uniqueid) {
       return manageStudentsState.selectedStudent;
     }
     return row;
   });
 
+  applyManagedStudentFilter(manageStudentsState.searchQuery || "");
   renderManageStudentsScreen();
 
   const newFeedback = document.getElementById("student-edit-feedback");
@@ -2571,23 +2750,42 @@ function renderStudentMessageResult(student, context) {
   const assignmentLine = context === "registered"
     ? `<p class="student-admin-help">Assigned ${Number(assignment.assignedCount || 0)} task${Number(assignment.assignedCount || 0) === 1 ? "" : "s"}.</p>`
     : "";
+  const messageBoxId = `student-message-text-${context}-${sanitizeDomId(normalized.uniqueid || normalized.studentid || "student")}`;
 
   return `
     <div class="student-admin-result-card">
       <div class="student-admin-card-title">${context === "registered" ? "Student Registered" : "Student Link"}</div>
       <div class="student-link-box">${escapeHtml(loginLink)}</div>
       ${assignmentLine}
+
+      <label class="student-admin-label" for="${messageBoxId}">WhatsApp Message</label>
+      <textarea
+        id="${messageBoxId}"
+        class="student-message-textarea"
+        rows="11"
+      >${escapeHtml(message)}</textarea>
+      <p class="student-admin-help">You can edit this message before copying it or opening WhatsApp.</p>
+
       <div class="student-admin-action-grid three-col">
         <button type="button" onclick="copyStudentLoginLink('${escapeJsString(loginLink)}')">Copy Link</button>
-        <button type="button" onclick="copyStudentWelcomeMessage('${escapeJsString(loginLink)}')">Copy Message</button>
-        <button type="button" onclick="openStudentWhatsAppMessage('${escapeJsString(loginLink)}')">Open WhatsApp</button>
+        <button type="button" onclick="copyStudentWelcomeMessageFromBox('${escapeJsString(messageBoxId)}', '${escapeJsString(loginLink)}')">Copy Message</button>
+        <button type="button" onclick="openStudentWhatsAppMessageFromBox('${escapeJsString(messageBoxId)}', '${escapeJsString(loginLink)}')">Open WhatsApp</button>
       </div>
-      <details class="student-message-preview">
-        <summary>Message preview</summary>
-        <pre>${escapeHtml(message)}</pre>
-      </details>
     </div>
   `;
+}
+
+function sanitizeDomId(value) {
+  return String(value || "")
+    .replace(/[^a-zA-Z0-9_-]/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "") || "item";
+}
+
+function getEditedStudentMessage(messageBoxId, loginLink) {
+  const box = document.getElementById(messageBoxId);
+  const edited = box ? box.value.trim() : "";
+  return edited || buildStudentWelcomeMessage(loginLink);
 }
 
 function normalizeManagedStudent(student) {
@@ -2637,8 +2835,19 @@ async function copyStudentWelcomeMessage(loginLink) {
   alert("Message copied.");
 }
 
+async function copyStudentWelcomeMessageFromBox(messageBoxId, loginLink) {
+  await copyTextToClipboard(getEditedStudentMessage(messageBoxId, loginLink));
+  alert("Message copied.");
+}
+
 function openStudentWhatsAppMessage(loginLink) {
   const message = buildStudentWelcomeMessage(loginLink);
+  const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
+  window.open(whatsappUrl, "_blank", "noopener,noreferrer");
+}
+
+function openStudentWhatsAppMessageFromBox(messageBoxId, loginLink) {
+  const message = getEditedStudentMessage(messageBoxId, loginLink);
   const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
   window.open(whatsappUrl, "_blank", "noopener,noreferrer");
 }

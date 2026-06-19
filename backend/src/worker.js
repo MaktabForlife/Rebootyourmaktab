@@ -63,7 +63,11 @@ if (url.pathname === "/api/attendance/students") {
   return updateStudentAdmin(request, env);
 }
 
-    if (url.pathname === "/api/admin/students/search") {
+    if (
+      url.pathname === "/api/admin/students/search" ||
+      url.pathname === "/api/admin/search-students" ||
+      url.pathname === "/api/admin/student/search"
+    ) {
       return searchStudentsAdmin(request, env);
     }
 
@@ -585,11 +589,17 @@ async function registerStudentAdmin(request, env) {
     return json({ success: false, error: "Missing classgroup" }, 400);
   }
 
-  if (assignmentMode === "selected" && selectedModules.length === 0) {
-    return json({ success: false, error: "Select at least one subject/module or choose Assign all" }, 400);
-  }
+  // Manual subject/module assignment is temporarily disabled in the frontend.
+  // If an older page submits selected mode without modules, safely fall back to all active tasks.
+  const safeAssignmentMode = assignmentMode === "selected" && selectedModules.length > 0 ? "selected" : "all";
 
-  const registeredby = permission.user.username || permission.user.adminid || "";
+  const registeredby = String(
+    permission.user.username ||
+    permission.user.name ||
+    permission.user.adminid ||
+    permission.user.uniqueid ||
+    "ADMIN"
+  ).trim();
 
   const result = await callAppsScript(env, {
     action: "registerStudent",
@@ -599,8 +609,9 @@ async function registerStudentAdmin(request, env) {
       classgroup,
       confirmDuplicate,
       registeredby,
-      assignmentMode,
-      selectedModules
+      registeredbyAdminId: permission.user.adminid || "",
+      assignmentMode: safeAssignmentMode,
+      selectedModules: safeAssignmentMode === "selected" ? selectedModules : []
     }
   });
 
@@ -679,8 +690,9 @@ async function searchStudentsAdmin(request, env) {
   const body = await request.json();
   const query = String(body.query || "").trim();
   const whatsapp6 = String(body.whatsapp6 || "").replace(/\D/g, "").slice(-6);
+  const listAll = body.listAll === true;
 
-  if (!query && !whatsapp6) {
+  if (!query && !whatsapp6 && !listAll) {
     return json({ success: false, error: "Enter a name or WhatsApp last 6 digits" }, 400);
   }
 
@@ -688,7 +700,8 @@ async function searchStudentsAdmin(request, env) {
     action: "searchStudents",
     data: {
       query,
-      whatsapp6
+      whatsapp6,
+      listAll
     }
   });
 
