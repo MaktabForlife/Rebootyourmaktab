@@ -233,15 +233,26 @@ document.getElementById("portal-title").innerHTML = `
   Student Login 
 `;
 
-document.getElementById("portal-subtitle").innerHTML = `
-  <span class="login-heading">Reboot Your Maktab-mE</span>
+/*
+    document.getElementById("portal-subtitle").innerHTML = `
+ <span class="login-heading">Reboot Your Maktab-mE</span>
   <span class="login-welcome">
     Ahlan Wa Sahlan <br>
     ${result.student.username}
   </span>
 `;
+*/
+    
+document.getElementById("login-welcome").innerHTML = `
+  Student Login ;
 
-
+document.getElementById("portal-subtitle").innerHTML = `
+  <span class="login-heading">Reboot Your Maktab-mE</span>
+  <span class="login-heading">
+    Ahlan Wa Sahlan <br>
+    ${result.student.username}
+  </span>
+`;
 
 
 
