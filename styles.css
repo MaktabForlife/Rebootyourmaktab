@@ -233,6 +233,23 @@ select {
   font-size: 1.1rem;
 }
 
+.login-heading {
+  display: block;
+  margin: 8px 0 6px;
+  color: #234569;
+  font-size: 1.6rem;
+  font-weight: 800;
+}
+
+.login-welcome {
+  display: block;
+  margin: 0 0 12px;
+  color: #444;
+  font-size: 1.1rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
 
 button {
   border: 0;
