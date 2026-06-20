@@ -3250,3 +3250,89 @@ body.pdf-viewer-open #pdf-viewer-screen.screen {
     letter-spacing: 0.10em;
   }
 }
+
+/* Manage Students: compact icon buttons on WhatsApp message result pages */
+.student-result-icon-actions {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 18px;
+  margin: 14px 0 10px;
+}
+
+.student-result-icon-action {
+  display: grid;
+  justify-items: center;
+  gap: 5px;
+  min-width: 66px;
+}
+
+.student-icon-action-btn {
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  min-height: 44px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 128, 128, 0.22);
+  background: #ffffff;
+  color: var(--teal-dark);
+  box-shadow: 0 5px 12px rgba(0, 0, 0, 0.10);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.student-icon-action-btn:active {
+  transform: scale(0.94);
+}
+
+.student-icon-action-btn .student-action-icon {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+  display: block;
+}
+
+.student-icon-action-btn.whatsapp-icon-btn .whatsapp-action-icon {
+  width: 32px;
+  height: 32px;
+}
+
+.student-action-icon-fallback:not(.hidden) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  font-size: 1.35rem;
+  font-weight: 900;
+}
+
+.student-action-icon-fallback.whatsapp-fallback:not(.hidden) {
+  color: #16821f;
+  font-size: 0.78rem;
+  letter-spacing: 0.02em;
+}
+
+.student-icon-caption {
+  color: #444;
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1.05;
+  text-align: center;
+}
+
+@media (max-width: 360px) {
+  .student-result-icon-actions {
+    gap: 10px;
+  }
+
+  .student-result-icon-action {
+    min-width: 58px;
+  }
+
+  .student-icon-caption {
+    font-size: 0.68rem;
+  }
+}
+
