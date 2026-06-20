@@ -3296,3 +3296,48 @@ body.pdf-viewer-open #pdf-viewer-screen.screen {
     letter-spacing: 0.10em;
   }
 }
+
+/* =========================
+   PIN boxes row fix
+   Keeps Create PIN and Login PIN as four boxes in one row
+========================= */
+.pin-digit-row {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 10px !important;
+  width: 100% !important;
+  margin: 10px 0 14px !important;
+}
+
+.pin-digit-row .pin-digit {
+  flex: 0 1 64px !important;
+  width: 64px !important;
+  max-width: 64px !important;
+  min-width: 0 !important;
+  height: 64px !important;
+  aspect-ratio: auto !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border-radius: 12px !important;
+  text-align: center !important;
+  font-size: 1.65rem !important;
+  font-weight: 800 !important;
+  line-height: 1 !important;
+}
+
+@media (max-width: 360px) {
+  .pin-digit-row {
+    gap: 7px !important;
+  }
+
+  .pin-digit-row .pin-digit {
+    flex-basis: 56px !important;
+    width: 56px !important;
+    max-width: 56px !important;
+    height: 56px !important;
+    font-size: 1.45rem !important;
+  }
+}

@@ -38,7 +38,7 @@ function initApp() {
     return;
   }
 
-  document.getElementById("portal-title").innerText = "Maktab4Life";
+  document.getElementById("portal-title").innerText = "Reboot Your Maktab-mE";
   document.getElementById("portal-subtitle").innerText =
     "You require a personal URL to access the Maktab4Life Dashboard";
 }
@@ -227,7 +227,7 @@ async function checkStudent() {
 
     state.user = result.student;
 
-    document.getElementById("portal-title").innerText = "Student Login";
+    document.getElementById("portal-title").innerText = "Reboot Your Maktab-mE Student Login";
     document.getElementById("portal-subtitle").innerText =
       `Welcome ${result.student.username}`;
 
@@ -342,7 +342,7 @@ async function submitLogin() {
     if (studentHomeTitle) {
       studentHomeTitle.innerText = result.student.username || "Student";
     }
-    document.getElementById("student-welcome").innerText = "Student Home page";
+    document.getElementById("student-welcome");
     showScreen("student-home");
   }
 }
@@ -3066,19 +3066,24 @@ function buildStudentLoginLink(uniqueid) {
 
 function buildStudentWelcomeMessage(loginLink) {
   return [
-    "Assalamu alaykum",
+    " As-salamu alaykum wa rahmatullahi wa barakatuh",
     "",
-    "This is your link to your personal Maktab Resources access.",
+    "Your personal link to Maktab-mE (Maktab mobile & E-resources) is attached",
+     "",
+    "Insha Allah it wil assist you in this journey. After you click the link....",
+     "",
+    "1. CREATE an easy to remember pin if you are a new user",
     "",
-    "1. The first time you log in, you will be asked to create your own 4-digit PIN.",
+    "2. LOGIN with your pin ",
     "",
-    "2. Use the PIN you created to log in immediately. Please remember this PIN for future access.",
-    "",
-    "3. Once you have logged in, you should add the app to your homescreen for easier access.",
+    "3. ADD the app to your homescreen",
     "",
     loginLink,
     "",
-    "JazakAllah khayr"
+    "Please contact me for any queries or if you need to reset your PIN.",
+  
+   "May Allah bless you on this journey and make your path to Jannah easy"
+
   ].join("\n");
 }
 
