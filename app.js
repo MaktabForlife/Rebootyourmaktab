@@ -230,8 +230,7 @@ async function checkStudent() {
 
 
 document.getElementById("portal-title").innerHTML = `
-  Ahlan Wa Sahlan 
-    ${result.student.username}
+  Ahlan Wa Sahlan  ${result.student.username}
 `;
 
     document.getElementById("portal-subtitle").innerHTML = `
