@@ -17,6 +17,8 @@ const state = {
 window.addEventListener("load", initApp);
 
 function initApp() {
+  setupPinDigitBoxes();
+
   const path = window.location.pathname;
   const parts = path.split("/").filter(Boolean);
 
@@ -56,6 +58,139 @@ function showScreen(id) {
 function setError(message) {
   document.getElementById("auth-error").innerText = message || "";
 }
+
+function setupPinDigitBoxes() {
+  document.querySelectorAll(".pin-digit-row").forEach(row => {
+    const groupId = row.dataset.pinGroup;
+    const inputs = Array.from(row.querySelectorAll(".pin-digit"));
+    const hiddenInput = document.getElementById(groupId);
+
+    if (!groupId || inputs.length === 0) return;
+
+    const syncHiddenInput = () => {
+      if (hiddenInput) {
+        hiddenInput.value = inputs.map(input => input.value.replace(/\D/g, "")).join("");
+      }
+    };
+
+    const fillDigits = (digits, startIndex = 0) => {
+      const cleanDigits = String(digits || "").replace(/\D/g, "").slice(0, inputs.length);
+
+      if (!cleanDigits) {
+        syncHiddenInput();
+        return;
+      }
+
+      const fillFrom = cleanDigits.length >= inputs.length ? 0 : startIndex;
+
+      cleanDigits.split("").forEach((digit, offset) => {
+        const target = inputs[fillFrom + offset];
+        if (target) {
+          target.value = digit;
+        }
+      });
+
+      syncHiddenInput();
+
+      const nextIndex = Math.min(fillFrom + cleanDigits.length, inputs.length - 1);
+      inputs[nextIndex].focus();
+    };
+
+    inputs.forEach((input, index) => {
+      input.addEventListener("input", () => {
+        const digits = input.value.replace(/\D/g, "");
+
+        if (digits.length > 1) {
+          fillDigits(digits, index);
+          setError("");
+          return;
+        }
+
+        input.value = digits;
+
+        if (digits && index < inputs.length - 1) {
+          inputs[index + 1].focus();
+        }
+
+        syncHiddenInput();
+        setError("");
+      });
+
+      input.addEventListener("keydown", event => {
+        if (event.key === "Backspace" && !input.value && index > 0) {
+          inputs[index - 1].value = "";
+          inputs[index - 1].focus();
+          syncHiddenInput();
+        }
+
+        if (event.key === "ArrowLeft" && index > 0) {
+          event.preventDefault();
+          inputs[index - 1].focus();
+        }
+
+        if (event.key === "ArrowRight" && index < inputs.length - 1) {
+          event.preventDefault();
+          inputs[index + 1].focus();
+        }
+
+        if (event.key === "Enter") {
+          event.preventDefault();
+
+          if (groupId === "setup-pin") {
+            submitSetupPin();
+          } else if (groupId === "login-pin") {
+            submitLogin();
+          }
+        }
+      });
+
+      input.addEventListener("paste", event => {
+        event.preventDefault();
+        const pastedDigits = (event.clipboardData || window.clipboardData)
+          .getData("text")
+          .replace(/\D/g, "");
+
+        fillDigits(pastedDigits, index);
+        setError("");
+      });
+    });
+  });
+}
+
+function getPinValue(groupId) {
+  const row = document.querySelector(`.pin-digit-row[data-pin-group="${groupId}"]`);
+  const digitInputs = row ? Array.from(row.querySelectorAll(".pin-digit")) : [];
+
+  if (digitInputs.length) {
+    return digitInputs.map(input => input.value.replace(/\D/g, "")).join("");
+  }
+
+  const fallbackInput = document.getElementById(groupId);
+  return fallbackInput ? fallbackInput.value.trim() : "";
+}
+
+function clearPinValue(groupId) {
+  const row = document.querySelector(`.pin-digit-row[data-pin-group="${groupId}"]`);
+  const digitInputs = row ? Array.from(row.querySelectorAll(".pin-digit")) : [];
+  const hiddenInput = document.getElementById(groupId);
+
+  digitInputs.forEach(input => {
+    input.value = "";
+  });
+
+  if (hiddenInput) {
+    hiddenInput.value = "";
+  }
+}
+
+function focusFirstPinDigit(groupId) {
+  const firstInput = document.querySelector(`.pin-digit-row[data-pin-group="${groupId}"] .pin-digit`);
+
+  if (firstInput) {
+    setTimeout(() => firstInput.focus(), 50);
+  }
+}
+
 
 async function apiPost(path, body = {}, token = "") {
   const headers = {
@@ -98,8 +233,10 @@ async function checkStudent() {
 
     if (result.student.pinsetup === true) {
       document.getElementById("login-pin-box").classList.remove("hidden");
+      focusFirstPinDigit("login-pin");
     } else {
       document.getElementById("setup-pin-box").classList.remove("hidden");
+      focusFirstPinDigit("setup-pin");
     }
   } catch (err) {
     setError("Unable to connect. Please try again.");
@@ -127,8 +264,10 @@ async function checkAdmin() {
 
     if (result.admin.pinsetup === true) {
       document.getElementById("login-pin-box").classList.remove("hidden");
+      focusFirstPinDigit("login-pin");
     } else {
       document.getElementById("setup-pin-box").classList.remove("hidden");
+      focusFirstPinDigit("setup-pin");
     }
   } catch (err) {
     setError("Unable to connect. Please try again.");
@@ -136,7 +275,7 @@ async function checkAdmin() {
 }
 
 async function submitSetupPin() {
-  const pin = document.getElementById("setup-pin").value.trim();
+  const pin = getPinValue("setup-pin");
 
   if (!/^\d{4}$/.test(pin)) {
     setError("PIN must be 4 digits.");
@@ -157,13 +296,16 @@ async function submitSetupPin() {
     return;
   }
 
+  clearPinValue("setup-pin");
+  clearPinValue("login-pin");
   document.getElementById("setup-pin-box").classList.add("hidden");
   document.getElementById("login-pin-box").classList.remove("hidden");
+  focusFirstPinDigit("login-pin");
   setError("");
 }
 
 async function submitLogin() {
-  const pin = document.getElementById("login-pin").value.trim();
+  const pin = getPinValue("login-pin");
 
   if (!/^\d{4}$/.test(pin)) {
     setError("PIN must be 4 digits.");
@@ -2717,30 +2859,34 @@ function renderSelectedStudentEditor() {
       <label class="student-admin-label" for="student-edit-whatsapp">WhatsApp Number</label>
       <input id="student-edit-whatsapp" class="student-prefilled-input" type="tel" inputmode="tel" value="${escapeAttribute(student.whatsapp6 || "")}" />
 
-      <div class="student-edit-two-column-row">
-        <div class="student-edit-field-half">
-          <label class="student-admin-label" for="student-edit-group">Group</label>
-          <input
-            id="student-edit-group"
-            class="student-prefilled-input"
-            type="number"
-            inputmode="numeric"
-            min="0"
-            value="${escapeAttribute(student.classgroup || DEFAULT_STUDENT_GROUP)}"
-          />
-        </div>
+      <label class="student-admin-label" for="student-edit-group">Group</label>
+      <input id="student-edit-group" class="student-prefilled-input" type="number" inputmode="numeric" min="0" value="${escapeAttribute(student.classgroup || DEFAULT_STUDENT_GROUP)}" />
 
-        <div class="student-edit-field-half">
-          <label class="student-admin-label" for="student-edit-active">Active Status</label>
-          <button
-            id="student-edit-active"
-            class="student-active-toggle ${manageStudentsState.selectedStudentActiveDraft ? "is-active" : "is-inactive"}"
-            type="button"
-            data-active="${manageStudentsState.selectedStudentActiveDraft ? "true" : "false"}"
-            onclick="toggleStudentEditActiveStatus()"
-          >${manageStudentsState.selectedStudentActiveDraft ? "Active" : "Inactive"}</button>
-        </div>
-      </div>
+      <div class="student-edit-two-column-row">
+  <div class="student-edit-field-half">
+    <label class="student-admin-label" for="student-edit-group">Group</label>
+    <input
+      id="student-edit-group"
+      class="student-prefilled-input"
+      type="number"
+      inputmode="numeric"
+      min="0"
+      value="${escapeAttribute(student.classgroup || DEFAULT_STUDENT_GROUP)}"
+    />
+  </div>
+
+  <div class="student-edit-field-half">
+    <label class="student-admin-label">Active Status</label>
+    <button
+      id="student-edit-active-btn"
+      class="student-active-toggle"
+      type="button"
+      onclick="toggleStudentEditActiveStatus()"
+    >
+      Active
+    </button>
+  </div>
+</div>
     </div>
 
     <div class="student-admin-action-grid">
@@ -2753,20 +2899,16 @@ function renderSelectedStudentEditor() {
   `;
 }
 
-function toggleStudentEditActiveStatus() {
+function toggleSelectedStudentActive() {
   manageStudentsState.selectedStudentActiveDraft = !manageStudentsState.selectedStudentActiveDraft;
 
-  const button = document.getElementById("student-edit-active");
+  const button = document.querySelector(".student-active-toggle");
   if (!button) return;
 
   button.classList.toggle("is-active", manageStudentsState.selectedStudentActiveDraft);
   button.classList.toggle("is-inactive", !manageStudentsState.selectedStudentActiveDraft);
   button.dataset.active = manageStudentsState.selectedStudentActiveDraft ? "true" : "false";
   button.textContent = manageStudentsState.selectedStudentActiveDraft ? "Active" : "Inactive";
-}
-
-function toggleSelectedStudentActive() {
-  toggleStudentEditActiveStatus();
 }
 
 async function saveManagedStudentChanges() {
@@ -2867,81 +3009,24 @@ function renderStudentMessageResult(student, context) {
     : "";
   const messageBoxId = `student-message-text-${context}-${sanitizeDomId(normalized.uniqueid || normalized.studentid || "student")}`;
 
-  const copyButtonStyle = "all:unset;box-sizing:border-box;width:40px;min-width:40px;max-width:40px;height:40px;min-height:40px;max-height:40px;padding:0;margin:0;border:0;background:transparent;background-color:transparent;box-shadow:none;border-radius:0;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;color:#008080;line-height:1;font-size:0;overflow:hidden;";
-  const copyIconStyle = "width:24px;min-width:24px;max-width:24px;height:24px;min-height:24px;max-height:24px;object-fit:contain;display:block;padding:0;margin:0;";
-  const whatsappButtonStyle = "all:unset;box-sizing:border-box;width:96px;min-width:96px;max-width:96px;height:96px;min-height:96px;max-height:96px;padding:0;margin:0;border:0;background:transparent;background-color:transparent;box-shadow:none;border-radius:0;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;color:#16821f;line-height:1;font-size:0;overflow:hidden;";
-  const whatsappIconStyle = "width:72px;min-width:72px;max-width:72px;height:72px;min-height:72px;max-height:72px;object-fit:contain;display:block;padding:0;margin:0;";
-
   return `
     <div class="student-admin-result-card">
       <div class="student-admin-card-title">${context === "registered" ? "Student Registered" : "Student Link"}</div>
-
-      <div class="student-link-copy-wrap">
-        <div class="student-link-box student-link-box-with-copy">${escapeHtml(loginLink)}</div>
-        <button
-          type="button"
-          class="student-inline-icon-btn student-link-copy-btn"
-          style="${copyButtonStyle}"
-          onclick="copyStudentLoginLink('${escapeJsString(loginLink)}')"
-          aria-label="Copy student login link"
-          title="Copy login link"
-        >
-          <img
-            src="/icons/copy.svg"
-            alt=""
-            class="student-action-icon copy-action-icon"
-            style="${copyIconStyle}"
-            onerror="this.style.display='none'; this.nextElementSibling.classList.remove('hidden');"
-          />
-          <span class="student-action-icon-fallback hidden" aria-hidden="true">⧉</span>
-        </button>
-      </div>
+      <div class="student-link-box">${escapeHtml(loginLink)}</div>
       ${assignmentLine}
 
       <label class="student-admin-label" for="${messageBoxId}">WhatsApp Message</label>
-      <div class="student-message-textarea-wrap">
-        <textarea
-          id="${messageBoxId}"
-          class="student-message-textarea student-message-textarea-with-copy"
-          rows="11"
-        >${escapeHtml(message)}</textarea>
-        <button
-          type="button"
-          class="student-inline-icon-btn student-message-copy-btn"
-          style="${copyButtonStyle}"
-          onclick="copyStudentWelcomeMessageFromBox('${escapeJsString(messageBoxId)}', '${escapeJsString(loginLink)}')"
-          aria-label="Copy WhatsApp message"
-          title="Copy message"
-        >
-          <img
-            src="/icons/copy.svg"
-            alt=""
-            class="student-action-icon copy-action-icon"
-            style="${copyIconStyle}"
-            onerror="this.style.display='none'; this.nextElementSibling.classList.remove('hidden');"
-          />
-          <span class="student-action-icon-fallback hidden" aria-hidden="true">⧉</span>
-        </button>
-      </div>
+      <textarea
+        id="${messageBoxId}"
+        class="student-message-textarea"
+        rows="11"
+      >${escapeHtml(message)}</textarea>
+      <p class="student-admin-help">You can edit this message before copying it or opening WhatsApp.</p>
 
-      <div class="student-whatsapp-open-row">
-        <button
-          type="button"
-          class="student-whatsapp-logo-btn"
-          style="${whatsappButtonStyle}"
-          onclick="openStudentWhatsAppMessageFromBox('${escapeJsString(messageBoxId)}', '${escapeJsString(loginLink)}')"
-          aria-label="Open WhatsApp"
-          title="Open WhatsApp"
-        >
-          <img
-            src="/icons/whatsapp.svg"
-            alt=""
-            class="student-action-icon whatsapp-action-icon"
-            style="${whatsappIconStyle}"
-            onerror="this.style.display='none'; this.nextElementSibling.classList.remove('hidden');"
-          />
-          <span class="student-action-icon-fallback whatsapp-fallback hidden" aria-hidden="true">☎</span>
-        </button>
+      <div class="student-admin-action-grid three-col">
+        <button type="button" onclick="copyStudentLoginLink('${escapeJsString(loginLink)}')">Copy Link</button>
+        <button type="button" onclick="copyStudentWelcomeMessageFromBox('${escapeJsString(messageBoxId)}', '${escapeJsString(loginLink)}')">Copy Message</button>
+        <button type="button" onclick="openStudentWhatsAppMessageFromBox('${escapeJsString(messageBoxId)}', '${escapeJsString(loginLink)}')">Open WhatsApp</button>
       </div>
     </div>
   `;
