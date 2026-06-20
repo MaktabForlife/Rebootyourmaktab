@@ -3525,3 +3525,61 @@ body.pdf-viewer-open #pdf-viewer-screen.screen {
     max-height: 66px !important;
   }
 }
+
+
+/* Manage Students: final Group / Active Status edit fixes */
+#manage-student-edit-screen .student-edit-two-column-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+  align-items: end;
+  margin-top: 8px;
+}
+
+#manage-student-edit-screen .student-edit-field-half {
+  min-width: 0;
+}
+
+#manage-student-edit-screen .student-edit-field-half .student-admin-label {
+  display: block;
+  margin-bottom: 8px;
+}
+
+#manage-student-edit-screen .student-edit-field-half input,
+#manage-student-edit-screen .student-edit-field-half button {
+  width: 100%;
+  margin: 0;
+}
+
+#manage-student-edit-screen .student-active-toggle,
+#manage-student-edit-screen .student-active-toggle.is-active,
+#manage-student-edit-screen .student-active-toggle.is-inactive,
+#manage-student-edit-screen.admin-theme .student-active-toggle,
+#manage-student-edit-screen.admin-theme .student-active-toggle.is-active,
+#manage-student-edit-screen.admin-theme .student-active-toggle.is-inactive {
+  min-height: 50px;
+  border-radius: 14px;
+  border: 1px solid rgba(0, 128, 128, 0.22);
+  box-shadow: none;
+  font-weight: 900;
+  text-align: center;
+  letter-spacing: 0.02em;
+}
+
+#manage-student-edit-screen .student-active-toggle.is-active,
+#manage-student-edit-screen.admin-theme .student-active-toggle.is-active {
+  background: #eaf8ed !important;
+  color: #16821f !important;
+}
+
+#manage-student-edit-screen .student-active-toggle.is-inactive,
+#manage-student-edit-screen.admin-theme .student-active-toggle.is-inactive {
+  background: #fff0f1 !important;
+  color: #c01832 !important;
+}
+
+@media (max-width: 360px) {
+  #manage-student-edit-screen .student-edit-two-column-row {
+    gap: 8px;
+  }
+}

@@ -2717,34 +2717,30 @@ function renderSelectedStudentEditor() {
       <label class="student-admin-label" for="student-edit-whatsapp">WhatsApp Number</label>
       <input id="student-edit-whatsapp" class="student-prefilled-input" type="tel" inputmode="tel" value="${escapeAttribute(student.whatsapp6 || "")}" />
 
-      <label class="student-admin-label" for="student-edit-group">Group</label>
-      <input id="student-edit-group" class="student-prefilled-input" type="number" inputmode="numeric" min="0" value="${escapeAttribute(student.classgroup || DEFAULT_STUDENT_GROUP)}" />
-
       <div class="student-edit-two-column-row">
-  <div class="student-edit-field-half">
-    <label class="student-admin-label" for="student-edit-group">Group</label>
-    <input
-      id="student-edit-group"
-      class="student-prefilled-input"
-      type="number"
-      inputmode="numeric"
-      min="0"
-      value="${escapeAttribute(student.classgroup || DEFAULT_STUDENT_GROUP)}"
-    />
-  </div>
+        <div class="student-edit-field-half">
+          <label class="student-admin-label" for="student-edit-group">Group</label>
+          <input
+            id="student-edit-group"
+            class="student-prefilled-input"
+            type="number"
+            inputmode="numeric"
+            min="0"
+            value="${escapeAttribute(student.classgroup || DEFAULT_STUDENT_GROUP)}"
+          />
+        </div>
 
-  <div class="student-edit-field-half">
-    <label class="student-admin-label">Active Status</label>
-    <button
-      id="student-edit-active-btn"
-      class="student-active-toggle"
-      type="button"
-      onclick="toggleStudentEditActiveStatus()"
-    >
-      Active
-    </button>
-  </div>
-</div>
+        <div class="student-edit-field-half">
+          <label class="student-admin-label" for="student-edit-active">Active Status</label>
+          <button
+            id="student-edit-active"
+            class="student-active-toggle ${manageStudentsState.selectedStudentActiveDraft ? "is-active" : "is-inactive"}"
+            type="button"
+            data-active="${manageStudentsState.selectedStudentActiveDraft ? "true" : "false"}"
+            onclick="toggleStudentEditActiveStatus()"
+          >${manageStudentsState.selectedStudentActiveDraft ? "Active" : "Inactive"}</button>
+        </div>
+      </div>
     </div>
 
     <div class="student-admin-action-grid">
@@ -2757,16 +2753,20 @@ function renderSelectedStudentEditor() {
   `;
 }
 
-function toggleSelectedStudentActive() {
+function toggleStudentEditActiveStatus() {
   manageStudentsState.selectedStudentActiveDraft = !manageStudentsState.selectedStudentActiveDraft;
 
-  const button = document.querySelector(".student-active-toggle");
+  const button = document.getElementById("student-edit-active");
   if (!button) return;
 
   button.classList.toggle("is-active", manageStudentsState.selectedStudentActiveDraft);
   button.classList.toggle("is-inactive", !manageStudentsState.selectedStudentActiveDraft);
   button.dataset.active = manageStudentsState.selectedStudentActiveDraft ? "true" : "false";
   button.textContent = manageStudentsState.selectedStudentActiveDraft ? "Active" : "Inactive";
+}
+
+function toggleSelectedStudentActive() {
+  toggleStudentEditActiveStatus();
 }
 
 async function saveManagedStudentChanges() {
