@@ -3251,141 +3251,176 @@ body.pdf-viewer-open #pdf-viewer-screen.screen {
   }
 }
 
-/* Manage Students: inline icon buttons on WhatsApp message result pages */
-.student-link-copy-wrap {
-  position: relative;
-  margin-bottom: 10px;
+
+/* =========================
+   Manage Students WhatsApp result icons - final clean version
+   - Copy link icon sits inside the link box
+   - Copy message icon sits inside the message box
+   - WhatsApp logo is centered below the message
+   - No text captions and no coloured button backgrounds
+========================= */
+.student-admin-result-card .student-link-copy-wrap {
+  position: relative !important;
+  margin-bottom: 10px !important;
 }
 
-.student-link-box-with-copy {
-  padding-right: 48px;
+.student-admin-result-card .student-link-box-with-copy {
+  padding-right: 52px !important;
 }
 
-.student-message-label-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  margin-top: 10px;
-  margin-bottom: 5px;
+.student-admin-result-card .student-message-textarea-wrap {
+  position: relative !important;
+  width: 100% !important;
 }
 
-.student-message-label-row .student-admin-label {
-  margin: 0;
+.student-admin-result-card .student-message-textarea-with-copy {
+  padding-right: 52px !important;
 }
 
-.student-inline-icon-btn,
-.student-whatsapp-logo-btn {
-  width: 40px;
-  min-width: 40px;
-  height: 40px;
-  min-height: 40px;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  color: var(--teal-dark);
-  box-shadow: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.student-inline-icon-btn:hover,
-.student-whatsapp-logo-btn:hover {
-  background: transparent;
-  box-shadow: none;
-}
-
-.admin-theme .student-inline-icon-btn,
-.admin-theme .student-whatsapp-logo-btn {
-  background: transparent !important;
+.student-admin-result-card button.student-inline-icon-btn,
+.student-admin-result-card button.student-whatsapp-logo-btn,
+.admin-theme .student-admin-result-card button.student-inline-icon-btn,
+.admin-theme .student-admin-result-card button.student-whatsapp-logo-btn,
+.student-admin-result-card button.student-icon-action-btn,
+.admin-theme .student-admin-result-card button.student-icon-action-btn {
+  all: unset !important;
+  box-sizing: border-box !important;
+  padding: 0 !important;
+  margin: 0 !important;
   border: 0 !important;
-  box-shadow: none !important;
-  color: var(--teal-dark);
-}
-
-.admin-theme .student-inline-icon-btn:hover,
-.admin-theme .student-whatsapp-logo-btn:hover {
+  border-radius: 0 !important;
   background: transparent !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+  outline: 0 !important;
+  color: var(--teal-dark) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  overflow: hidden !important;
+  line-height: 1 !important;
+  font-size: 0 !important;
+  letter-spacing: 0 !important;
+}
+
+.student-admin-result-card button.student-inline-icon-btn,
+.admin-theme .student-admin-result-card button.student-inline-icon-btn,
+.student-admin-result-card button.student-icon-action-btn,
+.admin-theme .student-admin-result-card button.student-icon-action-btn {
+  width: 40px !important;
+  min-width: 40px !important;
+  max-width: 40px !important;
+  height: 40px !important;
+  min-height: 40px !important;
+  max-height: 40px !important;
+}
+
+.student-admin-result-card button.student-inline-icon-btn:hover,
+.student-admin-result-card button.student-whatsapp-logo-btn:hover,
+.student-admin-result-card button.student-icon-action-btn:hover,
+.admin-theme .student-admin-result-card button.student-inline-icon-btn:hover,
+.admin-theme .student-admin-result-card button.student-whatsapp-logo-btn:hover,
+.admin-theme .student-admin-result-card button.student-icon-action-btn:hover {
+  background: transparent !important;
+  background-color: transparent !important;
   box-shadow: none !important;
 }
 
-.student-inline-icon-btn:active,
-.student-whatsapp-logo-btn:active {
-  transform: scale(0.94);
+.student-admin-result-card .student-link-copy-btn {
+  position: absolute !important;
+  right: 7px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
 }
 
-.student-link-copy-btn {
-  position: absolute;
-  right: 6px;
-  top: 50%;
-  transform: translateY(-50%);
+.student-admin-result-card .student-link-copy-btn:active {
+  transform: translateY(-50%) scale(0.94) !important;
 }
 
-.student-link-copy-btn:active {
-  transform: translateY(-50%) scale(0.94);
+.student-admin-result-card .student-message-copy-btn {
+  position: absolute !important;
+  right: 7px !important;
+  top: 8px !important;
+  z-index: 2 !important;
 }
 
-.student-inline-icon-btn .student-action-icon {
-  width: 24px;
-  height: 24px;
-  object-fit: contain;
-  display: block;
+.student-admin-result-card .student-message-copy-btn:active,
+.student-admin-result-card .student-whatsapp-logo-btn:active,
+.student-admin-result-card .student-icon-action-btn:active {
+  transform: scale(0.94) !important;
 }
 
-.student-whatsapp-logo-btn .whatsapp-action-icon {
-  width: 34px;
-  height: 34px;
-  object-fit: contain;
-  display: block;
+.student-admin-result-card button.student-inline-icon-btn img,
+.student-admin-result-card button.student-icon-action-btn img,
+.student-admin-result-card img.copy-action-icon,
+.student-admin-result-card img.student-action-icon:not(.whatsapp-action-icon) {
+  width: 24px !important;
+  min-width: 24px !important;
+  max-width: 24px !important;
+  height: 24px !important;
+  min-height: 24px !important;
+  max-height: 24px !important;
+  object-fit: contain !important;
+  display: block !important;
+  padding: 0 !important;
+  margin: 0 !important;
 }
 
-.student-action-icon-fallback:not(.hidden) {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  line-height: 1;
-  font-size: 1.35rem;
-  font-weight: 900;
-  color: var(--teal-dark);
+.student-admin-result-card .student-whatsapp-open-row {
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  margin: 14px 0 4px !important;
 }
 
-.student-action-icon-fallback.whatsapp-fallback:not(.hidden) {
-  color: #16821f;
-  font-size: 1.55rem;
+.student-admin-result-card button.student-whatsapp-logo-btn,
+.admin-theme .student-admin-result-card button.student-whatsapp-logo-btn {
+  width: 54px !important;
+  min-width: 54px !important;
+  max-width: 54px !important;
+  height: 54px !important;
+  min-height: 54px !important;
+  max-height: 54px !important;
+  color: #16821f !important;
 }
 
-.student-whatsapp-open-row {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  margin: 12px 0 4px;
+.student-admin-result-card button.student-whatsapp-logo-btn img.whatsapp-action-icon,
+.student-admin-result-card img.whatsapp-action-icon {
+  width: 36px !important;
+  min-width: 36px !important;
+  max-width: 36px !important;
+  height: 36px !important;
+  min-height: 36px !important;
+  max-height: 36px !important;
+  object-fit: contain !important;
+  display: block !important;
+  padding: 0 !important;
+  margin: 0 !important;
 }
 
-.student-whatsapp-logo-btn {
-  width: 52px;
-  min-width: 52px;
-  height: 52px;
-  min-height: 52px;
+.student-admin-result-card .student-icon-caption {
+  display: none !important;
+}
+
+.student-admin-result-card .student-action-icon-fallback:not(.hidden) {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 1.35rem !important;
+  font-weight: 900 !important;
+  line-height: 1 !important;
+  color: var(--teal-dark) !important;
+}
+
+.student-admin-result-card .student-action-icon-fallback.whatsapp-fallback:not(.hidden) {
+  color: #16821f !important;
+  font-size: 1.35rem !important;
 }
 
 @media (max-width: 360px) {
-  .student-link-box-with-copy {
-    padding-right: 44px;
-  }
-
-  .student-inline-icon-btn {
-    width: 38px;
-    min-width: 38px;
-    height: 38px;
-    min-height: 38px;
-  }
-
-  .student-whatsapp-logo-btn {
-    width: 50px;
-    min-width: 50px;
-    height: 50px;
-    min-height: 50px;
+  .student-admin-result-card .student-link-box-with-copy,
+  .student-admin-result-card .student-message-textarea-with-copy {
+    padding-right: 48px !important;
   }
 }
