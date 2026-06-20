@@ -2867,77 +2867,81 @@ function renderStudentMessageResult(student, context) {
     : "";
   const messageBoxId = `student-message-text-${context}-${sanitizeDomId(normalized.uniqueid || normalized.studentid || "student")}`;
 
+  const copyButtonStyle = "all:unset;box-sizing:border-box;width:40px;min-width:40px;max-width:40px;height:40px;min-height:40px;max-height:40px;padding:0;margin:0;border:0;background:transparent;background-color:transparent;box-shadow:none;border-radius:0;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;color:#008080;line-height:1;font-size:0;overflow:hidden;";
+  const copyIconStyle = "width:24px;min-width:24px;max-width:24px;height:24px;min-height:24px;max-height:24px;object-fit:contain;display:block;padding:0;margin:0;";
+  const whatsappButtonStyle = "all:unset;box-sizing:border-box;width:96px;min-width:96px;max-width:96px;height:96px;min-height:96px;max-height:96px;padding:0;margin:0;border:0;background:transparent;background-color:transparent;box-shadow:none;border-radius:0;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;color:#16821f;line-height:1;font-size:0;overflow:hidden;";
+  const whatsappIconStyle = "width:72px;min-width:72px;max-width:72px;height:72px;min-height:72px;max-height:72px;object-fit:contain;display:block;padding:0;margin:0;";
+
   return `
     <div class="student-admin-result-card">
       <div class="student-admin-card-title">${context === "registered" ? "Student Registered" : "Student Link"}</div>
-      <div class="student-link-box">${escapeHtml(loginLink)}</div>
+
+      <div class="student-link-copy-wrap">
+        <div class="student-link-box student-link-box-with-copy">${escapeHtml(loginLink)}</div>
+        <button
+          type="button"
+          class="student-inline-icon-btn student-link-copy-btn"
+          style="${copyButtonStyle}"
+          onclick="copyStudentLoginLink('${escapeJsString(loginLink)}')"
+          aria-label="Copy student login link"
+          title="Copy login link"
+        >
+          <img
+            src="/icons/copy.svg"
+            alt=""
+            class="student-action-icon copy-action-icon"
+            style="${copyIconStyle}"
+            onerror="this.style.display='none'; this.nextElementSibling.classList.remove('hidden');"
+          />
+          <span class="student-action-icon-fallback hidden" aria-hidden="true">⧉</span>
+        </button>
+      </div>
       ${assignmentLine}
 
       <label class="student-admin-label" for="${messageBoxId}">WhatsApp Message</label>
-      <textarea
-        id="${messageBoxId}"
-        class="student-message-textarea"
-        rows="11"
-      >${escapeHtml(message)}</textarea>
-      <p class="student-admin-help">You can edit this message before copying it or opening WhatsApp.</p>
+      <div class="student-message-textarea-wrap">
+        <textarea
+          id="${messageBoxId}"
+          class="student-message-textarea student-message-textarea-with-copy"
+          rows="11"
+        >${escapeHtml(message)}</textarea>
+        <button
+          type="button"
+          class="student-inline-icon-btn student-message-copy-btn"
+          style="${copyButtonStyle}"
+          onclick="copyStudentWelcomeMessageFromBox('${escapeJsString(messageBoxId)}', '${escapeJsString(loginLink)}')"
+          aria-label="Copy WhatsApp message"
+          title="Copy message"
+        >
+          <img
+            src="/icons/copy.svg"
+            alt=""
+            class="student-action-icon copy-action-icon"
+            style="${copyIconStyle}"
+            onerror="this.style.display='none'; this.nextElementSibling.classList.remove('hidden');"
+          />
+          <span class="student-action-icon-fallback hidden" aria-hidden="true">⧉</span>
+        </button>
+      </div>
 
-      <div class="student-result-icon-actions" aria-label="Student link actions">
-        <div class="student-result-icon-action">
-          <button
-            type="button"
-            class="student-icon-action-btn copy-icon-btn"
-            onclick="copyStudentLoginLink('${escapeJsString(loginLink)}')"
-            aria-label="Copy student login link"
-            title="Copy login link"
-          >
-            <img
-              src="/icons/copy.svg"
-              alt=""
-              class="student-action-icon"
-              onerror="this.style.display='none'; this.nextElementSibling.classList.remove('hidden');"
-            />
-            <span class="student-action-icon-fallback hidden" aria-hidden="true">⧉</span>
-          </button>
-          <span class="student-icon-caption">Copy link</span>
-        </div>
-
-        <div class="student-result-icon-action">
-          <button
-            type="button"
-            class="student-icon-action-btn copy-icon-btn"
-            onclick="copyStudentWelcomeMessageFromBox('${escapeJsString(messageBoxId)}', '${escapeJsString(loginLink)}')"
-            aria-label="Copy WhatsApp message"
-            title="Copy message"
-          >
-            <img
-              src="/icons/copy.svg"
-              alt=""
-              class="student-action-icon"
-              onerror="this.style.display='none'; this.nextElementSibling.classList.remove('hidden');"
-            />
-            <span class="student-action-icon-fallback hidden" aria-hidden="true">⧉</span>
-          </button>
-          <span class="student-icon-caption">Copy message</span>
-        </div>
-
-        <div class="student-result-icon-action">
-          <button
-            type="button"
-            class="student-icon-action-btn whatsapp-icon-btn"
-            onclick="openStudentWhatsAppMessageFromBox('${escapeJsString(messageBoxId)}', '${escapeJsString(loginLink)}')"
-            aria-label="Open WhatsApp"
-            title="Open WhatsApp"
-          >
-            <img
-              src="/icons/whatsapp.svg"
-              alt=""
-              class="student-action-icon whatsapp-action-icon"
-              onerror="this.style.display='none'; this.nextElementSibling.classList.remove('hidden');"
-            />
-            <span class="student-action-icon-fallback whatsapp-fallback hidden" aria-hidden="true">WA</span>
-          </button>
-          <span class="student-icon-caption">WhatsApp</span>
-        </div>
+      <div class="student-whatsapp-open-row">
+        <button
+          type="button"
+          class="student-whatsapp-logo-btn"
+          style="${whatsappButtonStyle}"
+          onclick="openStudentWhatsAppMessageFromBox('${escapeJsString(messageBoxId)}', '${escapeJsString(loginLink)}')"
+          aria-label="Open WhatsApp"
+          title="Open WhatsApp"
+        >
+          <img
+            src="/icons/whatsapp.svg"
+            alt=""
+            class="student-action-icon whatsapp-action-icon"
+            style="${whatsappIconStyle}"
+            onerror="this.style.display='none'; this.nextElementSibling.classList.remove('hidden');"
+          />
+          <span class="student-action-icon-fallback whatsapp-fallback hidden" aria-hidden="true">☎</span>
+        </button>
       </div>
     </div>
   `;
