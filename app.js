@@ -230,29 +230,17 @@ async function checkStudent() {
 
 
 document.getElementById("portal-title").innerHTML = `
-  Student Login 
+  Ahlan Wa Sahlan 
+    ${result.student.username}
 `;
 
-/*
     document.getElementById("portal-subtitle").innerHTML = `
  <span class="login-heading">Reboot Your Maktab-mE</span>
   <span class="login-welcome">
-    Ahlan Wa Sahlan <br>
-    ${result.student.username}
+    Student Login 
   </span>
 `;
-*/
-    
-document.getElementById("login-welcome").innerHTML = `
-  Student Login ;
 
-document.getElementById("portal-subtitle").innerHTML = `
-  <span class="login-heading">Reboot Your Maktab-mE</span>
-  <span class="login-heading">
-    Ahlan Wa Sahlan <br>
-    ${result.student.username}
-  </span>
-`;
 
 
 
