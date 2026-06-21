@@ -3295,6 +3295,63 @@ body.pdf-viewer-open #pdf-viewer-screen.screen {
   margin: 0;
 }
 
+
+/* Manage Students: active/inactive radio selector */
+.student-status-radio-group {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  width: 100%;
+  margin: 0;
+}
+
+.student-status-radio-option {
+  min-height: 52px;
+  padding: 10px 8px;
+  border-radius: 12px;
+  border: 1px solid rgba(var(--primary-rgb), 0.22);
+  background: var(--surface-chip);
+  color: var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  font-weight: 900;
+  line-height: 1.1;
+  cursor: pointer;
+  text-align: center;
+}
+
+.student-status-radio-option input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--primary);
+  flex: 0 0 auto;
+}
+
+.student-status-radio-option.is-selected {
+  background: var(--primary);
+  color: var(--text-inverse);
+  border-color: var(--primary);
+}
+
+.student-status-radio-option.is-selected input {
+  accent-color: var(--primary);
+}
+
+@media (max-width: 360px) {
+  .student-status-radio-group {
+    gap: 6px;
+  }
+
+  .student-status-radio-option {
+    font-size: 0.78rem;
+    padding: 9px 6px;
+  }
+}
+
 #manage-student-edit-screen .student-reset-pin-btn {
   display: flex;
   align-items: center;

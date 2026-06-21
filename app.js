@@ -2872,34 +2872,46 @@ function renderSelectedStudentEditor() {
       <label class="student-admin-label" for="student-edit-whatsapp">WhatsApp Number</label>
       <input id="student-edit-whatsapp" class="student-prefilled-input" type="tel" inputmode="tel" value="${escapeAttribute(student.whatsapp6 || "")}" />
 
-      <label class="student-admin-label" for="student-edit-group">Group</label>
-      <input id="student-edit-group" class="student-prefilled-input" type="number" inputmode="numeric" min="0" value="${escapeAttribute(student.classgroup || DEFAULT_STUDENT_GROUP)}" />
-
       <div class="student-edit-two-column-row">
-  <div class="student-edit-field-half">
-    <label class="student-admin-label" for="student-edit-group">Group</label>
-    <input
-      id="student-edit-group"
-      class="student-prefilled-input"
-      type="number"
-      inputmode="numeric"
-      min="0"
-      value="${escapeAttribute(student.classgroup || DEFAULT_STUDENT_GROUP)}"
-    />
-  </div>
+        <div class="student-edit-field-half">
+          <label class="student-admin-label" for="student-edit-group">Group</label>
+          <input
+            id="student-edit-group"
+            class="student-prefilled-input"
+            type="number"
+            inputmode="numeric"
+            min="0"
+            value="${escapeAttribute(student.classgroup || DEFAULT_STUDENT_GROUP)}"
+          />
+        </div>
 
-  <div class="student-edit-field-half">
-    <label class="student-admin-label">Active Status</label>
-    <button
-      id="student-edit-active-btn"
-      class="student-active-toggle"
-      type="button"
-      onclick="toggleStudentEditActiveStatus()"
-    >
-      Active
-    </button>
-  </div>
-</div>
+        <div class="student-edit-field-half">
+          <label class="student-admin-label">Active Status</label>
+          <div class="student-status-radio-group" role="radiogroup" aria-label="Active Status">
+            <label class="student-status-radio-option ${manageStudentsState.selectedStudentActiveDraft === true ? "is-selected" : ""}">
+              <input
+                type="radio"
+                name="student-edit-active"
+                value="true"
+                ${manageStudentsState.selectedStudentActiveDraft === true ? "checked" : ""}
+                onchange="setStudentEditActiveStatus(true)"
+              />
+              <span>Active</span>
+            </label>
+
+            <label class="student-status-radio-option ${manageStudentsState.selectedStudentActiveDraft === true ? "" : "is-selected"}">
+              <input
+                type="radio"
+                name="student-edit-active"
+                value="false"
+                ${manageStudentsState.selectedStudentActiveDraft === true ? "" : "checked"}
+                onchange="setStudentEditActiveStatus(false)"
+              />
+              <span>Inactive</span>
+            </label>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div class="student-admin-action-grid">
@@ -2912,16 +2924,17 @@ function renderSelectedStudentEditor() {
   `;
 }
 
+function setStudentEditActiveStatus(isActive) {
+  manageStudentsState.selectedStudentActiveDraft = isActive === true;
+
+  document.querySelectorAll(".student-status-radio-option").forEach(option => {
+    const input = option.querySelector("input");
+    option.classList.toggle("is-selected", !!input && input.checked);
+  });
+}
+
 function toggleSelectedStudentActive() {
-  manageStudentsState.selectedStudentActiveDraft = !manageStudentsState.selectedStudentActiveDraft;
-
-  const button = document.querySelector(".student-active-toggle");
-  if (!button) return;
-
-  button.classList.toggle("is-active", manageStudentsState.selectedStudentActiveDraft);
-  button.classList.toggle("is-inactive", !manageStudentsState.selectedStudentActiveDraft);
-  button.dataset.active = manageStudentsState.selectedStudentActiveDraft ? "true" : "false";
-  button.textContent = manageStudentsState.selectedStudentActiveDraft ? "Active" : "Inactive";
+  setStudentEditActiveStatus(!manageStudentsState.selectedStudentActiveDraft);
 }
 
 async function saveManagedStudentChanges() {
@@ -2933,9 +2946,9 @@ async function saveManagedStudentChanges() {
   const username = document.getElementById("student-edit-name").value.trim();
   const whatsappRaw = document.getElementById("student-edit-whatsapp").value.trim();
   const classgroup = document.getElementById("student-edit-group").value.trim() || String(DEFAULT_STUDENT_GROUP);
-  const activeButton = document.getElementById("student-edit-active");
-  const active = activeButton
-    ? activeButton.dataset.active === "true"
+  const activeRadio = document.querySelector('input[name="student-edit-active"]:checked');
+  const active = activeRadio
+    ? activeRadio.value === "true"
     : manageStudentsState.selectedStudentActiveDraft === true;
 
   if (!username) {
