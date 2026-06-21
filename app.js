@@ -15,6 +15,11 @@ const state = {
 ========================= */
 
 window.addEventListener("load", initApp);
+window.addEventListener("keydown", event => {
+  if (event.key === "Escape") {
+    closeStudentResourceModulePicker();
+  }
+});
 
 function initApp() {
   setupPinDigitBoxes();
@@ -376,6 +381,32 @@ function goHome() {
   }
 }
 
+function setHomeIconButton(button, onclickValue = "goHome()") {
+  if (!button) return;
+
+  button.classList.add("home-icon-btn");
+  button.setAttribute("onclick", onclickValue);
+  button.setAttribute("aria-label", "Home");
+  button.setAttribute("title", "Home");
+  button.innerHTML = `
+    <span class="home-icon-btn__icon" aria-hidden="true"></span>
+    <span class="visually-hidden">Home</span>
+  `;
+}
+
+function setTextActionButton(button, text, onclickValue) {
+  if (!button) return;
+
+  button.classList.remove("home-icon-btn");
+  button.removeAttribute("aria-label");
+  button.removeAttribute("title");
+  button.textContent = text;
+
+  if (onclickValue) {
+    button.setAttribute("onclick", onclickValue);
+  }
+}
+
 
 /* =========================
    REUSABLE BOTTOM NAVIGATION
@@ -733,15 +764,12 @@ function setProgressScreensForStudent() {
   });
 
   const subjectBackButton = document.querySelector("#progress-subjects-screen .small-btn");
-  if (subjectBackButton) {
-    subjectBackButton.setAttribute("onclick", "showScreen('student-home')");
-  }
+  setHomeIconButton(subjectBackButton, "showScreen('student-home')");
 
   const taskBackButton = document.querySelector("#progress-tasks-screen .small-btn");
   if (taskBackButton) {
-    taskBackButton.innerText = "Save Changes →";
+    setTextActionButton(taskBackButton, "Save Changes →", "saveStudentTaskChangesAndReturn()");
     taskBackButton.classList.add("save-return-btn");
-    taskBackButton.setAttribute("onclick", "saveStudentTaskChangesAndReturn()");
   }
 }
 
@@ -754,15 +782,12 @@ function setProgressScreensForAdmin() {
   });
 
   const subjectBackButton = document.querySelector("#progress-subjects-screen .small-btn");
-  if (subjectBackButton) {
-    subjectBackButton.setAttribute("onclick", "showScreen('progress-report')");
-  }
+  setTextActionButton(subjectBackButton, "Back", "showScreen('progress-report')");
 
   const taskBackButton = document.querySelector("#progress-tasks-screen .small-btn");
   if (taskBackButton) {
-    taskBackButton.innerText = "BACK";
     taskBackButton.classList.remove("save-return-btn");
-    taskBackButton.setAttribute("onclick", "showScreen('progress-subjects-screen')");
+    setTextActionButton(taskBackButton, "Back", "showScreen('progress-subjects-screen')");
   }
 
   const taskStudentsBackButton = document.querySelector("#progress-task-students-screen .small-btn");
@@ -1125,6 +1150,7 @@ let currentStudentResourceSubjectName = "";
 let currentStudentResourceSubjectCategoryCounts = {};
 let currentStudentResourceModuleKey = "";
 let currentStudentResourceModuleName = "";
+let currentStudentResourceDetailReturnScreen = "";
 let studentResourceViewMode = "student";
 const PDFJS_VIEWER_PATH = "/pdf-viewer/web/viewer.html";
 
@@ -1166,6 +1192,8 @@ function resetStudentResourceSelection() {
   currentStudentResourceSubjectCategoryCounts = {};
   currentStudentResourceModuleKey = "";
   currentStudentResourceModuleName = "";
+  currentStudentResourceDetailReturnScreen = "";
+  closeStudentResourceModulePicker();
 }
 
 async function showStudentResources() {
@@ -1194,28 +1222,16 @@ function setResourceScreensForStudent() {
   if (listTitle) listTitle.innerText = "Subjects";
 
   const listBackButton = document.querySelector("#student-resources-subjects .small-btn");
-  if (listBackButton) {
-    listBackButton.innerText = "Back";
-    listBackButton.setAttribute("onclick", "showScreen('student-home')");
-  }
+  setHomeIconButton(listBackButton, "showScreen('student-home')");
 
   const mediaBackButton = document.querySelector("#student-resources-media .small-btn");
-  if (mediaBackButton) {
-    mediaBackButton.innerText = "Back";
-    mediaBackButton.setAttribute("onclick", "showScreen('student-resources-subjects')");
-  }
+  setTextActionButton(mediaBackButton, "Back", "showScreen('student-resources-subjects')");
 
   const moduleBackButton = document.querySelector("#student-resources-modules .small-btn");
-  if (moduleBackButton) {
-    moduleBackButton.innerText = "Back";
-    moduleBackButton.setAttribute("onclick", "showScreen('student-resources-media')");
-  }
+  setTextActionButton(moduleBackButton, "Back", "showScreen('student-resources-media')");
 
   const detailBackButton = document.querySelector("#student-resources-detail .small-btn");
-  if (detailBackButton) {
-    detailBackButton.innerText = "Back";
-    detailBackButton.setAttribute("onclick", "goBackFromStudentResourceDetail()");
-  }
+  setTextActionButton(detailBackButton, "Back", "goBackFromStudentResourceDetail()");
 }
 
 function setResourceScreensForAdmin() {
@@ -1230,28 +1246,16 @@ function setResourceScreensForAdmin() {
   if (listTitle) listTitle.innerText = "Subjects";
 
   const listBackButton = document.querySelector("#student-resources-subjects .small-btn");
-  if (listBackButton) {
-    listBackButton.innerText = "Back";
-    listBackButton.setAttribute("onclick", "showScreen('admin-home')");
-  }
+  setHomeIconButton(listBackButton, "showScreen('admin-home')");
 
   const mediaBackButton = document.querySelector("#student-resources-media .small-btn");
-  if (mediaBackButton) {
-    mediaBackButton.innerText = "Back";
-    mediaBackButton.setAttribute("onclick", "showScreen('student-resources-subjects')");
-  }
+  setTextActionButton(mediaBackButton, "Back", "showScreen('student-resources-subjects')");
 
   const moduleBackButton = document.querySelector("#student-resources-modules .small-btn");
-  if (moduleBackButton) {
-    moduleBackButton.innerText = "Back";
-    moduleBackButton.setAttribute("onclick", "showScreen('student-resources-media')");
-  }
+  setTextActionButton(moduleBackButton, "Back", "showScreen('student-resources-media')");
 
   const detailBackButton = document.querySelector("#student-resources-detail .small-btn");
-  if (detailBackButton) {
-    detailBackButton.innerText = "Back";
-    detailBackButton.setAttribute("onclick", "goBackFromStudentResourceDetail()");
-  }
+  setTextActionButton(detailBackButton, "Back", "goBackFromStudentResourceDetail()");
 }
 
 async function fetchResourceCategories(apiPath, body = {}) {
@@ -1382,6 +1386,19 @@ function normalizeStudentResourceGroups(result) {
 function getCategoryLabel(type) {
   const category = STUDENT_RESOURCE_CATEGORIES.find(item => item.key === String(type || "").toUpperCase());
   return category ? category.label : String(type || "Resources");
+}
+
+function getResourceCategoryIconPath(categoryKey) {
+  const key = String(categoryKey || "").trim().toUpperCase();
+  const iconMap = {
+    EBOOKS: "/icons/ebook.svg",
+    PRINTABLES: "/icons/printables.svg",
+    AUDIO: "/icons/audio.svg",
+    VIDEO: "/icons/video.svg",
+    OTHER: "/icons/other.svg"
+  };
+
+  return iconMap[key] || "/icons/resources.svg";
 }
 
 function getDirectMediaGroup(category) {
@@ -1665,6 +1682,8 @@ function renderStudentResourceSubjects() {
   currentStudentResourceSubjectCategoryCounts = {};
   currentStudentResourceModuleKey = "";
   currentStudentResourceModuleName = "";
+  currentStudentResourceDetailReturnScreen = "";
+  closeStudentResourceModulePicker();
 
   const subjects = buildStudentResourceSubjectSummaries();
 
@@ -1673,16 +1692,168 @@ function renderStudentResourceSubjects() {
     return;
   }
 
+  const visibleCategories = STUDENT_RESOURCE_CATEGORIES.filter(category => {
+    return subjects.some(subject => Number(subject.categoryCounts[category.key] || 0) > 0);
+  });
+
+  if (visibleCategories.length === 0) {
+    container.innerHTML = `<p class="helper-text">No resources are available yet.</p>`;
+    return;
+  }
+
+  const columnStyle = `--resource-media-columns: ${visibleCategories.length};`;
+
   container.innerHTML = `
-    <div class="resource-subject-button-grid">
-      ${subjects.map(subject => `
-        <button class="resource-subject-drill-button" onclick="openStudentResourceSubject('${escapeForAttribute(subject.key)}')">
-          <span class="resource-subject-button-title">${escapeHtml(subject.name)}</span>
-        </button>
-      `).join("")}
+    <div class="resource-media-matrix-wrap" style="${columnStyle}">
+      <div class="resource-media-matrix" role="table" aria-label="Resources by subject and media type">
+        <div class="resource-media-row resource-media-header" role="row">
+          <div class="resource-media-subject-cell" role="columnheader">Subject</div>
+          ${visibleCategories.map(category => `
+            <div class="resource-media-cell" role="columnheader">
+              <span
+                class="resource-media-icon"
+                style="--resource-media-icon: url('${getResourceCategoryIconPath(category.key)}')"
+                title="${escapeForAttribute(category.label)}"
+                aria-label="${escapeForAttribute(category.label)}"
+              ></span>
+            </div>
+          `).join("")}
+        </div>
+
+        ${subjects.map(subject => `
+          <div class="resource-media-row" role="row">
+            <div class="resource-media-subject-cell" role="cell">
+              <span class="resource-media-subject-name">${escapeHtml(subject.name)}</span>
+            </div>
+            ${visibleCategories.map(category => {
+              const count = Number(subject.categoryCounts[category.key] || 0);
+
+              if (count <= 0) {
+                return `<div class="resource-media-cell resource-media-cell-empty" role="cell" aria-label="No ${escapeForAttribute(category.label)} resources"></div>`;
+              }
+
+              return `
+                <div class="resource-media-cell" role="cell">
+                  <button
+                    type="button"
+                    class="resource-media-icon-button"
+                    onclick="openStudentResourceMatrixSelection('${escapeForAttribute(subject.key)}', '${escapeForAttribute(category.key)}')"
+                    aria-label="Open ${escapeForAttribute(category.label)} resources for ${escapeForAttribute(subject.name)}"
+                    title="${escapeForAttribute(category.label)}"
+                  >
+                    <span
+                      class="resource-media-icon"
+                      style="--resource-media-icon: url('${getResourceCategoryIconPath(category.key)}')"
+                      aria-hidden="true"
+                    ></span>
+                  </button>
+                </div>
+              `;
+            }).join("")}
+          </div>
+        `).join("")}
+      </div>
     </div>
   `;
 }
+
+function openStudentResourceMatrixSelection(subjectKey, categoryKey) {
+  const subjects = buildStudentResourceSubjectSummaries();
+  const selectedSubject = subjects.find(subject => subject.key === subjectKey);
+  const category = STUDENT_RESOURCE_CATEGORIES.find(item => item.key === String(categoryKey || "").toUpperCase());
+
+  if (!selectedSubject || !category) {
+    alert("Resource selection not found. Please reload resources.");
+    return;
+  }
+
+  currentStudentResourceSubjectKey = selectedSubject.key;
+  currentStudentResourceSubjectName = selectedSubject.name;
+  currentStudentResourceSubjectCategoryCounts = { ...(selectedSubject.categoryCounts || {}) };
+  currentStudentResourceMode = category.key;
+  currentStudentResourceModuleKey = "";
+  currentStudentResourceModuleName = "";
+  currentStudentResourceDetailReturnScreen = "student-resources-subjects";
+
+  const modules = buildCurrentResourceModuleSummaries(category);
+
+  if (modules.length > 1) {
+    showStudentResourceModulePicker(category, modules);
+    return;
+  }
+
+  if (modules.length === 1) {
+    currentStudentResourceModuleKey = modules[0].key;
+    currentStudentResourceModuleName = modules[0].name;
+  }
+
+  const title = document.getElementById("student-resource-detail-title");
+  if (title) {
+    title.innerText = `${selectedSubject.name} - ${category.label}`;
+  }
+
+  showScreen("student-resources-detail");
+  renderStudentResourceCategoryDetail(category);
+}
+
+function getStudentResourceModulePickerElement() {
+  let picker = document.getElementById("resource-module-picker");
+
+  if (!picker) {
+    picker = document.createElement("div");
+    picker.id = "resource-module-picker";
+    picker.className = "resource-module-picker hidden";
+    picker.setAttribute("aria-hidden", "true");
+    document.body.appendChild(picker);
+  }
+
+  return picker;
+}
+
+function showStudentResourceModulePicker(category, modules) {
+  const picker = getStudentResourceModulePickerElement();
+  const subjectName = currentStudentResourceSubjectName || "Subject";
+
+  picker.innerHTML = `
+    <div class="resource-module-picker__backdrop" onclick="closeStudentResourceModulePicker()"></div>
+    <div class="resource-module-picker__panel" role="dialog" aria-modal="true" aria-labelledby="resource-module-picker-title">
+      <div class="resource-module-picker__header">
+        <div>
+          <h3 id="resource-module-picker-title">Choose Module</h3>
+          <p class="mini-text">${escapeHtml(subjectName)} - ${escapeHtml(category.label)}</p>
+        </div>
+        <button type="button" class="resource-module-picker__close" onclick="closeStudentResourceModulePicker()" aria-label="Close module picker">×</button>
+      </div>
+      <div class="resource-module-picker__list">
+        ${modules.map(module => `
+          <button
+            type="button"
+            class="resource-module-picker__option"
+            onclick="openStudentResourceModule('${escapeForAttribute(module.key)}', 'student-resources-subjects')"
+          >
+            <span>${escapeHtml(module.name)}</span>
+          </button>
+        `).join("")}
+      </div>
+    </div>
+  `;
+
+  picker.classList.remove("hidden");
+  picker.setAttribute("aria-hidden", "false");
+  document.body.classList.add("resource-module-picker-open");
+}
+
+function closeStudentResourceModulePicker() {
+  const picker = document.getElementById("resource-module-picker");
+
+  if (!picker) return;
+
+  picker.classList.add("hidden");
+  picker.setAttribute("aria-hidden", "true");
+  picker.innerHTML = "";
+  document.body.classList.remove("resource-module-picker-open");
+}
+
 
 function openStudentResourceSubject(subjectKey) {
   const subjects = buildStudentResourceSubjectSummaries();
@@ -1748,10 +1919,11 @@ function openStudentResourceCategory(categoryKey, knownCount = null) {
   currentStudentResourceMode = categoryKey;
   currentStudentResourceModuleKey = "";
   currentStudentResourceModuleName = "";
+  currentStudentResourceDetailReturnScreen = currentStudentResourceSubjectKey ? "student-resources-media" : "";
 
-  const distinctModuleIdCount = countDistinctModuleIdsForCurrentResourceCategory(category);
+  const availableModules = buildCurrentResourceModuleSummaries(category);
 
-  if (distinctModuleIdCount > 1) {
+  if (availableModules.length > 1) {
     const title = document.getElementById("student-resource-module-title");
     if (title) {
       title.innerText = currentStudentResourceSubjectName ? `${currentStudentResourceSubjectName} - ${category.label}` : category.label;
@@ -1865,7 +2037,9 @@ function renderStudentResourceModules(category) {
   `;
 }
 
-function openStudentResourceModule(moduleKey) {
+function openStudentResourceModule(moduleKey, returnScreen = "student-resources-modules") {
+  closeStudentResourceModulePicker();
+
   const category = STUDENT_RESOURCE_CATEGORIES.find(item => item.key === currentStudentResourceMode);
 
   if (!category) {
@@ -1882,6 +2056,7 @@ function openStudentResourceModule(moduleKey) {
 
   currentStudentResourceModuleKey = selectedModule.key;
   currentStudentResourceModuleName = selectedModule.name;
+  currentStudentResourceDetailReturnScreen = returnScreen;
 
   const title = document.getElementById("student-resource-detail-title");
   if (title) {
@@ -1893,6 +2068,13 @@ function openStudentResourceModule(moduleKey) {
 }
 
 function goBackFromStudentResourceDetail() {
+  closeStudentResourceModulePicker();
+
+  if (currentStudentResourceDetailReturnScreen) {
+    showScreen(currentStudentResourceDetailReturnScreen);
+    return;
+  }
+
   if (currentStudentResourceModuleKey) {
     showScreen("student-resources-modules");
     return;
@@ -2880,13 +3062,13 @@ function renderManageStudentResultScreen(context) {
     ? `
       <div class="student-admin-action-grid two-col">
         <button type="button" onclick="registerAnotherManagedStudent()">Register Another Student</button>
-        <button type="button" onclick="showScreen('admin-home')">Exit to Dashboard</button>
+        <button type="button" class="home-text-action-btn" onclick="showScreen('admin-home')"><span class="home-text-action-btn__icon" aria-hidden="true"></span><span>Exit to Dashboard</span></button>
       </div>
     `
     : `
       <div class="student-admin-action-grid two-col">
         <button type="button" onclick="backToManagedStudentList()">Back to Student List</button>
-        <button type="button" onclick="showScreen('admin-home')">Exit to Dashboard</button>
+        <button type="button" class="home-text-action-btn" onclick="showScreen('admin-home')"><span class="home-text-action-btn__icon" aria-hidden="true"></span><span>Exit to Dashboard</span></button>
       </div>
     `;
 
@@ -4687,7 +4869,28 @@ function escapeHtml(value) {
    MANUAL REFRESH BUTTONS
 ========================= */
 
-function setManualRefreshButton(screenId, handlerName, label = "↻") {
+function getRefreshIconMarkup() {
+  return `
+    <span class="manual-refresh-btn__icon" aria-hidden="true"></span>
+    <span class="visually-hidden">Refresh</span>
+  `;
+}
+
+function getManualRefreshButtonMarkup(onclickValue) {
+  return `
+    <button
+      type="button"
+      class="small-btn manual-refresh-btn"
+      title="Refresh"
+      aria-label="Refresh"
+      onclick="${onclickValue}"
+    >
+      ${getRefreshIconMarkup()}
+    </button>
+  `;
+}
+
+function setManualRefreshButton(screenId, handlerName) {
   const screen = document.getElementById(screenId);
   if (!screen) return;
 
@@ -4702,7 +4905,7 @@ function setManualRefreshButton(screenId, handlerName, label = "↻") {
   const button = document.createElement("button");
   button.type = "button";
   button.className = "small-btn manual-refresh-btn";
-  button.innerText = label;
+  button.innerHTML = getRefreshIconMarkup();
   button.setAttribute("aria-label", "Refresh");
   button.setAttribute("title", "Refresh");
   button.setAttribute("onclick", handlerName);
@@ -4728,12 +4931,13 @@ function confirmRefreshIfUnsaved() {
 }
 
 async function runManualRefresh(button, callback) {
-  const refreshButton = button || event?.target;
-  const originalText = refreshButton ? refreshButton.innerText : "↻";
+  const refreshButton = button?.closest
+    ? button.closest(".manual-refresh-btn")
+    : button || event?.target?.closest?.(".manual-refresh-btn") || event?.target;
 
   if (refreshButton) {
     refreshButton.disabled = true;
-    refreshButton.innerText = "Updating...";
+    refreshButton.classList.add("is-refreshing");
   }
 
   try {
@@ -4741,7 +4945,7 @@ async function runManualRefresh(button, callback) {
   } finally {
     if (refreshButton) {
       refreshButton.disabled = false;
-      refreshButton.innerText = originalText;
+      refreshButton.classList.remove("is-refreshing");
     }
   }
 }
@@ -5066,7 +5270,7 @@ async function renderViewAttendanceScreen(startDate, endDate) {
   let html = `
     <div class="nav-header">
       <h2>View Attendance Records</h2>
-      <button class="small-btn manual-refresh-btn" title="Refresh" aria-label="Refresh" onclick="refreshViewAttendance(this)">↻</button>
+      ${getManualRefreshButtonMarkup("refreshViewAttendance(this)")}
       <button class="small-btn" onclick="showScreen('attendance-dashboard')">Back</button>
     </div>
 
@@ -5148,7 +5352,7 @@ async function renderAttendanceStatsScreen(startDate, endDate) {
   let html = `
     <div class="nav-header">
       <h2>Statistics</h2>
-      <button class="small-btn manual-refresh-btn" title="Refresh" aria-label="Refresh" onclick="refreshAttendanceStats(this)">↻</button>
+      ${getManualRefreshButtonMarkup("refreshAttendanceStats(this)")}
       <button class="small-btn" onclick="showScreen('attendance-dashboard')">Back</button>
     </div>
 
