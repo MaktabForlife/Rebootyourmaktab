@@ -1335,7 +1335,11 @@ body.has-bottom-nav .app-shell {
   padding: 8px 8px calc(8px + var(--bottom-nav-safe-area));
   overflow-x: auto;
   overflow-y: hidden;
+  overscroll-behavior: contain;
   overscroll-behavior-x: contain;
+  touch-action: pan-x;
+  pointer-events: auto;
+  isolation: isolate;
   -webkit-overflow-scrolling: touch;
   background: rgba(var(--white-rgb), 0.96);
   border: 1px solid rgba(var(--primary-rgb), 0.16);
@@ -1373,6 +1377,7 @@ body.has-bottom-nav .app-shell {
   font-family: var(--font-main);
   letter-spacing: 0;
   white-space: nowrap;
+  touch-action: pan-x;
 }
 
 .bottom-nav__item:active {

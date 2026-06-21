@@ -467,8 +467,13 @@ const BOTTOM_NAV_ITEMS = {
 };
 
 function getBottomNavRole() {
-  const role = state.userType || state.portalType || "";
-  return role === "admin" ? "admin" : role === "student" ? "student" : "";
+  const userType = String(state.userType || "").trim().toLowerCase();
+  const portalType = String(state.portalType || "").trim().toLowerCase();
+
+  if (userType === "admin" || portalType === "admin") return "admin";
+  if (userType === "student" || portalType === "student") return "student";
+
+  return "";
 }
 
 function getBottomNavElement() {
@@ -482,7 +487,72 @@ function getBottomNavElement() {
     document.body.appendChild(nav);
   }
 
+  installBottomNavigationGestureGuard(nav);
   return nav;
+}
+
+function installBottomNavigationGestureGuard(nav) {
+  if (!nav || nav.dataset.gestureGuard === "true") return;
+
+  nav.dataset.gestureGuard = "true";
+
+  let touchStartX = 0;
+  let touchStartY = 0;
+
+  const stopInsideBottomNav = event => {
+    event.stopPropagation();
+  };
+
+  [
+    "pointerdown",
+    "pointermove",
+    "pointerup",
+    "pointercancel",
+    "mousedown",
+    "mousemove",
+    "mouseup",
+    "click",
+    "wheel"
+  ].forEach(eventName => {
+    nav.addEventListener(eventName, stopInsideBottomNav, { passive: true });
+  });
+
+  nav.addEventListener("touchstart", event => {
+    const touch = event.touches && event.touches[0];
+
+    touchStartX = touch ? touch.clientX : 0;
+    touchStartY = touch ? touch.clientY : 0;
+
+    event.stopPropagation();
+  }, { passive: true });
+
+  nav.addEventListener("touchmove", event => {
+    const touch = event.touches && event.touches[0];
+
+    event.stopPropagation();
+
+    if (!touch) return;
+
+    const deltaX = touch.clientX - touchStartX;
+    const deltaY = touch.clientY - touchStartY;
+    const isHorizontalSwipe = Math.abs(deltaX) > Math.abs(deltaY);
+
+    if (!isHorizontalSwipe) return;
+
+    const maxScrollLeft = Math.max(0, nav.scrollWidth - nav.clientWidth);
+    const isAtLeftEdge = nav.scrollLeft <= 0;
+    const isAtRightEdge = nav.scrollLeft >= maxScrollLeft - 1;
+    const isSwipingRight = deltaX > 0;
+    const isSwipingLeft = deltaX < 0;
+
+    if (maxScrollLeft === 0 || (isAtLeftEdge && isSwipingRight) || (isAtRightEdge && isSwipingLeft)) {
+      event.preventDefault();
+    }
+  }, { passive: false });
+
+  ["touchend", "touchcancel"].forEach(eventName => {
+    nav.addEventListener(eventName, stopInsideBottomNav, { passive: true });
+  });
 }
 
 function renderBottomNavigation(role) {
