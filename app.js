@@ -3025,22 +3025,48 @@ function renderStudentMessageResult(student, context) {
   return `
     <div class="student-admin-result-card">
       <div class="student-admin-card-title">${context === "registered" ? "Student Registered" : "Student Link"}</div>
-      <div class="student-link-box">${escapeHtml(loginLink)}</div>
+
+      <div class="student-link-box student-icon-field">
+        <span class="student-link-text">${escapeHtml(loginLink)}</span>
+        <button
+          type="button"
+          class="student-copy-icon-btn"
+          onclick="copyStudentLoginLink('${escapeJsString(loginLink)}')"
+          aria-label="Copy student link"
+          title="Copy student link"
+        >
+          <img src="/icons/copy.svg" alt="" class="student-copy-icon" />
+        </button>
+      </div>
       ${assignmentLine}
 
       <label class="student-admin-label" for="${messageBoxId}">WhatsApp Message</label>
-      <textarea
-        id="${messageBoxId}"
-        class="student-message-textarea"
-        rows="11"
-      >${escapeHtml(message)}</textarea>
-      <p class="student-admin-help">You can edit this message before copying it or opening WhatsApp.</p>
-
-      <div class="student-admin-action-grid three-col">
-        <button type="button" onclick="copyStudentLoginLink('${escapeJsString(loginLink)}')">Copy Link</button>
-        <button type="button" onclick="copyStudentWelcomeMessageFromBox('${escapeJsString(messageBoxId)}', '${escapeJsString(loginLink)}')">Copy Message</button>
-        <button type="button" onclick="openStudentWhatsAppMessageFromBox('${escapeJsString(messageBoxId)}', '${escapeJsString(loginLink)}')">Open WhatsApp</button>
+      <div class="student-message-box-wrap">
+        <textarea
+          id="${messageBoxId}"
+          class="student-message-textarea student-icon-field-textarea"
+          rows="11"
+        >${escapeHtml(message)}</textarea>
+        <button
+          type="button"
+          class="student-copy-icon-btn student-message-copy-btn"
+          onclick="copyStudentWelcomeMessageFromBox('${escapeJsString(messageBoxId)}', '${escapeJsString(loginLink)}')"
+          aria-label="Copy WhatsApp message"
+          title="Copy WhatsApp message"
+        >
+          <img src="/icons/copy.svg" alt="" class="student-copy-icon" />
+        </button>
       </div>
+
+      <button
+        type="button"
+        class="student-whatsapp-icon-btn"
+        onclick="openStudentWhatsAppMessageFromBox('${escapeJsString(messageBoxId)}', '${escapeJsString(loginLink)}')"
+        aria-label="Open WhatsApp message"
+        title="Open WhatsApp message"
+      >
+        <img src="/icons/whatsapp.svg" alt="WhatsApp" class="student-whatsapp-icon" />
+      </button>
     </div>
   `;
 }

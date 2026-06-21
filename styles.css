@@ -1522,7 +1522,7 @@ button:active {
 }
 
 .attendance-perfect-list {
-  background: var(--success-bg);
+   background: transparent;
   border: 1px solid var(--success-bg);
   border-radius: 10px;
   padding: 10px;
@@ -2887,6 +2887,100 @@ body.pdf-viewer-open #pdf-viewer-screen.screen {
 .student-message-textarea:focus {
   outline: 2px solid rgba(var(--primary-rgb), 0.22);
   border-color: var(--primary);
+}
+
+/* Manage Students result icons */
+.student-icon-field {
+  position: relative;
+  padding-right: 50px;
+}
+
+.student-link-text {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.student-message-box-wrap {
+  position: relative;
+}
+
+.student-icon-field-textarea {
+  padding-right: 50px;
+}
+
+.student-copy-icon-btn,
+.student-whatsapp-icon-btn {
+  background: transparent !important;
+  border: 0;
+  box-shadow: none !important;
+  color: inherit;
+  min-height: 0;
+  padding: 0;
+}
+
+.student-copy-icon-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 34px;
+  min-width: 34px;
+  height: 34px;
+  border-radius: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.student-copy-icon-btn:active,
+.student-whatsapp-icon-btn:active {
+  transform: scale(0.96);
+}
+
+.student-copy-icon {
+  width: 22px;
+  height: 22px;
+  display: block;
+}
+
+.student-whatsapp-icon-btn {
+  width: 86px;
+  min-width: 86px;
+  height: 86px;
+  margin: 14px auto 0;
+  border-radius: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.student-whatsapp-icon {
+  width: 76px;
+  height: 76px;
+  display: block;
+}
+
+@media (max-width: 420px) {
+  .student-copy-icon-btn {
+    width: 32px;
+    min-width: 32px;
+    height: 32px;
+  }
+
+  .student-copy-icon {
+    width: 20px;
+    height: 20px;
+  }
+
+  .student-whatsapp-icon-btn {
+    width: 78px;
+    min-width: 78px;
+    height: 78px;
+  }
+
+  .student-whatsapp-icon {
+    width: 68px;
+    height: 68px;
+  }
 }
 
 /* Manage Students: scrollable full student list and prefilled edit fields */
