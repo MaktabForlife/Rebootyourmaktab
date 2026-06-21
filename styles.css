@@ -169,7 +169,7 @@ h3 {
   display: none;
 }
 
-input,
+input:not([type="radio"]):not([type="checkbox"]),
 select {
   width: 100%;
   padding: 13px;
@@ -2597,16 +2597,19 @@ body.pdf-viewer-open #pdf-viewer-screen.screen {
   margin: 10px 0;
 }
 
-.student-admin-radio-group {
+/* Reusable form choice rows: radio buttons and checkboxes */
+.student-admin-radio-group,
+.student-edit-status-radio-group {
   display: grid;
   gap: 8px;
 }
 
 .student-admin-radio-row,
+.student-edit-status-radio,
 .student-subject-check-row,
 .student-module-check-row {
   display: grid;
-  grid-template-columns: auto 1fr;
+  grid-template-columns: auto minmax(0, 1fr);
   gap: 10px;
   align-items: center;
   text-align: left;
@@ -2620,25 +2623,56 @@ body.pdf-viewer-open #pdf-viewer-screen.screen {
   cursor: pointer;
 }
 
-.student-admin-radio-row input,
-.student-subject-check-row input,
-.student-module-check-row input {
-  width: 20px;
-  height: 20px;
+.student-admin-radio-row input[type="radio"],
+.student-edit-status-radio input[type="radio"] {
+  display: inline-block;
+  appearance: none;
+  -webkit-appearance: none;
+  width: 21px;
+  height: 21px;
+  min-width: 21px;
   margin: 0;
   padding: 0;
+  border: 2px solid rgba(var(--primary-rgb), 0.45);
+  border-radius: 50%;
+  background: var(--surface-card);
+  box-shadow: inset 0 0 0 4px var(--surface-card);
   accent-color: var(--primary);
 }
 
-.student-admin-radio-row input[type="radio"] {
+.student-admin-radio-row input[type="radio"]:checked,
+.student-edit-status-radio input[type="radio"]:checked {
+  background: var(--primary);
+  border-color: var(--primary);
+}
+
+.student-subject-check-row input[type="checkbox"],
+.student-module-check-row input[type="checkbox"] {
   display: inline-block;
-  appearance: auto;
+  appearance: none;
+  -webkit-appearance: none;
+  width: 21px;
+  height: 21px;
+  min-width: 21px;
+  margin: 0;
+  padding: 0;
+  border: 2px solid rgba(var(--primary-rgb), 0.45);
+  border-radius: 6px;
+  background: var(--surface-card);
   accent-color: var(--primary);
 }
 
+.student-subject-check-row input[type="checkbox"]:checked,
+.student-module-check-row input[type="checkbox"]:checked {
+  background: var(--primary);
+  border-color: var(--primary);
+  box-shadow: inset 0 0 0 4px var(--surface-card);
+}
 
 .student-admin-radio-row:has(input:checked),
 .student-admin-radio-row.is-selected,
+.student-edit-status-radio:has(input:checked),
+.student-edit-status-radio.is-selected,
 .student-subject-check-row:has(input:checked),
 .student-module-check-row:has(input:checked) {
   color: var(--primary);
@@ -3319,17 +3353,17 @@ body.pdf-viewer-open #pdf-viewer-screen.screen {
   max-width: 100%;
 }
 
-.student-edit-field-half input,
+.student-edit-field-half input:not([type="radio"]):not([type="checkbox"]),
 .student-edit-field-half button {
   width: 100%;
   margin: 0;
 }
 
 
-/* Manage Students: active/inactive uses the shared text-only radio styling */
+/* Manage Students: Active/Inactive uses the shared radio component */
 .student-edit-status-radio-group {
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
   width: 100%;
   margin: 0;
 }
@@ -3343,7 +3377,7 @@ body.pdf-viewer-open #pdf-viewer-screen.screen {
 @media (max-width: 360px) {
   .student-edit-status-radio-group {
     grid-template-columns: 1fr;
-    gap: 4px;
+    gap: 6px;
   }
 
   .student-edit-status-radio {
