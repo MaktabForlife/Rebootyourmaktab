@@ -1,15 +1,12 @@
 :root {
-  --bg: #777;
-  --panel: #c0c0c0;
-  --soft-panel: #f5f5f5;
-  --teal: #008080;
-  --teal-dark: #008080;
-  --teal-mid: #008080;
-  --student-primary: #234569;
-  --student-dark: #234569;
+  --primary: #234569;
+  --primary-rgb: 35, 69, 105;
+  --panel: #eeeeee;
+  --soft-panel: #ffffff;
+  --greytext: #777777;
   --text: #2f2f2f;
   --white: #f5f5f5;
-  --shadow: rgba(0, 0, 0, 0.25);
+  --shadow: rgba(0, 0, 0, 0.14);
   --font-main: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-heading: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
@@ -20,7 +17,6 @@
 body {
   margin: 0;
   min-height: 100vh;
-  background: var(--bg);
   color: var(--text);
   font-family: var(--font-main);
   display: flex;
@@ -60,52 +56,57 @@ h3 {
   letter-spacing: 0.02em;
   font-weight: 700;
   margin-top: 0;
-  color: var(--teal);
-}
-
-.admin-theme {
-  background: #a8a8a8;
-}
-
-.admin-theme h2,
-.admin-theme h3 {
-  color: var(--teal-dark);
-}
-
-.student-theme {
-  background: #a8a8a8;
+  color: var(--primary);
 }
 
 
-.student-theme h1 {color: var(--student-dark);}
-.student-theme h2 {color: var(--student-dark);}
-.student-theme h3 { color: var(--student-dark);}
-
-.student-theme {
-  --teal: #234569;
-  --teal-dark: #234569;
-  --teal-mid: #234569;
+.pin-digit-row {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  margin: 10px 0 14px;
 }
 
-.student-theme .auth-box {
-  border-color: rgba(35, 69, 105, 0.35);
+.pin-digit-row .pin-digit {
+  flex: 0 1 64px;
+  width: 64px;
+  max-width: 64px;
+  min-width: 0;
+  height: 64px;
+  margin: 0;
+  padding: 0;
+  border-radius: 12px;
+  text-align: center;
+  font-size: 1.65rem;
+  font-weight: 800;
+  line-height: 1;
+  caret-color: var(--primary);
 }
 
-.student-theme input,
-.student-theme select {
-  border-color: #234569;
-  color: #234569;
+.pin-digit-row .pin-digit:focus {
+  outline: 2px solid rgba(var(--primary-rgb), 0.30);
+  outline-offset: 2px;
 }
 
-.student-theme button {
-  background: #234569;
+@media (max-width: 360px) {
+  .pin-digit-row {
+    gap: 7px;
+  }
+
+  .pin-digit-row .pin-digit {
+    flex-basis: 56px;
+    width: 56px;
+    max-width: 56px;
+    height: 56px;
+    font-size: 1.45rem;
+  }
 }
 
-.student-theme h1,
-.student-theme h2,
-.student-theme h3 {
-  color: #234569;
-}
+
 
 .app-logo {
   width: 38vw;
@@ -117,35 +118,6 @@ h3 {
   display: block;
     background-color: transparent;
 
-}
-
-
-#auth-screen.student-theme {
-  --teal: #234569;
-  --teal-dark: #234569;
-  --teal-mid: #234569;
-  --student-primary: #234569;
-  --student-dark: #234569;
-}
-
-#auth-screen.student-theme h1,
-#auth-screen.student-theme h2,
-#auth-screen.student-theme h3 {
-  color: #234569;
-}
-
-#auth-screen.student-theme button {
-  background: #234569;
-}
-
-#auth-screen.student-theme input,
-#auth-screen.student-theme select {
-  border-color: #234569;
-  color: #234569;
-}
-
-#auth-screen.student-theme .auth-box {
-  border-color: rgba(35, 69, 105, 0.35);
 }
 
 
@@ -162,53 +134,7 @@ h3 {
   border-radius: 14px;
   padding: 16px;
   margin-top: 18px;
-  border: 1px solid rgba(0, 128, 128, 0.25);
-}
-
-.pin-digit-row {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
-  margin: 10px 0 14px;
-}
-
-.pin-digit-row .pin-digit {
-  width: 100%;
-  min-width: 0;
-  aspect-ratio: 1 / 1;
-  max-height: 68px;
-  margin: 0;
-  padding: 0;
-  border-radius: 12px;
-  text-align: center;
-  font-size: 1.65rem;
-  font-weight: 800;
-  line-height: 1;
-  caret-color: var(--teal-dark);
-}
-
-.pin-digit-row .pin-digit:focus {
-  outline: 2px solid rgba(0, 128, 128, 0.28);
-  outline-offset: 2px;
-}
-
-#auth-screen.student-theme .pin-digit-row .pin-digit {
-  caret-color: #234569;
-}
-
-#auth-screen.student-theme .pin-digit-row .pin-digit:focus {
-  outline-color: rgba(35, 69, 105, 0.30);
-}
-
-@media (max-width: 360px) {
-  .pin-digit-row {
-    gap: 7px;
-  }
-
-  .pin-digit-row .pin-digit {
-    max-height: 58px;
-    font-size: 1.45rem;
-  }
+  border: 1px solid rgba(var(--primary-rgb), 0.25);
 }
 
 .hidden {
@@ -220,9 +146,9 @@ select {
   width: 100%;
   padding: 13px;
   border-radius: 10px;
-  border: 1px solid var(--teal);
+  border: 1px solid var(--primary);
   font-size: 1rem;
-  color: var(--teal-dark);
+  color: var(--primary);
   margin: 10px 0 14px;
   background: var(--white);
 }
@@ -236,7 +162,7 @@ select {
 .login-heading {
   display: block;
   margin: 8px 0 6px;
-  color: #234569;
+  color: var(--primary);
   font-size: 1.6rem;
   font-weight: 800;
 }
@@ -261,7 +187,7 @@ button {
   letter-spacing: 0.02em;
   cursor: pointer;
   color: var(--white);
-  background: var(--teal);
+  background: var(--primary);
   box-shadow: 0 4px 8px rgba(0,0,0,0.16);
   width: 100%;
   min-height: 48px;
@@ -271,12 +197,12 @@ button:active {
   transform: scale(0.97);
 }
 
-.admin-theme button {
-  background: var(--teal-dark);
+button {
+  background: var(--primary);
 }
 
-.student-theme button {
-  background: var(--student-dark);
+button {
+  background: var(--primary);
 }
 
 .small-btn {
@@ -357,13 +283,13 @@ button:active {
   border-radius: 14px;
   padding: 14px;
   text-align: left;
-  border-left: 6px solid var(--student-dark);
+  border-left: 6px solid var(--primary);
   box-shadow: 0 2px 5px rgba(0,0,0,0.08);
   margin-bottom: 10px;
 }
 
 .admin-task-card {
-  border-left-color: var(--teal-dark);
+  border-left-color: var(--primary);
 }
 
 .task-title {
@@ -411,7 +337,7 @@ button:active {
 .stat-number {
   font-size: 2rem;
   font-weight: bold;
-  color: var(--teal-dark);
+  color: var(--primary);
 }
 .subject-panel h3 {
   margin-bottom: 14px;
@@ -504,7 +430,7 @@ button:active {
 }
 
 .subject-heading {
-  background: var(--teal-dark);
+  background: var(--primary);
   color: var(--white);
   padding: 10px 12px;
   border-radius: 12px;
@@ -514,8 +440,8 @@ button:active {
   margin-top: 12px;
 }
 
-.student-theme .subject-heading {
-  background: var(--student-dark);
+.subject-heading {
+  background: var(--primary);
 }
 
 .progress-bar-wrap {
@@ -528,12 +454,12 @@ button:active {
 
 .progress-bar-fill {
   height: 100%;
-  background: var(--teal-dark);
+  background: var(--primary);
   border-radius: 999px;
 }
 
-.student-theme .progress-bar-fill {
-  background: var(--student-dark);
+.progress-bar-fill {
+  background: var(--primary);
 }
 
 .task-actions {
@@ -570,20 +496,7 @@ button:active {
 .mini-progress-number {
   font-size: 1.4rem;
   font-weight: bold;
-  color: var(--teal-dark);
-}
-
-.progress-list-button {
-  background: var(--teal);
-  color: var(--white);
-  border-radius: 16px;
-  padding: 16px;
-  margin-bottom: 10px;
-  display: grid;
-  grid-template-columns: 1fr auto;
-  align-items: center;
-  text-align: left;
-  gap: 10px;
+  color: var(--primary);
 }
 
 .progress-list-title {
@@ -601,7 +514,7 @@ button:active {
 
 .progress-pill {
   background: #e5e4e2;
-  color: var(--teal);
+  color: var(--primary);
   padding: 5px 10px;
   border-radius: 999px;
   font-size: 0.85rem;
@@ -638,7 +551,7 @@ button:active {
 }
 
 .group-heading {
-  background: var(--teal);
+  background: var(--primary);
   color: var(--white);
   padding: 10px;
   border-radius: 8px;
@@ -670,7 +583,7 @@ button:active {
 }
 
 .progress-list-button {
-  background: var(--teal);
+  background: var(--primary);
   color: var(--white);
   border-radius: 16px;
   padding: 16px;
@@ -771,7 +684,7 @@ button:active {
 }
 
 .group-heading {
-  background: var(--teal);
+  background: var(--primary);
   color: var(--white);
   padding: 10px;
   border-radius: 8px;
@@ -1028,23 +941,23 @@ button:active {
   cursor: wait;
 }
 
-/* Progress headers: stronger teal divider under the header */
+/* Progress headers: stronger primary divider under the header */
 #progress-subjects-screen .nav-header,
 #progress-tasks-screen .nav-header,
 #progress-task-students-screen .nav-header {
-  border-bottom: 3px solid var(--teal);
+  border-bottom: 3px solid var(--primary);
 }
 
-.student-theme#progress-subjects-screen .nav-header,
-.student-theme#progress-tasks-screen .nav-header,
-.student-theme#progress-task-students-screen .nav-header {
-  border-bottom-color: var(--student-dark);
+#progress-subjects-screen .nav-header,
+#progress-tasks-screen .nav-header,
+#progress-task-students-screen .nav-header {
+  border-bottom-color: var(--primary);
 }
 
-/* Thin separator used instead of thick teal group rows */
+/* Thin separator used instead of thick primary group rows */
 .group-separator-line {
   height: 3px;
-  background: var(--teal);
+  background: var(--primary);
   border-radius: 999px;
   margin: 18px 0 12px;
 }
@@ -1058,9 +971,9 @@ button:active {
 }
 
 
-/* Student Resources */
+/* Resources */
 .resource-subject-button {
-  background: var(--student-dark);
+  background: var(--primary);
   color: var(--white);
   border-radius: 16px;
   padding: 16px;
@@ -1079,7 +992,7 @@ button:active {
 
 .resource-count-pill {
   background: #e5e4e2;
-  color: var(--student-dark);
+  color: var(--primary);
   padding: 6px 10px;
   border-radius: 999px;
   font-family: var(--font-main);
@@ -1110,7 +1023,7 @@ button:active {
 }
 
 .task-resource-heading {
-  background: var(--student-dark);
+  background: var(--primary);
   color: var(--white);
   padding: 9px 11px;
   border-radius: 10px;
@@ -1122,7 +1035,7 @@ button:active {
   background: #e5e4e2;
   border-radius: 14px;
   padding: 12px;
-  border-left: 5px solid var(--student-dark);
+  border-left: 5px solid var(--primary);
 }
 
 .resource-card-main {
@@ -1136,7 +1049,7 @@ button:active {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: var(--student-dark);
+  background: var(--primary);
   color: var(--white);
   border-radius: 999px;
   padding: 5px 9px;
@@ -1178,14 +1091,14 @@ button:active {
   }
 }
 
-/* Student Resource Category Layout */
+/* Resource Category Layout */
 .resource-category-grid {
   display: grid;
   gap: 12px;
 }
 
 .resource-category-button {
-  background: var(--student-dark);
+  background: var(--primary);
   color: var(--white);
   border-radius: 16px;
   padding: 16px;
@@ -1220,7 +1133,7 @@ button:active {
 }
 
 .resource-subject-group h3 {
-  border-bottom: 2px solid var(--student-dark);
+  border-bottom: 2px solid var(--primary);
   padding-bottom: 8px;
   margin-bottom: 10px;
 }
@@ -1239,7 +1152,7 @@ button:active {
   border-radius: 12px;
   padding: 10px;
   text-align: left;
-  border-left: 5px solid var(--student-dark);
+  border-left: 5px solid var(--primary);
 }
 
 .student-resource-row-main {
@@ -1322,9 +1235,9 @@ button:active {
 }
 
 .resource-module-heading {
-  background: rgba(35, 69, 105, 0.12);
-  color: var(--student-dark);
-  border-left: 5px solid var(--student-dark);
+  background: rgba(var(--primary-rgb), 0.12);
+  color: var(--primary);
+  border-left: 5px solid var(--primary);
   border-radius: 10px;
   padding: 9px 11px;
   font-weight: bold;
@@ -1414,7 +1327,7 @@ button:active {
 }
 
 .attendance-date-label {
-  color: var(--teal-dark);
+  color: var(--primary);
   font-family: var(--font-heading);
   letter-spacing: 0.02em;
   white-space: nowrap;
@@ -1432,7 +1345,7 @@ button:active {
 }
 
 .attendance-group-heading {
-  background: var(--teal-dark);
+  background: var(--primary);
   color: var(--white);
   padding: 10px;
   border-radius: 10px;
@@ -1453,7 +1366,7 @@ button:active {
 }
 
 .attendance-student-name {
-  color: var(--teal-dark);
+  color: var(--primary);
   font-weight: bold;
   font-size: 1.05rem;
   overflow-wrap: anywhere;
@@ -1494,8 +1407,8 @@ button:active {
 
 .attendance-report-header {
   background: #e5e4e2;
-  border-bottom: 3px solid var(--teal-dark);
-  color: var(--teal-dark);
+  border-bottom: 3px solid var(--primary);
+  color: var(--primary);
   font-family: var(--font-heading);
   letter-spacing: 0.02em;
   padding: 10px 8px;
@@ -1541,7 +1454,7 @@ button:active {
 }
 
 .attendance-stat-card {
-  background: var(--teal-dark);
+  background: var(--primary);
   color: var(--white);
   border-radius: 14px;
   padding: 16px;
@@ -1639,12 +1552,11 @@ button:active {
 }
 
 
-
 /* =========================
    Final mobile cosmetic updates
 ========================= */
 
-/* Staff Dashboard: four ordered cards with alternating teal shades */
+/* Staff Dashboard: four ordered cards with alternating primary shades */
 .staff-dashboard-grid {
   display: grid;
   grid-template-columns: 1fr;
@@ -1657,14 +1569,14 @@ button:active {
 }
 
 .staff-dashboard-grid .home-card:nth-child(odd) {
-  background: var(--teal-dark);
+  background: var(--primary);
 }
 
 .staff-dashboard-grid .home-card:nth-child(even) {
   background: #66b3b3;
 }
 
-/* Student home title */
+/* Home title */
 #student-home-title {
   font-weight: bold;
   margin-bottom: 4px;
@@ -1702,7 +1614,7 @@ button:active {
 
 .attendance-date-label {
   flex: 0 0 auto;
-  color: var(--teal-dark);
+  color: var(--primary);
   font-family: var(--font-heading);
   letter-spacing: 0.02em;
   white-space: nowrap;
@@ -1725,7 +1637,7 @@ button:active {
 /* Mark Register feedback and top save */
 .attendance-absence-feedback {
   margin: 0 0 8px;
-  color: var(--teal-dark);
+  color: var(--primary);
   font-weight: bold;
   text-align: left;
   font-size: 0.95rem;
@@ -1739,14 +1651,14 @@ button:active {
   margin-top: 0;
 }
 
-/* Replace attendance group labels with thin teal separators */
+/* Replace attendance group labels with thin primary separators */
 .attendance-group-heading {
   display: none;
 }
 
 .attendance-group-line {
   height: 2px;
-  background: var(--teal-dark);
+  background: var(--primary);
   border-radius: 999px;
   margin: 10px 0 6px;
 }
@@ -1858,7 +1770,7 @@ button:active {
 }
 
 
-/* Student Progress task resource links */
+/* Progress task resource links */
 .student-task-link-row {
   display: flex;
   flex-wrap: wrap;
@@ -1878,7 +1790,7 @@ button:active {
   font-weight: bold;
   letter-spacing: 0;
   line-height: 1;
-  background: var(--student-dark);
+  background: var(--primary);
   color: var(--white);
   box-shadow: 0 2px 5px rgba(0,0,0,0.18);
 }
@@ -1953,7 +1865,6 @@ button:active {
 }
 
 
-
 /* Final progress/module refinements */
 .manual-refresh-btn {
   width: 48px;
@@ -1970,21 +1881,21 @@ button:active {
   justify-content: center;
 }
 
-.admin-theme .task-resource-heading,
-.admin-theme .subject-heading-thin {
-  background: var(--teal-dark);
+.task-resource-heading,
+.subject-heading-thin {
+  background: var(--primary);
   color: var(--white);
 }
 
 .group-separator-line {
   height: 8px;
-  background: var(--teal-dark);
+  background: var(--primary);
   border-radius: 999px;
   margin: 18px 0 14px;
 }
 
-.student-theme .group-separator-line {
-  background: var(--student-dark);
+.group-separator-line {
+  background: var(--primary);
 }
 
 @media (max-width: 520px) {
@@ -1999,7 +1910,7 @@ button:active {
   }
 }
 
-/* Student Resources: subject drill-down screen */
+/* Resources: subject drill-down screen */
 .resource-subject-button-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -2015,12 +1926,12 @@ button:active {
   align-items: center;
   justify-content: center;
   text-align: center;
-  background: var(--student-dark);
+  background: var(--primary);
   color: var(--white);
 }
 
-.admin-theme .resource-subject-drill-button {
-  background: var(--teal-dark);
+.resource-subject-drill-button {
+  background: var(--primary);
 }
 
 .resource-subject-button-title {
@@ -2047,40 +1958,40 @@ button:active {
 }
 
 
-/* Student Resources: module drill-down screen uses the same two-column button layout as subjects */
+/* Resources: module drill-down screen uses the same two-column button layout as subjects */
 #student-resources-modules .resource-subject-button-grid {
   margin-top: 12px;
 }
 
-/* Shared Resources: admin view uses teal instead of student blue */
-.admin-theme .resource-category-button,
-.admin-theme .resource-subject-drill-button,
-.admin-theme .resource-arrow-btn,
-.admin-theme .resource-type-badge {
-  background: var(--teal-dark);
+/* Shared resource colours */
+.resource-category-button,
+.resource-subject-drill-button,
+.resource-arrow-btn,
+.resource-type-badge {
+  background: var(--primary);
 }
 
-.admin-theme .student-resource-row,
-.admin-theme .resource-card {
-  border-left-color: var(--teal-dark);
+.student-resource-row,
+.resource-card {
+  border-left-color: var(--primary);
 }
 
-.admin-theme .student-resource-title {
-  color: var(--teal-dark);
+.student-resource-title {
+  color: var(--primary);
 }
 
-.admin-theme .resource-subject-group h3 {
-  border-bottom-color: var(--teal-dark);
+.resource-subject-group h3 {
+  border-bottom-color: var(--primary);
 }
 
-.admin-theme .resource-module-heading {
-  background: rgba(0, 128, 128, 0.12);
-  color: var(--teal-dark);
-  border-left-color: var(--teal-dark);
+.resource-module-heading {
+  background: rgba(var(--primary-rgb), 0.12);
+  color: var(--primary);
+  border-left-color: var(--primary);
 }
 
-.admin-theme .resource-count-pill {
-  color: var(--teal-dark);
+.resource-count-pill {
+  color: var(--primary);
 }
 
 /* Splash Screen */
@@ -2135,7 +2046,6 @@ button:active {
 .resource-subject-group .resource-module-block {
   margin-top: 6px;
 }
-
 
 
 /* Hide subject heading inside resource result pages */
@@ -2193,7 +2103,7 @@ button:active {
   padding: 10px 14px;
   border-radius: 14px;
   font-size: 0.9rem;
-  box-shadow: 0 8px 16px rgba(0, 128, 128, 0.22);
+  box-shadow: 0 8px 16px rgba(var(--primary-rgb), 0.22);
 }
 
 .attendance-register-sticky {
@@ -2206,14 +2116,13 @@ button:active {
 }
 
 
-
 .attendance-summary-card {
   display: grid;
   grid-template-columns: 1fr 1px 1fr;
   align-items: stretch;
   gap: 12px;
   background: #ffffff;
-  border: 1px solid rgba(0, 128, 128, 0.12);
+  border: 1px solid rgba(var(--primary-rgb), 0.12);
   border-radius: 18px;
   padding: 14px;
   box-shadow: 0 10px 22px rgba(0, 0, 0, 0.08);
@@ -2235,8 +2144,8 @@ button:active {
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  background: rgba(0, 128, 128, 0.10);
-  color: var(--teal-dark);
+  background: rgba(var(--primary-rgb), 0.10);
+  color: var(--primary);
   font-size: 1.25rem;
 }
 
@@ -2262,7 +2171,7 @@ button:active {
   border: 0;
   border-radius: 0;
   background: transparent;
-  color: var(--teal-dark);
+  color: var(--primary);
   font-size: 1.02rem;
   font-weight: 800;
   text-align: left;
@@ -2276,7 +2185,7 @@ button:active {
 
 .attendance-summary-card .attendance-absence-feedback {
   margin: 0;
-  color: var(--teal-dark);
+  color: var(--primary);
   font-size: 1.02rem;
   line-height: 1.1;
   text-align: left;
@@ -2294,8 +2203,8 @@ button:active {
   gap: 10px;
   margin: 10px -14px 14px;
   padding: 11px 16px;
-  background: linear-gradient(90deg, rgba(0, 128, 128, 0.16), rgba(0, 128, 128, 0.04));
-  color: var(--teal-dark);
+  background: linear-gradient(90deg, rgba(var(--primary-rgb), 0.16), rgba(var(--primary-rgb), 0.04));
+  color: var(--primary);
   font-weight: 800;
   font-size: 1.08rem;
   text-align: left;
@@ -2309,13 +2218,13 @@ button:active {
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  background: rgba(0, 128, 128, 0.13);
+  background: rgba(var(--primary-rgb), 0.13);
   font-size: 1rem;
 }
 
 #attendance-register-screen .attendance-group-line {
   height: 7px;
-  background: linear-gradient(90deg, rgba(0, 128, 128, 0.95), rgba(0, 128, 128, 0.50));
+  background: linear-gradient(90deg, rgba(var(--primary-rgb), 0.95), rgba(var(--primary-rgb), 0.50));
   border-radius: 999px;
   margin: 16px 3px 12px;
 }
@@ -2331,8 +2240,8 @@ button:active {
   gap: 12px;
   padding: 13px 14px;
   margin-bottom: 10px;
-  border: 1px solid rgba(0, 128, 128, 0.08);
-  border-bottom: 1px solid rgba(0, 128, 128, 0.08);
+  border: 1px solid rgba(var(--primary-rgb), 0.08);
+  border-bottom: 1px solid rgba(var(--primary-rgb), 0.08);
   border-radius: 17px;
   background: #ffffff;
   box-shadow: 0 5px 14px rgba(0, 0, 0, 0.06);
@@ -2353,8 +2262,8 @@ button:active {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 128, 128, 0.10);
-  color: var(--teal-dark);
+  background: rgba(var(--primary-rgb), 0.10);
+  color: var(--primary);
   font-weight: 900;
   letter-spacing: 0.02em;
 }
@@ -2613,7 +2522,7 @@ body.pdf-viewer-open #pdf-viewer-screen.screen {
   grid-template-columns: 1fr 1fr;
   gap: 8px;
   background: #ffffff;
-  border: 1px solid rgba(0, 128, 128, 0.12);
+  border: 1px solid rgba(var(--primary-rgb), 0.12);
   border-radius: 18px;
   padding: 8px;
   box-shadow: 0 8px 18px rgba(0, 0, 0, 0.07);
@@ -2629,14 +2538,14 @@ body.pdf-viewer-open #pdf-viewer-screen.screen {
 }
 
 .student-admin-mode-btn.is-active {
-  background: var(--teal-dark);
+  background: var(--primary);
   color: var(--white);
 }
 
 .student-admin-card,
 .student-admin-result-card {
   background: #ffffff;
-  border: 1px solid rgba(0, 128, 128, 0.12);
+  border: 1px solid rgba(var(--primary-rgb), 0.12);
   border-radius: 18px;
   padding: 15px;
   margin-bottom: 14px;
@@ -2645,7 +2554,7 @@ body.pdf-viewer-open #pdf-viewer-screen.screen {
 }
 
 .student-admin-card-title {
-  color: var(--teal-dark);
+  color: var(--primary);
   font-weight: 900;
   font-size: 1.08rem;
   margin-bottom: 12px;
@@ -2673,7 +2582,7 @@ body.pdf-viewer-open #pdf-viewer-screen.screen {
 }
 
 .student-admin-feedback {
-  color: var(--teal-dark);
+  color: var(--primary);
   font-weight: 800;
   min-height: 20px;
   margin: 10px 0;
@@ -2698,7 +2607,7 @@ body.pdf-viewer-open #pdf-viewer-screen.screen {
   width: 20px;
   height: 20px;
   margin: 0;
-  accent-color: var(--teal-dark);
+  accent-color: var(--primary);
 }
 
 .student-assignment-options {
@@ -2707,8 +2616,8 @@ body.pdf-viewer-open #pdf-viewer-screen.screen {
 
 .student-assignment-subject-card {
   background: #f7fafa;
-  border: 1px solid rgba(0, 128, 128, 0.12);
-  border-left: 6px solid var(--teal-dark);
+  border: 1px solid rgba(var(--primary-rgb), 0.12);
+  border-left: 6px solid var(--primary);
   border-radius: 16px;
   padding: 12px;
   margin-bottom: 10px;
@@ -2732,7 +2641,7 @@ body.pdf-viewer-open #pdf-viewer-screen.screen {
   padding: 9px;
   margin: 0;
   font-size: 0.94rem;
-  border: 1px solid rgba(0, 128, 128, 0.08);
+  border: 1px solid rgba(var(--primary-rgb), 0.08);
 }
 
 .student-module-check-row small {
@@ -2765,7 +2674,7 @@ body.pdf-viewer-open #pdf-viewer-screen.screen {
   font-size: 0.9rem;
   font-weight: 800;
   overflow-wrap: anywhere;
-  border-left: 5px solid var(--teal-dark);
+  border-left: 5px solid var(--primary);
 }
 
 .student-message-preview {
@@ -2773,11 +2682,11 @@ body.pdf-viewer-open #pdf-viewer-screen.screen {
   background: #f7fafa;
   border-radius: 14px;
   padding: 10px;
-  border: 1px solid rgba(0, 128, 128, 0.10);
+  border: 1px solid rgba(var(--primary-rgb), 0.10);
 }
 
 .student-message-preview summary {
-  color: var(--teal-dark);
+  color: var(--primary);
   font-weight: 900;
   cursor: pointer;
 }
@@ -2807,7 +2716,7 @@ body.pdf-viewer-open #pdf-viewer-screen.screen {
   background: #ffffff;
   color: #14313a;
   text-align: left;
-  border: 1px solid rgba(0, 128, 128, 0.12);
+  border: 1px solid rgba(var(--primary-rgb), 0.12);
   border-radius: 17px;
   padding: 12px;
   box-shadow: 0 5px 14px rgba(0, 0, 0, 0.06);
@@ -2956,7 +2865,7 @@ body.pdf-viewer-open #pdf-viewer-screen.screen {
   resize: vertical;
   margin: 8px 0 6px;
   padding: 12px;
-  border: 1px solid rgba(0, 128, 128, 0.25);
+  border: 1px solid rgba(var(--primary-rgb), 0.25);
   border-radius: 14px;
   background: #f7fafa;
   color: #14313a;
@@ -2967,8 +2876,8 @@ body.pdf-viewer-open #pdf-viewer-screen.screen {
 }
 
 .student-message-textarea:focus {
-  outline: 2px solid rgba(0, 128, 128, 0.22);
-  border-color: var(--teal-dark);
+  outline: 2px solid rgba(var(--primary-rgb), 0.22);
+  border-color: var(--primary);
 }
 
 /* Manage Students: scrollable full student list and prefilled edit fields */
@@ -2994,9 +2903,9 @@ body.pdf-viewer-open #pdf-viewer-screen.screen {
   position: sticky;
   top: 0;
   z-index: 2;
-  background: linear-gradient(90deg, rgba(0, 128, 128, 0.16), rgba(0, 128, 128, 0.04));
-  color: var(--teal-dark);
-  border-left: 6px solid var(--teal-dark);
+  background: linear-gradient(90deg, rgba(var(--primary-rgb), 0.16), rgba(var(--primary-rgb), 0.04));
+  color: var(--primary);
+  border-left: 6px solid var(--primary);
   border-radius: 12px;
   padding: 9px 12px;
   margin: 8px 0 2px;
@@ -3011,15 +2920,15 @@ body.pdf-viewer-open #pdf-viewer-screen.screen {
 .student-prefilled-input {
   color: #777;
   background: #f2f3f3;
-  border-color: rgba(0, 128, 128, 0.22);
+  border-color: rgba(var(--primary-rgb), 0.22);
   font-weight: 650;
 }
 
 .student-prefilled-input:focus {
   color: #14313a;
   background: #ffffff;
-  outline: 2px solid rgba(0, 128, 128, 0.18);
-  border-color: var(--teal-dark);
+  outline: 2px solid rgba(var(--primary-rgb), 0.18);
+  border-color: var(--primary);
 }
 
 @media (max-width: 520px) {
@@ -3111,9 +3020,9 @@ body.pdf-viewer-open #pdf-viewer-screen.screen {
   top: 0;
   z-index: 2;
   background: #e5e4e2;
-  color: var(--teal-dark);
+  color: var(--primary);
   border-left: 0;
-  border-bottom: 3px solid var(--teal-dark);
+  border-bottom: 3px solid var(--primary);
   border-radius: 0;
   padding: 8px 6px;
   margin: 10px 0 4px;
@@ -3122,7 +3031,7 @@ body.pdf-viewer-open #pdf-viewer-screen.screen {
 
 .compact-selected-student-heading {
   background: #f2f3f3;
-  border-left: 5px solid var(--teal-dark);
+  border-left: 5px solid var(--primary);
 }
 
 .compact-selected-student-heading strong {
@@ -3174,7 +3083,7 @@ body.pdf-viewer-open #pdf-viewer-screen.screen {
 
 .managed-student-group-separator {
   height: 8px;
-  background: var(--teal-dark);
+  background: var(--primary);
   border-radius: 999px;
   margin: 12px 0 7px;
 }
@@ -3208,8 +3117,8 @@ body.pdf-viewer-open #pdf-viewer-screen.screen {
 .student-active-toggle.is-active,
 .student-active-toggle.is-inactive {
   background: #e5e4e2;
-  color: var(--teal-dark);
-  border: 1px solid rgba(0, 128, 128, 0.22);
+  color: var(--primary);
+  border: 1px solid rgba(var(--primary-rgb), 0.22);
   box-shadow: none;
 }
 
@@ -3217,8 +3126,8 @@ body.pdf-viewer-open #pdf-viewer-screen.screen {
   width: 100%;
   margin: 8px 0 14px;
   background: #e5e4e2;
-  color: var(--teal-dark);
-  border: 1px solid rgba(0, 128, 128, 0.22);
+  color: var(--primary);
+  border: 1px solid rgba(var(--primary-rgb), 0.22);
   box-shadow: none;
 }
 
@@ -3290,8 +3199,8 @@ body.pdf-viewer-open #pdf-viewer-screen.screen {
   width: 100%;
   min-height: 48px;
   background: #e5e4e2;
-  color: var(--teal-dark) !important;
-  border: 1px solid rgba(0, 128, 128, 0.22);
+  color: var(--primary) !important;
+  border: 1px solid rgba(var(--primary-rgb), 0.22);
   font-weight: 900;
   line-height: 1.2;
   text-align: center;
@@ -3299,7 +3208,7 @@ body.pdf-viewer-open #pdf-viewer-screen.screen {
 }
 
 #manage-student-edit-screen .student-reset-pin-text {
-  color: var(--teal-dark) !important;
+  color: var(--primary) !important;
   display: inline-block;
 }
 
@@ -3314,47 +3223,3 @@ body.pdf-viewer-open #pdf-viewer-screen.screen {
   }
 }
 
-/* =========================
-   PIN boxes row fix
-   Keeps Create PIN and Login PIN as four boxes in one row
-========================= */
-.pin-digit-row {
-  display: flex !important;
-  flex-direction: row !important;
-  flex-wrap: nowrap !important;
-  align-items: center !important;
-  justify-content: center !important;
-  gap: 10px !important;
-  width: 100% !important;
-  margin: 10px 0 14px !important;
-}
-
-.pin-digit-row .pin-digit {
-  flex: 0 1 64px !important;
-  width: 64px !important;
-  max-width: 64px !important;
-  min-width: 0 !important;
-  height: 64px !important;
-  aspect-ratio: auto !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  border-radius: 12px !important;
-  text-align: center !important;
-  font-size: 1.65rem !important;
-  font-weight: 800 !important;
-  line-height: 1 !important;
-}
-
-@media (max-width: 360px) {
-  .pin-digit-row {
-    gap: 7px !important;
-  }
-
-  .pin-digit-row .pin-digit {
-    flex-basis: 56px !important;
-    width: 56px !important;
-    max-width: 56px !important;
-    height: 56px !important;
-    font-size: 1.45rem !important;
-  }
-}
