@@ -1,12 +1,40 @@
 :root {
+  /* Brand */
   --primary: #234569;
   --primary-rgb: 35, 69, 105;
-  --panel: #eeeeee;
-  --soft-panel: #ffffff;
-  --greytext: #777777;
+
+  /* Surfaces */
+  --surface-app: #eeeeee;
+  --surface-card: #ffffff;
+  --surface-soft: #f5f5f5;
+  --surface-chip: #e5e4e2;
+  --surface-tint: #f7fafa;
+  --surface-track: #dddddd;
+  --surface-dark: #696969;
+  --surface-video: #111111;
+
+  /* Text */
   --text: #2f2f2f;
-  --white: #f5f5f5;
-  --shadow: rgba(0, 0, 0, 0.14);
+  --text-strong: #222222;
+  --text-muted: #555555;
+  --text-subtle: #666666;
+  --text-inverse: #f5f5f5;
+
+  /* Status */
+  --success: #16821f;
+  --success-bg: #eaf8ed;
+  --danger: #c01832;
+  --danger-bg: #fff0f1;
+  --error: #8b0000;
+  --complete: #32cd32;
+  --verified: #ffd700;
+  --disabled: #d3d3d3;
+
+  /* Utility */
+  --black-rgb: 0, 0, 0;
+  --white-rgb: 255, 255, 255;
+  --shadow: rgba(var(--black-rgb), 0.14);
+
   --font-main: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-heading: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
@@ -38,7 +66,7 @@ body {
 .screen {
   display: none;
   width: 100%;
-  background: var(--panel);
+  background: var(--surface-app);
   border-radius: 18px;
   box-shadow: 0 8px 18px var(--shadow);
   padding: 18px;
@@ -124,13 +152,13 @@ h3 {
 .subtitle,
 .helper-text,
 .mini-text {
-  color: #444;
+  color: var(--text-muted);
   font-size: 0.95rem;
   line-height: 1.4;
 }
 
 .auth-box {
-  background: var(--soft-panel);
+  background: var(--surface-card);
   border-radius: 14px;
   padding: 16px;
   margin-top: 18px;
@@ -150,7 +178,7 @@ select {
   font-size: 1rem;
   color: var(--primary);
   margin: 10px 0 14px;
-  background: var(--white);
+  background: var(--surface-soft);
 }
 
 #modify-subject-select {
@@ -170,7 +198,7 @@ select {
 .login-welcome {
   display: block;
   margin: 0 0 12px;
-  color: #444;
+  color: var(--text-muted);
   font-size: 1.1rem;
   font-weight: 600;
   line-height: 1.35;
@@ -186,9 +214,9 @@ button {
   font-weight: 700;
   letter-spacing: 0.02em;
   cursor: pointer;
-  color: var(--white);
+  color: var(--text-inverse);
   background: var(--primary);
-  box-shadow: 0 4px 8px rgba(0,0,0,0.16);
+  box-shadow: 0 4px 8px rgba(var(--black-rgb), 0.16);
   width: 100%;
   min-height: 48px;
 }
@@ -197,13 +225,6 @@ button:active {
   transform: scale(0.97);
 }
 
-button {
-  background: var(--primary);
-}
-
-button {
-  background: var(--primary);
-}
 
 .small-btn {
   width: auto;
@@ -219,7 +240,7 @@ button {
   align-items: center;
   gap: 12px;
   text-align: left;
-  border-bottom: 2px solid rgba(0, 0, 0, 0.18);
+  border-bottom: 2px solid rgba(var(--black-rgb), 0.18);
   padding-bottom: 12px;
   margin-bottom: 18px;
 }
@@ -243,11 +264,11 @@ button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255,255,255,0.2);
+  background: rgba(var(--white-rgb), 0.2);
   border-radius: 50%;
   width: 36px;
   height: 36px;
-  color: white;
+  color: var(--text-inverse);
   font-family: var(--font-main);
   font-weight: bold;
 }
@@ -271,7 +292,7 @@ button {
 }
 
 .dashboard-section {
-  background: var(--soft-panel);
+  background: var(--surface-card);
   border-radius: 14px;
   padding: 14px;
   margin-bottom: 14px;
@@ -279,12 +300,12 @@ button {
 }
 
 .task-card {
-  background: #f5f5f5;
+   background: var(--surface-soft);
   border-radius: 14px;
   padding: 14px;
   text-align: left;
   border-left: 6px solid var(--primary);
-  box-shadow: 0 2px 5px rgba(0,0,0,0.08);
+  box-shadow: 0 2px 5px rgba(var(--black-rgb), 0.08);
   margin-bottom: 10px;
 }
 
@@ -294,13 +315,13 @@ button {
 
 .task-title {
   font-weight: bold;
-  color: #222;
+  color: var(--text);
   margin-bottom: 5px;
 }
 
 .task-meta {
   font-size: 0.85rem;
-  color: #555;
+  color: var(--text-muted);
 }
 
 
@@ -311,12 +332,12 @@ button {
   padding: 6px 9px;
   border-radius: 999px;
   font-size: 0.8rem;
-  background: #e5e4e2;
-  color: #222;
+  background: var(--surface-chip);
+  color: var(--text-strong);
 }
 
 .error-message {
-  color: #8b0000;
+  color: var(--error);
   font-weight: bold;
   min-height: 20px;
 }
@@ -328,7 +349,7 @@ button {
 }
 
 .stat-card {
-  background: var(--soft-panel);
+  background: var(--surface-card);
   border-radius: 14px;
   padding: 14px;
   text-align: center;
@@ -366,8 +387,8 @@ button {
 }
 
 .pending-subject-chip {
-  background: #e5e4e2;
-  color: #333;
+  background: var(--surface-chip);
+  color: var(--text);
   border-radius: 999px;
   padding: 8px 12px;
   margin: 6px 0;
@@ -402,8 +423,8 @@ button {
 }
 
 .status-display {
-  background: #e5e4e2;
-  color: #333;
+  background: var(--surface-chip);
+  color: var(--text);
   border-radius: 12px;
   padding: 12px;
   font-weight: bold;
@@ -431,7 +452,7 @@ button {
 
 .subject-heading {
   background: var(--primary);
-  color: var(--white);
+  color: var(--text-inverse);
   padding: 10px 12px;
   border-radius: 12px;
   font-family: var(--font-heading);
@@ -440,12 +461,9 @@ button {
   margin-top: 12px;
 }
 
-.subject-heading {
-  background: var(--primary);
-}
 
 .progress-bar-wrap {
-  background: #ddd;
+  background: var(--surface-track);
   height: 10px;
   border-radius: 999px;
   overflow: hidden;
@@ -458,9 +476,6 @@ button {
   border-radius: 999px;
 }
 
-.progress-bar-fill {
-  background: var(--primary);
-}
 
 .task-actions {
   display: grid;
@@ -487,7 +502,7 @@ button {
 }
 
 .mini-progress-box {
-  background: #e5e4e2;
+  background: var(--surface-chip);
   border-radius: 12px;
   padding: 10px;
   text-align: center;
@@ -513,7 +528,7 @@ button {
 }
 
 .progress-pill {
-  background: #e5e4e2;
+  background: var(--surface-chip);
   color: var(--primary);
   padding: 5px 10px;
   border-radius: 999px;
@@ -522,8 +537,8 @@ button {
 }
 
 .student-status-row {
-  background: #696969;
-  color: var(--white);
+  background: var(--surface-dark);
+  color: var(--text-inverse);
   border-radius: 8px;
   padding: 12px;
   display: grid;
@@ -540,7 +555,7 @@ button {
 
 .status-action {
   text-align: center;
-  color: #C0C0C0 ;
+  color: var(--disabled) ;
   cursor: pointer;
   font-size: 0.85rem;
 }
@@ -552,7 +567,7 @@ button {
 
 .group-heading {
   background: var(--primary);
-  color: var(--white);
+  color: var(--text-inverse);
   padding: 10px;
   border-radius: 8px;
   text-align: center;
@@ -584,7 +599,7 @@ button {
 
 .progress-list-button {
   background: var(--primary);
-  color: var(--white);
+  color: var(--text-inverse);
   border-radius: 16px;
   padding: 16px;
   margin-bottom: 10px;
@@ -616,7 +631,7 @@ button {
 .progress-bar-label {
   width: 68px;
   font-size: 0.78rem;
-  color: var(--white);
+  color: var(--text-inverse);
   opacity: 0.95;
   text-align: right;
 }
@@ -624,8 +639,8 @@ button {
 .progress-track {
   flex: 1;
   height: 14px;
-  background: silver;
-  border: 1px solid rgba(255,255,255,0.85);
+  background: var(--surface-track);
+  border: 1px solid rgba(var(--white-rgb), 0.85);
   border-radius: 999px;
   overflow: hidden;
 }
@@ -636,16 +651,16 @@ button {
 }
 
 .progress-fill-complete {
-  background: limegreen;
+  background: var(--complete);
 }
 
 .progress-fill-verified {
-  background: gold;
+  background: var(--verified);
 }
 
 .student-status-row {
-  background: #696969;
-  color: var(--white);
+  background: var(--surface-dark);
+  color: var(--text-inverse);
   border-radius: 8px;
   padding: 12px;
   display: grid;
@@ -676,16 +691,16 @@ button {
 }
 
 .status-tick-complete {
-  color: limegreen;
+  color: var(--complete);
 }
 
 .status-tick-verified {
-  color: gold;
+  color: var(--verified);
 }
 
 .group-heading {
   background: var(--primary);
-  color: var(--white);
+  color: var(--text-inverse);
   padding: 10px;
   border-radius: 8px;
   text-align: center;
@@ -758,19 +773,19 @@ button {
 
 .progress-drill-button {
   width: 100%;
-  border: 1px solid rgba(192, 192, 192, 0.45);
-  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(var(--black-rgb), 0.45);
+  background: rgba(var(--white-rgb), 0.06);
   border-radius: 18px;
   padding: 16px;
   text-align: left;
   cursor: pointer;
   color: inherit;
-  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 8px 22px rgba(var(--black-rgb), 0.12);
 }
 
 .progress-drill-button:hover {
   transform: translateY(-1px);
-  border-color: rgba(255, 255, 255, 0.45);
+  border-color: rgba(var(--white-rgb), 0.45);
 }
 
 .progress-button-title {
@@ -802,7 +817,7 @@ button {
   height: 9px;
   overflow: hidden;
   border-radius: 999px;
-  background: silver;
+  background: var(--surface-track);
 }
 
 .progress-fill {
@@ -812,11 +827,11 @@ button {
 }
 
 .progress-fill-complete {
-  background: limegreen;
+  background: var(--complete);
 }
 
 .progress-fill-verified {
-  background: gold;
+  background: var(--verified);
 }
 
 .progress-header-row {
@@ -847,9 +862,9 @@ button {
   align-items: center;
   gap: 10px;
   padding: 12px;
-  border: 1px solid rgba(192, 192, 192, 0.35);
+  border: 1px solid rgba(var(--black-rgb), 0.35);
   border-radius: 16px;
-  background: rgba(255, 255, 255, 0.045);
+  background: rgba(var(--white-rgb), 0.045);
 }
 
 .progress-student-name {
@@ -863,22 +878,22 @@ button {
   font-size: 0.82rem;
   font-weight: 700;
   cursor: pointer;
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(var(--white-rgb), 0.06);
 }
 
 .status-toggle.is-complete {
-  color: limegreen;
-  border-color: rgba(50, 205, 50, 0.45);
+  color: var(--complete);
+  border-color: var(--complete);
 }
 
 .status-toggle.is-verified {
-  color: gold;
-  border-color: rgba(255, 215, 0, 0.5);
+  color: var(--verified);
+  border-color: var(--verified);
 }
 
 .status-toggle.is-off {
-  color: lightgrey;
-  border-color: rgba(211, 211, 211, 0.25);
+  color: var(--disabled);
+  border-color: var(--disabled);
 }
 
 .save-progress-button {
@@ -974,7 +989,7 @@ button {
 /* Resources */
 .resource-subject-button {
   background: var(--primary);
-  color: var(--white);
+  color: var(--text-inverse);
   border-radius: 16px;
   padding: 16px;
   display: grid;
@@ -991,7 +1006,7 @@ button {
 }
 
 .resource-count-pill {
-  background: #e5e4e2;
+  background: var(--surface-chip);
   color: var(--primary);
   padding: 6px 10px;
   border-radius: 999px;
@@ -1002,7 +1017,7 @@ button {
 }
 
 .resource-section {
-  background: var(--soft-panel);
+  background: var(--surface-card);
   border-radius: 14px;
   padding: 14px;
   margin-bottom: 14px;
@@ -1024,7 +1039,7 @@ button {
 
 .task-resource-heading {
   background: var(--primary);
-  color: var(--white);
+  color: var(--text-inverse);
   padding: 9px 11px;
   border-radius: 10px;
   font-weight: bold;
@@ -1032,7 +1047,7 @@ button {
 }
 
 .resource-card {
-  background: #e5e4e2;
+  background: var(--surface-chip);
   border-radius: 14px;
   padding: 12px;
   border-left: 5px solid var(--primary);
@@ -1050,7 +1065,7 @@ button {
   align-items: center;
   justify-content: center;
   background: var(--primary);
-  color: var(--white);
+  color: var(--text-inverse);
   border-radius: 999px;
   padding: 5px 9px;
   font-size: 0.72rem;
@@ -1060,7 +1075,7 @@ button {
 
 .resource-name {
   font-weight: bold;
-  color: #222;
+  color: var(--text-strong);
   line-height: 1.25;
 }
 
@@ -1099,7 +1114,7 @@ button {
 
 .resource-category-button {
   background: var(--primary);
-  color: var(--white);
+  color: var(--text-inverse);
   border-radius: 16px;
   padding: 16px;
   display: grid;
@@ -1148,7 +1163,7 @@ button {
   grid-template-columns: 1fr 44px;
   gap: 10px;
   align-items: center;
-  background: #e5e4e2;
+  background: var(--surface-chip);
   border-radius: 12px;
   padding: 10px;
   text-align: left;
@@ -1161,7 +1176,7 @@ button {
 
 .student-resource-title {
   font-weight: bold;
-  color: #1f3f60;
+  color: var(--primary);
   line-height: 1.25;
   overflow-wrap: anywhere;
 }
@@ -1171,7 +1186,7 @@ button {
   align-items: center;
   gap: 8px;
   margin-top: 6px;
-  color: #555;
+  color: var(--text-muted);
   font-size: 0.82rem;
 }
 
@@ -1256,7 +1271,7 @@ button {
   display: block;
   margin-top: 8px;
   border-radius: 10px;
-  background: #111;
+  background: var(--surface-video);
 }
 
 .resource-format-text {
@@ -1289,11 +1304,11 @@ button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.18);
+  background: rgba(var(--white-rgb), 0.18);
   border-radius: 50%;
   width: 54px;
   height: 54px;
-  color: white;
+  color: var(--text-inverse);
   font-family: var(--font-main);
   font-weight: bold;
   font-size: 1.5rem;
@@ -1334,7 +1349,7 @@ button {
 }
 
 .attendance-filter-box {
-  background: var(--soft-panel);
+  background: var(--surface-card);
   border-radius: 14px;
   padding: 14px;
   margin-bottom: 16px;
@@ -1346,7 +1361,7 @@ button {
 
 .attendance-group-heading {
   background: var(--primary);
-  color: var(--white);
+  color: var(--text-inverse);
   padding: 10px;
   border-radius: 10px;
   text-align: center;
@@ -1361,7 +1376,7 @@ button {
   align-items: center;
   gap: 12px;
   padding: 14px 0;
-  border-bottom: 2px solid #e5e4e2;
+  border-bottom: 2px solid var(--surface-chip);
   text-align: left;
 }
 
@@ -1384,13 +1399,13 @@ button {
 }
 
 .attendance-toggle.is-present {
-  background: #e8f5e9;
-  color: forestgreen;
+  background: var(--success-bg);
+  color: var(--success);
 }
 
 .attendance-toggle.is-absent {
-  background: #ffebee;
-  color: crimson;
+  background: var(--danger-bg);
+  color: var(--danger);
 }
 
 .attendance-save-btn {
@@ -1406,7 +1421,7 @@ button {
 }
 
 .attendance-report-header {
-  background: #e5e4e2;
+  background: var(--surface-chip);
   border-bottom: 3px solid var(--primary);
   color: var(--primary);
   font-family: var(--font-heading);
@@ -1416,8 +1431,8 @@ button {
 }
 
 .attendance-report-row {
-  background: #777;
-  color: var(--white);
+  background: var(--surface-dark);
+  color: var(--text-inverse);
   border-radius: 8px;
   padding: 12px 10px;
   margin-top: 5px;
@@ -1434,8 +1449,8 @@ button {
 
 .attendance-absent-dates {
   display: none;
-  background: #696969;
-  color: #f5f5f5;
+  background: var(--surface-dark);
+  color: var(--text-inverse);
   border-radius: 0 0 8px 8px;
   padding: 10px;
   font-size: 0.9rem;
@@ -1455,7 +1470,7 @@ button {
 
 .attendance-stat-card {
   background: var(--primary);
-  color: var(--white);
+  color: var(--text-inverse);
   border-radius: 14px;
   padding: 16px;
   text-align: center;
@@ -1474,7 +1489,7 @@ button {
 }
 
 .attendance-breakdown-card {
-  background: var(--soft-panel);
+  background: var(--surface-card);
   border-radius: 14px;
   padding: 14px;
   margin-bottom: 16px;
@@ -1489,26 +1504,26 @@ button {
   display: flex;
   justify-content: space-between;
   font-weight: bold;
-  color: #424242;
+  color: var(--text);
   margin-bottom: 5px;
 }
 
 .attendance-bar-track {
   height: 10px;
-  background: #ddd;
+  background: var(--surface-track);
   border-radius: 999px;
   overflow: hidden;
 }
 
 .attendance-bar-fill {
   height: 100%;
-  background: limegreen;
+  background: var(--complete);
   border-radius: 999px;
 }
 
 .attendance-perfect-list {
-  background: #e8f5e9;
-  border: 1px solid #c8e6c9;
+  background: var(--success-bg);
+  border: 1px solid var(--success-bg);
   border-radius: 10px;
   padding: 10px;
   max-height: 260px;
@@ -1516,9 +1531,9 @@ button {
 }
 
 .attendance-perfect-row {
-  color: #2e7d32;
+  color: var(--success);
   font-weight: bold;
-  border-bottom: 1px dashed #a5d6a7;
+  border-bottom: 1px dashed var(--success-bg);
   padding: 8px 4px;
 }
 
@@ -1573,7 +1588,7 @@ button {
 }
 
 .staff-dashboard-grid .home-card:nth-child(even) {
-  background: #66b3b3;
+  background: rgba(var(--primary-rgb), 0.75);
 }
 
 /* Home title */
@@ -1754,7 +1769,7 @@ button {
   border-radius: 16px;
   font-size: 1.08rem;
   justify-content: flex-start;
-  box-shadow: 0 8px 16px rgba(0,0,0,0.18);
+  box-shadow: 0 8px 16px rgba(var(--black-rgb), 0.18);
 }
 
 @media (max-width: 520px) {
@@ -1791,8 +1806,8 @@ button {
   letter-spacing: 0;
   line-height: 1;
   background: var(--primary);
-  color: var(--white);
-  box-shadow: 0 2px 5px rgba(0,0,0,0.18);
+  color: var(--text-inverse);
+  box-shadow: 0 2px 5px rgba(var(--black-rgb), 0.18);
 }
 
 .student-task-inline-player {
@@ -1829,7 +1844,7 @@ button {
 /* Manual refresh buttons */
 .manual-refresh-btn {
   min-width: 92px;
-  background: #0a8f8f;
+  background: var(--primary);
 }
 
 .manual-refresh-btn:disabled {
@@ -1884,7 +1899,7 @@ button {
 .task-resource-heading,
 .subject-heading-thin {
   background: var(--primary);
-  color: var(--white);
+  color: var(--text-inverse);
 }
 
 .group-separator-line {
@@ -1894,9 +1909,6 @@ button {
   margin: 18px 0 14px;
 }
 
-.group-separator-line {
-  background: var(--primary);
-}
 
 @media (max-width: 520px) {
   .nav-header .manual-refresh-btn {
@@ -1927,12 +1939,9 @@ button {
   justify-content: center;
   text-align: center;
   background: var(--primary);
-  color: var(--white);
+  color: var(--text-inverse);
 }
 
-.resource-subject-drill-button {
-  background: var(--primary);
-}
 
 .resource-subject-button-title {
   font-family: var(--font-heading);
@@ -1998,7 +2007,7 @@ button {
 .splash-screen {
   position: fixed;
   inset: 0;
-  background: #ffffff;
+  background: var(--surface-card);
   z-index: 99999;
 
   display: flex;
@@ -2030,7 +2039,7 @@ button {
 
 .splash-loading-text {
   font-size: 0.9rem;
-  color: dimgray;
+  color: var(--surface-dark);
   font-weight: 600;
   letter-spacing: 0.04em;
 }
@@ -2071,7 +2080,7 @@ button {
 ========================= */
 
 #attendance-register-screen {
-  background: #f7fafa;
+  background: var(--surface-tint);
 }
 
 #attendance-register-screen.screen {
@@ -2112,7 +2121,7 @@ button {
   z-index: 50;
   padding: 8px 0 12px;
   margin-bottom: 4px;
-  background: #f7fafa;
+  background: var(--surface-tint);
 }
 
 
@@ -2121,11 +2130,11 @@ button {
   grid-template-columns: 1fr 1px 1fr;
   align-items: stretch;
   gap: 12px;
-  background: #ffffff;
+  background: var(--surface-card);
   border: 1px solid rgba(var(--primary-rgb), 0.12);
   border-radius: 18px;
   padding: 14px;
-  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 10px 22px rgba(var(--black-rgb), 0.08);
 }
 
 .attendance-summary-item {
@@ -2156,7 +2165,7 @@ button {
 }
 
 .attendance-summary-label {
-  color: #6b6b6b;
+  color: var(--text-subtle);
   font-size: 0.72rem;
   font-weight: 800;
   text-transform: uppercase;
@@ -2180,7 +2189,7 @@ button {
 
 .attendance-summary-divider {
   width: 1px;
-  background: rgba(0, 0, 0, 0.12);
+  background: rgba(var(--black-rgb), 0.12);
 }
 
 .attendance-summary-card .attendance-absence-feedback {
@@ -2192,7 +2201,7 @@ button {
 }
 
 .attendance-summary-subtext {
-  color: #666;
+  color: var(--text-subtle);
   font-size: 0.82rem;
   line-height: 1.1;
 }
@@ -2243,8 +2252,8 @@ button {
   border: 1px solid rgba(var(--primary-rgb), 0.08);
   border-bottom: 1px solid rgba(var(--primary-rgb), 0.08);
   border-radius: 17px;
-  background: #ffffff;
-  box-shadow: 0 5px 14px rgba(0, 0, 0, 0.06);
+  background: var(--surface-card);
+  box-shadow: 0 5px 14px rgba(var(--black-rgb), 0.06);
 }
 
 .attendance-student-main {
@@ -2269,7 +2278,7 @@ button {
 }
 
 #attendance-register-screen .attendance-student-name {
-  color: #14313a;
+  color: var(--text);
   font-size: 1.02rem;
   font-weight: 800;
   line-height: 1.15;
@@ -2286,13 +2295,13 @@ button {
 }
 
 #attendance-register-screen .attendance-toggle.is-present {
-  background: #eaf8ed;
-  color: #16821f;
+  background: var(--success-bg);
+  color: var(--success);
 }
 
 #attendance-register-screen .attendance-toggle.is-absent {
-  background: #fff0f1;
-  color: #c01832;
+  background: var(--danger-bg);
+  color: var(--danger);
 }
 
 @media (max-width: 520px) {
@@ -2428,7 +2437,7 @@ body.pdf-viewer-open #pdf-viewer-screen.screen {
 .pdf-viewer-header {
   margin: 0;
   padding: 10px 12px;
-  border-bottom: 2px solid rgba(0, 0, 0, 0.18);
+  border-bottom: 2px solid rgba(var(--black-rgb), 0.18);
 }
 
 .pdf-viewer-header h2 {
@@ -2458,7 +2467,7 @@ body.pdf-viewer-open #pdf-viewer-screen.screen {
   width: 100%;
   height: calc(100vh - 62px);
   border: 0;
-  background: #f5f5f5;
+  background: var(--surface-soft);
 }
 
 @media (max-width: 520px) {
@@ -2497,7 +2506,7 @@ body.pdf-viewer-open #pdf-viewer-screen.screen {
 ========================= */
 
 .student-admin-screen {
-  background: #f7fafa;
+  background: var(--surface-tint);
   padding: 18px 14px;
 }
 
@@ -2521,11 +2530,11 @@ body.pdf-viewer-open #pdf-viewer-screen.screen {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 8px;
-  background: #ffffff;
+  background: var(--surface-card);
   border: 1px solid rgba(var(--primary-rgb), 0.12);
   border-radius: 18px;
   padding: 8px;
-  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.07);
+  box-shadow: 0 8px 18px rgba(var(--black-rgb), 0.07);
   margin-bottom: 14px;
 }
 
@@ -2533,23 +2542,23 @@ body.pdf-viewer-open #pdf-viewer-screen.screen {
   min-height: 46px;
   border-radius: 14px;
   box-shadow: none;
-  background: #e5e4e2;
-  color: #305050;
+  background: var(--surface-chip);
+  color: var(--text-muted);
 }
 
 .student-admin-mode-btn.is-active {
   background: var(--primary);
-  color: var(--white);
+  color: var(--text-inverse);
 }
 
 .student-admin-card,
 .student-admin-result-card {
-  background: #ffffff;
+  background: var(--surface-card);
   border: 1px solid rgba(var(--primary-rgb), 0.12);
   border-radius: 18px;
   padding: 15px;
   margin-bottom: 14px;
-  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 10px 22px rgba(var(--black-rgb), 0.08);
   text-align: left;
 }
 
@@ -2563,7 +2572,7 @@ body.pdf-viewer-open #pdf-viewer-screen.screen {
 
 .student-admin-label {
   display: block;
-  color: #4f6666;
+  color: var(--text-muted);
   font-size: 0.76rem;
   font-weight: 900;
   text-transform: uppercase;
@@ -2574,7 +2583,7 @@ body.pdf-viewer-open #pdf-viewer-screen.screen {
 
 .student-admin-help,
 .student-admin-feedback {
-  color: #666;
+  color: var(--text-subtle);
   font-size: 0.86rem;
   line-height: 1.35;
   margin: 4px 0 0;
@@ -2596,7 +2605,7 @@ body.pdf-viewer-open #pdf-viewer-screen.screen {
   gap: 10px;
   align-items: center;
   text-align: left;
-  color: #14313a;
+  color: var(--text);
   font-weight: 750;
   margin: 8px 0;
 }
@@ -2615,7 +2624,7 @@ body.pdf-viewer-open #pdf-viewer-screen.screen {
 }
 
 .student-assignment-subject-card {
-  background: #f7fafa;
+  background: var(--surface-tint);
   border: 1px solid rgba(var(--primary-rgb), 0.12);
   border-left: 6px solid var(--primary);
   border-radius: 16px;
@@ -2636,7 +2645,7 @@ body.pdf-viewer-open #pdf-viewer-screen.screen {
 
 .student-module-check-row {
   grid-template-columns: auto 1fr auto;
-  background: #ffffff;
+  background: var(--surface-card);
   border-radius: 12px;
   padding: 9px;
   margin: 0;
@@ -2645,7 +2654,7 @@ body.pdf-viewer-open #pdf-viewer-screen.screen {
 }
 
 .student-module-check-row small {
-  color: #667;
+  color: var(--text-muted);
   font-weight: 800;
   white-space: nowrap;
 }
@@ -2667,8 +2676,8 @@ body.pdf-viewer-open #pdf-viewer-screen.screen {
 }
 
 .student-link-box {
-  background: #e5e4e2;
-  color: #14313a;
+  background: var(--surface-chip);
+  color: var(--text);
   border-radius: 14px;
   padding: 12px;
   font-size: 0.9rem;
@@ -2679,7 +2688,7 @@ body.pdf-viewer-open #pdf-viewer-screen.screen {
 
 .student-message-preview {
   margin-top: 12px;
-  background: #f7fafa;
+  background: var(--surface-tint);
   border-radius: 14px;
   padding: 10px;
   border: 1px solid rgba(var(--primary-rgb), 0.10);
@@ -2697,7 +2706,7 @@ body.pdf-viewer-open #pdf-viewer-screen.screen {
   font-family: var(--font-main);
   font-size: 0.88rem;
   line-height: 1.4;
-  color: #333;
+  color: var(--text);
   margin: 10px 0 0;
 }
 
@@ -2713,13 +2722,13 @@ body.pdf-viewer-open #pdf-viewer-screen.screen {
   grid-template-columns: auto minmax(0, 1fr) auto;
   gap: 12px;
   align-items: center;
-  background: #ffffff;
-  color: #14313a;
+  background: var(--surface-card);
+  color: var(--text);
   text-align: left;
   border: 1px solid rgba(var(--primary-rgb), 0.12);
   border-radius: 17px;
   padding: 12px;
-  box-shadow: 0 5px 14px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 5px 14px rgba(var(--black-rgb), 0.06);
 }
 
 .student-search-main {
@@ -2733,7 +2742,7 @@ body.pdf-viewer-open #pdf-viewer-screen.screen {
 }
 
 .student-search-main small {
-  color: #666;
+  color: var(--text-subtle);
   font-weight: 700;
 }
 
@@ -2746,20 +2755,20 @@ body.pdf-viewer-open #pdf-viewer-screen.screen {
 }
 
 .student-status-badge.is-active {
-  background: #eaf8ed;
-  color: #16821f;
+  background: var(--success-bg);
+  color: var(--success);
 }
 
 .student-status-badge.is-inactive {
-  background: #fff0f1;
-  color: #c01832;
+  background: var(--danger-bg);
+  color: var(--danger);
 }
 
 .selected-student-heading {
   display: flex;
   align-items: center;
   gap: 12px;
-  background: #f7fafa;
+  background: var(--surface-tint);
   border-radius: 15px;
   padding: 10px;
   margin-bottom: 12px;
@@ -2771,7 +2780,7 @@ body.pdf-viewer-open #pdf-viewer-screen.screen {
 }
 
 .selected-student-heading small {
-  color: #666;
+  color: var(--text-subtle);
   font-weight: 700;
 }
 
@@ -2781,13 +2790,13 @@ body.pdf-viewer-open #pdf-viewer-screen.screen {
 }
 
 .student-active-toggle.is-active {
-  background: #eaf8ed;
-  color: #16821f;
+  background: var(--success-bg);
+  color: var(--success);
 }
 
 .student-active-toggle.is-inactive {
-  background: #fff0f1;
-  color: #c01832;
+  background: var(--danger-bg);
+  color: var(--danger);
 }
 
 @media (max-width: 520px) {
@@ -2852,8 +2861,8 @@ body.pdf-viewer-open #pdf-viewer-screen.screen {
   margin-left: 6px;
   padding: 3px 7px;
   border-radius: 999px;
-  background: #e5e4e2;
-  color: #555;
+  background: var(--surface-chip);
+  color: var(--text-muted);
   font-size: 0.68rem;
   font-weight: 900;
   vertical-align: middle;
@@ -2867,8 +2876,8 @@ body.pdf-viewer-open #pdf-viewer-screen.screen {
   padding: 12px;
   border: 1px solid rgba(var(--primary-rgb), 0.25);
   border-radius: 14px;
-  background: #f7fafa;
-  color: #14313a;
+  background: var(--surface-tint);
+  color: var(--text);
   font-family: var(--font-main);
   font-size: 0.92rem;
   line-height: 1.45;
@@ -2918,15 +2927,15 @@ body.pdf-viewer-open #pdf-viewer-screen.screen {
 }
 
 .student-prefilled-input {
-  color: #777;
-  background: #f2f3f3;
+  color: var(--text-subtle);
+  background: var(--surface-soft);
   border-color: rgba(var(--primary-rgb), 0.22);
   font-weight: 650;
 }
 
 .student-prefilled-input:focus {
-  color: #14313a;
-  background: #ffffff;
+  color: var(--text);
+  background: var(--surface-card);
   outline: 2px solid rgba(var(--primary-rgb), 0.18);
   border-color: var(--primary);
 }
@@ -2984,8 +2993,8 @@ body.pdf-viewer-open #pdf-viewer-screen.screen {
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 10px;
   align-items: center;
-  background: #777;
-  color: var(--white);
+  background: var(--surface-dark);
+  color: var(--text-inverse);
   border-radius: 8px;
   padding: 10px 11px;
   margin-top: 3px;
@@ -3002,7 +3011,7 @@ body.pdf-viewer-open #pdf-viewer-screen.screen {
 }
 
 .student-search-row-number {
-  color: #e5e4e2;
+  color: var(--surface-chip);
   font-weight: 900;
   letter-spacing: 0.04em;
   white-space: nowrap;
@@ -3019,7 +3028,7 @@ body.pdf-viewer-open #pdf-viewer-screen.screen {
   position: sticky;
   top: 0;
   z-index: 2;
-  background: #e5e4e2;
+  background: var(--surface-chip);
   color: var(--primary);
   border-left: 0;
   border-bottom: 3px solid var(--primary);
@@ -3030,16 +3039,16 @@ body.pdf-viewer-open #pdf-viewer-screen.screen {
 }
 
 .compact-selected-student-heading {
-  background: #f2f3f3;
+  background: var(--surface-soft);
   border-left: 5px solid var(--primary);
 }
 
 .compact-selected-student-heading strong {
-  color: #14313a;
+  color: var(--text);
 }
 
 .compact-selected-student-heading small {
-  color: #777;
+  color: var(--text-subtle);
   font-weight: 900;
   letter-spacing: 0.04em;
 }
@@ -3093,8 +3102,8 @@ body.pdf-viewer-open #pdf-viewer-screen.screen {
 }
 
 .student-search-row {
-  background: #777;
-  color: var(--white);
+  background: var(--surface-dark);
+  color: var(--text-inverse);
   grid-template-columns: minmax(0, 1fr) 78px;
   min-height: 38px;
   padding: 8px 10px;
@@ -3108,7 +3117,7 @@ body.pdf-viewer-open #pdf-viewer-screen.screen {
 }
 
 .student-search-row-number {
-  color: #e5e4e2;
+  color: var(--surface-chip);
   font-size: 0.86rem;
   letter-spacing: 0.04em;
 }
@@ -3116,7 +3125,7 @@ body.pdf-viewer-open #pdf-viewer-screen.screen {
 .student-reset-pin-btn,
 .student-active-toggle.is-active,
 .student-active-toggle.is-inactive {
-  background: #e5e4e2;
+  background: var(--surface-chip);
   color: var(--primary);
   border: 1px solid rgba(var(--primary-rgb), 0.22);
   box-shadow: none;
@@ -3125,15 +3134,15 @@ body.pdf-viewer-open #pdf-viewer-screen.screen {
 .student-active-toggle {
   width: 100%;
   margin: 8px 0 14px;
-  background: #e5e4e2;
+  background: var(--surface-chip);
   color: var(--primary);
   border: 1px solid rgba(var(--primary-rgb), 0.22);
   box-shadow: none;
 }
 
 .student-active-toggle.is-inactive {
-  color: #666;
-  border-color: rgba(80, 80, 80, 0.25);
+  color: var(--text-subtle);
+  border-color: rgba(var(--black-rgb), 0.18);
 }
 
 .selected-student-edit-card {
@@ -3145,13 +3154,13 @@ body.pdf-viewer-open #pdf-viewer-screen.screen {
 }
 
 #manage-student-edit-screen .student-prefilled-input {
-  color: #777;
-  background: #f2f3f3;
+  color: var(--text-subtle);
+  background: var(--surface-soft);
 }
 
 #manage-student-edit-screen .student-prefilled-input:focus {
-  color: #14313a;
-  background: #ffffff;
+  color: var(--text);
+  background: var(--surface-card);
 }
 
 @media (max-width: 520px) {
@@ -3198,7 +3207,7 @@ body.pdf-viewer-open #pdf-viewer-screen.screen {
   justify-content: center;
   width: 100%;
   min-height: 48px;
-  background: #e5e4e2;
+  background: var(--surface-chip);
   color: var(--primary) !important;
   border: 1px solid rgba(var(--primary-rgb), 0.22);
   font-weight: 900;
