@@ -68,15 +68,36 @@
       </div>
 
       <div class="student-home-panel">
-        <div class="student-home-card">
-          <span class="student-home-card-title">Timetable</span>
-          <span class="student-home-card-text">Your timetable will appear here when it is connected.</span>
-        </div>
+        <section class="timetable-card">
+          <div class="timetable-card-header">
+            <h3>Timetable</h3>
+            <button
+              type="button"
+              class="small-btn manual-refresh-btn"
+              title="Refresh timetable"
+              aria-label="Refresh timetable"
+              onclick="refreshStudentHomeTimetable(this)"
+            >
+              <span class="manual-refresh-btn__icon" aria-hidden="true"></span>
+              <span class="visually-hidden">Refresh timetable</span>
+            </button>
+          </div>
 
-        <div class="student-home-card">
-          <span class="student-home-card-title">Zoom Link</span>
-          <span class="student-home-card-text">Your live class link will appear here when it is connected.</span>
-        </div>
+          <div id="student-timetable-content">
+            <p class="helper-text">Loading timetable...</p>
+          </div>
+        </section>
+
+        <button
+          id="student-zoom-link-btn"
+          type="button"
+          class="zoom-link-button"
+          onclick="openStudentTimetableZoom()"
+          disabled
+        >
+          <span class="zoom-link-button__icon" aria-hidden="true"></span>
+          <span class="zoom-link-button__text">Join Zoom Class</span>
+        </button>
       </div>
     </section>
 
@@ -124,11 +145,11 @@
         <button class="list-btn" onclick="showProgressReport()">Progress Tracker</button>
         <button class="list-btn" onclick="showSubjectsScreen()">Subjects</button>
          <button class="list-btn" onclick="showPlaceholder('Tasks')">Tasks</button>
+        <button class="list-btn" onclick="showAdminTimetableAdmin()">Timetable</button>
+        <button class="list-btn" onclick="showAdminZoomLinkAdmin()">Zoom Link</button>
         <button class="list-btn" onclick="showAdminResources()">Resources</button>
        
         <button class="list-btn" onclick="showPlaceholder('Assign Tasks')">Assign Tasks</button>
-      
-        <button class="list-btn" onclick="showPlaceholder('Timetable')">Timetable</button>
         <button class="list-btn" onclick="showPlaceholder('Assignments')">Assignments</button>
       </div>
     </section>
@@ -350,6 +371,45 @@
     <section id="attendance-stats-screen" class="screen admin-theme">
       <div id="attendance-stats-content" class="list-stack">
         <p class="helper-text">Loading statistics...</p>
+      </div>
+    </section>
+
+
+    <!-- ADMIN TIMETABLE -->
+    <section id="admin-timetable-screen" class="screen admin-theme">
+      <div class="nav-header">
+        <h2>Timetable</h2>
+        <button class="small-btn home-icon-btn" onclick="showScreen('admin-home')" aria-label="Home" title="Home"><span class="home-icon-btn__icon" aria-hidden="true"></span><span class="visually-hidden">Home</span></button>
+      </div>
+
+      <div class="timetable-card">
+        <div id="admin-timetable-content">
+          <p class="helper-text">Loading timetable...</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="admin-timetable-admin-screen" class="screen admin-theme">
+      <div class="nav-header">
+        <h2>Timetable / Zoom Link</h2>
+        <button class="small-btn" onclick="showScreen('admin-academics')">Back</button>
+      </div>
+
+      <div class="dashboard-section timetable-admin-form">
+        <h3>Global Zoom Link</h3>
+        <p class="helper-text">This link is stored in the TimeTable tab, row 2, ZoomLink column.</p>
+        <input id="admin-global-zoom-link" type="url" inputmode="url" placeholder="https://..." />
+        <button type="button" class="save-btn" onclick="saveAdminTimetableZoomLink(this)">
+          Save Zoom Link
+        </button>
+        <p id="admin-timetable-message" class="helper-text timetable-status-message"></p>
+      </div>
+
+      <div class="timetable-card">
+        <h3>Timetable Preview</h3>
+        <div id="admin-timetable-admin-preview">
+          <p class="helper-text">Loading timetable...</p>
+        </div>
       </div>
     </section>
 

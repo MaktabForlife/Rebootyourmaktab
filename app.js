@@ -60,6 +60,10 @@ function showScreen(id) {
   }
 
   updateBottomNavigation(id);
+
+  if (id === "student-home") {
+    scheduleStudentHomeTimetableLoad();
+  }
 }
 
 function setError(message) {
@@ -486,7 +490,7 @@ const BOTTOM_NAV_ITEMS = {
       key: "timetable",
       label: "Timetable",
       icon: "/icons/timetable.svg",
-      action: "showPlaceholder('Timetable')"
+      action: "showAdminTimetable()"
     },
     {
       key: "admin",
@@ -649,6 +653,8 @@ function getBottomNavActiveKey(screenId, role) {
 
     if (String(screenId || "").startsWith("attendance")) return "attendance";
 
+    if (String(screenId || "").startsWith("admin-timetable")) return "timetable";
+
     if (String(screenId || "").startsWith("student-resources")) return "resources";
 
     if ([
@@ -717,6 +723,474 @@ function showPlaceholder(title) {
 function showAdminAcademics() {
   showScreen("admin-academics");
 }
+
+
+/* =========================
+   TIMETABLE
+========================= */
+
+let timetableCache = null;
+let timetableLoadPromise = null;
+let globalTimetableZoomLink = "";
+
+function scheduleStudentHomeTimetableLoad() {
+  if (!state.token || getBottomNavRole() !== "student") {
+    return;
+  }
+
+  setTimeout(() => {
+    loadStudentHomeTimetable();
+  }, 0);
+}
+
+function normalizeTimetableRows(result) {
+  if (!result) return [];
+
+  if (Array.isArray(result.sessions)) {
+    return result.sessions;
+  }
+
+  if (Array.isArray(result.timetable)) {
+    return result.timetable;
+  }
+
+  if (Array.isArray(result.rows)) {
+    return result.rows;
+  }
+
+  return [];
+}
+
+function normalizeTimetableText(value) {
+  return String(value === null || value === undefined ? "" : value).trim();
+}
+
+function normalizeTimetableKey(value) {
+  return normalizeTimetableText(value).toLowerCase().replace(/\s+/g, "");
+}
+
+function getTimetableSortMinutes(timeValue) {
+  const text = normalizeTimetableText(timeValue);
+  const match = text.match(/^(\d{1,2})(?::(\d{1,2}))?/);
+
+  if (!match) {
+    return Number.MAX_SAFE_INTEGER;
+  }
+
+  const hour = Number(match[1] || 0);
+  const minute = Number(match[2] || 0);
+
+  return hour * 60 + minute;
+}
+
+function compareTimetableTimes(a, b) {
+  const minuteCompare = getTimetableSortMinutes(a) - getTimetableSortMinutes(b);
+
+  if (minuteCompare !== 0) {
+    return minuteCompare;
+  }
+
+  return normalizeTimetableText(a).localeCompare(normalizeTimetableText(b), undefined, {
+    numeric: true,
+    sensitivity: "base"
+  });
+}
+
+function getTimetableDayWeight(day) {
+  const key = normalizeTimetableKey(day);
+  const order = {
+    mon: 1,
+    monday: 1,
+    tue: 2,
+    tues: 2,
+    tuesday: 2,
+    wed: 3,
+    weds: 3,
+    wednesday: 3,
+    thu: 4,
+    thur: 4,
+    thurs: 4,
+    thursday: 4,
+    fri: 5,
+    friday: 5,
+    sat: 6,
+    saturday: 6,
+    sun: 7,
+    sunday: 7
+  };
+
+  return order[key] || 99;
+}
+
+function compareTimetableDays(a, b) {
+  const weightCompare = getTimetableDayWeight(a) - getTimetableDayWeight(b);
+
+  if (weightCompare !== 0) {
+    return weightCompare;
+  }
+
+  return normalizeTimetableText(a).localeCompare(normalizeTimetableText(b), undefined, {
+    numeric: true,
+    sensitivity: "base"
+  });
+}
+
+function addUniqueTimetableValue(list, seen, value) {
+  const text = normalizeTimetableText(value);
+  const key = normalizeTimetableKey(text);
+
+  if (!text || seen.has(key)) {
+    return;
+  }
+
+  seen.add(key);
+  list.push(text);
+}
+
+function buildTimetableModel(rows) {
+  const dayList = [];
+  const timeList = [];
+  const daySeen = new Set();
+  const timeSeen = new Set();
+  const cellMap = {};
+
+  rows.forEach(row => {
+    const day = normalizeTimetableText(row.dayofweek || row.dayOfWeek || row.day || "");
+    const time = normalizeTimetableText(row.starttime || row.startTime || row.time || "");
+    const subject = normalizeTimetableText(row.subjectname || row.subjectName || row.subject || "");
+
+    if (!day || !time || !subject) {
+      return;
+    }
+
+    addUniqueTimetableValue(dayList, daySeen, day);
+    addUniqueTimetableValue(timeList, timeSeen, time);
+
+    const cellKey = `${normalizeTimetableKey(time)}__${normalizeTimetableKey(day)}`;
+
+    if (!cellMap[cellKey]) {
+      cellMap[cellKey] = [];
+    }
+
+    const alreadyAdded = cellMap[cellKey].some(item => {
+      return normalizeTimetableKey(item.subjectname) === normalizeTimetableKey(subject);
+    });
+
+    if (!alreadyAdded) {
+      cellMap[cellKey].push({
+        subjectname: subject,
+        zoomlink: normalizeTimetableText(row.zoomlink || row.zoomLink || "")
+      });
+    }
+  });
+
+  dayList.sort(compareTimetableDays);
+  timeList.sort(compareTimetableTimes);
+
+  return {
+    days: dayList,
+    starttimes: timeList,
+    cells: cellMap
+  };
+}
+
+function getTimetableCellEntries(model, time, day) {
+  const key = `${normalizeTimetableKey(time)}__${normalizeTimetableKey(day)}`;
+  return model.cells[key] || [];
+}
+
+function renderTimetable(containerOrId, timetableResult, options = {}) {
+  const container = typeof containerOrId === "string"
+    ? document.getElementById(containerOrId)
+    : containerOrId;
+
+  if (!container) {
+    return;
+  }
+
+  const rows = normalizeTimetableRows(timetableResult);
+
+  if (!rows.length) {
+    container.innerHTML = `<p class="helper-text">No timetable sessions have been added yet.</p>`;
+    return;
+  }
+
+  const model = buildTimetableModel(rows);
+
+  if (!model.days.length || !model.starttimes.length) {
+    container.innerHTML = `<p class="helper-text">No timetable sessions have been added yet.</p>`;
+    return;
+  }
+
+  const headerHtml = model.days
+    .map(day => `<th scope="col">${escapeHtml(day)}</th>`)
+    .join("");
+
+  const rowsHtml = model.starttimes.map(time => {
+    const cellHtml = model.days.map(day => {
+      const entries = getTimetableCellEntries(model, time, day);
+
+      if (!entries.length) {
+        return `<td class="timetable-empty-cell" aria-label="${escapeHtml(day)} ${escapeHtml(time)}"></td>`;
+      }
+
+      const subjectsHtml = entries.map(entry => {
+        const perSessionZoomLink = normalizeTimetableText(entry.zoomlink);
+        const canOpenSessionZoom = options.usePerSessionZoom === true && perSessionZoomLink;
+        const subjectClass = canOpenSessionZoom
+          ? "timetable-subject timetable-subject-link"
+          : "timetable-subject";
+        const clickAttr = canOpenSessionZoom
+          ? ` type="button" onclick="openTimetableZoomLink('${escapeJsString(perSessionZoomLink)}')"`
+          : "";
+
+        if (canOpenSessionZoom) {
+          return `<button class="${subjectClass}"${clickAttr}>${escapeHtml(entry.subjectname)}</button>`;
+        }
+
+        return `<span class="${subjectClass}">${escapeHtml(entry.subjectname)}</span>`;
+      }).join("");
+
+      return `<td>${subjectsHtml}</td>`;
+    }).join("");
+
+    return `
+      <tr>
+        <th scope="row" class="timetable-time-cell">${escapeHtml(time)}</th>
+        ${cellHtml}
+      </tr>
+    `;
+  }).join("");
+
+  container.innerHTML = `
+    <div class="timetable-scroll" role="region" aria-label="Timetable" tabindex="0">
+      <table class="timetable-table">
+        <thead>
+          <tr>
+            <th scope="col">Time</th>
+            ${headerHtml}
+          </tr>
+        </thead>
+        <tbody>
+          ${rowsHtml}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+async function fetchTimetable(options = {}) {
+  if (timetableLoadPromise && options.force !== true) {
+    return timetableLoadPromise;
+  }
+
+  timetableLoadPromise = apiPost("/api/timetable/get", {
+    groupNo: options.groupNo || "ALL",
+    assignedTeacher: options.assignedTeacher || "ALL"
+  }, state.token).then(result => {
+    if (!result.success) {
+      throw new Error(result.error || "Failed to load timetable");
+    }
+
+    timetableCache = result;
+    globalTimetableZoomLink = normalizeTimetableText(result.zoomlink || result.zoomLink || "");
+    return result;
+  }).finally(() => {
+    timetableLoadPromise = null;
+  });
+
+  return timetableLoadPromise;
+}
+
+function setTimetableZoomButtonState(buttonId, zoomLink) {
+  const button = document.getElementById(buttonId);
+
+  if (!button) {
+    return;
+  }
+
+  const hasLink = !!normalizeTimetableText(zoomLink);
+
+  button.disabled = !hasLink;
+  button.classList.toggle("is-disabled", !hasLink);
+  button.setAttribute("aria-disabled", hasLink ? "false" : "true");
+  button.title = hasLink ? "Open Zoom link" : "Zoom link has not been added yet";
+}
+
+async function loadStudentHomeTimetable(force = false) {
+  const container = document.getElementById("student-timetable-content");
+
+  if (!container || !state.token || getBottomNavRole() !== "student") {
+    return;
+  }
+
+  if (!timetableCache || force) {
+    container.innerHTML = `<p class="helper-text">Loading timetable...</p>`;
+  }
+
+  try {
+    const result = await fetchTimetable({ force });
+    renderTimetable(container, result);
+    setTimetableZoomButtonState("student-zoom-link-btn", globalTimetableZoomLink);
+  } catch (err) {
+    container.innerHTML = `<p class="error-message">${escapeHtml(err.message || "Unable to load timetable.")}</p>`;
+    setTimetableZoomButtonState("student-zoom-link-btn", "");
+  }
+}
+
+async function refreshStudentHomeTimetable(button) {
+  await runManualRefresh(button, async () => {
+    timetableCache = null;
+    await loadStudentHomeTimetable(true);
+  });
+}
+
+function openTimetableZoomLink(link) {
+  const rawLink = normalizeTimetableText(link || globalTimetableZoomLink);
+
+  if (!rawLink) {
+    alert("Zoom link has not been added yet.");
+    return;
+  }
+
+  const targetLink = /^https?:\/\//i.test(rawLink)
+    ? rawLink
+    : `https://${rawLink}`;
+
+  window.open(targetLink, "_blank", "noopener,noreferrer");
+}
+
+function openStudentTimetableZoom() {
+  openTimetableZoomLink(globalTimetableZoomLink);
+}
+
+async function showAdminTimetable(force = false) {
+  setTimetableScreenTheme("admin-timetable-screen", "admin");
+  setManualRefreshButton("admin-timetable-screen", "refreshAdminTimetable(this)");
+  showScreen("admin-timetable-screen");
+
+  const container = document.getElementById("admin-timetable-content");
+
+  if (container) {
+    container.innerHTML = `<p class="helper-text">Loading timetable...</p>`;
+  }
+
+  try {
+    const result = await fetchTimetable({ force });
+    renderTimetable(container, result);
+  } catch (err) {
+    if (container) {
+      container.innerHTML = `<p class="error-message">${escapeHtml(err.message || "Unable to load timetable.")}</p>`;
+    }
+  }
+}
+
+async function refreshAdminTimetable(button) {
+  await runManualRefresh(button, async () => {
+    timetableCache = null;
+    await showAdminTimetable(true);
+  });
+}
+
+function setTimetableScreenTheme(screenId, theme) {
+  const screen = document.getElementById(screenId);
+
+  if (!screen) {
+    return;
+  }
+
+  screen.classList.toggle("student-theme", theme === "student");
+  screen.classList.toggle("admin-theme", theme !== "student");
+}
+
+async function showAdminTimetableAdmin(focusZoom = false) {
+  setTimetableScreenTheme("admin-timetable-admin-screen", "admin");
+  showScreen("admin-timetable-admin-screen");
+
+  const previewContainer = document.getElementById("admin-timetable-admin-preview");
+  const zoomInput = document.getElementById("admin-global-zoom-link");
+  const message = document.getElementById("admin-timetable-message");
+
+  if (previewContainer) {
+    previewContainer.innerHTML = `<p class="helper-text">Loading timetable...</p>`;
+  }
+
+  if (message) {
+    message.textContent = "";
+  }
+
+  try {
+    const result = await fetchTimetable({ force: true });
+    renderTimetable(previewContainer, result);
+
+    if (zoomInput) {
+      zoomInput.value = normalizeTimetableText(result.zoomlink || "");
+      if (focusZoom) {
+        setTimeout(() => zoomInput.focus(), 80);
+      }
+    }
+  } catch (err) {
+    if (previewContainer) {
+      previewContainer.innerHTML = `<p class="error-message">${escapeHtml(err.message || "Unable to load timetable.")}</p>`;
+    }
+  }
+}
+
+function showAdminZoomLinkAdmin() {
+  showAdminTimetableAdmin(true);
+}
+
+async function saveAdminTimetableZoomLink(button) {
+  const zoomInput = document.getElementById("admin-global-zoom-link");
+  const message = document.getElementById("admin-timetable-message");
+  const zoomlink = zoomInput ? zoomInput.value.trim() : "";
+
+  if (message) {
+    message.textContent = "Saving...";
+    message.classList.remove("error-message");
+  }
+
+  if (button) {
+    button.disabled = true;
+  }
+
+  try {
+    const result = await apiPost("/api/admin/timetable/update-zoom", {
+      zoomlink
+    }, state.token);
+
+    if (!result.success) {
+      throw new Error(result.error || "Could not save Zoom link.");
+    }
+
+    timetableCache = result;
+    globalTimetableZoomLink = normalizeTimetableText(result.zoomlink || "");
+
+    if (message) {
+      message.textContent = result.message || "Zoom link saved.";
+    }
+
+    renderTimetable("admin-timetable-admin-preview", result);
+  } catch (err) {
+    if (message) {
+      message.textContent = err.message || "Could not save Zoom link.";
+      message.classList.add("error-message");
+    }
+  } finally {
+    if (button) {
+      button.disabled = false;
+    }
+  }
+}
+
+function escapeJsString(value) {
+  return String(value || "")
+    .replace(/\\/g, "\\\\")
+    .replace(/'/g, "\\'")
+    .replace(/\n/g, "\\n")
+    .replace(/\r/g, "");
+}
+
 
 /* =========================
    STUDENT TASK VIEW
