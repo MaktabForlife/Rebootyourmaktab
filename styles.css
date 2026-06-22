@@ -2629,36 +2629,41 @@ body.has-bottom-nav .app-shell {
 }
 
 @media (max-width: 520px) {
-  .nav-header {
-    flex-wrap: nowrap;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .nav-header h2 {
-    flex: 1 1 auto;
-    min-width: 0;
-    margin-bottom: 0;
-    overflow-wrap: anywhere;
-  }
-
-  .nav-header .manual-refresh-btn {
-    margin-left: auto;
-  }
-
-  .nav-header .small-btn:not(.manual-refresh-btn):not(.save-return-btn) {
-    flex: 0 0 auto;
-  }
-
   #progress-tasks-screen .nav-header,
   #progress-task-students-screen .nav-header {
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 52px;
+    grid-template-areas:
+      "title refresh"
+      "save save";
+    align-items: center;
+    column-gap: 10px;
+    row-gap: 10px;
+  }
+
+  #progress-tasks-screen .nav-header h2,
+  #progress-task-students-screen .nav-header h2 {
+    grid-area: title;
+    margin: 0;
+    min-width: 0;
+    overflow-wrap: normal;
+    word-break: normal;
+    hyphens: none;
+  }
+
+  #progress-tasks-screen .nav-header .manual-refresh-btn,
+  #progress-task-students-screen .nav-header .manual-refresh-btn {
+    grid-area: refresh;
+    justify-self: end;
+    margin-left: 0;
   }
 
   #progress-tasks-screen .nav-header .save-return-btn,
   #progress-task-students-screen .nav-header .save-return-btn {
-    flex-basis: min(240px, 100%);
-    margin-top: 8px;
+    grid-area: save;
+    justify-self: center;
+    width: min(260px, 100%);
+    margin: 4px auto 0;
   }
 }
 
