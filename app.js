@@ -641,10 +641,6 @@ function installBottomNavigationGestureGuard(nav) {
 
   const stopInsideBottomNav = event => {
     event.stopPropagation();
-
-    if (typeof event.stopImmediatePropagation === "function") {
-      event.stopImmediatePropagation();
-    }
   };
 
   [
@@ -658,7 +654,7 @@ function installBottomNavigationGestureGuard(nav) {
     "click",
     "wheel"
   ].forEach(eventName => {
-    nav.addEventListener(eventName, stopInsideBottomNav, { capture: true, passive: true });
+    nav.addEventListener(eventName, stopInsideBottomNav, { passive: true });
   });
 
   nav.addEventListener("touchstart", event => {
@@ -668,7 +664,7 @@ function installBottomNavigationGestureGuard(nav) {
     touchStartY = touch ? touch.clientY : 0;
 
     stopInsideBottomNav(event);
-  }, { capture: true, passive: true });
+  }, { passive: true });
 
   nav.addEventListener("touchmove", event => {
     const touch = event.touches && event.touches[0];
@@ -695,13 +691,12 @@ function installBottomNavigationGestureGuard(nav) {
     if (maxScrollLeft === 0 || (isAtLeftEdge && isSwipingRight) || (isAtRightEdge && isSwipingLeft)) {
       event.preventDefault();
     }
-  }, { capture: true, passive: false });
+  }, { passive: false });
 
   ["touchend", "touchcancel"].forEach(eventName => {
-    nav.addEventListener(eventName, stopInsideBottomNav, { capture: true, passive: true });
+    nav.addEventListener(eventName, stopInsideBottomNav, { passive: true });
   });
 }
-
 function renderBottomNavigation(role) {
   const nav = getBottomNavElement();
   const items = BOTTOM_NAV_ITEMS[role] || [];
