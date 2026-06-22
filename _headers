@@ -1,0 +1,35 @@
+/
+  Cache-Control: no-cache
+
+/index.html
+  Cache-Control: no-cache
+
+/student/*
+  Cache-Control: no-cache
+
+/admin/*
+  Cache-Control: no-cache
+
+/student/index.html
+  Cache-Control: no-cache
+
+/admin/index.html
+  Cache-Control: no-cache
+
+/app.js
+  Cache-Control: no-cache
+
+/styles.css
+  Cache-Control: no-cache
+
+/*.json
+  Cache-Control: no-cache
+
+/icons/*
+  Cache-Control: public, max-age=604800
+
+/images/*
+  Cache-Control: public, max-age=604800
+
+/pdf-viewer/*
+  Cache-Control: public, max-age=604800
