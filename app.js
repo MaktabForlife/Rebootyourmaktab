@@ -1,7 +1,6 @@
 const API_BASE = "https://rebootworker.maktab4life.workers.dev";
 const STUDENT_LOGIN_BASE = "https://rebootyourmaktab.maktab4life.org/student/";
 const DEFAULT_STUDENT_GROUP = 1;
-const APP_VERSION_STORAGE_KEY = "maktab_app_version";
 
 const state = {
   portalType: null,
@@ -10,41 +9,6 @@ const state = {
   userType: localStorage.getItem("maktab_user_type") || "",
   user: null
 };
-
-async function checkForAppUpdate() {
-  try {
-    const response = await fetch(`/version.json?t=${Date.now()}`, {
-      cache: "no-store",
-    });
-
-    if (!response.ok) return;
-
-    const data = await response.json();
-    const latestVersion = String(data.version || "").trim();
-
-    if (!latestVersion) return;
-
-    const currentVersion = localStorage.getItem(APP_VERSION_STORAGE_KEY);
-
-    if (currentVersion && currentVersion !== latestVersion) {
-      localStorage.setItem(APP_VERSION_STORAGE_KEY, latestVersion);
-
-      if ("caches" in window) {
-        const cacheNames = await caches.keys();
-        await Promise.all(cacheNames.map(cacheName => caches.delete(cacheName)));
-      }
-
-      window.location.reload();
-      return;
-    }
-
-    if (!currentVersion) {
-      localStorage.setItem(APP_VERSION_STORAGE_KEY, latestVersion);
-    }
-  } catch (error) {
-    console.warn("App update check failed", error);
-  }
-}
 
 /* =========================
    APP INIT
@@ -58,9 +22,6 @@ window.addEventListener("keydown", event => {
 });
 
 function initApp() {
-  checkForAppUpdate();
-
-  
   setupPinDigitBoxes();
 
   const path = window.location.pathname;
@@ -82,8 +43,9 @@ function initApp() {
     return;
   }
 
-  setAuthWelcomeBanner("");
-  setAuthLoginText("", "You require a personal URL to access the Maktab4Life Dashboard");
+  document.getElementById("portal-title").innerText = "Reboot Your Maktab-mE";
+  document.getElementById("portal-subtitle").innerText =
+    "You require a personal URL to access the Maktab4Life Dashboard";
 }
 
 function showScreen(id) {
@@ -111,28 +73,6 @@ function showScreen(id) {
 
 function setError(message) {
   document.getElementById("auth-error").innerText = message || "";
-}
-
-function setAuthWelcomeBanner(name) {
-  const banner = document.getElementById("auth-welcome-banner");
-  if (!banner) return;
-
-  const displayName = String(name || "").trim();
-  banner.innerText = displayName ? `Ahlan wa Sahlan ${displayName}` : "Ahlan wa Sahlan";
-  banner.classList.toggle("hidden", !displayName);
-}
-
-function setAuthLoginText(type, statusText = "") {
-  const portalTitle = document.getElementById("portal-title");
-  const portalSubtitle = document.getElementById("portal-subtitle");
-
-  if (portalTitle) {
-    portalTitle.innerText = type === "admin" ? "Admin Login" : type === "student" ? "Student Login" : "Student / Admin Login";
-  }
-
-  if (portalSubtitle) {
-    portalSubtitle.innerText = statusText || "";
-  }
 }
 
 function setupPinDigitBoxes() {
@@ -303,8 +243,22 @@ async function checkStudent() {
 
     state.user = result.student;
 
-    setAuthWelcomeBanner(getCurrentUserName() || result.student.username);
-    setAuthLoginText("student", "");
+
+
+document.getElementById("portal-title").innerHTML = `
+  Ahlan Wa Sahlan  ${result.student.username}
+`;
+
+    document.getElementById("portal-subtitle").innerHTML = `
+ <span class="login-heading">Reboot Your Maktab-mE</span>
+  <span class="login-welcome">
+    Student Login 
+  </span>
+`;
+
+
+
+
 
     if (result.student.pinsetup === true) {
       document.getElementById("login-pin-box").classList.remove("hidden");
@@ -331,8 +285,9 @@ async function checkAdmin() {
 
     state.user = result.admin;
 
-    setAuthWelcomeBanner(getCurrentUserName() || result.admin.username);
-    setAuthLoginText("admin", "");
+    document.getElementById("portal-title").innerText = "Admin Login";
+    document.getElementById("portal-subtitle").innerText =
+      `${result.admin.username} · ${result.admin.role}`;
 
     document.body.classList.add("admin-body");
 
@@ -452,7 +407,7 @@ function setHomeIconButton(button, onclickValue = "goHome()") {
   button.setAttribute("title", "Home");
   button.innerHTML = `
     <span class="app-icon app-icon-large" style="--app-icon-url: url('/icons/home.svg')" aria-hidden="true"></span>
-    <span class="visually-hidden">Home</span>
+    <span class="header-icon-label">Home</span>
   `;
 }
 
@@ -466,7 +421,7 @@ function setBackIconButton(button, onclickValue = "goHome()") {
   button.setAttribute("title", "Back");
   button.innerHTML = `
     <span class="app-icon app-icon-large" style="--app-icon-url: url('/icons/back.svg')" aria-hidden="true"></span>
-    <span class="visually-hidden">Back</span>
+    <span class="header-icon-label">Back</span>
   `;
 }
 
@@ -485,7 +440,7 @@ function getHeaderIconButtonMarkup(type, onclickValue, label) {
       title="${safeLabel}"
     >
       <span class="app-icon app-icon-large" style="--app-icon-url: url('${iconPath}')" aria-hidden="true"></span>
-      <span class="visually-hidden">${safeLabel}</span>
+      <span class="header-icon-label">${safeLabel}</span>
     </button>
   `;
 }
@@ -626,7 +581,7 @@ const BOTTOM_NAV_ITEMS = {
     },
     {
       key: "resources",
-      label: "Resources",
+      label: "Library",
       icon: "/icons/resources.svg",
       action: "showAdminResources()"
     },
@@ -635,12 +590,6 @@ const BOTTOM_NAV_ITEMS = {
       label: "Attendance",
       icon: "/icons/attendance.svg",
       action: "showAttendanceDashboard()"
-    },
-    {
-      key: "timetable",
-      label: "Timetable",
-      icon: "/icons/timetable.svg",
-      action: "showAdminTimetable()"
     },
     {
       key: "admin",
@@ -798,7 +747,7 @@ function getBottomNavActiveKey(screenId, role) {
 
     if (String(screenId || "").startsWith("attendance")) return "attendance";
 
-    if (String(screenId || "").startsWith("admin-timetable")) return "timetable";
+    if (String(screenId || "").startsWith("admin-timetable")) return "admin";
 
     if (String(screenId || "").startsWith("student-resources")) return "resources";
 
@@ -815,7 +764,7 @@ function getBottomNavActiveKey(screenId, role) {
     if (String(screenId || "").startsWith("manage-student")) return "admin";
 
     if (screenId === "placeholder-screen") {
-      return String(currentPlaceholderTitle || "").toLowerCase() === "timetable" ? "timetable" : "admin";
+      return "admin";
     }
 
     if (["admin-academics", "subjects-screen"].includes(screenId)) {
@@ -866,7 +815,25 @@ function showPlaceholder(title) {
 }
 
 function showAdminAcademics() {
+  prepareAdminAcademicsScreen();
   showScreen("admin-academics");
+}
+
+function prepareAdminAcademicsScreen() {
+  const screen = document.getElementById("admin-academics");
+  if (!screen) return;
+
+  const title = screen.querySelector("h2");
+  if (title) {
+    title.innerText = "Add or Modify";
+  }
+
+  screen.querySelectorAll("button").forEach(button => {
+    const text = String(button.textContent || "").replace(/\s+/g, " ").trim().toLowerCase();
+    if (text === "add / modify students" || text === "add/modify students") {
+      button.textContent = "Students";
+    }
+  });
 }
 
 
@@ -1248,7 +1215,7 @@ function setTimetableZoomButtonState(buttonId, zoomLink) {
   if (button.dataset.zoomDecorated !== "true") {
     button.dataset.zoomDecorated = "true";
     button.innerHTML = `
-      <span class="zoom-link-button__icon" aria-hidden="true"></span>
+      <img src="/icons/zoom.svg" alt="" class="zoom-link-button__icon" aria-hidden="true" />
       <span>Join Zoom Class</span>
     `;
   }
@@ -1307,15 +1274,21 @@ function ensureAdminHomePanel() {
     return null;
   }
 
-  const title = screen.querySelector(".top-bar h2, .nav-header h2, h2");
-  if (title) {
-    title.innerText = "Home";
+  const header = screen.querySelector(".top-bar, .nav-header");
+  if (header) {
+    header.remove();
   }
 
   const adminWelcome = document.getElementById("admin-welcome");
   if (adminWelcome) {
-    adminWelcome.innerText = "";
+    adminWelcome.remove();
   }
+
+  screen.querySelectorAll(".staff-dashboard-grid, .card-grid, .list-stack").forEach(section => {
+    if (section.id !== "admin-home-panel") {
+      section.remove();
+    }
+  });
 
   let panel = document.getElementById("admin-home-panel");
 
@@ -1352,12 +1325,7 @@ function ensureAdminHomePanel() {
     `;
   }
 
-  const header = screen.querySelector(".top-bar, .nav-header");
-  const insertAfter = adminWelcome || header;
-
-  if (insertAfter && insertAfter.parentNode === screen) {
-    insertAfter.insertAdjacentElement("afterend", panel);
-  } else if (!panel.parentNode) {
+  if (!panel.parentNode) {
     screen.prepend(panel);
   }
 
@@ -3202,15 +3170,18 @@ function renderStudentResourceRow(row) {
   const isAudio = type === "AUDIO";
   const isVideo = type === "VIDEO";
 
+  const actionIconPath = getResourceCategoryIconPath(type);
+  const actionIconMarkup = `<span class="resource-type-icon resource-action-icon" style="--app-icon-url: url('${actionIconPath}')" aria-hidden="true"></span>`;
+
   const actionHtml = (isAudio || isVideo)
     ? `
       <button class="resource-arrow-btn" onclick="toggleInlineResourcePreview('${escapeForAttribute(rowId)}', '${escapeForAttribute(link)}', '${escapeForAttribute(type)}')"${disabled} aria-label="${escapeForAttribute(buttonLabel)}">
-        ›
+        ${actionIconMarkup}
       </button>
     `
     : `
       <button class="resource-arrow-btn" onclick="openStudentResourceLink('${escapeForAttribute(link)}', '${escapeForAttribute(type)}', '${escapeForAttribute(title)}')"${disabled} aria-label="${escapeForAttribute(buttonLabel)}">
-        ›
+        ${actionIconMarkup}
       </button>
     `;
 
@@ -3222,10 +3193,7 @@ function renderStudentResourceRow(row) {
     <div class="student-resource-row">
       <div class="student-resource-row-main">
         <div class="student-resource-title">${escapeHtml(title)}</div>
-        <div class="student-resource-meta">
-          <span class="resource-type-icon" style="--app-icon-url: url('${getResourceCategoryIconPath(type)}')" aria-label="${escapeForAttribute(getDisplayResourceType(type))}" title="${escapeForAttribute(getDisplayResourceType(type))}"></span>
-          ${format ? `<span class="resource-format-text">${escapeHtml(format)}</span>` : ""}
-        </div>
+        ${format ? `<div class="student-resource-meta"><span class="resource-format-text">${escapeHtml(format)}</span></div>` : ""}
         ${previewHtml}
       </div>
       ${actionHtml}
@@ -3915,7 +3883,7 @@ function renderManageStudentResultScreen(context) {
     `
     : `
       <div class="student-admin-action-grid two-col">
-        <button type="button" onclick="backToManagedStudentList()">Back to Student List</button>
+        <button type="button" class="back-icon-btn icon-action-btn icon-action-btn-large" onclick="backToManagedStudentList()" aria-label="Back to student list" title="Back to student list"><span class="app-icon app-icon-large" style="--app-icon-url: url('/icons/back.svg')" aria-hidden="true"></span><span class="header-icon-label">Back</span></button>
         <button type="button" class="home-text-action-btn" onclick="showScreen('admin-home')"><span class="home-text-action-btn__icon" aria-hidden="true"></span><span>Exit to Dashboard</span></button>
       </div>
     `;
@@ -4964,6 +4932,24 @@ function prepareAdminProgressMonitor() {
     title.innerText = "Progress";
   }
 
+  screen.querySelectorAll("h3, h4").forEach(heading => {
+    const text = String(heading.textContent || "").replace(/\s+/g, " ").trim().toLowerCase();
+    if (text === "progress for class" || text === "progress for group" || text === "progress for student") {
+      heading.remove();
+    }
+  });
+
+  screen.querySelectorAll("button").forEach(button => {
+    const text = String(button.textContent || "").replace(/\s+/g, " ").trim().toLowerCase();
+    if (text === "view full class") {
+      button.textContent = "Class Progress";
+    } else if (text === "view group") {
+      button.textContent = "Group Progress";
+    } else if (text === "view student") {
+      button.textContent = "Individual Progress";
+    }
+  });
+
   screen.querySelectorAll("button").forEach(button => {
     if (
       button.classList.contains("bottom-nav__item") ||
@@ -5556,9 +5542,6 @@ function setAuthTheme(type) {
 
   authScreen.classList.remove("student-theme", "admin-theme");
   document.body.classList.remove("student-body", "admin-body");
-
-  setAuthWelcomeBanner("");
-  setAuthLoginText(type, "Checking your link...");
 
   if (type === "student") {
     authScreen.classList.add("student-theme");

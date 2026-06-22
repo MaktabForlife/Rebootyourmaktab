@@ -199,67 +199,22 @@ select {
   font-size: 1.1rem;
 }
 
-.auth-welcome-banner {
-  width: 100%;
-  margin: -4px 0 14px;
-  padding: 12px 14px;
-  border-radius: 14px;
-  background: var(--banner-color);
-  color: var(--text-inverse);
-  font-family: var(--font-heading);
-  font-size: clamp(1.15rem, 5vw, 1.55rem);
-  font-weight: 800;
-  line-height: 1.15;
-  text-align: center;
-}
-
-.auth-brand-block {
-  display: grid;
-  justify-items: center;
-  gap: 6px;
-  margin-bottom: 14px;
-}
-
-.auth-brand-title {
-  margin: 0;
+.login-heading {
+  display: block;
+  margin: 8px 0 6px;
   color: var(--primary);
-  font-size: clamp(1.35rem, 6vw, 1.8rem);
-  line-height: 1.1;
+  font-size: 1.6rem;
+  font-weight: 800;
 }
 
-.auth-logo {
-  margin: 4px auto 6px;
-}
-
-.auth-login-label {
-  margin: 4px 0 0;
+.login-welcome {
+  display: block;
+  margin: 0 0 12px;
   color: var(--text-muted);
-  font-size: 1rem;
-  font-weight: 500;
+  font-size: 1.1rem;
+  font-weight: 600;
   line-height: 1.35;
 }
-
-.auth-user-subtitle {
-  margin: 0;
-}
-
-.auth-user-subtitle:empty {
-  display: none;
-}
-
-.pin-instruction-list {
-  margin: 0 0 14px;
-  padding-left: 1.35rem;
-  color: var(--text-muted);
-  font-size: 0.95rem;
-  line-height: 1.45;
-  text-align: left;
-}
-
-.pin-instruction-list li + li {
-  margin-top: 5px;
-}
-
 
 
 button {
@@ -351,6 +306,23 @@ button:active {
   min-width: 52px;
   height: 52px;
   min-height: 52px;
+}
+
+.home-icon-btn,
+.back-icon-btn {
+  width: 58px;
+  min-width: 58px;
+  min-height: 58px;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.header-icon-label {
+  display: block;
+  color: currentColor;
+  font-size: 0.66rem;
+  font-weight: 800;
+  line-height: 1;
 }
 
 .home-icon-btn__icon,
@@ -820,42 +792,21 @@ body.has-user-band .top-bar button[onclick="logout()"] {
 }
 
 @media (max-width: 520px) {
-  #progress-tasks-screen .nav-header,
-  #progress-task-students-screen .nav-header {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 52px;
-    grid-template-areas:
-      "title refresh"
-      "save save";
-    align-items: center;
-    column-gap: 10px;
-    row-gap: 10px;
+  .student-status-row {
+    grid-template-columns: 1fr;
+    text-align: center;
   }
 
-  #progress-tasks-screen .nav-header h2,
-  #progress-task-students-screen .nav-header h2 {
-    grid-area: title;
-    margin: 0;
-    min-width: 0;
-    overflow-wrap: normal;
-    word-break: normal;
-    hyphens: none;
+  .student-status-name {
+    text-align: center;
   }
+}
 
-  #progress-tasks-screen .nav-header .manual-refresh-btn,
-  #progress-task-students-screen .nav-header .manual-refresh-btn {
-    grid-area: refresh;
-    justify-self: end;
-    margin-left: 0;
-  }
-
-  #progress-tasks-screen .nav-header .save-return-btn,
-  #progress-task-students-screen .nav-header .save-return-btn {
-    grid-area: save;
-    justify-self: center;
-    width: min(260px, 100%);
-    margin: 4px auto 0;
-  }
+.status-action {
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .save-btn {
@@ -1453,7 +1404,8 @@ body.has-user-band .top-bar button[onclick="logout()"] {
 .resource-task-list {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  column-gap: 20px;
+  row-gap: 14px;
 }
 
 @media (max-width: 360px) {
@@ -1472,7 +1424,7 @@ body.has-user-band .top-bar button[onclick="logout()"] {
   padding: 12px;
   text-align: left;
   border: 1px solid rgba(var(--primary-rgb), 0.14);
-  border-left: 5px solid var(--primary);
+  box-shadow: 0 2px 5px rgba(var(--black-rgb), 0.08);
 }
 
 .student-resource-row-main {
@@ -1513,7 +1465,7 @@ body.has-user-band .top-bar button[onclick="logout()"] {
   color: var(--primary);
   box-shadow: none;
   font-family: var(--font-main);
-  font-size: 2.4rem;
+  font-size: 1rem;
   line-height: 1;
   display: flex;
   align-items: center;
@@ -1557,6 +1509,11 @@ body.has-user-band .top-bar button[onclick="logout()"] {
   background: currentColor;
   -webkit-mask: var(--app-icon-url) center / contain no-repeat;
   mask: var(--app-icon-url) center / contain no-repeat;
+}
+
+.resource-action-icon {
+  width: var(--icon-size-large);
+  height: var(--icon-size-large);
 }
 
 .student-resource-meta .resource-type-badge {
@@ -1779,9 +1736,9 @@ body.has-user-band .top-bar button[onclick="logout()"] {
   width: var(--icon-size-large);
   height: var(--icon-size-large);
   display: inline-block;
-  background: currentColor;
-  -webkit-mask: url('/icons/zoom.svg') center / contain no-repeat;
-  mask: url('/icons/zoom.svg') center / contain no-repeat;
+  flex: 0 0 auto;
+  background: transparent;
+  object-fit: contain;
 }
 
 .zoom-link-button:disabled,
@@ -2518,6 +2475,22 @@ body.has-bottom-nav .app-shell {
   text-align: left;
 }
 
+.progress-selector-screen .dashboard-section,
+.progress-selector-screen .resource-section {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  padding: 0;
+  margin: 0 0 14px;
+}
+
+.progress-selector-screen .dashboard-section h3,
+.progress-selector-screen .dashboard-section h4,
+.progress-selector-screen .resource-section h3,
+.progress-selector-screen .resource-section h4 {
+  display: none;
+}
+
 /* Attendance dashboard: larger mobile-friendly menu buttons */
 #attendance-dashboard .list-stack {
   gap: 22px;
@@ -2656,36 +2629,41 @@ body.has-bottom-nav .app-shell {
 }
 
 @media (max-width: 520px) {
-  .nav-header {
-    flex-wrap: nowrap;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .nav-header h2 {
-    flex: 1 1 auto;
-    min-width: 0;
-    margin-bottom: 0;
-    overflow-wrap: anywhere;
-  }
-
-  .nav-header .manual-refresh-btn {
-    margin-left: auto;
-  }
-
-  .nav-header .small-btn:not(.manual-refresh-btn):not(.save-return-btn) {
-    flex: 0 0 auto;
-  }
-
   #progress-tasks-screen .nav-header,
   #progress-task-students-screen .nav-header {
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 52px;
+    grid-template-areas:
+      "title refresh"
+      "save save";
+    align-items: center;
+    column-gap: 10px;
+    row-gap: 10px;
+  }
+
+  #progress-tasks-screen .nav-header h2,
+  #progress-task-students-screen .nav-header h2 {
+    grid-area: title;
+    margin: 0;
+    min-width: 0;
+    overflow-wrap: normal;
+    word-break: normal;
+    hyphens: none;
+  }
+
+  #progress-tasks-screen .nav-header .manual-refresh-btn,
+  #progress-task-students-screen .nav-header .manual-refresh-btn {
+    grid-area: refresh;
+    justify-self: end;
+    margin-left: 0;
   }
 
   #progress-tasks-screen .nav-header .save-return-btn,
   #progress-task-students-screen .nav-header .save-return-btn {
-    flex-basis: min(240px, 100%);
-    margin-top: 8px;
+    grid-area: save;
+    justify-self: center;
+    width: min(260px, 100%);
+    margin: 4px auto 0;
   }
 }
 
@@ -3014,7 +2992,6 @@ body.resource-module-picker-open {
   color: var(--primary);
 }
 
-.student-resource-row,
 .resource-card {
   border-left-color: var(--primary);
 }
