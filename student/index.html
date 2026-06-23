@@ -78,6 +78,18 @@
       </div>
 
       <div class="student-home-panel">
+
+        <button
+          id="student-zoom-link-btn"
+          type="button"
+          class="zoom-link-button"
+          onclick="openStudentTimetableZoom()"
+          disabled
+        >
+          <span class="zoom-link-button__icon" aria-hidden="true"></span>
+          <span class="zoom-link-button__text">Join Zoom Class</span>
+        </button>
+
         <section class="timetable-card">
           <div class="timetable-card-header">
             <h3>Timetable</h3>
@@ -97,17 +109,6 @@
             <p class="helper-text">Loading timetable...</p>
           </div>
         </section>
-
-        <button
-          id="student-zoom-link-btn"
-          type="button"
-          class="zoom-link-button"
-          onclick="openStudentTimetableZoom()"
-          disabled
-        >
-          <span class="zoom-link-button__icon" aria-hidden="true"></span>
-          <span class="zoom-link-button__text">Join Zoom Class</span>
-        </button>
       </div>
     </section>
 
@@ -179,7 +180,7 @@
     <!-- STUDENT RESOURCES -->
     <section id="student-resources-subjects" class="screen student-theme">
       <div class="nav-header">
-        <h2>Resources</h2>
+        <h2 class="visually-hidden">Resources</h2>
         <button class="small-btn" onclick="showScreen('student-home')">Back</button>
       </div>
 
@@ -226,7 +227,7 @@
     <!-- PROGRESS REPORT -->
 <section id="progress-report" class="screen admin-theme">
   <div class="nav-header">
-    <h2>Progress Monitor</h2>
+    <h2 class="visually-hidden">Progress Monitor</h2>
     <button class="small-btn" onclick="showScreen('admin-home')">Back</button>
   </div>
 
@@ -355,13 +356,13 @@
     <!-- ADMIN ATTENDANCE -->
     <section id="attendance-dashboard" class="screen admin-theme">
       <div class="nav-header">
-        <h2>Attendance</h2>
+        <h2 class="visually-hidden">Attendance</h2>
         <button class="small-btn" onclick="showScreen('admin-home')">Back</button>
       </div>
 
       <div class="list-stack">
         <button class="list-btn" onclick="openMarkRegister()">Mark Register</button>
-        <button class="list-btn" onclick="openViewAttendance()">View Attendance Records</button>
+        <button class="list-btn" onclick="openViewAttendance()">Attendance Records</button>
         <button class="list-btn" onclick="openAttendanceStats()">View Attendance Stats</button>
       </div>
     </section>

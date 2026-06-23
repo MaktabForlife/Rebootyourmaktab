@@ -1677,12 +1677,33 @@ function setProgressScreensForStudent() {
 
   const taskBackButton = document.querySelector("#progress-tasks-screen .small-btn");
   if (taskBackButton) {
-    setTextActionButton(taskBackButton, "Save and Exit", "saveStudentTaskChangesAndReturn()");
-    taskBackButton.classList.add("save-return-btn");
+    taskBackButton.classList.remove("save-return-btn", "student-progress-save-btn");
+    setBackIconButton(taskBackButton, "showScreen('progress-subjects-screen')");
   }
+
+  ensureStudentProgressSaveButton();
+}
+
+function ensureStudentProgressSaveButton() {
+  const header = document.querySelector("#progress-tasks-screen .nav-header");
+  if (!header) return;
+
+  let saveButton = header.querySelector(".student-progress-save-btn");
+
+  if (!saveButton) {
+    saveButton = document.createElement("button");
+    saveButton.type = "button";
+    header.appendChild(saveButton);
+  }
+
+  saveButton.className = "small-btn save-return-btn student-progress-save-btn";
+  saveButton.textContent = "Save and Exit";
+  saveButton.setAttribute("onclick", "saveStudentTaskChangesAndReturn()");
 }
 
 function setProgressScreensForAdmin() {
+  document.querySelectorAll(".student-progress-save-btn").forEach(button => button.remove());
+
   ["progress-subjects-screen", "progress-tasks-screen", "progress-task-students-screen"].forEach(id => {
     const screen = document.getElementById(id);
     if (!screen) return;
@@ -5983,6 +6004,11 @@ async function refreshViewAttendance(button) {
   const startDate = document.getElementById("view-start-date")?.value;
   const endDate = document.getElementById("view-end-date")?.value;
 
+  if (!isValidAttendanceDateRange(startDate, endDate)) {
+    showAttendanceDatePopup("Start date must be before or the same as end date.");
+    return;
+  }
+
   await runManualRefresh(button, async () => {
     await renderViewAttendanceScreen(startDate, endDate);
   });
@@ -5991,6 +6017,11 @@ async function refreshViewAttendance(button) {
 async function refreshAttendanceStats(button) {
   const startDate = document.getElementById("stats-start-date")?.value;
   const endDate = document.getElementById("stats-end-date")?.value;
+
+  if (!isValidAttendanceDateRange(startDate, endDate)) {
+    showAttendanceDatePopup("Start date must be before or the same as end date.");
+    return;
+  }
 
   await runManualRefresh(button, async () => {
     await renderAttendanceStatsScreen(startDate, endDate);
@@ -6031,6 +6062,75 @@ function getDefaultAttendanceDateRange() {
     start: getLocalDateString(firstDay),
     end: getLocalDateString(now)
   };
+}
+
+
+function isValidAttendanceDateRange(startDate, endDate) {
+  if (!startDate || !endDate) return true;
+  return String(startDate) <= String(endDate);
+}
+
+function clearAttendanceDatePopup() {
+  const existing = document.getElementById("attendance-date-popup");
+  if (existing) {
+    existing.remove();
+  }
+}
+
+function showAttendanceDatePopup(message) {
+  clearAttendanceDatePopup();
+
+  const popup = document.createElement("div");
+  popup.id = "attendance-date-popup";
+  popup.className = "attendance-date-popup";
+  popup.setAttribute("role", "alert");
+  popup.textContent = message || "Please choose a valid date range.";
+
+  document.body.appendChild(popup);
+}
+
+function handleAttendanceDateRangeChange(mode) {
+  clearAttendanceDatePopup();
+
+  const normalizedMode = mode === "stats" ? "stats" : "view";
+  const prefix = normalizedMode === "stats" ? "stats" : "view";
+  const startDate = document.getElementById(`${prefix}-start-date`)?.value || "";
+  const endDate = document.getElementById(`${prefix}-end-date`)?.value || "";
+
+  if (!isValidAttendanceDateRange(startDate, endDate)) {
+    showAttendanceDatePopup("Start date must be before or the same as end date.");
+    return;
+  }
+
+  if (!endDate) return;
+
+  if (normalizedMode === "stats") {
+    renderAttendanceStatsScreen(startDate, endDate);
+  } else {
+    renderViewAttendanceScreen(startDate, endDate);
+  }
+}
+
+function renderAttendanceDateFilter(mode, startDate, endDate) {
+  const normalizedMode = mode === "stats" ? "stats" : "view";
+  const prefix = normalizedMode === "stats" ? "stats" : "view";
+  const changeHandler = `handleAttendanceDateRangeChange('${normalizedMode}')`;
+
+  return `
+    <div class="attendance-filter-box">
+      <div class="attendance-date-title">Choose date range</div>
+
+      <div class="attendance-date-row attendance-date-row-compact">
+        <input type="date" id="${prefix}-start-date" value="${escapeHtml(startDate)}" onchange="${changeHandler}">
+        <span class="attendance-date-label">START DATE</span>
+      </div>
+
+      <div class="attendance-date-row attendance-date-row-compact">
+        <input type="date" id="${prefix}-end-date" value="${escapeHtml(endDate)}" onchange="${changeHandler}">
+        <span class="attendance-date-label">END DATE</span>
+      </div>
+    </div>
+  `;
 }
 
 function formatDisplayDate(dateString) {
@@ -6100,7 +6200,7 @@ function renderAttendanceRegister(dateValue) {
   let html = `
     <div class="attendance-register-sticky">
     <div class="attendance-modern-header">
-      <h2>Attendance</h2>
+      <h2 class="visually-hidden">Attendance</h2>
       ${getBackIconButtonMarkup("showScreen('attendance-dashboard')")}
       <button class="small-btn save-return-btn attendance-save-btn" onclick="submitAttendanceRegister()">Save Attendance →</button>
     </div>
@@ -6244,32 +6344,17 @@ async function renderViewAttendanceScreen(startDate, endDate) {
 
   let html = `
     <div class="nav-header">
-      <h2>View Attendance Records</h2>
+      <h2>Attendance Records</h2>
       ${getManualRefreshButtonMarkup("refreshViewAttendance(this)")}
       ${getBackIconButtonMarkup("showScreen('attendance-dashboard')")}
     </div>
 
-    <div class="attendance-filter-box">
-      <div class="attendance-date-row attendance-date-row-compact">
-        <input type="date" id="view-start-date" value="${escapeHtml(startDate)}">
-        <span class="attendance-date-label">START DATE</span>
-      </div>
-
-      <div class="attendance-date-row attendance-date-row-compact">
-        <input type="date" id="view-end-date" value="${escapeHtml(endDate)}">
-        <span class="attendance-date-label">END DATE</span>
-      </div>
-
-      <button onclick="renderViewAttendanceScreen(
-        document.getElementById('view-start-date').value,
-        document.getElementById('view-end-date').value
-      )">Filter</button>
-    </div>
+    ${renderAttendanceDateFilter("view", startDate, endDate)}
 
     <div class="attendance-report-header">
       <div>NAME</div>
       <div>DAY ABSENT</div>
-      <div>ATT %</div>
+      <div class="attendance-percent-heading"><span>Attendance</span><span>%</span></div>
     </div>
   `;
 
@@ -6331,22 +6416,7 @@ async function renderAttendanceStatsScreen(startDate, endDate) {
       ${getBackIconButtonMarkup("showScreen('attendance-dashboard')")}
     </div>
 
-    <div class="attendance-filter-box">
-      <div class="attendance-date-row attendance-date-row-compact">
-        <input type="date" id="stats-start-date" value="${escapeHtml(startDate)}">
-        <span class="attendance-date-label">START DATE</span>
-      </div>
-
-      <div class="attendance-date-row attendance-date-row-compact">
-        <input type="date" id="stats-end-date" value="${escapeHtml(endDate)}">
-        <span class="attendance-date-label">END DATE</span>
-      </div>
-
-      <button onclick="renderAttendanceStatsScreen(
-        document.getElementById('stats-start-date').value,
-        document.getElementById('stats-end-date').value
-      )">Filter</button>
-    </div>
+    ${renderAttendanceDateFilter("stats", startDate, endDate)}
 
     <div class="attendance-stat-grid">
       <div class="attendance-stat-card">
@@ -6355,7 +6425,7 @@ async function renderAttendanceStatsScreen(startDate, endDate) {
       </div>
 
       <div class="attendance-stat-card">
-        <div class="attendance-stat-label">CLASS %</div>
+        <div class="attendance-stat-label">Class average attendance</div>
         <div class="attendance-stat-number">${formatPercent(result.registerAverageAttendancePercent)}</div>
       </div>
     </div>
@@ -6384,7 +6454,7 @@ async function renderAttendanceStatsScreen(startDate, endDate) {
     </div>
 
     <div class="attendance-breakdown-card">
-      <h3>100% Attendance 🏆</h3>
+      <h3>100% Attendance</h3>
       <div class="attendance-perfect-list">
   `;
 

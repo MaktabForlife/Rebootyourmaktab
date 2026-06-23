@@ -44,7 +44,7 @@
   --bottom-nav-safe-area: env(safe-area-inset-bottom, 0px);
   --nav-rail-width: 92px;
   --top-nav-height: 70px;
-  --user-band-height: 72px;
+  --user-band-height: 58px;
   --icon-size: 24px;
   --icon-size-small: 20px;
   --icon-size-large: 34px;
@@ -246,6 +246,10 @@ select {
   line-height: 1.15;
 }
 
+.auth-brand-block .auth-brand-title:first-of-type {
+  color: var(--text-muted);
+}
+
 .auth-logo {
   width: min(42vw, 170px);
   max-width: 170px;
@@ -427,13 +431,13 @@ button:active {
   right: 0;
   z-index: 110;
   min-height: var(--user-band-height);
-  padding: 10px max(14px, env(safe-area-inset-left, 0px)) 10px max(14px, env(safe-area-inset-right, 0px));
+  padding: 7px max(14px, env(safe-area-inset-left, 0px)) 7px max(14px, env(safe-area-inset-right, 0px));
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 14px;
   background: var(--banner-color);
-  color: var(--text-inverse);
+  color: var(--text-strong);
   box-shadow: 0 5px 16px rgba(var(--black-rgb), 0.18);
 }
 
@@ -450,15 +454,15 @@ button:active {
 
 .app-user-band__name {
   margin: 0;
-  color: var(--text-inverse);
-  font-size: clamp(1.25rem, 5.2vw, 1.85rem);
+  color: var(--text-strong);
+  font-size: clamp(1.08rem, 4.4vw, 1.55rem);
   line-height: 1.05;
 }
 
 .app-user-band__level {
   margin: 0;
-  color: rgba(var(--white-rgb), 0.86);
-  font-size: 0.95rem;
+  color: rgba(var(--black-rgb), 0.72);
+  font-size: 0.86rem;
   font-weight: 500;
 }
 
@@ -466,13 +470,13 @@ button:active {
   width: 58px;
   min-width: 58px;
   height: auto;
-  min-height: 54px;
+  min-height: 48px;
   display: inline-flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 3px;
-  color: var(--text-inverse);
+  color: var(--text-strong);
 }
 
 .app-user-band__logout-label {
@@ -1111,6 +1115,15 @@ body.has-user-band .top-bar button[onclick="logout()"] {
 
   .task-status-heading {
     font-size: 0.72rem;
+  }
+
+  .task-status-heading-row {
+    padding-block: 0;
+    margin-bottom: 2px;
+  }
+
+  .task-status-heading-row .status-action {
+    min-height: 24px;
   }
 }
 
@@ -1965,6 +1978,52 @@ body.has-user-band .top-bar button[onclick="logout()"] {
   }
 }
 
+
+/* Student Home: compact timetable layout */
+#student-home .top-bar {
+  display: none;
+}
+
+#student-home.screen {
+  padding-inline: 12px;
+}
+
+#student-home .student-home-panel {
+  margin-top: 0;
+  gap: 12px;
+}
+
+#student-home #student-zoom-link-btn {
+  order: -1;
+}
+
+#student-home .timetable-card {
+  overflow: visible;
+  background: transparent;
+  border-left: 0;
+  border-radius: 0;
+  padding: 0;
+  box-shadow: none;
+}
+
+#student-home .timetable-card-header {
+  margin: 0 0 6px;
+  justify-content: flex-end;
+}
+
+#student-home .timetable-card-header h3 {
+  display: none;
+}
+
+#student-home .timetable-scroll {
+  background: transparent;
+}
+
+#student-home .timetable-subject {
+  font-size: clamp(1rem, 3.8vw, 1.15rem);
+  font-weight: 800;
+}
+
 /* Reusable responsive primary navigation */
 body.has-bottom-nav .app-shell {
   padding-bottom: calc(var(--bottom-nav-height) + var(--bottom-nav-safe-area) + 12px);
@@ -1972,15 +2031,17 @@ body.has-bottom-nav .app-shell {
 
 .bottom-nav {
   position: fixed;
-  left: 10px;
-  right: 10px;
+  left: 0;
+  right: 0;
   bottom: 0;
   z-index: 80;
-  max-width: 520px;
-  margin: 0 auto;
+  width: 100%;
+  max-width: none;
+  margin: 0;
   display: flex;
   flex-wrap: nowrap;
-  gap: 6px;
+  justify-content: center;
+  gap: 4px;
   min-height: calc(var(--bottom-nav-height) + var(--bottom-nav-safe-area));
   padding: 8px 8px calc(8px + var(--bottom-nav-safe-area));
   overflow-x: auto;
@@ -1994,9 +2055,12 @@ body.has-bottom-nav .app-shell {
   -webkit-overflow-scrolling: touch;
   background: rgba(var(--white-rgb), 0.96);
   border: 1px solid rgba(var(--primary-rgb), 0.16);
+  border-right: 0;
   border-bottom: 0;
-  border-radius: 18px 18px 0 0;
+  border-left: 0;
+  border-radius: 0;
   box-shadow: 0 -6px 18px rgba(var(--black-rgb), 0.13);
+  transform: translateZ(0);
   scrollbar-width: none;
 }
 
@@ -2009,7 +2073,7 @@ body.has-bottom-nav .app-shell {
 }
 
 .bottom-nav__item {
-  flex: 0 0 auto;
+  flex: 1 1 0;
   width: auto;
   min-width: 66px;
   min-height: 58px;
@@ -2107,6 +2171,7 @@ body.has-bottom-nav .app-shell {
   }
 
   .bottom-nav__item {
+    flex: 0 0 auto;
     width: auto;
     min-width: 92px;
     min-height: 54px;
@@ -2151,6 +2216,23 @@ body.has-bottom-nav .app-shell {
   .bottom-nav__item.is-active:hover {
     background: transparent;
   }
+}
+
+
+/* Top-level screen title simplification */
+#student-resources-subjects > .nav-header > h2,
+#progress-report > .nav-header > h2,
+#attendance-dashboard > .nav-header > h2 {
+  display: none;
+}
+
+#progress-report .dashboard-section:not(:last-of-type)::after {
+  content: "";
+  display: block;
+  height: 3px;
+  margin-top: 16px;
+  border-radius: 999px;
+  background: var(--primary);
 }
 
 /* Admin Attendance */
@@ -2394,6 +2476,89 @@ body.has-bottom-nav .app-shell {
 }
 
 
+
+/* Attendance Records and Stats shared filters */
+.attendance-date-title {
+  margin: 0 0 10px;
+  color: var(--text-muted);
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: left;
+}
+
+.attendance-percent-heading {
+  display: grid;
+  gap: 1px;
+  line-height: 1.05;
+}
+
+.attendance-date-popup {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--bottom-nav-height) + var(--bottom-nav-safe-area) + 14px);
+  z-index: 160;
+  width: min(88vw, 420px);
+  padding: 13px 16px;
+  border: 1px solid rgba(var(--primary-rgb), 0.18);
+  border-radius: 14px;
+  background: var(--surface-card);
+  color: var(--error);
+  box-shadow: 0 10px 26px rgba(var(--black-rgb), 0.20);
+  font-weight: 800;
+  text-align: center;
+  transform: translateX(-50%);
+}
+
+.attendance-report-header,
+.attendance-report-row {
+  grid-template-columns: 50% 10% 40%;
+  column-gap: 0;
+}
+
+.attendance-report-row {
+  background: var(--surface-card);
+  color: var(--primary);
+  border: 1px solid rgba(var(--primary-rgb), 0.14);
+  border-radius: 12px;
+  box-shadow: 0 2px 5px rgba(var(--black-rgb), 0.08);
+}
+
+.attendance-absent-dates {
+  background: var(--surface-card);
+  color: var(--primary);
+  border: 1px solid rgba(var(--primary-rgb), 0.12);
+  border-top: 0;
+}
+
+.attendance-stat-card {
+  background: var(--surface-card);
+  color: var(--primary);
+  border: 1px solid rgba(var(--primary-rgb), 0.14);
+  box-shadow: 0 2px 5px rgba(var(--black-rgb), 0.08);
+}
+
+@media (max-width: 520px) {
+  .attendance-filter-box .attendance-date-row {
+    justify-content: center;
+  }
+
+  .attendance-filter-box .attendance-date-row input[type="date"] {
+    flex: 0 0 70%;
+    width: 70%;
+  }
+
+  .attendance-filter-box .attendance-date-label {
+    flex: 0 0 28%;
+    text-align: left;
+  }
+
+  .attendance-report-header,
+  .attendance-report-row {
+    grid-template-columns: 50% 10% 40%;
+    column-gap: 0;
+  }
+}
+
 /* =========================
    Final mobile cosmetic updates
 ========================= */
@@ -2532,10 +2697,15 @@ body.has-bottom-nav .app-shell {
 }
 
 @media (max-width: 520px) {
-  .attendance-date-row,
-  .attendance-filter-box .attendance-date-row {
+  .attendance-date-row {
     flex-wrap: nowrap;
     gap: 6px;
+  }
+
+  .attendance-filter-box .attendance-date-row {
+    flex-wrap: nowrap;
+    justify-content: center;
+    gap: 0;
   }
 
   .attendance-date-row input[type="date"] {
@@ -2571,8 +2741,8 @@ body.has-bottom-nav .app-shell {
 
   .attendance-report-header,
   .attendance-report-row {
-    grid-template-columns: minmax(0, 1fr) 68px 54px;
-    gap: 5px;
+    grid-template-columns: 50% 10% 40%;
+    gap: 0;
     font-size: 0.82rem;
   }
 
@@ -2766,13 +2936,13 @@ body.has-bottom-nav .app-shell {
   #progress-tasks-screen .nav-header,
   #progress-task-students-screen .nav-header {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 52px;
+    grid-template-columns: minmax(0, 1fr) 48px 48px;
     grid-template-areas:
-      "title refresh"
-      "save save";
+      "title refresh back"
+      "save save save";
     align-items: center;
-    column-gap: 10px;
-    row-gap: 10px;
+    column-gap: 8px;
+    row-gap: 8px;
   }
 
   #progress-tasks-screen .nav-header h2,
@@ -2792,12 +2962,24 @@ body.has-bottom-nav .app-shell {
     margin-left: 0;
   }
 
+  #progress-tasks-screen .nav-header .back-icon-btn,
+  #progress-task-students-screen .nav-header .back-icon-btn {
+    grid-area: back;
+    justify-self: end;
+  }
+
   #progress-tasks-screen .nav-header .save-return-btn,
   #progress-task-students-screen .nav-header .save-return-btn {
     grid-area: save;
     justify-self: center;
     width: min(260px, 100%);
-    margin: 4px auto 0;
+    margin: 2px auto 0;
+  }
+
+  #progress-tasks-screen .nav-header .home-icon-btn,
+  #progress-task-students-screen .nav-header .home-icon-btn {
+    grid-area: back;
+    justify-self: end;
   }
 }
 
@@ -2827,6 +3009,7 @@ body.has-bottom-nav .app-shell {
   max-width: 100%;
   overflow-x: auto;
   padding-bottom: 4px;
+  background: transparent;
   -webkit-overflow-scrolling: touch;
 }
 
@@ -2849,7 +3032,7 @@ body.has-bottom-nav .app-shell {
 }
 
 .resource-media-header {
-  background: var(--surface-tint);
+  background: var(--banner-color);
   color: var(--primary);
   border-bottom: 2px solid rgba(var(--primary-rgb), 0.24);
   font-family: var(--font-heading);
