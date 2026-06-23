@@ -1,6 +1,8 @@
 const API_BASE = "https://rebootworker.maktab4life.workers.dev";
 const STUDENT_LOGIN_BASE = "https://rebootyourmaktab.maktab4life.org/student/";
 const DEFAULT_STUDENT_GROUP = 1;
+const APP_VERSION_STORAGE_KEY = "maktab_app_version";
+
 
 const state = {
   portalType: null,
@@ -9,6 +11,41 @@ const state = {
   userType: localStorage.getItem("maktab_user_type") || "",
   user: null
 };
+async function checkForAppUpdate() {
+  try {
+    const response = await fetch(`/version.json?t=${Date.now()}`, {
+      cache: "no-store",
+    });
+
+    if (!response.ok) return;
+
+    const data = await response.json();
+    const latestVersion = String(data.version || "").trim();
+
+    if (!latestVersion) return;
+
+    const currentVersion = localStorage.getItem(APP_VERSION_STORAGE_KEY);
+
+    if (currentVersion && currentVersion !== latestVersion) {
+      localStorage.setItem(APP_VERSION_STORAGE_KEY, latestVersion);
+
+      if ("caches" in window) {
+        const cacheNames = await caches.keys();
+        await Promise.all(cacheNames.map(cacheName => caches.delete(cacheName)));
+      }
+
+      window.location.reload();
+      return;
+    }
+
+    if (!currentVersion) {
+      localStorage.setItem(APP_VERSION_STORAGE_KEY, latestVersion);
+    }
+  } catch (error) {
+    console.warn("App update check failed", error);
+  }
+}
+
 
 /* =========================
    APP INIT
@@ -22,6 +59,8 @@ window.addEventListener("keydown", event => {
 });
 
 function initApp() {
+    checkForAppUpdate();
+
   setupPinDigitBoxes();
 
   const path = window.location.pathname;
