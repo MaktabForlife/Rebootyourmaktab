@@ -1335,13 +1335,20 @@ function ensureTimetableStartImageAfterZoom(contentId, zoomButtonId, imageCardId
     `;
   }
 
-  if (zoomButton && zoomButton.parentNode) {
-    zoomButton.insertAdjacentElement("afterend", imageCard);
+  const timetableCard = content ? content.closest(".timetable-card") : null;
+
+  if (timetableCard && timetableCard.parentNode) {
+    timetableCard.insertAdjacentElement("afterend", imageCard);
     return;
   }
 
   if (content && content.parentNode) {
     content.insertAdjacentElement("afterend", imageCard);
+    return;
+  }
+
+  if (zoomButton && zoomButton.parentNode) {
+    zoomButton.insertAdjacentElement("afterend", imageCard);
   }
 }
 
@@ -1385,9 +1392,17 @@ function ensureAdminHomePanel() {
     panel.id = "admin-home-panel";
     panel.className = "student-home-panel admin-home-panel";
     panel.innerHTML = `
+      <button
+        id="admin-home-zoom-link-btn"
+        type="button"
+        class="zoom-link-button"
+        onclick="openTimetableZoomLink()"
+      >
+        Join Zoom Class
+      </button>
       <div class="timetable-card">
         <div class="timetable-card-header">
-          <h3>Timetable</h3>
+          <h3 class="visually-hidden">Timetable</h3>
           <button
             type="button"
             class="small-btn manual-refresh-btn icon-action-btn icon-action-btn-large"
@@ -1402,14 +1417,6 @@ function ensureAdminHomePanel() {
           <p class="helper-text">Loading timetable...</p>
         </div>
       </div>
-      <button
-        id="admin-home-zoom-link-btn"
-        type="button"
-        class="zoom-link-button"
-        onclick="openTimetableZoomLink()"
-      >
-        Join Zoom Class
-      </button>
     `;
   }
 
@@ -2668,15 +2675,6 @@ function renderStudentResourceSubjects() {
   container.innerHTML = `
     <div class="resource-media-matrix-wrap" style="${columnStyle}">
       <div class="resource-media-matrix" role="table" aria-label="Resources by subject and media type">
-        <div class="resource-media-row resource-media-header" role="row">
-          <div class="resource-media-subject-cell" role="columnheader">Subject</div>
-          ${visibleCategories.map(category => `
-            <div class="resource-media-cell resource-media-heading-cell" role="columnheader">
-              ${escapeHtml(category.label)}
-            </div>
-          `).join("")}
-        </div>
-
         ${subjects.map(subject => `
           <div class="resource-media-row" role="row">
             <div class="resource-media-subject-cell" role="cell">
@@ -3743,8 +3741,20 @@ function showManageStudents() {
   manageStudentsState.selectedStudentActiveDraft = true;
   manageStudentsState.studentDropdownOpen = false;
   showScreen("manage-students-screen");
+  setManageStudentsBackIcons();
   renderManageStudentsScreen();
   loadStudentAssignmentOptions();
+}
+
+function setManageStudentsBackIcons() {
+  setBackIconButton(
+    document.querySelector("#manage-students-screen .student-admin-modern-header .small-btn"),
+    "showScreen('admin-academics')"
+  );
+  setBackIconButton(
+    document.querySelector("#manage-student-edit-screen .student-admin-modern-header .small-btn"),
+    "backToManagedStudentList()"
+  );
 }
 
 async function loadStudentAssignmentOptions() {
@@ -6089,7 +6099,11 @@ function showAttendanceDatePopup(message) {
   document.body.appendChild(popup);
 }
 
-function handleAttendanceDateRangeChange(mode) {
+function handleAttendanceDateRangeChange() {
+  clearAttendanceDatePopup();
+}
+
+async function calculateAttendanceDateRange(mode, button) {
   clearAttendanceDatePopup();
 
   const normalizedMode = mode === "stats" ? "stats" : "view";
@@ -6102,33 +6116,43 @@ function handleAttendanceDateRangeChange(mode) {
     return;
   }
 
-  if (!endDate) return;
+  if (!endDate) {
+    showAttendanceDatePopup("Please select an end date.");
+    return;
+  }
 
-  if (normalizedMode === "stats") {
-    renderAttendanceStatsScreen(startDate, endDate);
+  const task = async () => {
+    if (normalizedMode === "stats") {
+      await renderAttendanceStatsScreen(startDate, endDate);
+    } else {
+      await renderViewAttendanceScreen(startDate, endDate);
+    }
+  };
+
+  if (button) {
+    await runManualRefresh(button, task);
   } else {
-    renderViewAttendanceScreen(startDate, endDate);
+    await task();
   }
 }
 
 function renderAttendanceDateFilter(mode, startDate, endDate) {
   const normalizedMode = mode === "stats" ? "stats" : "view";
   const prefix = normalizedMode === "stats" ? "stats" : "view";
-  const changeHandler = `handleAttendanceDateRangeChange('${normalizedMode}')`;
 
   return `
     <div class="attendance-filter-box">
-      <div class="attendance-date-title">Choose date range</div>
-
       <div class="attendance-date-row attendance-date-row-compact">
-        <input type="date" id="${prefix}-start-date" value="${escapeHtml(startDate)}" onchange="${changeHandler}">
+        <input type="date" id="${prefix}-start-date" value="${escapeHtml(startDate)}" onchange="handleAttendanceDateRangeChange()">
         <span class="attendance-date-label">START DATE</span>
       </div>
 
       <div class="attendance-date-row attendance-date-row-compact">
-        <input type="date" id="${prefix}-end-date" value="${escapeHtml(endDate)}" onchange="${changeHandler}">
+        <input type="date" id="${prefix}-end-date" value="${escapeHtml(endDate)}" onchange="handleAttendanceDateRangeChange()">
         <span class="attendance-date-label">END DATE</span>
       </div>
+
+      <button type="button" class="attendance-calculate-btn" onclick="calculateAttendanceDateRange('${normalizedMode}', this)">calculate</button>
     </div>
   `;
 }
@@ -6201,8 +6225,8 @@ function renderAttendanceRegister(dateValue) {
     <div class="attendance-register-sticky">
     <div class="attendance-modern-header">
       <h2 class="visually-hidden">Attendance</h2>
+      <button class="small-btn save-return-btn attendance-save-btn" onclick="submitAttendanceRegister()">Save Attendance</button>
       ${getBackIconButtonMarkup("showScreen('attendance-dashboard')")}
-      <button class="small-btn save-return-btn attendance-save-btn" onclick="submitAttendanceRegister()">Save Attendance →</button>
     </div>
 
     
@@ -6362,8 +6386,10 @@ async function renderViewAttendanceScreen(startDate, endDate) {
     html += `<p class="helper-text">No attendance records found.</p>`;
   }
 
-  sortedGroups.forEach(group => {
-    html += `<div class="attendance-group-line" aria-label="Group ${escapeHtml(group)}"></div>`;
+  sortedGroups.forEach((group, index) => {
+    if (index > 0) {
+      html += `<div class="attendance-group-line" aria-label="Group ${escapeHtml(group)}"></div>`;
+    }
 
     groups[group].forEach(student => {
       const rowId = `abs-${safeDomId(student.studentid)}`;
@@ -6466,7 +6492,7 @@ async function renderAttendanceStatsScreen(startDate, endDate) {
     perfectStudents
       .sort(sortAttendanceStudents)
       .forEach(student => {
-        html += `<div class="attendance-perfect-row">⭐ ${escapeHtml(student.username)} <span class="mini-text">(Grp ${escapeHtml(student.classgroup)})</span></div>`;
+        html += `<div class="attendance-perfect-row">${escapeHtml(student.username)} <span class="mini-text">(Grp ${escapeHtml(student.classgroup)})</span></div>`;
       });
   }
 

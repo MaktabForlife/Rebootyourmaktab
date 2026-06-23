@@ -1624,8 +1624,14 @@ body.has-user-band .top-bar button[onclick="logout()"] {
   cursor: not-allowed;
 }
 
-@media (max-width: 420px) {
+@media (max-width: 520px) {
+  .resource-category-grid {
+    grid-template-columns: 1fr;
+    width: 100%;
+  }
+
   .resource-category-button {
+    width: 100%;
     grid-template-columns: 1fr;
   }
 
@@ -1746,6 +1752,15 @@ body.has-user-band .top-bar button[onclick="logout()"] {
 
 .admin-home-panel {
   margin-bottom: 18px;
+}
+
+#admin-home .admin-home-panel {
+  margin-top: 0;
+  gap: 12px;
+}
+
+#admin-home .zoom-link-button {
+  margin-top: 0;
 }
 
 .admin-home-panel + .card-grid,
@@ -1908,11 +1923,11 @@ body.has-user-band .top-bar button[onclick="logout()"] {
   justify-content: center;
   width: 100%;
   margin-top: 12px;
-  background: var(--surface-card);
-  border: 1px solid rgba(var(--primary-rgb), 0.14);
-  border-radius: 16px;
-  overflow: hidden;
-  box-shadow: 0 2px 5px rgba(var(--black-rgb), 0.08);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  overflow: visible;
+  box-shadow: none;
 }
 
 .timetable-start-image {
@@ -1997,7 +2012,8 @@ body.has-user-band .top-bar button[onclick="logout()"] {
   order: -1;
 }
 
-#student-home .timetable-card {
+#student-home .timetable-card,
+#admin-home .timetable-card {
   overflow: visible;
   background: transparent;
   border-left: 0;
@@ -2006,16 +2022,19 @@ body.has-user-band .top-bar button[onclick="logout()"] {
   box-shadow: none;
 }
 
-#student-home .timetable-card-header {
+#student-home .timetable-card-header,
+#admin-home .timetable-card-header {
   margin: 0 0 6px;
   justify-content: flex-end;
 }
 
-#student-home .timetable-card-header h3 {
+#student-home .timetable-card-header h3,
+#admin-home .timetable-card-header h3 {
   display: none;
 }
 
-#student-home .timetable-scroll {
+#student-home .timetable-scroll,
+#admin-home .timetable-scroll {
   background: transparent;
 }
 
@@ -2220,9 +2239,15 @@ body.has-bottom-nav .app-shell {
 
 
 /* Top-level screen title simplification */
-#student-resources-subjects > .nav-header > h2,
-#progress-report > .nav-header > h2,
-#attendance-dashboard > .nav-header > h2 {
+#student-resources-subjects > .nav-header,
+#progress-report > .nav-header,
+#attendance-dashboard > .nav-header {
+  display: none;
+}
+
+
+#admin-academics > .nav-header .home-icon-btn,
+#admin-academics > .nav-header .back-icon-btn {
   display: none;
 }
 
@@ -2540,15 +2565,17 @@ body.has-bottom-nav .app-shell {
 @media (max-width: 520px) {
   .attendance-filter-box .attendance-date-row {
     justify-content: center;
+    gap: 8px;
   }
 
   .attendance-filter-box .attendance-date-row input[type="date"] {
-    flex: 0 0 70%;
-    width: 70%;
+    flex: 0 0 60%;
+    width: 60%;
   }
 
   .attendance-filter-box .attendance-date-label {
-    flex: 0 0 28%;
+    flex: 0 0 auto;
+    padding-left: 4px;
     text-align: left;
   }
 
@@ -2635,8 +2662,15 @@ body.has-bottom-nav .app-shell {
   margin: 0 0 5px;
 }
 
-.attendance-filter-box button {
-  margin-top: 5px;
+.attendance-filter-box button,
+.attendance-calculate-btn {
+  width: 100%;
+  margin-top: 8px;
+  background: var(--surface-card);
+  color: var(--primary);
+  border: 1px solid rgba(var(--primary-rgb), 0.18);
+  box-shadow: 0 2px 5px rgba(var(--black-rgb), 0.08);
+  text-transform: none;
 }
 
 /* Mark Register feedback and top save */
@@ -2705,7 +2739,7 @@ body.has-bottom-nav .app-shell {
   .attendance-filter-box .attendance-date-row {
     flex-wrap: nowrap;
     justify-content: center;
-    gap: 0;
+    gap: 8px;
   }
 
   .attendance-date-row input[type="date"] {
@@ -3116,28 +3150,35 @@ body.has-bottom-nav .app-shell {
   }
 }
 
-@media (max-width: 420px) {
+@media (max-width: 520px) {
   .resource-media-matrix {
-    min-width: calc(118px + (var(--resource-media-columns, 5) * 58px));
+    min-width: 0;
+    width: 100%;
   }
 
   .resource-media-row {
-    grid-template-columns: minmax(118px, 1.1fr) repeat(var(--resource-media-columns, 5), minmax(56px, 0.7fr));
-    gap: 6px;
-    padding: 7px;
+    grid-template-columns: 1fr;
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .resource-media-cell {
+    justify-content: stretch;
   }
 
   .resource-media-icon-button {
-    width: 40px;
-    min-width: 40px;
-    height: 40px;
-    min-height: 40px;
-    border-radius: 0;
+    width: 100%;
+    min-width: 0;
+    height: 46px;
+    min-height: 46px;
+    border-radius: 12px;
+    border: 1px solid rgba(var(--primary-rgb), 0.14);
+    background: var(--surface-card);
   }
 
   .resource-media-icon {
-    width: 21px;
-    height: 21px;
+    width: 24px;
+    height: 24px;
   }
 }
 
@@ -3416,9 +3457,9 @@ body.resource-module-picker-open {
 }
 
 .attendance-modern-header {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr minmax(140px, 240px) 1fr;
   align-items: center;
-  justify-content: space-between;
   gap: 12px;
   margin-bottom: 14px;
   text-align: left;
@@ -3432,8 +3473,9 @@ body.resource-module-picker-open {
 }
 
 .attendance-modern-header .attendance-save-btn {
-  flex: 0 0 auto;
-  width: auto;
+  grid-column: 2;
+  justify-self: center;
+  width: 100%;
   min-width: 150px;
   min-height: 46px;
   margin: 0;
@@ -3444,6 +3486,11 @@ body.resource-module-picker-open {
   color: var(--primary);
   border: 1px solid rgba(var(--primary-rgb), 0.18);
   box-shadow: 0 2px 5px rgba(var(--black-rgb), 0.08);
+}
+
+.attendance-modern-header .back-icon-btn {
+  grid-column: 3;
+  justify-self: end;
 }
 
 .attendance-register-sticky {
@@ -3641,6 +3688,7 @@ body.resource-module-picker-open {
   }
 
   .attendance-modern-header {
+    grid-template-columns: 1fr minmax(128px, 1.2fr) 1fr;
     gap: 8px;
   }
 
@@ -4591,13 +4639,15 @@ body.pdf-viewer-open #pdf-viewer-screen.screen {
 }
 
 .student-search-row {
-  background: var(--surface-dark);
-  color: var(--text-inverse);
+  background: var(--surface-card);
+  color: var(--primary);
   grid-template-columns: minmax(0, 1fr) 78px;
   min-height: 38px;
   padding: 8px 10px;
   margin-top: 2px;
-  border-radius: 7px;
+  border: 1px solid rgba(var(--primary-rgb), 0.14);
+  border-radius: 10px;
+  box-shadow: 0 2px 5px rgba(var(--black-rgb), 0.08);
 }
 
 .student-search-row-name {
@@ -4606,9 +4656,10 @@ body.pdf-viewer-open #pdf-viewer-screen.screen {
 }
 
 .student-search-row-number {
-  color: var(--surface-chip);
+  color: var(--primary);
   font-size: 0.86rem;
   letter-spacing: 0.04em;
+  opacity: 0.82;
 }
 
 .student-reset-pin-btn,

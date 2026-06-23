@@ -2,14 +2,14 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Maktab4Life Admin</title>
+  <title>Maktab4Life Student</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <!-- PWA: Admin install settings -->
-  <link rel="manifest" href="/admin-manifest.json" />
-  <link rel="apple-touch-icon" sizes="180x180" href="/admin-apple-touch-icon.png" />
-  <link rel="icon" type="image/png" sizes="32x32" href="/admin-favicon-32x32.png" />
-  <link rel="icon" type="image/png" sizes="16x16" href="/admin-favicon-16x16.png" />
+  <!-- PWA: Student install settings -->
+  <link rel="manifest" href="/student-manifest.json" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/student-apple-touch-icon.png" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/student-favicon-32x32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="/student-favicon-16x16.png" />
 
   <!-- Styles -->
   <link rel="stylesheet" href="/styles.css" />
@@ -28,7 +28,7 @@
         <h2 class="auth-brand-title">Maktabhelper</h2>
         <img src="/logo.png" alt="Maktab4Life Logo" class="app-logo auth-logo" />
         <h2 class="auth-brand-title">Reboot Your Maktab</h2>
-        <p id="portal-title" class="auth-login-label">Admin Login</p>
+        <p id="portal-title" class="auth-login-label">Student Login</p>
         <p id="portal-subtitle" class="subtitle auth-user-subtitle">Checking your link...</p>
       </div>
 
@@ -116,21 +116,31 @@
     <section id="admin-home" class="screen admin-theme">
       <div class="top-bar">
         <div>
-          <h2>Admin Home</h2>
+          <h2>Admin Dashboard</h2>
           <p id="admin-welcome" class="mini-text"></p>
         </div>
         <button class="small-btn" onclick="logout()">Logout</button>
       </div>
 
       <div class="card-grid staff-dashboard-grid">
-        <button class="home-card" onclick="openMarkRegister()">
+        <button class="home-card" onclick="showAttendanceDashboard()">
           <span class="card-icon">✓</span>
-          <span>Mark Register</span>
+          <span>Attendance</span>
         </button>
 
-        <button class="home-card" onclick="showManageStudents()">
-          <span class="card-icon">＋</span>
-          <span>Add / Modify Students</span>
+        <button class="home-card" onclick="showAdminResources()">
+          <span class="card-icon">▤</span>
+          <span>Learning Resources</span>
+        </button>
+
+        <button class="home-card" onclick="showProgressReport()">
+          <span class="card-icon">▧</span>
+          <span>Progress Monitor</span>
+        </button>
+
+        <button class="home-card" onclick="showAdminAcademics()">
+          <span class="card-icon">▦</span>
+          <span>Admin</span>
         </button>
       </div>
     </section>
@@ -139,16 +149,19 @@
     <section id="admin-academics" class="screen admin-theme">
       <div class="nav-header">
         <h2>Admin</h2>
-        <button class="small-btn home-icon-btn" onclick="showScreen('admin-home')" aria-label="Home" title="Home"><span class="home-icon-btn__icon" aria-hidden="true"></span><span class="visually-hidden">Home</span></button>
+        <button class="small-btn" onclick="showScreen('admin-home')">Back</button>
       </div>
 
       <div class="list-stack">
-        <button class="list-btn" onclick="showManageStudents()">Add / Modify Students</button>
-        <button class="list-btn" onclick="showSubjectsScreen()">Curriculum</button>
-        <button class="list-btn" onclick="showAdminResources()">Resources</button>
-        <button class="list-btn" onclick="showPlaceholder('Tasks')">Tasks</button>
+        <button class="list-btn" onclick="showProgressReport()">Progress Tracker</button>
+        <button class="list-btn" onclick="showSubjectsScreen()">Subjects</button>
+         <button class="list-btn" onclick="showPlaceholder('Tasks')">Tasks</button>
         <button class="list-btn" onclick="showAdminTimetableAdmin()">Timetable</button>
         <button class="list-btn" onclick="showAdminZoomLinkAdmin()">Zoom Link</button>
+        <button class="list-btn" onclick="showAdminResources()">Resources</button>
+       
+        <button class="list-btn" onclick="showPlaceholder('Assign Tasks')">Assign Tasks</button>
+        <button class="list-btn" onclick="showPlaceholder('Assignments')">Assignments</button>
       </div>
     </section>
 
@@ -156,7 +169,7 @@
     <section id="student-tasks" class="screen student-theme">
       <div class="nav-header">
         <h2>My Tasks</h2>
-        <button class="small-btn home-icon-btn" onclick="showScreen('student-home')" aria-label="Home" title="Home"><span class="home-icon-btn__icon" aria-hidden="true"></span><span class="visually-hidden">Home</span></button>
+        <button class="small-btn" onclick="showScreen('student-home')">Back</button>
       </div>
 
       <div id="student-task-list" class="list-stack">
@@ -168,7 +181,7 @@
     <section id="student-resources-subjects" class="screen student-theme">
       <div class="nav-header">
         <h2 class="visually-hidden">Resources</h2>
-        <button class="small-btn home-icon-btn" onclick="showScreen('student-home')" aria-label="Home" title="Home"><span class="home-icon-btn__icon" aria-hidden="true"></span><span class="visually-hidden">Home</span></button>
+        <button class="small-btn" onclick="showScreen('student-home')">Back</button>
       </div>
 
       <div id="student-resource-subject-list" class="list-stack">
@@ -176,9 +189,11 @@
       </div>
     </section>
 
+
+
     <section id="student-resources-media" class="screen student-theme">
       <div class="nav-header">
-        <h2 id="student-resource-media-title">Resources</h2>
+        <h2 id="student-resource-media-title">Subject</h2>
         <button class="small-btn" onclick="showScreen('student-resources-subjects')">Back</button>
       </div>
 
@@ -201,7 +216,7 @@
     <section id="student-resources-detail" class="screen student-theme">
       <div class="nav-header">
         <h2 id="student-resource-detail-title">Resources</h2>
-        <button class="small-btn" onclick="showScreen('student-resources-subjects')">Back</button>
+        <button class="small-btn" onclick="goBackFromStudentResourceDetail()">Back</button>
       </div>
 
       <div id="student-resource-detail-content" class="list-stack">
@@ -213,7 +228,7 @@
 <section id="progress-report" class="screen admin-theme">
   <div class="nav-header">
     <h2 class="visually-hidden">Progress Monitor</h2>
-    <button class="small-btn home-icon-btn" onclick="showScreen('admin-home')" aria-label="Home" title="Home"><span class="home-icon-btn__icon" aria-hidden="true"></span><span class="visually-hidden">Home</span></button>
+    <button class="small-btn" onclick="showScreen('admin-home')">Back</button>
   </div>
 
   <div class="dashboard-section">
@@ -274,46 +289,11 @@
     
 
 
-
-
-    <!-- MANAGE STUDENTS -->
-    <section id="manage-students-screen" class="screen admin-theme student-admin-screen">
-      <div class="student-admin-modern-header">
-        <h2>Manage Students</h2>
-        <button class="small-btn back-icon-btn icon-action-btn icon-action-btn-large" onclick="showScreen('admin-academics')" aria-label="Back" title="Back"><span class="app-icon app-icon-large" style="--app-icon-url: url('/icons/back.svg')" aria-hidden="true"></span><span class="header-icon-label">Back</span></button>
-      </div>
-
-      <div id="manage-students-content">
-        <p class="helper-text">Loading student management...</p>
-      </div>
-    </section>
-
-    <section id="manage-students-result-screen" class="screen admin-theme student-admin-screen">
-      <div class="student-admin-modern-header">
-        <h2>Student Link</h2>
-        <button class="small-btn home-icon-btn" onclick="showScreen('admin-home')" aria-label="Home" title="Home"><span class="home-icon-btn__icon" aria-hidden="true"></span><span class="visually-hidden">Home</span></button>
-      </div>
-
-      <div id="manage-students-result-content">
-        <p class="helper-text">Loading student link...</p>
-      </div>
-    </section>
-
-    <section id="manage-student-edit-screen" class="screen admin-theme student-admin-screen">
-      <div class="student-admin-modern-header">
-        <h2>Edit Student</h2>
-        <button class="small-btn back-icon-btn icon-action-btn icon-action-btn-large" onclick="backToManagedStudentList()" aria-label="Back" title="Back"><span class="app-icon app-icon-large" style="--app-icon-url: url('/icons/back.svg')" aria-hidden="true"></span><span class="header-icon-label">Back</span></button>
-      </div>
-
-      <div id="manage-student-edit-content">
-        <p class="helper-text">Loading student...</p>
-      </div>
-    </section>
     
     <section id="subjects-screen" class="screen admin-theme">
          <div class="nav-header">
             <h2>Subjects</h2>
-    <button class="small-btn home-icon-btn" onclick="showScreen('admin-home')" aria-label="Home" title="Home"><span class="home-icon-btn__icon" aria-hidden="true"></span><span class="visually-hidden">Home</span></button>
+    <button class="small-btn" onclick="showScreen('admin-home')">Back</button>
   </div>
 
   <div class="dashboard-section subject-panel">
@@ -377,7 +357,7 @@
     <section id="attendance-dashboard" class="screen admin-theme">
       <div class="nav-header">
         <h2 class="visually-hidden">Attendance</h2>
-        <button class="small-btn home-icon-btn" onclick="showScreen('admin-home')" aria-label="Home" title="Home"><span class="home-icon-btn__icon" aria-hidden="true"></span><span class="visually-hidden">Home</span></button>
+        <button class="small-btn" onclick="showScreen('admin-home')">Back</button>
       </div>
 
       <div class="list-stack">
@@ -387,15 +367,12 @@
       </div>
     </section>
 
-   
-<section id="attendance-register-screen" class="screen admin-theme">
-  <div id="attendance-register-content">
-    <p class="helper-text">Loading attendance...</p>
-  </div>
-</section>
+    <section id="attendance-register-screen" class="screen admin-theme">
+      <div id="attendance-register-content" class="list-stack">
+        <p class="helper-text">Loading attendance...</p>
+      </div>
+    </section>
 
-
-    
     <section id="attendance-report-screen" class="screen admin-theme">
       <div id="attendance-report-content" class="list-stack">
         <p class="helper-text">Loading attendance...</p>
@@ -469,7 +446,7 @@
     <section id="placeholder-screen" class="screen">
       <div class="nav-header">
         <h2 id="placeholder-title">Screen</h2>
-        <button class="small-btn home-icon-btn" onclick="goHome()" aria-label="Home" title="Home"><span class="home-icon-btn__icon" aria-hidden="true"></span><span class="visually-hidden">Home</span></button>
+        <button class="small-btn" onclick="goHome()">Back</button>
       </div>
 
       <div class="dashboard-section">
