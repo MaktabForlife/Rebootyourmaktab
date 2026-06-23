@@ -48,6 +48,8 @@
   --icon-size: 24px;
   --icon-size-small: 20px;
   --icon-size-large: 34px;
+  --task-status-icon-size: 30px;
+  --status-muted: #9a9a9a;
 }
 
 
@@ -982,6 +984,66 @@ body.has-user-band .top-bar button[onclick="logout()"] {
   color: var(--verified);
 }
 
+
+.task-status-heading-row {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  padding: 0 12px 2px;
+  margin: 0 0 4px;
+}
+
+.task-status-heading-row .student-status-name {
+  min-height: 1px;
+}
+
+.task-status-heading {
+  min-height: 26px;
+  color: var(--primary);
+  cursor: default;
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.task-status-control {
+  min-height: 44px;
+  color: var(--primary);
+}
+
+.task-status-control.is-view-only {
+  cursor: default;
+}
+
+.task-status-control.is-muted-status,
+.task-status-heading.is-muted-status {
+  color: var(--status-muted);
+}
+
+.task-status-icon {
+  width: var(--task-status-icon-size);
+  height: var(--task-status-icon-size);
+  display: inline-block;
+  flex: 0 0 auto;
+  background: currentColor;
+  color: var(--primary);
+  -webkit-mask: var(--task-status-icon-url) center / contain no-repeat;
+  mask: var(--task-status-icon-url) center / contain no-repeat;
+}
+
+.task-status-icon--complete {
+  --task-status-icon-url: url('/icons/tocomplete.svg');
+}
+
+.task-status-icon--verify {
+  --task-status-icon-url: url('/icons/toverify.svg');
+}
+
+.task-status-icon--muted {
+  color: var(--status-muted);
+  opacity: 0.78;
+}
+
 .group-heading {
   background: var(--primary);
   color: var(--text-inverse);
@@ -1040,6 +1102,15 @@ body.has-user-band .top-bar button[onclick="logout()"] {
 
   .status-tick {
     font-size: 1.6rem;
+  }
+
+  .task-status-icon {
+    width: 28px;
+    height: 28px;
+  }
+
+  .task-status-heading {
+    font-size: 0.72rem;
   }
 }
 

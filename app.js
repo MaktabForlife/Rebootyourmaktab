@@ -1796,6 +1796,41 @@ function openStudentSubjectTasks(subjectKey) {
   renderStudentSubjectTaskList();
 }
 
+
+function renderTaskStatusHeader(firstLabel, secondLabel, options = {}) {
+  const firstMutedClass = options.firstMuted ? " is-muted-status" : "";
+  const secondMutedClass = options.secondMuted ? " is-muted-status" : "";
+
+  return `
+    <div class="student-status-row task-status-heading-row">
+      <div class="student-status-name task-status-heading-name"></div>
+      <div class="status-action task-status-heading${firstMutedClass}">${escapeHtml(firstLabel)}</div>
+      <div class="status-action task-status-heading${secondMutedClass}">${escapeHtml(secondLabel)}</div>
+    </div>
+  `;
+}
+
+function renderTaskStatusIndicator(type, isOn, options = {}) {
+  const normalizedType = type === "verify" ? "verify" : "complete";
+  const onClass = normalizedType === "verify" ? "status-tick-verified" : "status-tick-complete";
+  const offLabel = normalizedType === "verify" ? "To be verified" : "To be completed";
+  const onLabel = normalizedType === "verify" ? "Verified" : "Completed";
+
+  if (isOn) {
+    return `
+      <span class="status-tick ${onClass}" aria-hidden="true">✓</span>
+      <span class="visually-hidden">${onLabel}</span>
+    `;
+  }
+
+  const mutedClass = options.muted ? " task-status-icon--muted" : "";
+
+  return `
+    <span class="task-status-icon task-status-icon--${normalizedType}${mutedClass}" aria-hidden="true"></span>
+    <span class="visually-hidden">${offLabel}</span>
+  `;
+}
+
 function renderStudentSubjectTaskList() {
   const container = document.getElementById("progress-tasks-list");
   const subject = studentSubjectTaskGroups[currentStudentSubjectKey];
@@ -1805,10 +1840,15 @@ function renderStudentSubjectTaskList() {
     return;
   }
 
-  container.innerHTML = [...subject.tasks]
+  const taskRowsHtml = [...subject.tasks]
     .sort(sortByModuleThenTask)
     .map(task => renderStudentTaskStatusRow(task))
     .join("");
+
+  container.innerHTML = `
+    ${renderTaskStatusHeader("Me", "Muallimah", { secondMuted: true })}
+    ${taskRowsHtml}
+  `;
 }
 
 function buildStudentModuleTaskGroups(tasks) {
@@ -1864,20 +1904,12 @@ function renderStudentTaskStatusRow(task) {
         ${renderStudentTaskLinkButtons(task)}
       </div>
 
-      <div class="status-action" onclick="toggleStudentSubjectTask('${escapeForAttribute(task.studenttaskid)}', ${isComplete ? "false" : "true"})">
-        ${
-          isComplete
-            ? `<span class="status-tick status-tick-complete">✓</span>`
-            : `To be<br>completed`
-        }
+      <div class="status-action task-status-control" onclick="toggleStudentSubjectTask('${escapeForAttribute(task.studenttaskid)}', ${isComplete ? "false" : "true"})">
+        ${renderTaskStatusIndicator("complete", isComplete)}
       </div>
 
-      <div class="status-action">
-        ${
-          isVerified
-            ? `<span class="status-tick status-tick-verified">✓</span>`
-            : `To be<br>verified`
-        }
+      <div class="status-action task-status-control is-view-only" aria-label="${isVerified ? "Verified by Muallimah" : "To be verified by Muallimah"}">
+        ${renderTaskStatusIndicator("verify", isVerified, { muted: !isVerified })}
       </div>
     </div>
   `;
@@ -5335,7 +5367,7 @@ function renderProgressTaskStudents(rows) {
     return String(a).localeCompare(String(b), undefined, { numeric: true });
   });
 
-  let html = "";
+  let html = renderTaskStatusHeader("Student", "Muallimah", { firstMuted: true });
 
   groups.forEach((group, index) => {
     if (index > 0) {
@@ -5353,27 +5385,19 @@ function renderProgressTaskStudents(rows) {
         ? pending.verifyStatus
         : row.verifystatus;
 
-      const isComplete = !!completeStatus;
-      const isVerified = !!verifyStatus;
+      const isComplete = isStatusOn(completeStatus);
+      const isVerified = isStatusOn(verifyStatus);
 
       html += `
         <div class="student-status-row">
           <div class="student-status-name">${escapeHtml(row.username)}</div>
 
-          <div class="status-action" onclick="toggleProgressPending('${row.studenttaskid}', 'completeStatus', ${isComplete ? "false" : "true"})">
-            ${
-              isComplete
-                ? `<span class="status-tick status-tick-complete">✓</span>`
-                : `To be<br>completed`
-            }
+          <div class="status-action task-status-control is-muted-status" onclick="toggleProgressPending('${escapeForAttribute(row.studenttaskid)}', 'completeStatus', ${isComplete ? "false" : "true"})">
+            ${renderTaskStatusIndicator("complete", isComplete, { muted: !isComplete })}
           </div>
 
-          <div class="status-action" onclick="toggleProgressPending('${row.studenttaskid}', 'verifyStatus', ${isVerified ? "false" : "true"})">
-            ${
-              isVerified
-                ? `<span class="status-tick status-tick-verified">✓</span>`
-                : `To be<br>verified`
-            }
+          <div class="status-action task-status-control" onclick="toggleProgressPending('${escapeForAttribute(row.studenttaskid)}', 'verifyStatus', ${isVerified ? "false" : "true"})">
+            ${renderTaskStatusIndicator("verify", isVerified)}
           </div>
         </div>
       `;
@@ -5454,6 +5478,7 @@ function renderIndividualStudentTaskList(rows) {
 
     Object.values(subject.modules).sort(sortModuleGroupsByModuleId).forEach(moduleGroup => {
       html += `<div class="task-resource-heading">${escapeHtml(moduleGroup.modulename || "General")}</div>`;
+      html += renderTaskStatusHeader("Student", "Muallimah", { firstMuted: true });
 
       moduleGroup.rows.sort(sortBySubjectIdThenTask).forEach(row => {
         const pending = progressPendingUpdates[row.studenttaskid] || {};
@@ -5473,20 +5498,12 @@ function renderIndividualStudentTaskList(rows) {
           <div class="student-status-row">
             <div class="student-status-name">${escapeHtml(row.taskname)}</div>
 
-            <div class="status-action" onclick="toggleProgressPending('${escapeForAttribute(row.studenttaskid)}', 'completeStatus', ${isComplete ? "false" : "true"})">
-              ${
-                isComplete
-                  ? `<span class="status-tick status-tick-complete">✓</span>`
-                  : `To be<br>completed`
-              }
+            <div class="status-action task-status-control is-muted-status" onclick="toggleProgressPending('${escapeForAttribute(row.studenttaskid)}', 'completeStatus', ${isComplete ? "false" : "true"})">
+              ${renderTaskStatusIndicator("complete", isComplete, { muted: !isComplete })}
             </div>
 
-            <div class="status-action" onclick="toggleProgressPending('${escapeForAttribute(row.studenttaskid)}', 'verifyStatus', ${isVerified ? "false" : "true"})">
-              ${
-                isVerified
-                  ? `<span class="status-tick status-tick-verified">✓</span>`
-                  : `To be<br>verified`
-              }
+            <div class="status-action task-status-control" onclick="toggleProgressPending('${escapeForAttribute(row.studenttaskid)}', 'verifyStatus', ${isVerified ? "false" : "true"})">
+              ${renderTaskStatusIndicator("verify", isVerified)}
             </div>
           </div>
         `;
