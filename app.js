@@ -244,9 +244,22 @@ function clearPinValue(groupId) {
 function focusFirstPinDigit(groupId) {
   const firstInput = document.querySelector(`.pin-digit-row[data-pin-group="${groupId}"] .pin-digit`);
 
-  if (firstInput) {
-    setTimeout(() => firstInput.focus(), 50);
-  }
+  if (!firstInput) return;
+
+  const focusInput = () => {
+    try {
+      firstInput.focus({ preventScroll: true });
+    } catch (err) {
+      firstInput.focus();
+    }
+
+    if (typeof firstInput.select === "function") {
+      firstInput.select();
+    }
+  };
+
+  setTimeout(focusInput, 80);
+  setTimeout(focusInput, 260);
 }
 
 function maybeAutoSubmitPin(groupId) {
