@@ -9,7 +9,8 @@ const state = {
   uniqueid: null,
   token: localStorage.getItem("maktab_token") || "",
   userType: localStorage.getItem("maktab_user_type") || "",
-  user: null
+  user: null,
+  loginSubmitting: false
 };
 async function checkForAppUpdate() {
   try {
@@ -146,6 +147,7 @@ function setupPinDigitBoxes() {
       });
 
       syncHiddenInput();
+      maybeAutoSubmitPin(groupId);
 
       const nextIndex = Math.min(fillFrom + cleanDigits.length, inputs.length - 1);
       inputs[nextIndex].focus();
@@ -169,6 +171,7 @@ function setupPinDigitBoxes() {
 
         syncHiddenInput();
         setError("");
+        maybeAutoSubmitPin(groupId);
       });
 
       input.addEventListener("keydown", event => {
@@ -246,6 +249,18 @@ function focusFirstPinDigit(groupId) {
   }
 }
 
+function maybeAutoSubmitPin(groupId) {
+  if (groupId !== "login-pin") return;
+
+  const loginBox = document.getElementById("login-pin-box");
+  if (loginBox && loginBox.classList.contains("hidden")) return;
+
+  const pin = getPinValue("login-pin");
+  if (/^\d{4}$/.test(pin)) {
+    window.setTimeout(() => submitLogin(), 0);
+  }
+}
+
 
 async function apiPost(path, body = {}, token = "") {
   const headers = {
@@ -269,6 +284,27 @@ async function apiPost(path, body = {}, token = "") {
    AUTH
 ========================= */
 
+function updateAuthWelcomeBanner(username) {
+  const banner = document.getElementById("auth-welcome-banner");
+  if (!banner) return;
+
+  const displayName = String(username || "").trim();
+  banner.innerText = displayName ? `Ahlan wa Sahlan ${displayName}` : "Ahlan wa Sahlan";
+  banner.classList.remove("hidden");
+}
+
+function updateAuthLoginLabel(type) {
+  const title = document.getElementById("portal-title");
+  if (title) {
+    title.innerText = type === "admin" ? "Admin Login" : "Student Login";
+  }
+
+  const subtitle = document.getElementById("portal-subtitle");
+  if (subtitle) {
+    subtitle.innerText = "";
+  }
+}
+
 async function checkStudent() {
   try {
     const result = await apiPost("/api/check-student", {
@@ -282,22 +318,8 @@ async function checkStudent() {
 
     state.user = result.student;
 
-
-
-document.getElementById("portal-title").innerHTML = `
-  Ahlan Wa Sahlan  ${result.student.username}
-`;
-
-    document.getElementById("portal-subtitle").innerHTML = `
- <span class="login-heading">Reboot Your Maktab-mE</span>
-  <span class="login-welcome">
-    Student Login 
-  </span>
-`;
-
-
-
-
+    updateAuthWelcomeBanner(result.student.username);
+    updateAuthLoginLabel("student");
 
     if (result.student.pinsetup === true) {
       document.getElementById("login-pin-box").classList.remove("hidden");
@@ -324,9 +346,8 @@ async function checkAdmin() {
 
     state.user = result.admin;
 
-    document.getElementById("portal-title").innerText = "Admin Login";
-    document.getElementById("portal-subtitle").innerText =
-      `${result.admin.username} · ${result.admin.role}`;
+    updateAuthWelcomeBanner(result.admin.username);
+    updateAuthLoginLabel("admin");
 
     document.body.classList.add("admin-body");
 
@@ -373,6 +394,8 @@ async function submitSetupPin() {
 }
 
 async function submitLogin() {
+  if (state.loginSubmitting) return;
+
   const pin = getPinValue("login-pin");
 
   if (!/^\d{4}$/.test(pin)) {
@@ -384,41 +407,54 @@ async function submitLogin() {
     ? "/api/admin/login"
     : "/api/login";
 
-  const result = await apiPost(path, {
-    uniqueid: state.uniqueid,
-    pin
-  });
+  state.loginSubmitting = true;
 
-  if (!result.success) {
-    setError(result.error || "Login failed.");
-    return;
-  }
+  try {
+    const result = await apiPost(path, {
+      uniqueid: state.uniqueid,
+      pin
+    });
 
-  state.token = result.token;
-  state.userType = state.portalType;
-  state.user = state.portalType === "admin" ? result.admin : result.student;
-
-  localStorage.setItem("maktab_token", state.token);
-  localStorage.setItem("maktab_user_type", state.userType);
-
-  if (state.portalType === "admin") {
-    const adminWelcome = document.getElementById("admin-welcome");
-    if (adminWelcome) {
-      adminWelcome.innerText = "";
-    }
-    showScreen("admin-home");
-  } else {
-    const studentHomeTitle = document.getElementById("student-home-title");
-    if (studentHomeTitle) {
-      studentHomeTitle.innerText = "Home";
+    if (!result.success) {
+      setError("Incorrect PIN. Re-enter PIN or contact web admin to reset PIN.");
+      clearPinValue("login-pin");
+      focusFirstPinDigit("login-pin");
+      return;
     }
 
-    const studentWelcome = document.getElementById("student-welcome");
-    if (studentWelcome) {
-      studentWelcome.innerText = "";
-    }
+    state.token = result.token;
+    state.userType = state.portalType;
+    state.user = state.portalType === "admin" ? result.admin : result.student;
 
-    showScreen("student-home");
+    localStorage.setItem("maktab_token", state.token);
+    localStorage.setItem("maktab_user_type", state.userType);
+
+    clearPinValue("login-pin");
+    setError("");
+
+    if (state.portalType === "admin") {
+      const adminWelcome = document.getElementById("admin-welcome");
+      if (adminWelcome) {
+        adminWelcome.innerText = "";
+      }
+      showScreen("admin-home");
+    } else {
+      const studentHomeTitle = document.getElementById("student-home-title");
+      if (studentHomeTitle) {
+        studentHomeTitle.innerText = "Home";
+      }
+
+      const studentWelcome = document.getElementById("student-welcome");
+      if (studentWelcome) {
+        studentWelcome.innerText = "";
+      }
+
+      showScreen("student-home");
+    }
+  } catch (err) {
+    setError("Unable to connect. Please try again.");
+  } finally {
+    state.loginSubmitting = false;
   }
 }
 

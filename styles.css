@@ -217,6 +217,68 @@ select {
 }
 
 
+.auth-welcome-banner {
+  margin: -4px -4px 16px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--banner-color);
+  color: var(--text-strong);
+  font-family: var(--font-heading);
+  font-size: clamp(1.15rem, 5vw, 1.55rem);
+  font-weight: 800;
+  line-height: 1.15;
+  text-align: center;
+}
+
+.auth-brand-block {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+}
+
+.auth-brand-title {
+  margin: 0;
+  color: var(--primary);
+  font-size: clamp(1.35rem, 6vw, 1.8rem);
+  line-height: 1.15;
+}
+
+.auth-logo {
+  width: min(42vw, 170px);
+  max-width: 170px;
+  margin: 2px auto 4px;
+}
+
+.auth-login-label {
+  margin: 4px 0 0;
+  color: var(--text);
+  font-size: 1rem;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+.auth-user-subtitle {
+  margin: 3px 0 0;
+}
+
+.auth-user-subtitle:empty {
+  display: none;
+}
+
+.pin-instruction-list {
+  max-width: 330px;
+  margin: 0 auto 14px;
+  padding-left: 1.35rem;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  line-height: 1.45;
+  text-align: left;
+}
+
+.pin-instruction-list li + li {
+  margin-top: 6px;
+}
+
 button {
   border: 0;
   border-radius: 10px;
