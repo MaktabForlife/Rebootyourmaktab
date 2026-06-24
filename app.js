@@ -120,27 +120,23 @@ function initApp() {
     "You require a personal URL to access the Maktab4Life Dashboard";
 }
 
-function showScreen(id) {
-  document.querySelectorAll(".screen").forEach(screen => {
+function showScreen(screenId) {
+  if (window.M4LDom && typeof window.M4LDom.safeShowScreen === "function") {
+    return window.M4LDom.safeShowScreen(screenId);
+  }
+
+  const target = document.getElementById(screenId);
+  if (!target) {
+    console.warn("Missing screen:", screenId);
+    return false;
+  }
+
+  document.querySelectorAll(".screen").forEach((screen) => {
     screen.classList.remove("active");
   });
 
-  const target = document.getElementById(id);
-
-  if (target) {
-    target.classList.add("active");
-  }
-
-  updateUserBand(id);
-  updateBottomNavigation(id);
-
-  if (id === "student-home") {
-    scheduleStudentHomeTimetableLoad();
-  }
-
-  if (id === "admin-home") {
-    scheduleAdminHomeTimetableLoad();
-  }
+  target.classList.add("active");
+  return true;
 }
 
 function setError(message) {
