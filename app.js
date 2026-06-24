@@ -6,7 +6,7 @@ const CLASS_DUAS_ITEMS = [
   {
     arabic: "اللَّهُمَّ صَلِّ عَلَى مُحَمَّدٍ وَّعَلَى آلِ مُحَمَّدٍ وَّبَارِكْ وَسَلِّم",
     transliteration: "Allahumma salli ala muhammadew wa ala aali muhammadew wa baarik wassallim",
-    translation: "22-Oh Allah send peace and blessings upon Muhammad and the family of Muhammad"
+    translation: "23-Oh Allah send peace and blessings upon Muhammad and the family of Muhammad"
   },
   {
     arabic: "رَبِّ اشْرَحْ لِي صَدْرِي وَيَسِّرْ لِي أَمْرِي وَاحْلُلْ عُقْدَةً مِنْ لِسَانِي يَفْقَهُوا قَوْلِي",
@@ -2919,7 +2919,7 @@ async function loadResourceCategories(apiPath, body = {}) {
     return;
   }
 
-  const container = document.getElementById("student-resource-subject-list");
+  const container = getDomElement("student-resource-subject-list");
 
   if (!container) {
     console.warn("Missing resource subject list container.");
@@ -2953,10 +2953,9 @@ async function openStudentResourceDirect(categoryKey) {
   currentStudentResourceModuleKey = "";
   currentStudentResourceModuleName = "";
 
-  const title = document.getElementById("student-resource-detail-title");
-  const container = document.getElementById("student-resource-detail-content");
+  const container = getDomElement("student-resource-detail-content");
 
-  if (title) title.innerText = category.label;
+  setDomText("student-resource-detail-title", category.label);
   setDomHtml(container, `<p class="helper-text">Loading ${escapeHtml(category.label)} resources...</p>`);
 
   if (!showScreen("student-resources-detail")) {
@@ -3305,7 +3304,7 @@ function buildStudentResourceSubjectSummaries() {
 }
 
 function renderStudentResourceSubjects() {
-  const container = document.getElementById("student-resource-subject-list");
+  const container = getDomElement("student-resource-subject-list");
   if (!container) return;
 
   currentStudentResourceMode = "";
@@ -3364,7 +3363,9 @@ function renderStudentResourceSubjects() {
                   <button
                     type="button"
                     class="resource-media-icon-button"
-                    onclick="openStudentResourceMatrixSelection('${escapeForAttribute(subject.key)}', '${escapeForAttribute(category.key)}')"
+                    data-resource-action="matrix-selection"
+                    data-resource-subject-key="${escapeForAttribute(subject.key)}"
+                    data-resource-category-key="${escapeForAttribute(category.key)}"
                     aria-label="Open ${escapeForAttribute(category.label)} resources for ${escapeForAttribute(subject.name)}"
                     title="${escapeForAttribute(category.label)}"
                   >
@@ -3382,6 +3383,8 @@ function renderStudentResourceSubjects() {
       </div>
     </div>
   `);
+
+  bindResourceUiHandlers(container);
 }
 
 function openStudentResourceMatrixSelection(subjectKey, categoryKey) {
@@ -3414,12 +3417,13 @@ function openStudentResourceMatrixSelection(subjectKey, categoryKey) {
     currentStudentResourceModuleName = modules[0].name;
   }
 
-  const title = document.getElementById("student-resource-detail-title");
-  if (title) {
-    title.innerText = `${selectedSubject.name} - ${category.label}`;
+  setDomText("student-resource-detail-title", `${selectedSubject.name} - ${category.label}`);
+
+  if (!showScreen("student-resources-detail")) {
+    console.warn("Resource detail screen is missing.");
+    return;
   }
 
-  showScreen("student-resources-detail");
   renderStudentResourceCategoryDetail(category);
 }
 
@@ -3445,6 +3449,7 @@ function getStudentResourceModulePickerElement() {
 
 function showStudentResourceModulePicker(category, modules) {
   const picker = getStudentResourceModulePickerElement();
+  const safeModules = Array.isArray(modules) ? modules : [];
 
   if (!picker) {
     return;
@@ -3452,30 +3457,33 @@ function showStudentResourceModulePicker(category, modules) {
 
   const subjectName = currentStudentResourceSubjectName || "Subject";
 
-  picker.innerHTML = `
-    <div class="resource-module-picker__backdrop" onclick="closeStudentResourceModulePicker()"></div>
+  setDomHtml(picker, `
+    <div class="resource-module-picker__backdrop" data-resource-action="close-module-picker"></div>
     <div class="resource-module-picker__panel" role="dialog" aria-modal="true" aria-labelledby="resource-module-picker-title">
       <div class="resource-module-picker__header">
         <div>
           <h3 id="resource-module-picker-title">Choose Module</h3>
           <p class="mini-text">${escapeHtml(subjectName)} - ${escapeHtml(category.label)}</p>
         </div>
-        <button type="button" class="resource-module-picker__close" onclick="closeStudentResourceModulePicker()" aria-label="Close module picker">×</button>
+        <button type="button" class="resource-module-picker__close" data-resource-action="close-module-picker" aria-label="Close module picker">×</button>
       </div>
       <div class="resource-module-picker__list">
-        ${modules.map(module => `
+        ${safeModules.map(module => `
           <button
             type="button"
             class="resource-module-picker__option"
-            onclick="openStudentResourceModule('${escapeForAttribute(module.key)}', 'student-resources-subjects')"
+            data-resource-action="module"
+            data-resource-module-key="${escapeForAttribute(module.key)}"
+            data-resource-return-screen="student-resources-subjects"
           >
             <span>${escapeHtml(module.name)}</span>
           </button>
         `).join("")}
       </div>
     </div>
-  `;
+  `);
 
+  bindResourceUiHandlers(picker);
   picker.classList.remove("hidden");
   picker.setAttribute("aria-hidden", "false");
   if (document.body) {
@@ -3490,9 +3498,89 @@ function closeStudentResourceModulePicker() {
 
   picker.classList.add("hidden");
   picker.setAttribute("aria-hidden", "true");
-  picker.innerHTML = "";
+  setDomHtml(picker, "");
   if (document.body) {
     document.body.classList.remove("resource-module-picker-open");
+  }
+}
+
+function bindResourceUiHandlers(containerOrId) {
+  const container = getDomElement(containerOrId);
+
+  if (!container || typeof container.querySelectorAll !== "function") {
+    return false;
+  }
+
+  container.querySelectorAll("[data-resource-action]").forEach(button => {
+    if (button.dataset.resourceBound === "true") {
+      return;
+    }
+
+    button.dataset.resourceBound = "true";
+    button.addEventListener("click", handleResourceUiAction);
+  });
+
+  return true;
+}
+
+function handleResourceUiAction(event) {
+  const button = event.target && event.target.closest
+    ? event.target.closest("[data-resource-action]")
+    : null;
+
+  if (!button || button.disabled) {
+    return;
+  }
+
+  event.preventDefault();
+  event.stopPropagation();
+
+  const action = button.getAttribute("data-resource-action") || "";
+
+  if (action === "matrix-selection") {
+    openStudentResourceMatrixSelection(
+      button.getAttribute("data-resource-subject-key") || "",
+      button.getAttribute("data-resource-category-key") || ""
+    );
+    return;
+  }
+
+  if (action === "category") {
+    openStudentResourceCategory(
+      button.getAttribute("data-resource-category-key") || "",
+      Number(button.getAttribute("data-resource-count") || 0)
+    );
+    return;
+  }
+
+  if (action === "module") {
+    openStudentResourceModule(
+      button.getAttribute("data-resource-module-key") || "",
+      button.getAttribute("data-resource-return-screen") || "student-resources-modules"
+    );
+    return;
+  }
+
+  if (action === "close-module-picker") {
+    closeStudentResourceModulePicker();
+    return;
+  }
+
+  if (action === "toggle-preview") {
+    toggleInlineResourcePreview(
+      button.getAttribute("data-resource-preview-id") || "",
+      button.getAttribute("data-resource-link") || "",
+      button.getAttribute("data-resource-type") || ""
+    );
+    return;
+  }
+
+  if (action === "open-link") {
+    openStudentResourceLink(
+      button.getAttribute("data-resource-link") || "",
+      button.getAttribute("data-resource-type") || "",
+      button.getAttribute("data-resource-title") || "PDF Viewer"
+    );
   }
 }
 
@@ -3513,15 +3601,18 @@ function openStudentResourceSubject(subjectKey) {
   currentStudentResourceModuleKey = "";
   currentStudentResourceModuleName = "";
 
-  const title = document.getElementById("student-resource-media-title");
-  if (title) title.innerText = selectedSubject.name;
+  setDomText("student-resource-media-title", selectedSubject.name);
 
-  showScreen("student-resources-media");
+  if (!showScreen("student-resources-media")) {
+    console.warn("Resource media screen is missing.");
+    return;
+  }
+
   renderStudentResourceCategories(selectedSubject);
 }
 
 function renderStudentResourceCategories(selectedSubject = null) {
-  const container = selectedSubject ? document.getElementById("student-resource-media-list") : document.getElementById("student-resource-subject-list");
+  const container = selectedSubject ? getDomElement("student-resource-media-list") : getDomElement("student-resource-subject-list");
 
   if (!container) return;
 
@@ -3531,7 +3622,14 @@ function renderStudentResourceCategories(selectedSubject = null) {
     const disabledAttr = count === 0 ? " disabled" : "";
 
     return `
-      <button class="resource-category-button${disabledClass}" onclick="openStudentResourceCategory('${escapeForAttribute(category.key)}', ${Number(count) || 0})"${disabledAttr}>
+      <button
+        type="button"
+        class="resource-category-button${disabledClass}"
+        data-resource-action="category"
+        data-resource-category-key="${escapeForAttribute(category.key)}"
+        data-resource-count="${Number(count) || 0}"
+        ${disabledAttr}
+      >
         <span class="resource-category-main">
           <span class="resource-category-title">${escapeHtml(category.label)}</span>
           <span class="resource-category-subtitle">${escapeHtml(category.subtitle)}</span>
@@ -3548,6 +3646,8 @@ function renderStudentResourceCategories(selectedSubject = null) {
     </div>
     ${total === 0 ? `<p class="helper-text">No resources are available yet.</p>` : ""}
   `);
+
+  bindResourceUiHandlers(container);
 }
 
 function openStudentResourceCategory(categoryKey, knownCount = null) {
@@ -3566,22 +3666,24 @@ function openStudentResourceCategory(categoryKey, knownCount = null) {
   const availableModules = buildCurrentResourceModuleSummaries(category);
 
   if (availableModules.length > 1) {
-    const title = document.getElementById("student-resource-module-title");
-    if (title) {
-      title.innerText = currentStudentResourceSubjectName ? `${currentStudentResourceSubjectName} - ${category.label}` : category.label;
+    setDomText("student-resource-module-title", currentStudentResourceSubjectName ? `${currentStudentResourceSubjectName} - ${category.label}` : category.label);
+
+    if (!showScreen("student-resources-modules")) {
+      console.warn("Resource modules screen is missing.");
+      return;
     }
 
-    showScreen("student-resources-modules");
     renderStudentResourceModules(category);
     return;
   }
 
-  const title = document.getElementById("student-resource-detail-title");
-  if (title) {
-    title.innerText = currentStudentResourceSubjectName ? `${currentStudentResourceSubjectName} - ${category.label}` : category.label;
+  setDomText("student-resource-detail-title", currentStudentResourceSubjectName ? `${currentStudentResourceSubjectName} - ${category.label}` : category.label);
+
+  if (!showScreen("student-resources-detail")) {
+    console.warn("Resource detail screen is missing.");
+    return;
   }
 
-  showScreen("student-resources-detail");
   renderStudentResourceCategoryDetail(category);
 }
 
@@ -3658,7 +3760,7 @@ function buildCurrentResourceModuleSummaries(category) {
 }
 
 function renderStudentResourceModules(category) {
-  const container = document.getElementById("student-resource-module-list");
+  const container = getDomElement("student-resource-module-list");
   if (!container) return;
 
   const modules = buildCurrentResourceModuleSummaries(category);
@@ -3671,12 +3773,20 @@ function renderStudentResourceModules(category) {
   setDomHtml(container, `
     <div class="resource-subject-button-grid">
       ${modules.map(module => `
-        <button class="resource-subject-drill-button" onclick="openStudentResourceModule('${escapeForAttribute(module.key)}')">
+        <button
+          type="button"
+          class="resource-subject-drill-button"
+          data-resource-action="module"
+          data-resource-module-key="${escapeForAttribute(module.key)}"
+          data-resource-return-screen="student-resources-modules"
+        >
           <span class="resource-subject-button-title">${escapeHtml(module.name)}</span>
         </button>
       `).join("")}
     </div>
   `);
+
+  bindResourceUiHandlers(container);
 }
 
 function openStudentResourceModule(moduleKey, returnScreen = "student-resources-modules") {
@@ -3700,12 +3810,13 @@ function openStudentResourceModule(moduleKey, returnScreen = "student-resources-
   currentStudentResourceModuleName = selectedModule.name;
   currentStudentResourceDetailReturnScreen = returnScreen;
 
-  const title = document.getElementById("student-resource-detail-title");
-  if (title) {
-    title.innerText = `${selectedModule.name} - ${category.label}`;
+  setDomText("student-resource-detail-title", `${selectedModule.name} - ${category.label}`);
+
+  if (!showScreen("student-resources-detail")) {
+    console.warn("Resource detail screen is missing.");
+    return;
   }
 
-  showScreen("student-resources-detail");
   renderStudentResourceCategoryDetail(category);
 }
 
@@ -3735,7 +3846,7 @@ function goBackFromStudentResourceDetail() {
 }
 
 function renderStudentResourceCategoryDetail(category) {
-  const container = document.getElementById("student-resource-detail-content");
+  const container = getDomElement("student-resource-detail-content");
   if (!container) return;
 
   const subjectGroups = getCurrentSubjectGroupsForCategory(category);
@@ -3774,6 +3885,8 @@ function renderStudentResourceCategoryDetail(category) {
       `).join("")}
     </div>
   `).join(""));
+
+  bindResourceUiHandlers(container);
 }
 
 function buildMediaResourceGroups(category) {
@@ -4001,12 +4114,30 @@ function renderStudentResourceRow(row) {
 
   const actionHtml = (isAudio || isVideo)
     ? `
-      <button class="resource-arrow-btn" onclick="toggleInlineResourcePreview('${escapeForAttribute(rowId)}', '${escapeForAttribute(link)}', '${escapeForAttribute(type)}')"${disabled} aria-label="${escapeForAttribute(buttonLabel)}">
+      <button
+        type="button"
+        class="resource-arrow-btn"
+        data-resource-action="toggle-preview"
+        data-resource-preview-id="${escapeForAttribute(rowId)}"
+        data-resource-link="${escapeForAttribute(link)}"
+        data-resource-type="${escapeForAttribute(type)}"
+        ${disabled}
+        aria-label="${escapeForAttribute(buttonLabel)}"
+      >
         ${actionIconMarkup}
       </button>
     `
     : `
-      <button class="resource-arrow-btn" onclick="openStudentResourceLink('${escapeForAttribute(link)}', '${escapeForAttribute(type)}', '${escapeForAttribute(title)}')"${disabled} aria-label="${escapeForAttribute(buttonLabel)}">
+      <button
+        type="button"
+        class="resource-arrow-btn"
+        data-resource-action="open-link"
+        data-resource-link="${escapeForAttribute(link)}"
+        data-resource-type="${escapeForAttribute(type)}"
+        data-resource-title="${escapeForAttribute(title)}"
+        ${disabled}
+        aria-label="${escapeForAttribute(buttonLabel)}"
+      >
         ${actionIconMarkup}
       </button>
     `;
@@ -4060,7 +4191,7 @@ function toggleInlineResourcePreview(playerId, link, type) {
     return;
   }
 
-  const previewBox = document.getElementById(playerId);
+  const previewBox = getDomElement(playerId);
 
   if (!previewBox) {
     return;
