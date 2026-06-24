@@ -732,19 +732,21 @@ const BOTTOM_NAV_ITEMS = {
       key: "home",
       label: "Home",
       icon: "/icons/home.svg",
-      action: "showScreen('student-home')"
+      targetScreen: "student-home"
     },
     {
       key: "library",
       label: "Library",
       icon: "/icons/resources.svg",
-      action: "showStudentResources()"
+      targetScreen: "student-resources-subjects",
+      actionName: "showStudentResources"
     },
     {
       key: "progress",
       label: "Progress",
       icon: "/icons/progress.svg",
-      action: "showStudentTasks()"
+      targetScreen: "progress-subjects-screen",
+      actionName: "showStudentTasks"
     }
   ],
   admin: [
@@ -752,31 +754,35 @@ const BOTTOM_NAV_ITEMS = {
       key: "home",
       label: "Home",
       icon: "/icons/home.svg",
-      action: "showScreen('admin-home')"
+      targetScreen: "admin-home"
     },
     {
       key: "progress",
       label: "Progress",
       icon: "/icons/progress.svg",
-      action: "showProgressReport()"
+      targetScreen: "progress-report",
+      actionName: "showProgressReport"
     },
     {
       key: "resources",
       label: "Library",
       icon: "/icons/resources.svg",
-      action: "showAdminResources()"
+      targetScreen: "student-resources-subjects",
+      actionName: "showAdminResources"
     },
     {
       key: "attendance",
       label: "Attendance",
       icon: "/icons/attendance.svg",
-      action: "showAttendanceDashboard()"
+      targetScreen: "attendance-dashboard",
+      actionName: "showAttendanceDashboard"
     },
     {
       key: "admin",
       label: "Admin",
       icon: "/icons/admin.svg",
-      action: "showAdminAcademics()"
+      targetScreen: "admin-academics",
+      actionName: "showAdminAcademics"
     }
   ]
 };
@@ -792,6 +798,11 @@ function getBottomNavRole() {
 }
 
 function getBottomNavElement() {
+  if (!document.body) {
+    console.warn("Bottom navigation could not be created because document.body is missing.");
+    return null;
+  }
+
   let nav = document.getElementById("bottom-nav");
 
   if (!nav) {
@@ -872,27 +883,76 @@ function installBottomNavigationGestureGuard(nav) {
     nav.addEventListener(eventName, stopInsideBottomNav, { passive: true });
   });
 }
+
+function getBottomNavItems(role) {
+  return Array.isArray(BOTTOM_NAV_ITEMS[role]) ? BOTTOM_NAV_ITEMS[role] : [];
+}
+
+function isBottomNavItemAvailable(item) {
+  if (!item) return false;
+
+  if (item.targetScreen && !document.getElementById(item.targetScreen)) {
+    console.warn("Missing bottom nav target:", item.targetScreen);
+    return false;
+  }
+
+  if (item.actionName && typeof window[item.actionName] !== "function") {
+    console.warn("Missing bottom nav action:", item.actionName);
+    return false;
+  }
+
+  return true;
+}
+
+function getAvailableBottomNavItems(role) {
+  return getBottomNavItems(role).filter(isBottomNavItemAvailable);
+}
+
+function createBottomNavButton(item, role) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "bottom-nav__item";
+  button.dataset.bottomNavKey = item.key;
+  button.setAttribute("aria-label", item.label);
+
+  const icon = document.createElement("span");
+  icon.className = "bottom-nav__icon";
+  icon.setAttribute("aria-hidden", "true");
+  icon.style.setProperty("--bottom-nav-icon", `url('${item.icon}')`);
+
+  const label = document.createElement("span");
+  label.className = "bottom-nav__label";
+  label.textContent = item.label;
+
+  button.appendChild(icon);
+  button.appendChild(label);
+
+  button.addEventListener("click", event => {
+    event.preventDefault();
+    handleBottomNavigationClick(role, item.key);
+  });
+
+  return button;
+}
+
 function renderBottomNavigation(role) {
   const nav = getBottomNavElement();
-  const items = BOTTOM_NAV_ITEMS[role] || [];
+  if (!nav) return null;
 
-  if (nav.dataset.role === role && nav.children.length === items.length) {
+  const items = getAvailableBottomNavItems(role);
+  const itemKeys = items.map(item => item.key).join("|");
+
+  if (nav.dataset.role === role && nav.dataset.itemKeys === itemKeys) {
     return nav;
   }
 
-  nav.dataset.role = role;
-  nav.innerHTML = items.map(item => `
-    <button
-      type="button"
-      class="bottom-nav__item"
-      data-bottom-nav-key="${item.key}"
-      onclick="${item.action}"
-      aria-label="${item.label}"
-    >
-      <span class="bottom-nav__icon" style="--bottom-nav-icon: url('${item.icon}')" aria-hidden="true"></span>
-      <span class="bottom-nav__label">${item.label}</span>
-    </button>
-  `).join("");
+  nav.dataset.role = role || "";
+  nav.dataset.itemKeys = itemKeys;
+  nav.innerHTML = "";
+
+  items.forEach(item => {
+    nav.appendChild(createBottomNavButton(item, role));
+  });
 
   return nav;
 }
@@ -958,13 +1018,45 @@ function getBottomNavActiveKey(screenId, role) {
   return "";
 }
 
+function handleBottomNavigationClick(role, key) {
+  const item = getBottomNavItems(role).find(navItem => navItem.key === key);
+
+  if (!isBottomNavItemAvailable(item)) return false;
+
+  try {
+    if (item.actionName) {
+      const result = window[item.actionName]();
+      if (result && typeof result.catch === "function") {
+        result.catch(error => {
+          console.error("Bottom nav action failed:", item.actionName, error);
+        });
+      }
+      return true;
+    }
+
+    if (item.targetScreen) {
+      return showScreen(item.targetScreen);
+    }
+  } catch (error) {
+    console.error("Bottom nav action failed:", key, error);
+  }
+
+  return false;
+}
+
 function updateBottomNavigation(screenId) {
   const role = getBottomNavRole();
   const nav = renderBottomNavigation(role);
-  const isVisible = shouldShowBottomNavigation(screenId, role);
+  if (!nav) return;
+
+  const itemCount = nav.querySelectorAll(".bottom-nav__item").length;
+  const isVisible = itemCount > 0 && shouldShowBottomNavigation(screenId, role);
 
   nav.classList.toggle("hidden", !isVisible);
-  document.body.classList.toggle("has-bottom-nav", isVisible);
+
+  if (document.body) {
+    document.body.classList.toggle("has-bottom-nav", isVisible);
+  }
 
   const appShell = document.querySelector(".app-shell");
   if (appShell) {
@@ -982,7 +1074,7 @@ function updateBottomNavigation(screenId) {
   });
 
   const activeItem = nav.querySelector(".bottom-nav__item.is-active");
-  if (activeItem) {
+  if (activeItem && typeof activeItem.scrollIntoView === "function") {
     activeItem.scrollIntoView({ inline: "center", block: "nearest" });
   }
 }
