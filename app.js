@@ -6,7 +6,7 @@ const CLASS_DUAS_ITEMS = [
   {
     arabic: "اللَّهُمَّ صَلِّ عَلَى مُحَمَّدٍ وَّعَلَى آلِ مُحَمَّدٍ وَّبَارِكْ وَسَلِّم",
     transliteration: "Allahumma salli ala muhammadew wa ala aali muhammadew wa baarik wassallim",
-    translation: "20-Oh Allah send peace and blessings upon Muhammad and the family of Muhammad"
+    translation: "22-Oh Allah send peace and blessings upon Muhammad and the family of Muhammad"
   },
   {
     arabic: "رَبِّ اشْرَحْ لِي صَدْرِي وَيَسِّرْ لِي أَمْرِي وَاحْلُلْ عُقْدَةً مِنْ لِسَانِي يَفْقَهُوا قَوْلِي",
@@ -826,12 +826,40 @@ function setUserBandRefreshState(isRefreshing, button) {
   return true;
 }
 
+function waitForUserBandRefreshFrame() {
+  return new Promise(resolve => {
+    if (typeof requestAnimationFrame === "function") {
+      requestAnimationFrame(() => resolve());
+      return;
+    }
+
+    setTimeout(resolve, 0);
+  });
+}
+
+function waitForUserBandRefreshMinimumDuration(startTime, minimumMs) {
+  const elapsed = Date.now() - startTime;
+  const remaining = Math.max(0, minimumMs - elapsed);
+
+  if (!remaining) {
+    return Promise.resolve();
+  }
+
+  return new Promise(resolve => setTimeout(resolve, remaining));
+}
+
 async function runUserBandRefresh(button, callback) {
+  const refreshStartedAt = Date.now();
+  const minimumSpinMs = 450;
+
   setUserBandRefreshState(true, button);
 
   try {
+    // Let Safari/Chrome paint the spinning state before running quick synchronous refresh actions.
+    await waitForUserBandRefreshFrame();
     await callback();
   } finally {
+    await waitForUserBandRefreshMinimumDuration(refreshStartedAt, minimumSpinMs);
     setUserBandRefreshState(false, document.querySelector("#app-user-band [data-user-band-refresh]"));
     if (typeof updateUserBand === "function") {
       updateUserBand(getActiveScreenId());
@@ -2226,31 +2254,41 @@ let currentStudentSubjectKey = "";
 async function showStudentTasks() {
   setProgressScreensForStudent();
   setManualRefreshButton("progress-subjects-screen", "refreshStudentTaskProgress(this)");
-  showScreen("progress-subjects-screen");
 
-  const title = document.getElementById("progress-subjects-title");
-  const container = document.getElementById("progress-subjects-list");
-
-  title.innerText = "My Tasks";
-  container.innerHTML = `<p class="helper-text">Loading tasks...</p>`;
-
-  const result = await apiPost("/api/tasks/student", {
-    subjectid: "ALL"
-  }, state.token);
-
-  if (!result.success) {
-    container.innerHTML = `<p class="error-message">${result.error || "Failed to load tasks"}</p>`;
+  if (!showScreen("progress-subjects-screen")) {
+    console.warn("Student progress screen is missing.");
     return;
   }
 
-  if (!result.tasks || result.tasks.length === 0) {
-    container.innerHTML = `<p class="helper-text">No tasks assigned yet.</p>`;
+  setDomText("progress-subjects-title", "My Tasks");
+
+  if (!setDomHtml("progress-subjects-list", `<p class="helper-text">Loading tasks...</p>`)) {
+    console.warn("Missing progress-subjects-list container.");
     return;
   }
 
-  const normalizedTasks = result.tasks.map(normalizeStudentTask);
-  studentSubjectTaskGroups = buildStudentSubjectTaskGroups(normalizedTasks);
-  renderStudentSubjectProgress();
+  try {
+    const result = await apiPost("/api/tasks/student", {
+      subjectid: "ALL"
+    }, state.token);
+
+    if (!result.success) {
+      setDomHtml("progress-subjects-list", `<p class="error-message">${escapeHtml(result.error || "Failed to load tasks")}</p>`);
+      return;
+    }
+
+    if (!result.tasks || result.tasks.length === 0) {
+      setDomHtml("progress-subjects-list", `<p class="helper-text">No tasks assigned yet.</p>`);
+      return;
+    }
+
+    const normalizedTasks = result.tasks.map(normalizeStudentTask);
+    studentSubjectTaskGroups = buildStudentSubjectTaskGroups(normalizedTasks);
+    renderStudentSubjectProgress();
+  } catch (err) {
+    console.error("Could not load student tasks:", err);
+    setDomHtml("progress-subjects-list", `<p class="error-message">${escapeHtml(err.message || "Failed to load tasks")}</p>`);
+  }
 }
 
 function setProgressScreensForStudent() {
@@ -2287,7 +2325,16 @@ function ensureStudentProgressSaveButton() {
 
   saveButton.className = "small-btn save-return-btn student-progress-save-btn";
   saveButton.textContent = "Save and Exit";
-  saveButton.setAttribute("onclick", "saveStudentTaskChangesAndReturn()");
+  saveButton.removeAttribute("onclick");
+
+  if (saveButton.dataset.m4lStudentProgressSaveBound !== "true") {
+    saveButton.dataset.m4lStudentProgressSaveBound = "true";
+    saveButton.addEventListener("click", () => {
+      if (typeof saveStudentTaskChangesAndReturn === "function") {
+        saveStudentTaskChangesAndReturn();
+      }
+    });
+  }
 }
 
 function setProgressScreensForAdmin() {
@@ -2313,7 +2360,16 @@ function setProgressScreensForAdmin() {
   if (taskStudentsBackButton) {
     taskStudentsBackButton.innerText = "Save and Exit";
     taskStudentsBackButton.classList.add("save-return-btn");
-    taskStudentsBackButton.setAttribute("onclick", "saveProgressPendingChangesAndReturn()");
+    taskStudentsBackButton.removeAttribute("onclick");
+
+    if (taskStudentsBackButton.dataset.m4lAdminProgressSaveBound !== "true") {
+      taskStudentsBackButton.dataset.m4lAdminProgressSaveBound = "true";
+      taskStudentsBackButton.addEventListener("click", () => {
+        if (typeof saveProgressPendingChangesAndReturn === "function") {
+          saveProgressPendingChangesAndReturn();
+        }
+      });
+    }
   }
 }
 
@@ -2367,15 +2423,20 @@ function buildStudentSubjectTaskGroups(tasks) {
 }
 
 function renderStudentSubjectProgress() {
-  const container = document.getElementById("progress-subjects-list");
-  const subjects = Object.values(studentSubjectTaskGroups).sort(sortModuleGroupsByModuleId);
-
-  if (subjects.length === 0) {
-    container.innerHTML = `<p class="helper-text">No tasks assigned yet.</p>`;
+  const container = getDomElement("progress-subjects-list");
+  if (!container) {
+    console.warn("Missing progress-subjects-list container.");
     return;
   }
 
-  container.innerHTML = subjects.map(subject => {
+  const subjects = Object.values(studentSubjectTaskGroups || {}).sort(sortModuleGroupsByModuleId);
+
+  if (subjects.length === 0) {
+    setDomHtml(container, `<p class="helper-text">No tasks assigned yet.</p>`);
+    return;
+  }
+
+  setDomHtml(container, subjects.map(subject => {
     const total = subject.tasks.length;
     const completed = subject.tasks.filter(task => isStatusOn(task.completestatus)).length;
     const percentComplete = total === 0 ? 0 : Math.round((completed / total) * 100);
@@ -2386,14 +2447,14 @@ function renderStudentSubjectProgress() {
         ${renderCompleteProgressBar(percentComplete)}
       </button>
     `;
-  }).join("");
+  }).join(""));
 }
 
 function openStudentSubjectTasks(subjectKey) {
   setProgressScreensForStudent();
   setManualRefreshButton("progress-tasks-screen", "refreshStudentModuleTaskList(this)");
 
-  const subject = studentSubjectTaskGroups[subjectKey];
+  const subject = studentSubjectTaskGroups ? studentSubjectTaskGroups[subjectKey] : null;
 
   if (!subject) {
     alert("Subject not found. Please reload your tasks.");
@@ -2401,8 +2462,13 @@ function openStudentSubjectTasks(subjectKey) {
   }
 
   currentStudentSubjectKey = subjectKey;
-  document.getElementById("progress-tasks-title").innerText = subject.subjectname;
-  showScreen("progress-tasks-screen");
+  setDomText("progress-tasks-title", subject.subjectname);
+
+  if (!showScreen("progress-tasks-screen")) {
+    console.warn("Progress tasks screen is missing.");
+    return;
+  }
+
   renderStudentSubjectTaskList();
 }
 
@@ -2442,11 +2508,16 @@ function renderTaskStatusIndicator(type, isOn, options = {}) {
 }
 
 function renderStudentSubjectTaskList() {
-  const container = document.getElementById("progress-tasks-list");
-  const subject = studentSubjectTaskGroups[currentStudentSubjectKey];
+  const container = getDomElement("progress-tasks-list");
+  if (!container) {
+    console.warn("Missing progress-tasks-list container.");
+    return;
+  }
+
+  const subject = studentSubjectTaskGroups ? studentSubjectTaskGroups[currentStudentSubjectKey] : null;
 
   if (!subject || subject.tasks.length === 0) {
-    container.innerHTML = `<p class="helper-text">No tasks found for this module.</p>`;
+    setDomHtml(container, `<p class="helper-text">No tasks found for this module.</p>`);
     return;
   }
 
@@ -2455,10 +2526,10 @@ function renderStudentSubjectTaskList() {
     .map(task => renderStudentTaskStatusRow(task))
     .join("");
 
-  container.innerHTML = `
+  setDomHtml(container, `
     ${renderTaskStatusHeader("Me", "Muallimah", { secondMuted: true })}
     ${taskRowsHtml}
-  `;
+  `);
 }
 
 function buildStudentModuleTaskGroups(tasks) {
@@ -5719,6 +5790,14 @@ function prepareAdminProgressMonitor() {
 }
 
 async function loadProgressSelectors() {
+  const groupSelect = getDomElement("progress-group-select");
+  const studentSelect = getDomElement("progress-student-select");
+
+  if (!groupSelect && !studentSelect) {
+    console.warn("Progress selector controls are missing.");
+    return;
+  }
+
   const result = await apiPost("/api/progress/task-detail", {
     studentid: "ALL",
     classgroup: "ALL",
@@ -5731,25 +5810,28 @@ async function loadProgressSelectors() {
     return;
   }
 
-  const groupSelect = document.getElementById("progress-group-select");
-  const studentSelect = document.getElementById("progress-student-select");
+  const studentRows = Array.isArray(result.students) ? result.students : [];
 
-  const groups = [...new Set(result.students.map(s => s.classgroup))]
-    .filter(group => group && String(group).trim() !== "0")
-    .sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true }));
+  if (groupSelect) {
+    const groups = [...new Set(studentRows.map(s => s.classgroup))]
+      .filter(group => group && String(group).trim() !== "0")
+      .sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true }));
 
-  groupSelect.innerHTML = `<option value="">Select a Group...</option>`;
+    groupSelect.innerHTML = `<option value="">Select a Group...</option>`;
 
-  groups.forEach(group => {
-    const option = document.createElement("option");
-    option.value = group;
-    option.textContent = group;
-    groupSelect.appendChild(option);
-  });
+    groups.forEach(group => {
+      const option = document.createElement("option");
+      option.value = group;
+      option.textContent = group;
+      groupSelect.appendChild(option);
+    });
+  }
+
+  if (!studentSelect) return;
 
   const studentsMap = {};
 
-  result.students.forEach(row => {
+  studentRows.forEach(row => {
     if (String(row.classgroup || "").trim() === "0") return;
     if (!studentsMap[row.studentid]) {
       studentsMap[row.studentid] = {
@@ -5793,7 +5875,8 @@ async function loadProgressSelectors() {
 }
 
 function openSelectedGroupProgress() {
-  const group = document.getElementById("progress-group-select").value;
+  const groupSelect = getDomElement("progress-group-select");
+  const group = groupSelect ? groupSelect.value : "";
 
   if (!group) {
     alert("Select a group first.");
@@ -5804,7 +5887,8 @@ function openSelectedGroupProgress() {
 }
 
 function openSelectedStudentProgress() {
-  const studentid = document.getElementById("progress-student-select").value;
+  const studentSelect = getDomElement("progress-student-select");
+  const studentid = studentSelect ? studentSelect.value : "";
 
   if (!studentid) {
     alert("Select a student first.");
@@ -5825,7 +5909,7 @@ async function openProgressContext(type, value) {
   if (type === "class") {
     progressState.classgroup = "ALL";
     progressState.studentid = "ALL";
-    document.getElementById("progress-subjects-title").innerText = "Class Modules";
+    setDomText("progress-subjects-title", "Class Modules");
     await loadProgressSubjects();
     return;
   }
@@ -5833,7 +5917,7 @@ async function openProgressContext(type, value) {
   if (type === "group") {
     progressState.classgroup = value;
     progressState.studentid = "ALL";
-    document.getElementById("progress-subjects-title").innerText = `${value} Modules`;
+    setDomText("progress-subjects-title", `${value} Modules`);
     await loadProgressSubjects();
     return;
   }
@@ -5844,51 +5928,66 @@ async function openProgressContext(type, value) {
     progressState.subjectid = "ALL";
     progressState.taskid = "ALL";
 
-    const selectedOption = document.querySelector(
-      `#progress-student-select option[value="${CSS.escape(value)}"]`
-    );
+    const studentSelect = getDomElement("progress-student-select");
+    const selectedOption = studentSelect
+      ? Array.from(studentSelect.options || []).find(option => String(option.value) === String(value))
+      : null;
 
     const name = selectedOption ? selectedOption.textContent : "Student";
 
     progressState.studentName = name;
-    document.getElementById("progress-subjects-title").innerText = `${name}'s Subjects`;
+    setDomText("progress-subjects-title", `${name}'s Subjects`);
 
     await loadProgressSubjects();
+    return;
   }
+
+  console.warn("Unknown progress context:", type);
 }
 
 async function loadProgressSubjects() {
   setManualRefreshButton("progress-subjects-screen", "refreshProgressSubjects(this)");
-  showScreen("progress-subjects-screen");
 
-  const container = document.getElementById("progress-subjects-list");
-  container.innerHTML = `<p class="helper-text">Loading subjects...</p>`;
-
-  const result = await apiPost("/api/progress/task-detail", {
-    studentid: progressState.studentid,
-    classgroup: progressState.classgroup,
-    subjectid: "ALL",
-    taskid: "ALL"
-  }, state.token);
-
-  if (!result.success) {
-    container.innerHTML = `<p class="error-message">${result.error || "Could not load modules."}</p>`;
+  if (!showScreen("progress-subjects-screen")) {
+    console.warn("Progress subjects screen is missing.");
     return;
   }
 
-  if (!result.subjects || result.subjects.length === 0) {
-    container.innerHTML = `<p class="helper-text">No assigned modules found.</p>`;
+  if (!setDomHtml("progress-subjects-list", `<p class="helper-text">Loading subjects...</p>`)) {
+    console.warn("Missing progress-subjects-list container.");
     return;
   }
 
-  const subjects = result.subjects.map(normalizeProgressSubject).sort(sortProgressSubjects);
+  try {
+    const result = await apiPost("/api/progress/task-detail", {
+      studentid: progressState.studentid,
+      classgroup: progressState.classgroup,
+      subjectid: "ALL",
+      taskid: "ALL"
+    }, state.token);
 
-  container.innerHTML = subjects.map(subject => `
-    <button class="progress-list-button" onclick="openProgressSubject('${escapeForAttribute(subject.subjectid)}', '${escapeForAttribute(subject.subjectname)}')">
-      <span class="progress-list-title">${escapeHtml(subject.subjectname)}</span>
-      ${renderProgressBars(subject.completedPercent, subject.verifiedPercent)}
-    </button>
-  `).join("");
+    if (!result.success) {
+      setDomHtml("progress-subjects-list", `<p class="error-message">${escapeHtml(result.error || "Could not load modules.")}</p>`);
+      return;
+    }
+
+    if (!result.subjects || result.subjects.length === 0) {
+      setDomHtml("progress-subjects-list", `<p class="helper-text">No assigned modules found.</p>`);
+      return;
+    }
+
+    const subjects = result.subjects.map(normalizeProgressSubject).sort(sortProgressSubjects);
+
+    setDomHtml("progress-subjects-list", subjects.map(subject => `
+      <button class="progress-list-button" onclick="openProgressSubject('${escapeForAttribute(subject.subjectid)}', '${escapeForAttribute(subject.subjectname)}')">
+        <span class="progress-list-title">${escapeHtml(subject.subjectname)}</span>
+        ${renderProgressBars(subject.completedPercent, subject.verifiedPercent)}
+      </button>
+    `).join(""));
+  } catch (err) {
+    console.error("Could not load progress modules:", err);
+    setDomHtml("progress-subjects-list", `<p class="error-message">${escapeHtml(err.message || "Could not load modules.")}</p>`);
+  }
 }
 
 async function openProgressSubject(subjectid, subjectname) {
@@ -5897,48 +5996,59 @@ async function openProgressSubject(subjectid, subjectname) {
   progressState.taskid = "ALL";
 
   if (progressState.contextType === "student") {
-    document.getElementById("progress-task-students-title").innerText = subjectname;
+    setDomText("progress-task-students-title", subjectname);
     await loadIndividualStudentTaskList();
     return;
   }
 
-  document.getElementById("progress-tasks-title").innerText = subjectname;
+  setDomText("progress-tasks-title", subjectname);
 
   await loadProgressTasks();
 }
 
 async function loadProgressTasks() {
   setManualRefreshButton("progress-tasks-screen", "refreshProgressTasks(this)");
-  showScreen("progress-tasks-screen");
 
-  const container = document.getElementById("progress-tasks-list");
-  container.innerHTML = `<p class="helper-text">Loading tasks...</p>`;
-
-  const result = await apiPost("/api/progress/task-detail", {
-    studentid: progressState.studentid,
-    classgroup: progressState.classgroup,
-    subjectid: progressState.subjectid,
-    taskid: "ALL"
-  }, state.token);
-
-  if (!result.success) {
-    container.innerHTML = `<p class="error-message">${result.error || "Could not load tasks."}</p>`;
+  if (!showScreen("progress-tasks-screen")) {
+    console.warn("Progress tasks screen is missing.");
     return;
   }
 
-  if (!result.tasks || result.tasks.length === 0) {
-    container.innerHTML = `<p class="helper-text">No tasks found.</p>`;
+  if (!setDomHtml("progress-tasks-list", `<p class="helper-text">Loading tasks...</p>`)) {
+    console.warn("Missing progress-tasks-list container.");
     return;
   }
 
-  const sortedTasks = result.tasks.map(normalizeProgressTask).sort(sortProgressTasks);
+  try {
+    const result = await apiPost("/api/progress/task-detail", {
+      studentid: progressState.studentid,
+      classgroup: progressState.classgroup,
+      subjectid: progressState.subjectid,
+      taskid: "ALL"
+    }, state.token);
 
-  container.innerHTML = sortedTasks.map(task => `
-    <button class="progress-list-button" onclick="openProgressTask('${escapeForAttribute(task.taskid)}', '${escapeForAttribute(task.taskname)}')">
-      <span class="progress-list-title">${escapeHtml(task.taskname)}</span>
-      ${renderProgressBars(task.completedPercent, task.verifiedPercent)}
-    </button>
-  `).join("");
+    if (!result.success) {
+      setDomHtml("progress-tasks-list", `<p class="error-message">${escapeHtml(result.error || "Could not load tasks.")}</p>`);
+      return;
+    }
+
+    if (!result.tasks || result.tasks.length === 0) {
+      setDomHtml("progress-tasks-list", `<p class="helper-text">No tasks found.</p>`);
+      return;
+    }
+
+    const sortedTasks = result.tasks.map(normalizeProgressTask).sort(sortProgressTasks);
+
+    setDomHtml("progress-tasks-list", sortedTasks.map(task => `
+      <button class="progress-list-button" onclick="openProgressTask('${escapeForAttribute(task.taskid)}', '${escapeForAttribute(task.taskname)}')">
+        <span class="progress-list-title">${escapeHtml(task.taskname)}</span>
+        ${renderProgressBars(task.completedPercent, task.verifiedPercent)}
+      </button>
+    `).join(""));
+  } catch (err) {
+    console.error("Could not load progress tasks:", err);
+    setDomHtml("progress-tasks-list", `<p class="error-message">${escapeHtml(err.message || "Could not load tasks.")}</p>`);
+  }
 }
 
 async function openProgressTask(taskid, taskname) {
@@ -5949,47 +6059,62 @@ async function openProgressTask(taskid, taskname) {
     ? `${taskname} ${progressState.classgroup}`
     : taskname;
 
-  document.getElementById("progress-task-students-title").innerText = title;
+  setDomText("progress-task-students-title", title);
 
   await loadProgressTaskStudents();
 }
 
 async function loadProgressTaskStudents() {
   setManualRefreshButton("progress-task-students-screen", "refreshProgressTaskStudents(this)");
-  showScreen("progress-task-students-screen");
+
+  if (!showScreen("progress-task-students-screen")) {
+    console.warn("Progress task-students screen is missing.");
+    return;
+  }
 
   progressPendingUpdates = {};
 
-  const container = document.getElementById("progress-task-students-list");
-  container.innerHTML = `<p class="helper-text">Loading students...</p>`;
-
-  const result = await apiPost("/api/progress/task-detail", {
-    studentid: progressState.studentid,
-    classgroup: progressState.classgroup,
-    subjectid: progressState.subjectid,
-    taskid: progressState.taskid
-  }, state.token);
-
-  if (!result.success) {
-    container.innerHTML = `<p class="error-message">${result.error || "Could not load students."}</p>`;
+  if (!setDomHtml("progress-task-students-list", `<p class="helper-text">Loading students...</p>`)) {
+    console.warn("Missing progress-task-students-list container.");
     return;
   }
 
-  if (!result.students || result.students.length === 0) {
-    container.innerHTML = `<p class="helper-text">No student tasks found.</p>`;
-    return;
-  }
+  try {
+    const result = await apiPost("/api/progress/task-detail", {
+      studentid: progressState.studentid,
+      classgroup: progressState.classgroup,
+      subjectid: progressState.subjectid,
+      taskid: progressState.taskid
+    }, state.token);
 
-  currentProgressRows = result.students.map(normalizeProgressStudentRow);
-  renderProgressTaskStudents(currentProgressRows);
+    if (!result.success) {
+      setDomHtml("progress-task-students-list", `<p class="error-message">${escapeHtml(result.error || "Could not load students.")}</p>`);
+      return;
+    }
+
+    if (!result.students || result.students.length === 0) {
+      setDomHtml("progress-task-students-list", `<p class="helper-text">No student tasks found.</p>`);
+      return;
+    }
+
+    currentProgressRows = result.students.map(normalizeProgressStudentRow);
+    renderProgressTaskStudents(currentProgressRows);
+  } catch (err) {
+    console.error("Could not load student progress rows:", err);
+    setDomHtml("progress-task-students-list", `<p class="error-message">${escapeHtml(err.message || "Could not load students.")}</p>`);
+  }
 }
 
 function renderProgressTaskStudents(rows) {
-  const container = document.getElementById("progress-task-students-list");
+  const container = getDomElement("progress-task-students-list");
+  if (!container) {
+    console.warn("Missing progress-task-students-list container.");
+    return;
+  }
 
   const byGroup = {};
 
-  rows.forEach(row => {
+  (Array.isArray(rows) ? rows : []).forEach(row => {
     if (String(row.classgroup || "").trim() === "0") return;
     if (!byGroup[row.classgroup]) {
       byGroup[row.classgroup] = [];
@@ -6001,6 +6126,11 @@ function renderProgressTaskStudents(rows) {
   const groups = Object.keys(byGroup).sort((a, b) => {
     return String(a).localeCompare(String(b), undefined, { numeric: true });
   });
+
+  if (groups.length === 0) {
+    setDomHtml(container, `<p class="helper-text">No student tasks found.</p>`);
+    return;
+  }
 
   let html = renderTaskStatusHeader("Student", "Muallimah", { firstMuted: true });
 
@@ -6039,69 +6169,93 @@ function renderProgressTaskStudents(rows) {
     });
   });
 
-  container.innerHTML = html;
+  setDomHtml(container, html);
 }
 
 async function loadIndividualStudentTaskList() {
   setManualRefreshButton("progress-task-students-screen", "refreshIndividualStudentTaskList(this)");
-  showScreen("progress-task-students-screen");
+
+  if (!showScreen("progress-task-students-screen")) {
+    console.warn("Progress task-students screen is missing.");
+    return;
+  }
 
   progressPendingUpdates = {};
 
-  const container = document.getElementById("progress-task-students-list");
-  container.innerHTML = `<p class="helper-text">Loading student tasks...</p>`;
-
-  const result = await apiPost("/api/progress/task-detail", {
-    studentid: progressState.studentid,
-    classgroup: "ALL",
-    subjectid: progressState.subjectid || "ALL",
-    taskid: "ALL"
-  }, state.token);
-
-  if (!result.success) {
-    container.innerHTML = `<p class="error-message">${result.error || "Could not load student tasks."}</p>`;
+  if (!setDomHtml("progress-task-students-list", `<p class="helper-text">Loading student tasks...</p>`)) {
+    console.warn("Missing progress-task-students-list container.");
     return;
   }
 
-  if (!result.students || result.students.length === 0) {
-    container.innerHTML = `<p class="helper-text">No tasks assigned to this student.</p>`;
-    return;
-  }
+  try {
+    const result = await apiPost("/api/progress/task-detail", {
+      studentid: progressState.studentid,
+      classgroup: "ALL",
+      subjectid: progressState.subjectid || "ALL",
+      taskid: "ALL"
+    }, state.token);
 
-  currentProgressRows = result.students.map(normalizeProgressStudentRow);
-  renderIndividualStudentTaskList(currentProgressRows);
+    if (!result.success) {
+      setDomHtml("progress-task-students-list", `<p class="error-message">${escapeHtml(result.error || "Could not load student tasks.")}</p>`);
+      return;
+    }
+
+    if (!result.students || result.students.length === 0) {
+      setDomHtml("progress-task-students-list", `<p class="helper-text">No tasks assigned to this student.</p>`);
+      return;
+    }
+
+    currentProgressRows = result.students.map(normalizeProgressStudentRow);
+    renderIndividualStudentTaskList(currentProgressRows);
+  } catch (err) {
+    console.error("Could not load individual student task list:", err);
+    setDomHtml("progress-task-students-list", `<p class="error-message">${escapeHtml(err.message || "Could not load student tasks.")}</p>`);
+  }
 }
 
 function renderIndividualStudentTaskList(rows) {
-  const container = document.getElementById("progress-task-students-list");
+  const container = getDomElement("progress-task-students-list");
+  if (!container) {
+    console.warn("Missing progress-task-students-list container.");
+    return;
+  }
 
   const bySubject = {};
 
-  rows.map(normalizeProgressStudentRow).filter(row => String(row.classgroup || "").trim() !== "0").sort(sortBySubjectIdThenTask).forEach(row => {
-    const subjectKey = row.subjectid || row.subjectname || "Other";
-    const moduleKey = row.moduleid || row.modulename || "General";
+  (Array.isArray(rows) ? rows : [])
+    .map(normalizeProgressStudentRow)
+    .filter(row => String(row.classgroup || "").trim() !== "0")
+    .sort(sortBySubjectIdThenTask)
+    .forEach(row => {
+      const subjectKey = row.subjectid || row.subjectname || "Other";
+      const moduleKey = row.moduleid || row.modulename || "General";
 
-    if (!bySubject[subjectKey]) {
-      bySubject[subjectKey] = {
-        subjectid: row.subjectid || subjectKey,
-        subjectname: row.subjectname || "Other",
-        modules: {}
-      };
-    }
+      if (!bySubject[subjectKey]) {
+        bySubject[subjectKey] = {
+          subjectid: row.subjectid || subjectKey,
+          subjectname: row.subjectname || "Other",
+          modules: {}
+        };
+      }
 
-    if (!bySubject[subjectKey].modules[moduleKey]) {
-      bySubject[subjectKey].modules[moduleKey] = {
-        moduleid: row.moduleid || moduleKey,
-        modulename: row.modulename || "General",
-        rows: []
-      };
-    }
+      if (!bySubject[subjectKey].modules[moduleKey]) {
+        bySubject[subjectKey].modules[moduleKey] = {
+          moduleid: row.moduleid || moduleKey,
+          modulename: row.modulename || "General",
+          rows: []
+        };
+      }
 
-    bySubject[subjectKey].modules[moduleKey].rows.push(row);
-  });
+      bySubject[subjectKey].modules[moduleKey].rows.push(row);
+    });
 
   let html = "";
   const subjects = Object.values(bySubject).sort(sortSubjectGroupsBySubjectId);
+
+  if (subjects.length === 0) {
+    setDomHtml(container, `<p class="helper-text">No tasks assigned to this student.</p>`);
+    return;
+  }
 
   subjects.forEach((subject, subjectIndex) => {
     if (progressState.subjectid === "ALL") {
@@ -6146,10 +6300,12 @@ function renderIndividualStudentTaskList(rows) {
     });
   });
 
-  container.innerHTML = html;
+  setDomHtml(container, html);
 }
 
 function toggleProgressPending(studenttaskid, field, value) {
+  if (!studenttaskid) return;
+
   if (!progressPendingUpdates[studenttaskid]) {
     progressPendingUpdates[studenttaskid] = {
       studenttaskid
