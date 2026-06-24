@@ -5,7 +5,7 @@ const APP_VERSION_STORAGE_KEY = "maktab_app_version";
 const CLASS_DUAS_ITEMS = [
   {
     arabic: "اللَّهُمَّ صَلِّ عَلَى مُحَمَّدٍ وَّعَلَى آلِ مُحَمَّدٍ وَّبَارِكْ وَسَلِّم",
-    transliteration: "34-Allahumma salli ala muhammadew wa ala aali muhammadew wa baarik wassallim",
+    transliteration: "36-Allahumma salli ala muhammadew wa ala aali muhammadew wa baarik wassallim",
     translation: "Oh Allah send peace and blessings upon Muhammad and the family of Muhammad"
   },
   {
@@ -95,6 +95,9 @@ function initApp() {
   try {
     checkForAppUpdate();
     setupPinDigitBoxes();
+    bindHeaderIconActionHandlers();
+    bindTimetableUiHandlers();
+    bindAdminSubjectUiHandlers();
     bindMediaViewerHandlers();
 
     const route = getPortalRouteFromLocation();
@@ -661,12 +664,91 @@ function goHome() {
   }
 }
 
-function setHomeIconButton(button, onclickValue = "goHome()") {
+let headerIconActionHandlersBound = false;
+
+function getHeaderIconActionDescriptor(actionValue = "goHome()") {
+  const value = String(actionValue || "").trim();
+
+  if (!value || value === "goHome()") {
+    return { action: "home", target: "" };
+  }
+
+  const showScreenMatch = value.match(/^showScreen\(['"]([^'"]+)['"]\)$/);
+  if (showScreenMatch) {
+    return { action: "screen", target: showScreenMatch[1] };
+  }
+
+  const functionMatch = value.match(/^([A-Za-z_$][\w$]*)\(\)$/);
+  if (functionMatch) {
+    const functionName = functionMatch[1];
+    if (functionName === "goBackFromStudentResourceDetail") {
+      return { action: "function", target: functionName };
+    }
+  }
+
+  console.warn("Unsupported header icon action:", value);
+  return { action: "home", target: "" };
+}
+
+function applyHeaderIconAction(button, actionValue) {
+  if (!button) return false;
+
+  const descriptor = getHeaderIconActionDescriptor(actionValue);
+  button.removeAttribute("onclick");
+  button.dataset.headerAction = descriptor.action;
+
+  if (descriptor.target) {
+    button.dataset.headerTarget = descriptor.target;
+  } else {
+    delete button.dataset.headerTarget;
+  }
+
+  return true;
+}
+
+function bindHeaderIconActionHandlers() {
+  if (headerIconActionHandlersBound === true) return true;
+  if (!document || typeof document.addEventListener !== "function") return false;
+
+  headerIconActionHandlersBound = true;
+  document.addEventListener("click", handleHeaderIconActionClick);
+  return true;
+}
+
+function handleHeaderIconActionClick(event) {
+  const button = event.target && event.target.closest
+    ? event.target.closest("[data-header-action]")
+    : null;
+
+  if (!button || button.disabled) return;
+
+  event.preventDefault();
+
+  const action = button.dataset.headerAction || "home";
+  const target = button.dataset.headerTarget || "";
+
+  if (action === "home") {
+    goHome();
+    return;
+  }
+
+  if (action === "screen") {
+    showScreen(target || "student-home");
+    return;
+  }
+
+  if (action === "function" && target && typeof window[target] === "function") {
+    window[target]();
+  }
+}
+
+function setHomeIconButton(button, actionValue = "goHome()") {
   if (!button) return;
+  bindHeaderIconActionHandlers();
 
   button.classList.remove("back-icon-btn", "save-return-btn");
   button.classList.add("home-icon-btn", "icon-action-btn", "icon-action-btn-large");
-  button.setAttribute("onclick", onclickValue);
+  applyHeaderIconAction(button, actionValue);
   button.setAttribute("aria-label", "Home");
   button.setAttribute("title", "Home");
   button.innerHTML = `
@@ -675,12 +757,13 @@ function setHomeIconButton(button, onclickValue = "goHome()") {
   `;
 }
 
-function setBackIconButton(button, onclickValue = "goHome()") {
+function setBackIconButton(button, actionValue = "goHome()") {
   if (!button) return;
+  bindHeaderIconActionHandlers();
 
   button.classList.remove("home-icon-btn", "save-return-btn");
   button.classList.add("back-icon-btn", "icon-action-btn", "icon-action-btn-large");
-  button.setAttribute("onclick", onclickValue);
+  applyHeaderIconAction(button, actionValue);
   button.setAttribute("aria-label", "Back");
   button.setAttribute("title", "Back");
   button.innerHTML = `
@@ -689,17 +772,21 @@ function setBackIconButton(button, onclickValue = "goHome()") {
   `;
 }
 
-function getHeaderIconButtonMarkup(type, onclickValue, label) {
+function getHeaderIconButtonMarkup(type, actionValue, label) {
   const safeType = type === "back" ? "back" : "home";
   const iconPath = safeType === "back" ? "/icons/back.svg" : "/icons/home.svg";
   const className = safeType === "back" ? "back-icon-btn" : "home-icon-btn";
   const safeLabel = escapeHtml(label || (safeType === "back" ? "Back" : "Home"));
+  const descriptor = getHeaderIconActionDescriptor(actionValue);
+  const targetAttr = descriptor.target
+    ? ` data-header-target="${escapeForAttribute(descriptor.target)}"`
+    : "";
 
   return `
     <button
       type="button"
       class="small-btn ${className} icon-action-btn icon-action-btn-large"
-      onclick="${onclickValue}"
+      data-header-action="${escapeForAttribute(descriptor.action)}"${targetAttr}
       aria-label="${safeLabel}"
       title="${safeLabel}"
     >
@@ -709,12 +796,12 @@ function getHeaderIconButtonMarkup(type, onclickValue, label) {
   `;
 }
 
-function getHomeIconButtonMarkup(onclickValue = "goHome()") {
-  return getHeaderIconButtonMarkup("home", onclickValue, "Home");
+function getHomeIconButtonMarkup(actionValue = "goHome()") {
+  return getHeaderIconButtonMarkup("home", actionValue, "Home");
 }
 
-function getBackIconButtonMarkup(onclickValue = "goHome()") {
-  return getHeaderIconButtonMarkup("back", onclickValue, "Back");
+function getBackIconButtonMarkup(actionValue = "goHome()") {
+  return getHeaderIconButtonMarkup("back", actionValue, "Back");
 }
 
 function getCurrentUserName() {
@@ -1040,16 +1127,20 @@ function updateUserBand(screenId) {
   return true;
 }
 
-function setTextActionButton(button, text, onclickValue) {
+function setTextActionButton(button, text, actionValue) {
   if (!button) return;
 
   button.classList.remove("home-icon-btn", "back-icon-btn", "icon-action-btn", "icon-action-btn-large");
   button.removeAttribute("aria-label");
   button.removeAttribute("title");
+  button.removeAttribute("onclick");
   button.textContent = text;
 
-  if (onclickValue) {
-    button.setAttribute("onclick", onclickValue);
+  if (actionValue) {
+    applyHeaderIconAction(button, actionValue);
+  } else {
+    delete button.dataset.headerAction;
+    delete button.dataset.headerTarget;
   }
 }
 
@@ -1415,7 +1506,7 @@ let currentPlaceholderTitle = "";
 
 function showPlaceholder(title) {
   currentPlaceholderTitle = String(title || "").trim();
-  document.getElementById("placeholder-title").innerText = currentPlaceholderTitle || "Screen";
+  setDomText("placeholder-title", currentPlaceholderTitle || "Screen");
   showScreen("placeholder-screen");
 }
 
@@ -1724,12 +1815,15 @@ function renderTimetable(containerOrId, timetableResult, options = {}) {
         const subjectClass = canOpenSessionZoom
           ? "timetable-subject timetable-subject-link"
           : "timetable-subject";
-        const clickAttr = canOpenSessionZoom
-          ? ` type="button" onclick="openTimetableZoomLink('${escapeJsString(perSessionZoomLink)}')"`
-          : "";
-
         if (canOpenSessionZoom) {
-          return `<button class="${subjectClass}"${clickAttr}>${escapeHtml(entry.subjectname)}</button>`;
+          return `
+            <button
+              type="button"
+              class="${subjectClass}"
+              data-timetable-action="open-zoom"
+              data-zoom-link="${escapeForAttribute(perSessionZoomLink)}"
+            >${escapeHtml(entry.subjectname)}</button>
+          `;
         }
 
         return `<span class="${subjectClass}">${escapeHtml(entry.subjectname)}</span>`;
@@ -1765,6 +1859,7 @@ function renderTimetable(containerOrId, timetableResult, options = {}) {
   `;
 
   setDomHtml(container, tableHtml);
+  bindTimetableUiHandlers();
   return true;
 }
 
@@ -1816,12 +1911,43 @@ async function fetchTimetable(options = {}) {
   return timetableLoadPromise;
 }
 
+let timetableUiHandlersBound = false;
+
+function bindTimetableUiHandlers() {
+  if (timetableUiHandlersBound === true) return true;
+  if (!document || typeof document.addEventListener !== "function") return false;
+
+  timetableUiHandlersBound = true;
+  document.addEventListener("click", handleTimetableUiClick);
+  return true;
+}
+
+function handleTimetableUiClick(event) {
+  const button = event.target && event.target.closest
+    ? event.target.closest("[data-timetable-action]")
+    : null;
+
+  if (!button || button.disabled) return;
+
+  const action = button.dataset.timetableAction || "";
+  if (!action) return;
+
+  event.preventDefault();
+
+  if (action === "open-zoom") {
+    openTimetableZoomLink(button.dataset.zoomLink || "");
+  }
+}
+
 function setTimetableZoomButtonState(buttonId, zoomLink) {
   const button = document.getElementById(buttonId);
 
   if (!button) {
     return;
   }
+
+  button.removeAttribute("onclick");
+  button.dataset.timetableAction = "open-zoom";
 
   if (button.dataset.zoomDecorated !== "true") {
     button.dataset.zoomDecorated = "true";
@@ -1831,7 +1957,14 @@ function setTimetableZoomButtonState(buttonId, zoomLink) {
     `;
   }
 
-  const hasLink = !!normalizeTimetableText(zoomLink);
+  const normalizedZoomLink = normalizeTimetableText(zoomLink);
+  const hasLink = !!normalizedZoomLink;
+
+  if (hasLink) {
+    button.dataset.zoomLink = normalizedZoomLink;
+  } else {
+    delete button.dataset.zoomLink;
+  }
 
   button.disabled = !hasLink;
   button.classList.toggle("is-disabled", !hasLink);
@@ -2005,15 +2138,6 @@ function ensureAdminHomePanel() {
       <div class="timetable-card">
         <div class="timetable-card-header">
           <h3>Timetable</h3>
-          <button
-            type="button"
-            class="small-btn manual-refresh-btn icon-action-btn icon-action-btn-large"
-            aria-label="Refresh timetable"
-            title="Refresh timetable"
-            onclick="refreshAdminHomeTimetable(this)"
-          >
-            ${getRefreshIconMarkup()}
-          </button>
         </div>
         <div id="admin-home-timetable-content">
           <p class="helper-text">Loading timetable...</p>
@@ -2023,7 +2147,7 @@ function ensureAdminHomePanel() {
         id="admin-home-zoom-link-btn"
         type="button"
         class="zoom-link-button"
-        onclick="openTimetableZoomLink()"
+        data-timetable-action="open-zoom"
       >
         Join Zoom Class
       </button>
@@ -6094,28 +6218,117 @@ function cssEscapeValue(value) {
    SUBJECTS UI
 ========================= */
 
+let adminSubjectUiHandlersBound = false;
+
+function bindAdminSubjectUiHandlers(containerOrId) {
+  if (adminSubjectUiHandlersBound !== true) {
+    if (!document || typeof document.addEventListener !== "function") {
+      return false;
+    }
+
+    adminSubjectUiHandlersBound = true;
+    document.addEventListener("click", handleAdminSubjectUiClick);
+    document.addEventListener("keydown", handleAdminSubjectUiKeydown);
+    document.addEventListener("change", handleAdminSubjectUiChange);
+  }
+
+  return !containerOrId || !!getDomElement(containerOrId);
+}
+
+function getAdminSubjectActionElement(event) {
+  const target = event && event.target;
+  if (!target || typeof target.closest !== "function") return null;
+
+  const actionEl = target.closest("[data-subject-action]");
+  if (!actionEl) return null;
+
+  const scope = actionEl.closest(
+    "#subjects-screen, #subject-add-list, #modify-subject-box"
+  );
+
+  return scope ? actionEl : null;
+}
+
+function handleAdminSubjectUiClick(event) {
+  const actionEl = getAdminSubjectActionElement(event);
+  if (!actionEl || actionEl.disabled) return;
+
+  const action = actionEl.dataset.subjectAction || "";
+  if (!action) return;
+
+  event.preventDefault();
+
+  if (action === "add-pending") {
+    addPendingSubject();
+    return;
+  }
+
+  if (action === "remove-pending") {
+    removePendingSubject(Number(actionEl.dataset.subjectIndex || -1));
+    return;
+  }
+
+  if (action === "submit-pending") {
+    submitPendingSubjects();
+    return;
+  }
+
+  if (action === "toggle-status") {
+    toggleSubjectStatusLocal();
+    return;
+  }
+
+  if (action === "save-subject") {
+    saveSubjectChanges();
+  }
+}
+
+function handleAdminSubjectUiKeydown(event) {
+  const target = event && event.target;
+  if (!target) return;
+
+  if (target.id === "new-subject-input" && event.key === "Enter") {
+    event.preventDefault();
+    addPendingSubject();
+  }
+}
+
+function handleAdminSubjectUiChange(event) {
+  const target = event && event.target;
+  if (!target || target.id !== "modify-subject-select") return;
+  selectSubjectToModify();
+}
+
 let allSubjects = [];
 let pendingSubjects = [];
 let selectedSubject = null;
 let selectedSubjectDraftActive = null;
 
 async function showSubjectsScreen() {
-  showScreen("subjects-screen");
+  const didShow = showScreen("subjects-screen");
+  if (!didShow) return;
+
+  bindAdminSubjectUiHandlers("subjects-screen");
 
   pendingSubjects = [];
   selectedSubject = null;
   selectedSubjectDraftActive = null;
 
-  document.getElementById("subject-add-message").innerText = "";
-  document.getElementById("modify-subject-box").classList.add("hidden");
+  setDomText("subject-add-message", "");
+  hideDomElement("modify-subject-box");
 
   renderSubjectAddRows();
   await loadSubjectsForModify();
 }
 
 function renderSubjectAddRows() {
-  const container = document.getElementById("subject-add-list");
-  const submitBtn = document.getElementById("submit-subjects-btn");
+  const container = getDomElement("subject-add-list");
+  const submitBtn = getDomElement("submit-subjects-btn");
+
+  if (!container) {
+    console.warn("Missing subject add list container.");
+    return;
+  }
 
   let html = "";
 
@@ -6123,7 +6336,7 @@ function renderSubjectAddRows() {
     html += `
       <div class="pending-subject-chip">
         <span>${escapeHtml(name)}</span>
-        <button onclick="removePendingSubject(${index})">Remove</button>
+        <button type="button" data-subject-action="remove-pending" data-subject-index="${index}">Remove</button>
       </div>
     `;
   });
@@ -6135,19 +6348,20 @@ function renderSubjectAddRows() {
           id="new-subject-input"
           type="text"
           placeholder="add a new subject"
-          onkeydown="handleSubjectInputKey(event)"
         />
-        <button class="enter-btn" onclick="addPendingSubject()">↵</button>
+        <button type="button" class="enter-btn" data-subject-action="add-pending">↵</button>
       </div>
     `;
   }
 
-  container.innerHTML = html;
+  setDomHtml(container, html);
+  bindAdminSubjectUiHandlers(container);
 
-  if (pendingSubjects.length > 0) {
-    submitBtn.classList.remove("hidden");
-  } else {
-    submitBtn.classList.add("hidden");
+  if (submitBtn) {
+    submitBtn.classList.toggle("hidden", pendingSubjects.length === 0);
+    submitBtn.type = "button";
+    submitBtn.dataset.subjectAction = "submit-pending";
+    submitBtn.removeAttribute("onclick");
   }
 }
 
@@ -6202,7 +6416,12 @@ function addPendingSubject() {
 }
 
 function removePendingSubject(index) {
-  pendingSubjects.splice(index, 1);
+  const safeIndex = Number(index);
+  if (!Number.isInteger(safeIndex) || safeIndex < 0 || safeIndex >= pendingSubjects.length) {
+    return;
+  }
+
+  pendingSubjects.splice(safeIndex, 1);
   renderSubjectAddRows();
 }
 
@@ -6230,8 +6449,10 @@ async function submitPendingSubjects() {
   }
 
   if (added.length > 0) {
-    document.getElementById("subject-add-message").innerText =
-      `${added.join(", ")} ${added.length === 1 ? "has" : "have"} been added.`;
+    setDomText(
+      "subject-add-message",
+      `${added.join(", ")} ${added.length === 1 ? "has" : "have"} been added.`
+    );
   }
 
   if (failed.length > 0) {
@@ -6247,11 +6468,24 @@ async function submitPendingSubjects() {
 }
 
 async function loadSubjectsForModify() {
-  const select = document.getElementById("modify-subject-select");
+  const select = getDomElement("modify-subject-select");
 
+  if (!select) {
+    console.warn("Missing modify subject select.");
+    return;
+  }
+
+  select.removeAttribute("onchange");
   select.innerHTML = `<option value="">Loading subjects...</option>`;
 
-  const result = await apiPost("/api/admin/subjects/list", {}, state.token);
+  let result;
+  try {
+    result = await apiPost("/api/admin/subjects/list", {}, state.token);
+  } catch (error) {
+    console.error("Failed to load subjects:", error);
+    select.innerHTML = `<option value="">Failed to load subjects</option>`;
+    return;
+  }
 
   if (!result.success) {
     select.innerHTML = `<option value="">Failed to load subjects</option>`;
@@ -6274,44 +6508,71 @@ async function loadSubjectsForModify() {
 }
 
 function selectSubjectToModify() {
-  const subjectid = document.getElementById("modify-subject-select").value;
+  const select = getDomElement("modify-subject-select");
+  const box = getDomElement("modify-subject-box");
+  const nameInput = getDomElement("modify-subject-name");
 
+  if (!select) {
+    selectedSubject = null;
+    selectedSubjectDraftActive = null;
+    return;
+  }
+
+  const subjectid = select.value;
   selectedSubject = allSubjects.find(subject => subject.subjectid === subjectid);
 
-  const box = document.getElementById("modify-subject-box");
-
   if (!selectedSubject) {
-    box.classList.add("hidden");
+    if (box) box.classList.add("hidden");
     selectedSubjectDraftActive = null;
     return;
   }
 
   selectedSubjectDraftActive = selectedSubject.active === true;
 
-  document.getElementById("modify-subject-name").value = selectedSubject.subjectname;
+  if (nameInput) {
+    nameInput.value = selectedSubject.subjectname;
+  }
+
+  const statusBtn = getDomElement("toggle-subject-status-btn");
+  if (statusBtn) {
+    statusBtn.type = "button";
+    statusBtn.dataset.subjectAction = "toggle-status";
+    statusBtn.removeAttribute("onclick");
+  }
+
+  const saveBtn = getDomElement("save-subject-changes-btn");
+  if (saveBtn) {
+    saveBtn.type = "button";
+    saveBtn.dataset.subjectAction = "save-subject";
+    saveBtn.removeAttribute("onclick");
+  }
 
   renderSelectedSubjectStatus();
 
-  box.classList.remove("hidden");
+  if (box) box.classList.remove("hidden");
 }
 
 function renderSelectedSubjectStatus() {
-  const statusDisplay = document.getElementById("selected-subject-status");
-  const statusBtn = document.getElementById("toggle-subject-status-btn");
+  const statusDisplay = getDomElement("selected-subject-status");
+  const statusBtn = getDomElement("toggle-subject-status-btn");
 
   if (!selectedSubject) {
-    statusDisplay.innerText = "STATUS: -";
-    statusBtn.innerText = "Change Status";
+    if (statusDisplay) statusDisplay.innerText = "STATUS: -";
+    if (statusBtn) statusBtn.innerText = "Change Status";
     return;
   }
 
-  statusDisplay.innerText = selectedSubjectDraftActive
-    ? "STATUS: ACTIVE"
-    : "STATUS: INACTIVE";
+  if (statusDisplay) {
+    statusDisplay.innerText = selectedSubjectDraftActive
+      ? "STATUS: ACTIVE"
+      : "STATUS: INACTIVE";
+  }
 
-  statusBtn.innerText = selectedSubjectDraftActive
-    ? "Make Inactive"
-    : "Make Active";
+  if (statusBtn) {
+    statusBtn.innerText = selectedSubjectDraftActive
+      ? "Make Inactive"
+      : "Make Active";
+  }
 }
 
 function toggleSubjectStatusLocal() {
@@ -6330,18 +6591,26 @@ async function saveSubjectChanges() {
     return;
   }
 
-  const subjectName = document.getElementById("modify-subject-name").value.trim();
+  const nameInput = getDomElement("modify-subject-name");
+  const subjectName = nameInput ? nameInput.value.trim() : "";
 
   if (!subjectName) {
     alert("Subject name cannot be empty.");
     return;
   }
 
-  const result = await apiPost("/api/admin/subjects/update", {
-    subjectid: selectedSubject.subjectid,
-    subjectName,
-    active: selectedSubjectDraftActive
-  }, state.token);
+  let result;
+  try {
+    result = await apiPost("/api/admin/subjects/update", {
+      subjectid: selectedSubject.subjectid,
+      subjectName,
+      active: selectedSubjectDraftActive
+    }, state.token);
+  } catch (error) {
+    console.error("Could not update subject:", error);
+    alert("Could not update subject.");
+    return;
+  }
 
   if (!result.success) {
     alert(result.error || "Could not update subject.");
@@ -6352,7 +6621,7 @@ async function saveSubjectChanges() {
 
   await loadSubjectsForModify();
 
-  document.getElementById("modify-subject-box").classList.add("hidden");
+  hideDomElement("modify-subject-box");
   selectedSubject = null;
   selectedSubjectDraftActive = null;
 }
