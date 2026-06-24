@@ -5,7 +5,7 @@ const APP_VERSION_STORAGE_KEY = "maktab_app_version";
 const CLASS_DUAS_ITEMS = [
   {
     arabic: "اللَّهُمَّ صَلِّ عَلَى مُحَمَّدٍ وَّعَلَى آلِ مُحَمَّدٍ وَّبَارِكْ وَسَلِّم",
-    transliteration: "25-Allahumma salli ala muhammadew wa ala aali muhammadew wa baarik wassallim",
+    transliteration: "26-Allahumma salli ala muhammadew wa ala aali muhammadew wa baarik wassallim",
     translation: "Oh Allah send peace and blessings upon Muhammad and the family of Muhammad"
   },
   {
@@ -4574,6 +4574,12 @@ function handleManageStudentsUiClick(event) {
 
   if (!action) return;
 
+  // Do not prevent the browser's native radio/checkbox behaviour.
+  // The matching change handler will update state after the control changes.
+  if (action === "set-active-status" || action === "assignment-mode" || action === "toggle-subject-modules") {
+    return;
+  }
+
   event.preventDefault();
 
   switch (action) {
@@ -5346,7 +5352,6 @@ function renderSelectedStudentEditor() {
                 name="student-edit-active"
                 value="true"
                 ${manageStudentsState.selectedStudentActiveDraft === true ? "checked" : ""}
-                data-manage-action="set-active-status"
               />
               <span>Active</span>
             </label>
@@ -5357,7 +5362,6 @@ function renderSelectedStudentEditor() {
                 name="student-edit-active"
                 value="false"
                 ${manageStudentsState.selectedStudentActiveDraft === true ? "" : "checked"}
-                data-manage-action="set-active-status"
               />
               <span>Inactive</span>
             </label>
