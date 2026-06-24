@@ -5,7 +5,7 @@ const APP_VERSION_STORAGE_KEY = "maktab_app_version";
 const CLASS_DUAS_ITEMS = [
   {
     arabic: "اللَّهُمَّ صَلِّ عَلَى مُحَمَّدٍ وَّعَلَى آلِ مُحَمَّدٍ وَّبَارِكْ وَسَلِّم",
-    transliteration: "38-Allahumma salli ala muhammadew wa ala aali muhammadew wa baarik wassallim",
+    transliteration: "39-Allahumma salli ala muhammadew wa ala aali muhammadew wa baarik wassallim",
     translation: "Oh Allah send peace and blessings upon Muhammad and the family of Muhammad"
   },
   {
@@ -277,9 +277,9 @@ function hideDomElement(id) {
 /* M4L v38: setUserBandRefreshState moved to /js/m4l-shell.js */
 /* M4L v38: waitForUserBandRefreshFrame moved to /js/m4l-shell.js */
 /* M4L v38: waitForUserBandRefreshMinimumDuration moved to /js/m4l-shell.js */
-async 
+/* M4L v39: removed stray async token left after moving runUserBandRefresh to /js/m4l-shell.js */
 /* M4L v38: runUserBandRefresh moved to /js/m4l-shell.js */
-async 
+/* M4L v39: removed stray async token left after moving refreshCurrentResourceView to /js/m4l-shell.js */
 /* M4L v38: refreshCurrentResourceView moved to /js/m4l-shell.js */
 /* M4L v38: getUserBandRefreshAction moved to /js/m4l-shell.js */
 /* M4L v38: attachUserBandRefreshHandler moved to /js/m4l-shell.js */
