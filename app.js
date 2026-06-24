@@ -5,7 +5,7 @@ const APP_VERSION_STORAGE_KEY = "maktab_app_version";
 const CLASS_DUAS_ITEMS = [
   {
     arabic: "اللَّهُمَّ صَلِّ عَلَى مُحَمَّدٍ وَّعَلَى آلِ مُحَمَّدٍ وَّبَارِكْ وَسَلِّم",
-    transliteration: "24-Allahumma salli ala muhammadew wa ala aali muhammadew wa baarik wassallim",
+    transliteration: "25-Allahumma salli ala muhammadew wa ala aali muhammadew wa baarik wassallim",
     translation: "Oh Allah send peace and blessings upon Muhammad and the family of Muhammad"
   },
   {
@@ -4550,6 +4550,117 @@ const manageStudentsState = {
   studentDropdownOpen: false
 };
 
+
+function bindManageStudentsUiHandlers(containerOrId) {
+  const container = getDomElement(containerOrId);
+  if (!container || container.__manageStudentsHandlersBound === true) return false;
+
+  container.__manageStudentsHandlersBound = true;
+  container.addEventListener("click", handleManageStudentsUiClick);
+  container.addEventListener("input", handleManageStudentsUiInput);
+  container.addEventListener("keydown", handleManageStudentsUiKeydown);
+  container.addEventListener("change", handleManageStudentsUiChange);
+  return true;
+}
+
+function handleManageStudentsUiClick(event) {
+  const actionEl = event.target && event.target.closest
+    ? event.target.closest("[data-manage-action]")
+    : null;
+
+  if (!actionEl) return;
+
+  const action = actionEl.dataset.manageAction || "";
+
+  if (!action) return;
+
+  event.preventDefault();
+
+  switch (action) {
+    case "set-mode":
+      setManageStudentsMode(actionEl.dataset.manageMode || "register");
+      break;
+    case "submit-register":
+      submitRegisterStudent(actionEl.dataset.confirmDuplicate === "true");
+      break;
+    case "register-another":
+      registerAnotherManagedStudent();
+      break;
+    case "exit-dashboard":
+      showScreen("admin-home");
+      break;
+    case "back-to-list":
+      backToManagedStudentList();
+      break;
+    case "toggle-dropdown":
+      toggleManagedStudentDropdown();
+      break;
+    case "select-student":
+      selectManagedStudentByUniqueId(actionEl.dataset.uniqueid || "");
+      break;
+    case "reset-pin":
+      resetManagedStudentPin();
+      break;
+    case "save-student":
+      saveManagedStudentChanges();
+      break;
+    case "copy-login-link":
+      copyStudentLoginLink(actionEl.dataset.loginLink || "");
+      break;
+    case "copy-welcome-message":
+      copyStudentWelcomeMessageFromBox(
+        actionEl.dataset.messageBoxId || "",
+        actionEl.dataset.loginLink || ""
+      );
+      break;
+    case "open-whatsapp":
+      openStudentWhatsAppMessageFromBox(
+        actionEl.dataset.messageBoxId || "",
+        actionEl.dataset.loginLink || ""
+      );
+      break;
+    default:
+      console.warn("Unknown Manage Students action:", action);
+  }
+}
+
+function handleManageStudentsUiInput(event) {
+  const target = event.target;
+
+  if (target && target.id === "student-search-query") {
+    filterManagedStudentsFromInput();
+  }
+}
+
+function handleManageStudentsUiKeydown(event) {
+  const target = event.target;
+
+  if (target && target.id === "student-search-query" && event.key === "Enter") {
+    event.preventDefault();
+    searchManagedStudents();
+  }
+}
+
+function handleManageStudentsUiChange(event) {
+  const target = event.target;
+
+  if (!target) return;
+
+  if (target.name === "student-assignment-mode") {
+    toggleStudentAssignmentMode();
+    return;
+  }
+
+  if (target.dataset && target.dataset.manageAction === "toggle-subject-modules") {
+    toggleStudentSubjectModules(target.dataset.subjectid || "", target.checked === true);
+    return;
+  }
+
+  if (target.name === "student-edit-active") {
+    setStudentEditActiveStatus(target.value === "true");
+  }
+}
+
 function showManageStudents() {
   manageStudentsState.mode = "register";
   manageStudentsState.searchResults = [];
@@ -4558,7 +4669,9 @@ function showManageStudents() {
   manageStudentsState.lastRegisteredStudent = null;
   manageStudentsState.selectedStudentActiveDraft = true;
   manageStudentsState.studentDropdownOpen = false;
-  showScreen("manage-students-screen");
+
+  if (!showScreen("manage-students-screen")) return;
+
   renderManageStudentsScreen();
   loadStudentAssignmentOptions();
 }
@@ -4569,11 +4682,16 @@ async function loadStudentAssignmentOptions() {
     return;
   }
 
-  const result = await apiPost("/api/admin/students/assignment-options", {}, state.token);
+  try {
+    const result = await apiPost("/api/admin/students/assignment-options", {}, state.token);
 
-  if (result.success) {
-    manageStudentsState.assignmentOptions = result.subjects || [];
-  } else {
+    if (result.success) {
+      manageStudentsState.assignmentOptions = result.subjects || [];
+    } else {
+      manageStudentsState.assignmentOptions = [];
+    }
+  } catch (err) {
+    console.error("Could not load student assignment options", err);
     manageStudentsState.assignmentOptions = [];
   }
 
@@ -4597,31 +4715,35 @@ function setManageStudentsMode(mode) {
 }
 
 function renderManageStudentsScreen() {
-  const container = document.getElementById("manage-students-content");
+  const container = getDomElement("manage-students-content");
   if (!container) return;
 
   const isRegister = manageStudentsState.mode === "register";
 
-  container.innerHTML = `
+  setDomHtml(container, `
     <div class="student-admin-mode-toggle" role="tablist" aria-label="Student management mode">
       <button
         type="button"
         class="student-admin-mode-btn ${isRegister ? "is-active" : ""}"
-        onclick="setManageStudentsMode('register')"
+        data-manage-action="set-mode"
+        data-manage-mode="register"
       >
         Register
       </button>
       <button
         type="button"
         class="student-admin-mode-btn ${!isRegister ? "is-active" : ""}"
-        onclick="setManageStudentsMode('modify')"
+        data-manage-action="set-mode"
+        data-manage-mode="modify"
       >
         Modify
       </button>
     </div>
 
     ${isRegister ? renderRegisterStudentPanel() : renderModifyStudentPanel()}
-  `;
+  `);
+
+  bindManageStudentsUiHandlers(container);
 }
 
 function renderRegisterStudentPanel() {
@@ -4642,7 +4764,7 @@ function renderRegisterStudentPanel() {
       <div class="student-admin-card-title">Task Assignment</div>
 
       <label class="student-admin-radio-row">
-        <input type="radio" name="student-assignment-mode" value="all" checked onchange="toggleStudentAssignmentMode()" />
+        <input type="radio" name="student-assignment-mode" value="all" checked data-manage-action="assignment-mode" />
         <span>Assign all active subjects and modules</span>
       </label>
 
@@ -4659,7 +4781,7 @@ function renderRegisterStudentPanel() {
     </div>
 
     <div class="student-admin-action-grid">
-      <button type="button" onclick="submitRegisterStudent(false)">Register Student</button>
+      <button type="button" data-manage-action="submit-register">Register Student</button>
     </div>
 
     <div id="student-register-feedback" class="student-admin-feedback"></div>
@@ -4692,8 +4814,8 @@ function renderStudentAssignmentOptions() {
           <input
             type="checkbox"
             class="student-module-checkbox"
-            data-subjectid="${escapeHtml(subjectId)}"
-            data-moduleid="${escapeHtml(moduleId)}"
+            data-subjectid="${escapeAttribute(subjectId)}"
+            data-moduleid="${escapeAttribute(moduleId)}"
           />
           <span>${escapeHtml(moduleName)}</span>
           <small>${taskCount} task${taskCount === 1 ? "" : "s"}</small>
@@ -4704,7 +4826,7 @@ function renderStudentAssignmentOptions() {
     return `
       <div class="student-assignment-subject-card">
         <label class="student-subject-check-row">
-          <input type="checkbox" onchange="toggleStudentSubjectModules('${escapeJsString(subjectId)}', this.checked)" />
+          <input type="checkbox" data-manage-action="toggle-subject-modules" data-subjectid="${escapeAttribute(subjectId)}" />
           <span>${escapeHtml(subjectName)}</span>
         </label>
         <div class="student-module-check-list">
@@ -4717,7 +4839,7 @@ function renderStudentAssignmentOptions() {
 
 function toggleStudentAssignmentMode() {
   const selectedMode = getSelectedStudentAssignmentMode();
-  const optionsBox = document.getElementById("student-assignment-options");
+  const optionsBox = getDomElement("student-assignment-options");
 
   if (!optionsBox) return;
 
@@ -4752,10 +4874,9 @@ function collectSelectedStudentModules() {
 }
 
 async function submitRegisterStudent(confirmDuplicate) {
-  const nameInput = document.getElementById("student-register-name");
-  const whatsappInput = document.getElementById("student-register-whatsapp");
-  const groupInput = document.getElementById("student-register-group");
-  const feedback = document.getElementById("student-register-feedback");
+  const nameInput = getDomElement("student-register-name");
+  const whatsappInput = getDomElement("student-register-whatsapp");
+  const groupInput = getDomElement("student-register-group");
 
   const username = nameInput ? nameInput.value.trim() : "";
   const whatsapp6 = getLastSixDigits(whatsappInput ? whatsappInput.value : "");
@@ -4773,23 +4894,27 @@ async function submitRegisterStudent(confirmDuplicate) {
     return;
   }
 
-  if (feedback) {
-    feedback.textContent = "Registering student...";
+  setDomText("student-register-feedback", "Registering student...");
+
+  let result;
+
+  try {
+    result = await apiPost("/api/admin/register-student", {
+      username,
+      whatsapp6,
+      classgroup,
+      confirmDuplicate: confirmDuplicate === true,
+      assignmentMode,
+      selectedModules
+    }, state.token);
+  } catch (err) {
+    console.error("Student registration failed", err);
+    setDomText("student-register-feedback", "Registration failed. Please try again.");
+    return;
   }
 
-  const result = await apiPost("/api/admin/register-student", {
-    username,
-    whatsapp6,
-    classgroup,
-    confirmDuplicate: confirmDuplicate === true,
-    assignmentMode,
-    selectedModules
-  }, state.token);
-
   if (result.duplicate) {
-    if (feedback) {
-      feedback.textContent = "Possible duplicate found.";
-    }
+    setDomText("student-register-feedback", "Possible duplicate found.");
 
     const duplicateText = (result.matches || [])
       .map(match => `${match.username || "Student"} · Group ${match.classgroup || "-"} · WhatsApp ${match.whatsapp6 || "-"}`)
@@ -4809,60 +4934,66 @@ async function submitRegisterStudent(confirmDuplicate) {
   }
 
   if (!result.success) {
-    if (feedback) {
-      feedback.textContent = result.error || "Registration failed.";
-    }
+    setDomText("student-register-feedback", result.error || "Registration failed.");
     return;
   }
 
   manageStudentsState.lastRegisteredStudent = normalizeManagedStudent(result);
-  showScreen("manage-students-result-screen");
+
+  if (!showScreen("manage-students-result-screen")) return;
+
   renderManageStudentResultScreen("registered");
 }
 
 function renderManageStudentResultScreen(context) {
-  const container = document.getElementById("manage-students-result-content");
+  const container = getDomElement("manage-students-result-content");
   if (!container) return;
 
   const student = manageStudentsState.lastRegisteredStudent || manageStudentsState.selectedStudent;
 
   if (!student) {
-    container.innerHTML = `<p class="helper-text">No student selected.</p>`;
+    setDomHtml(container, `<p class="helper-text">No student selected.</p>`);
     return;
   }
 
   const actionButtons = context === "registered"
     ? `
       <div class="student-admin-action-grid two-col">
-        <button type="button" onclick="registerAnotherManagedStudent()">Register Another Student</button>
-        <button type="button" class="home-text-action-btn" onclick="showScreen('admin-home')"><span class="home-text-action-btn__icon" aria-hidden="true"></span><span>Exit to Dashboard</span></button>
+        <button type="button" data-manage-action="register-another">Register Another Student</button>
+        <button type="button" class="home-text-action-btn" data-manage-action="exit-dashboard"><span class="home-text-action-btn__icon" aria-hidden="true"></span><span>Exit to Dashboard</span></button>
       </div>
     `
     : `
       <div class="student-admin-action-grid two-col">
-        <button type="button" class="back-icon-btn icon-action-btn icon-action-btn-large" onclick="backToManagedStudentList()" aria-label="Back to student list" title="Back to student list"><span class="app-icon app-icon-large" style="--app-icon-url: url('/icons/back.svg')" aria-hidden="true"></span><span class="header-icon-label">Back</span></button>
-        <button type="button" class="home-text-action-btn" onclick="showScreen('admin-home')"><span class="home-text-action-btn__icon" aria-hidden="true"></span><span>Exit to Dashboard</span></button>
+        <button type="button" class="back-icon-btn icon-action-btn icon-action-btn-large" data-manage-action="back-to-list" aria-label="Back to student list" title="Back to student list"><span class="app-icon app-icon-large" style="--app-icon-url: url('/icons/back.svg')" aria-hidden="true"></span><span class="header-icon-label">Back</span></button>
+        <button type="button" class="home-text-action-btn" data-manage-action="exit-dashboard"><span class="home-text-action-btn__icon" aria-hidden="true"></span><span>Exit to Dashboard</span></button>
       </div>
     `;
 
-  container.innerHTML = `
+  setDomHtml(container, `
     ${renderStudentMessageResult(student, context || "registered")}
     ${actionButtons}
-  `;
+  `);
+
+  bindManageStudentsUiHandlers(container);
 }
 
 function registerAnotherManagedStudent() {
   manageStudentsState.mode = "register";
   manageStudentsState.lastRegisteredStudent = null;
   manageStudentsState.selectedStudent = null;
-  showScreen("manage-students-screen");
+
+  if (!showScreen("manage-students-screen")) return;
+
   renderManageStudentsScreen();
 }
 
 function backToManagedStudentList() {
   manageStudentsState.mode = "modify";
   manageStudentsState.selectedStudent = null;
-  showScreen("manage-students-screen");
+
+  if (!showScreen("manage-students-screen")) return;
+
   renderManageStudentsScreen();
   if (!manageStudentsState.studentListLoaded) {
     loadManagedStudentList(false);
@@ -4890,13 +5021,12 @@ function renderModifyStudentPanel() {
           placeholder="Type a name or WhatsApp number"
           autocomplete="off"
           value="${escapeAttribute(manageStudentsState.searchQuery || "")}"
-          oninput="filterManagedStudentsFromInput()"
-          onkeydown="handleStudentSearchKey(event)"
+
         />
         <button
           type="button"
           class="student-search-arrow-btn"
-          onclick="toggleManagedStudentDropdown()"
+          data-manage-action="toggle-dropdown"
           aria-label="Show student list"
         >${dropdownLabel}</button>
       </div>
@@ -4907,7 +5037,7 @@ function renderModifyStudentPanel() {
       </div>
       ${loadingText}
 
-      <div class="student-search-dropdown ${manageStudentsState.studentDropdownOpen ? "is-open" : ""}">
+      <div class="student-search-dropdown managed-student-list ${manageStudentsState.studentDropdownOpen ? "is-open" : ""}">
         ${listHtml}
       </div>
     </div>
@@ -4926,10 +5056,17 @@ async function loadManagedStudentList(forceRefresh) {
   manageStudentsState.studentListLoading = true;
   renderManageStudentsScreen();
 
-  const result = await apiPost("/api/admin/students/search", {
-    query: "",
-    listAll: true
-  }, state.token);
+  let result;
+
+  try {
+    result = await apiPost("/api/admin/students/search", {
+      query: "",
+      listAll: true
+    }, state.token);
+  } catch (err) {
+    console.error("Could not load managed student list", err);
+    result = { success: false, error: "Could not load student list." };
+  }
 
   manageStudentsState.studentListLoading = false;
 
@@ -4938,8 +5075,7 @@ async function loadManagedStudentList(forceRefresh) {
     manageStudentsState.searchResults = [];
     manageStudentsState.studentListLoaded = true;
     renderManageStudentsScreen();
-    const feedback = document.getElementById("student-search-feedback");
-    if (feedback) feedback.textContent = result.error || "Could not load student list.";
+    setDomText("student-search-feedback", result.error || "Could not load student list.");
     return;
   }
 
@@ -4947,11 +5083,7 @@ async function loadManagedStudentList(forceRefresh) {
   manageStudentsState.studentListLoaded = true;
   applyManagedStudentFilter(manageStudentsState.searchQuery || "");
   renderManageStudentsScreen();
-
-  const feedback = document.getElementById("student-search-feedback");
-  if (feedback) {
-    feedback.textContent = `${manageStudentsState.searchResults.length} student${manageStudentsState.searchResults.length === 1 ? "" : "s"} shown.`;
-  }
+  setDomText("student-search-feedback", `${manageStudentsState.searchResults.length} student${manageStudentsState.searchResults.length === 1 ? "" : "s"} shown.`);
 }
 
 function getManagedStudentDisplayGroup(student) {
@@ -5023,7 +5155,7 @@ function renderManagedStudentList() {
     }
 
     html += `
-      <button type="button" class="student-search-row" onclick="selectManagedStudentByUniqueId('${escapeJsString(student.uniqueid)}')">
+      <button type="button" class="student-search-row" data-manage-action="select-student" data-uniqueid="${escapeAttribute(student.uniqueid)}">
         <span class="student-search-row-name">${escapeHtml(student.username || "Student")}</span>
         <span class="student-search-row-number">${escapeHtml(student.whatsapp6 || "999999")}</span>
       </button>
@@ -5045,7 +5177,7 @@ function toggleManagedStudentDropdown() {
 }
 
 function filterManagedStudentsFromInput() {
-  const input = document.getElementById("student-search-query");
+  const input = getDomElement("student-search-query");
   const query = input ? input.value : "";
   manageStudentsState.searchQuery = query;
   manageStudentsState.studentDropdownOpen = true;
@@ -5055,15 +5187,12 @@ function filterManagedStudentsFromInput() {
 
 function updateManagedStudentListOnly() {
   const list = document.querySelector(".managed-student-list");
-  const feedback = document.getElementById("student-search-feedback");
 
   if (list) {
-    list.innerHTML = renderManagedStudentList();
+    setDomHtml(list, renderManagedStudentList());
   }
 
-  if (feedback) {
-    feedback.textContent = `${manageStudentsState.searchResults.length} student${manageStudentsState.searchResults.length === 1 ? "" : "s"} shown.`;
-  }
+  setDomText("student-search-feedback", `${manageStudentsState.searchResults.length} student${manageStudentsState.searchResults.length === 1 ? "" : "s"} shown.`);
 }
 
 function applyManagedStudentFilter(query) {
@@ -5114,7 +5243,7 @@ function handleStudentSearchKey(event) {
 }
 
 async function searchManagedStudents() {
-  const input = document.getElementById("student-search-query");
+  const input = getDomElement("student-search-query");
   const rawQuery = input ? input.value.trim() : "";
   manageStudentsState.searchQuery = rawQuery;
 
@@ -5135,7 +5264,9 @@ function selectManagedStudentByUniqueId(uniqueid) {
   manageStudentsState.selectedStudent = normalizeManagedStudent(student);
   manageStudentsState.selectedStudentActiveDraft = manageStudentsState.selectedStudent.active === true;
   manageStudentsState.studentDropdownOpen = false;
-  showScreen("manage-student-edit-screen");
+
+  if (!showScreen("manage-student-edit-screen")) return;
+
   renderManagedStudentEditScreen();
 }
 
@@ -5147,20 +5278,23 @@ function selectManagedStudent(index) {
   manageStudentsState.selectedStudent = normalizeManagedStudent(student);
   manageStudentsState.selectedStudentActiveDraft = manageStudentsState.selectedStudent.active === true;
   manageStudentsState.studentDropdownOpen = false;
-  showScreen("manage-student-edit-screen");
+
+  if (!showScreen("manage-student-edit-screen")) return;
+
   renderManagedStudentEditScreen();
 }
 
 function renderManagedStudentEditScreen() {
-  const container = document.getElementById("manage-student-edit-content");
+  const container = getDomElement("manage-student-edit-content");
   if (!container) return;
 
   if (!manageStudentsState.selectedStudent) {
-    container.innerHTML = `<p class="helper-text">No student selected.</p>`;
+    setDomHtml(container, `<p class="helper-text">No student selected.</p>`);
     return;
   }
 
-  container.innerHTML = renderSelectedStudentEditor();
+  setDomHtml(container, renderSelectedStudentEditor());
+  bindManageStudentsUiHandlers(container);
 }
 
 function renderSelectedStudentEditor() {
@@ -5178,7 +5312,7 @@ function renderSelectedStudentEditor() {
     </div>
 
     <div class="student-admin-action-grid">
-      <button type="button" class="student-reset-pin-btn" onclick="resetManagedStudentPin()">Reset PIN</button>
+      <button type="button" class="student-reset-pin-btn" data-manage-action="reset-pin">Reset PIN</button>
     </div>
 
     <div class="student-admin-card selected-student-edit-card">
@@ -5212,7 +5346,7 @@ function renderSelectedStudentEditor() {
                 name="student-edit-active"
                 value="true"
                 ${manageStudentsState.selectedStudentActiveDraft === true ? "checked" : ""}
-                onchange="setStudentEditActiveStatus(true)"
+                data-manage-action="set-active-status"
               />
               <span>Active</span>
             </label>
@@ -5223,7 +5357,7 @@ function renderSelectedStudentEditor() {
                 name="student-edit-active"
                 value="false"
                 ${manageStudentsState.selectedStudentActiveDraft === true ? "" : "checked"}
-                onchange="setStudentEditActiveStatus(false)"
+                data-manage-action="set-active-status"
               />
               <span>Inactive</span>
             </label>
@@ -5233,7 +5367,7 @@ function renderSelectedStudentEditor() {
     </div>
 
     <div class="student-admin-action-grid">
-      <button type="button" onclick="saveManagedStudentChanges()">Confirm Changes</button>
+      <button type="button" data-manage-action="save-student">Confirm Changes</button>
     </div>
 
     ${renderStudentMessageResult(student, "selected")}
@@ -5257,13 +5391,15 @@ function toggleSelectedStudentActive() {
 
 async function saveManagedStudentChanges() {
   const student = manageStudentsState.selectedStudent;
-  const feedback = document.getElementById("student-edit-feedback");
+  const nameInput = getDomElement("student-edit-name");
+  const whatsappInput = getDomElement("student-edit-whatsapp");
+  const groupInput = getDomElement("student-edit-group");
 
   if (!student) return;
 
-  const username = document.getElementById("student-edit-name").value.trim();
-  const whatsappRaw = document.getElementById("student-edit-whatsapp").value.trim();
-  const classgroup = document.getElementById("student-edit-group").value.trim() || String(DEFAULT_STUDENT_GROUP);
+  const username = nameInput ? nameInput.value.trim() : "";
+  const whatsappRaw = whatsappInput ? whatsappInput.value.trim() : "";
+  const classgroup = groupInput && groupInput.value.trim() ? groupInput.value.trim() : String(DEFAULT_STUDENT_GROUP);
   const activeRadio = document.querySelector('input[name="student-edit-active"]:checked');
   const active = activeRadio
     ? activeRadio.value === "true"
@@ -5287,12 +5423,20 @@ async function saveManagedStudentChanges() {
     payload.whatsapp6 = whatsapp6;
   }
 
-  if (feedback) feedback.textContent = "Saving changes...";
+  setDomText("student-edit-feedback", "Saving changes...");
 
-  const result = await apiPost("/api/admin/update-student", payload, state.token);
+  let result;
+
+  try {
+    result = await apiPost("/api/admin/update-student", payload, state.token);
+  } catch (err) {
+    console.error("Could not save managed student changes", err);
+    setDomText("student-edit-feedback", "Could not save changes.");
+    return;
+  }
 
   if (!result.success) {
-    if (feedback) feedback.textContent = result.error || "Could not save changes.";
+    setDomText("student-edit-feedback", result.error || "Could not save changes.");
     return;
   }
 
@@ -5315,8 +5459,7 @@ async function saveManagedStudentChanges() {
   applyManagedStudentFilter(manageStudentsState.searchQuery || "");
   renderManagedStudentEditScreen();
 
-  const newFeedback = document.getElementById("student-edit-feedback");
-  if (newFeedback) newFeedback.textContent = "Student changes saved.";
+  setDomText("student-edit-feedback", "Student changes saved.");
 }
 
 async function resetManagedStudentPin() {
@@ -5327,20 +5470,26 @@ async function resetManagedStudentPin() {
   const proceed = confirm("Reset this student's PIN? They will create a new 4-digit PIN on next login.");
   if (!proceed) return;
 
-  const result = await apiPost("/api/admin/reset-pin", {
-    uniqueid: student.uniqueid
-  }, state.token);
+  setDomText("student-edit-feedback", "Resetting PIN...");
 
-  const feedback = document.getElementById("student-edit-feedback");
+  let result;
 
-  if (!result.success) {
-    if (feedback) feedback.textContent = result.error || "PIN reset failed.";
+  try {
+    result = await apiPost("/api/admin/reset-pin", {
+      uniqueid: student.uniqueid
+    }, state.token);
+  } catch (err) {
+    console.error("PIN reset failed", err);
+    setDomText("student-edit-feedback", "PIN reset failed.");
     return;
   }
 
-  if (feedback) {
-    feedback.textContent = "PIN reset successfully. The student can use the same link and create a new PIN.";
+  if (!result.success) {
+    setDomText("student-edit-feedback", result.error || "PIN reset failed.");
+    return;
   }
+
+  setDomText("student-edit-feedback", "PIN reset successfully. The student can use the same link and create a new PIN.");
 }
 
 function renderStudentMessageResult(student, context) {
@@ -5362,7 +5511,8 @@ function renderStudentMessageResult(student, context) {
         <button
           type="button"
           class="student-copy-icon-btn"
-          onclick="copyStudentLoginLink('${escapeJsString(loginLink)}')"
+          data-manage-action="copy-login-link"
+          data-login-link="${escapeAttribute(loginLink)}"
           aria-label="Copy student link"
           title="Copy student link"
         >
@@ -5381,7 +5531,9 @@ function renderStudentMessageResult(student, context) {
         <button
           type="button"
           class="student-copy-icon-btn student-message-copy-btn"
-          onclick="copyStudentWelcomeMessageFromBox('${escapeJsString(messageBoxId)}', '${escapeJsString(loginLink)}')"
+          data-manage-action="copy-welcome-message"
+          data-message-box-id="${escapeAttribute(messageBoxId)}"
+          data-login-link="${escapeAttribute(loginLink)}"
           aria-label="Copy WhatsApp message"
           title="Copy WhatsApp message"
         >
@@ -5392,7 +5544,9 @@ function renderStudentMessageResult(student, context) {
       <button
         type="button"
         class="student-whatsapp-icon-btn"
-        onclick="openStudentWhatsAppMessageFromBox('${escapeJsString(messageBoxId)}', '${escapeJsString(loginLink)}')"
+        data-manage-action="open-whatsapp"
+        data-message-box-id="${escapeAttribute(messageBoxId)}"
+        data-login-link="${escapeAttribute(loginLink)}"
         aria-label="Open WhatsApp message"
         title="Open WhatsApp message"
       >
@@ -5410,7 +5564,7 @@ function sanitizeDomId(value) {
 }
 
 function getEditedStudentMessage(messageBoxId, loginLink) {
-  const box = document.getElementById(messageBoxId);
+  const box = getDomElement(messageBoxId);
   const edited = box ? box.value.trim() : "";
   return edited || buildStudentWelcomeMessage(loginLink);
 }
@@ -5487,6 +5641,11 @@ function openStudentWhatsAppMessageFromBox(messageBoxId, loginLink) {
 async function copyTextToClipboard(text) {
   if (navigator.clipboard && window.isSecureContext) {
     await navigator.clipboard.writeText(text);
+    return;
+  }
+
+  if (!document.body) {
+    window.prompt("Copy this text:", text);
     return;
   }
 
