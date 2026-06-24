@@ -608,16 +608,10 @@ function updateUserBand(screenId) {
       <h2 class="app-user-band__name">${escapeHtml(username)}</h2>
       <p class="app-user-band__level">${escapeHtml(levelText)}</p>
     </div>
-    <div class="app-user-band__actions">
-      <button type="button" class="app-user-band__refresh manual-refresh-btn icon-action-btn icon-action-btn-large" onclick="refreshCurrentScreenFromBanner(this)" aria-label="Refresh current screen" title="Refresh">
-        <span class="app-icon app-icon-large manual-refresh-btn__icon" style="--app-icon-url: url('/icons/refresh.svg')" aria-hidden="true"></span>
-        <span class="app-user-band__action-label">Refresh</span>
-      </button>
-      <button type="button" class="app-user-band__logout icon-action-btn icon-action-btn-large" onclick="logout()" aria-label="Logout" title="Logout">
-        <span class="app-icon app-icon-large" style="--app-icon-url: url('/icons/logout.svg')" aria-hidden="true"></span>
-        <span class="app-user-band__action-label">Logout</span>
-      </button>
-    </div>
+    <button type="button" class="app-user-band__logout icon-action-btn icon-action-btn-large" onclick="logout()" aria-label="Logout" title="Logout">
+      <span class="app-icon app-icon-large" style="--app-icon-url: url('/icons/logout.svg')" aria-hidden="true"></span>
+      <span class="app-user-band__logout-label">Logout</span>
+    </button>
   `;
 }
 
@@ -1341,20 +1335,13 @@ function ensureTimetableStartImageAfterZoom(contentId, zoomButtonId, imageCardId
     `;
   }
 
-  const timetableCard = content ? content.closest(".timetable-card") : null;
-
-  if (timetableCard && timetableCard.parentNode) {
-    timetableCard.insertAdjacentElement("afterend", imageCard);
+  if (zoomButton && zoomButton.parentNode) {
+    zoomButton.insertAdjacentElement("afterend", imageCard);
     return;
   }
 
   if (content && content.parentNode) {
     content.insertAdjacentElement("afterend", imageCard);
-    return;
-  }
-
-  if (zoomButton && zoomButton.parentNode) {
-    zoomButton.insertAdjacentElement("afterend", imageCard);
   }
 }
 
@@ -1398,6 +1385,23 @@ function ensureAdminHomePanel() {
     panel.id = "admin-home-panel";
     panel.className = "student-home-panel admin-home-panel";
     panel.innerHTML = `
+      <div class="timetable-card">
+        <div class="timetable-card-header">
+          <h3>Timetable</h3>
+          <button
+            type="button"
+            class="small-btn manual-refresh-btn icon-action-btn icon-action-btn-large"
+            aria-label="Refresh timetable"
+            title="Refresh timetable"
+            onclick="refreshAdminHomeTimetable(this)"
+          >
+            ${getRefreshIconMarkup()}
+          </button>
+        </div>
+        <div id="admin-home-timetable-content">
+          <p class="helper-text">Loading timetable...</p>
+        </div>
+      </div>
       <button
         id="admin-home-zoom-link-btn"
         type="button"
@@ -1406,14 +1410,6 @@ function ensureAdminHomePanel() {
       >
         Join Zoom Class
       </button>
-      <div class="timetable-card">
-        <div class="timetable-card-header">
-          <h3 class="visually-hidden">Timetable</h3>
-        </div>
-        <div id="admin-home-timetable-content">
-          <p class="helper-text">Loading timetable...</p>
-        </div>
-      </div>
     `;
   }
 
@@ -2130,14 +2126,14 @@ const STUDENT_RESOURCE_CATEGORIES = [
     subtitle: "Movie and video resources"
   },
   {
-    key: "EBOOKS",
-    label: "eBooks",
-    subtitle: "Books and reading resources"
-  },
-  {
     key: "AUDIO",
     label: "Audio",
     subtitle: "Listening resources"
+  },
+  {
+    key: "EBOOKS",
+    label: "eBooks",
+    subtitle: "Books and reading resources"
   },
   {
     key: "PRINTABLES",
@@ -2673,11 +2669,14 @@ function renderStudentResourceSubjects() {
     <div class="resource-media-matrix-wrap" style="${columnStyle}">
       <div class="resource-media-matrix" role="table" aria-label="Resources by subject and media type">
         <div class="resource-media-row resource-media-header" role="row">
-          <div class="resource-media-subject-cell resource-media-heading-cell" role="columnheader">Subject</div>
+          <div class="resource-media-subject-cell" role="columnheader">Subject</div>
           ${visibleCategories.map(category => `
-            <div class="resource-media-cell resource-media-heading-cell" role="columnheader">${escapeHtml(category.label)}</div>
+            <div class="resource-media-cell resource-media-heading-cell" role="columnheader">
+              ${escapeHtml(category.label)}
+            </div>
           `).join("")}
         </div>
+
         ${subjects.map(subject => `
           <div class="resource-media-row" role="row">
             <div class="resource-media-subject-cell" role="cell">
@@ -3744,20 +3743,8 @@ function showManageStudents() {
   manageStudentsState.selectedStudentActiveDraft = true;
   manageStudentsState.studentDropdownOpen = false;
   showScreen("manage-students-screen");
-  setManageStudentsBackIcons();
   renderManageStudentsScreen();
   loadStudentAssignmentOptions();
-}
-
-function setManageStudentsBackIcons() {
-  setBackIconButton(
-    document.querySelector("#manage-students-screen .student-admin-modern-header .small-btn"),
-    "showScreen('admin-academics')"
-  );
-  setBackIconButton(
-    document.querySelector("#manage-student-edit-screen .student-admin-modern-header .small-btn"),
-    "backToManagedStudentList()"
-  );
 }
 
 async function loadStudentAssignmentOptions() {
@@ -5880,14 +5867,45 @@ function getRefreshIconMarkup() {
 }
 
 function getManualRefreshButtonMarkup(onclickValue) {
-  return "";
+  return `
+    <button
+      type="button"
+      class="small-btn manual-refresh-btn icon-action-btn icon-action-btn-large"
+      title="Refresh"
+      aria-label="Refresh"
+      onclick="${onclickValue}"
+    >
+      ${getRefreshIconMarkup()}
+    </button>
+  `;
 }
 
 function setManualRefreshButton(screenId, handlerName) {
   const screen = document.getElementById(screenId);
   if (!screen) return;
 
-  screen.querySelectorAll(".manual-refresh-btn").forEach(button => button.remove());
+  const header = screen.querySelector(".nav-header");
+  if (!header) return;
+
+  const existing = header.querySelector(".manual-refresh-btn");
+  if (existing) {
+    existing.remove();
+  }
+
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "small-btn manual-refresh-btn icon-action-btn icon-action-btn-large";
+  button.innerHTML = getRefreshIconMarkup();
+  button.setAttribute("aria-label", "Refresh");
+  button.setAttribute("title", "Refresh");
+  button.setAttribute("onclick", handlerName);
+
+  const lastButton = header.querySelector("button:last-of-type");
+  if (lastButton) {
+    header.insertBefore(button, lastButton);
+  } else {
+    header.appendChild(button);
+  }
 }
 
 function hasUnsavedProgressChanges() {
@@ -5920,105 +5938,6 @@ async function runManualRefresh(button, callback) {
       refreshButton.classList.remove("is-refreshing");
     }
   }
-}
-
-function getActiveScreenId() {
-  return document.querySelector(".screen.active")?.id || "";
-}
-
-async function refreshCurrentScreenFromBanner(button) {
-  const screenId = getActiveScreenId();
-  const role = getBottomNavRole();
-
-  const isProgressScreen = [
-    "progress-subjects-screen",
-    "progress-tasks-screen",
-    "progress-task-students-screen"
-  ].includes(screenId);
-
-  if (isProgressScreen && !confirmRefreshIfUnsaved()) {
-    return;
-  }
-
-  await runManualRefresh(button, async () => {
-    if (screenId === "student-home") {
-      await loadStudentHomeTimetable(true);
-      return;
-    }
-
-    if (screenId === "admin-home") {
-      await loadAdminHomeTimetable(true);
-      return;
-    }
-
-    if (screenId === "progress-subjects-screen") {
-      progressPendingUpdates = {};
-      if (role === "student") {
-        await showStudentTasks();
-      } else {
-        await loadProgressSubjects();
-      }
-      return;
-    }
-
-    if (screenId === "progress-tasks-screen") {
-      progressPendingUpdates = {};
-      if (role === "student") {
-        const previousModuleKey = currentStudentSubjectKey;
-        await showStudentTasks();
-        if (previousModuleKey && studentSubjectTaskGroups && studentSubjectTaskGroups[previousModuleKey]) {
-          openStudentSubjectTasks(previousModuleKey);
-        }
-      } else {
-        await loadProgressTasks();
-      }
-      return;
-    }
-
-    if (screenId === "progress-task-students-screen") {
-      progressPendingUpdates = {};
-      if (progressState.contextType === "student") {
-        await loadIndividualStudentTaskList();
-      } else {
-        await loadProgressTaskStudents();
-      }
-      return;
-    }
-
-    if (String(screenId).startsWith("student-resources")) {
-      if (role === "admin") {
-        await showAdminResources();
-      } else {
-        await showStudentResources();
-      }
-      return;
-    }
-
-    if (screenId === "attendance-register-screen") {
-      await openMarkRegister();
-      return;
-    }
-
-    if (screenId === "attendance-report-screen") {
-      await calculateAttendanceDateRange("view");
-      return;
-    }
-
-    if (screenId === "attendance-stats-screen") {
-      await calculateAttendanceDateRange("stats");
-      return;
-    }
-
-    if (screenId === "admin-timetable-screen") {
-      await showAdminTimetable(true);
-      return;
-    }
-
-    if (screenId === "admin-timetable-admin-screen") {
-      await showAdminTimetableAdmin();
-      return;
-    }
-  });
 }
 
 async function refreshStudentTaskProgress(button) {
@@ -6170,11 +6089,7 @@ function showAttendanceDatePopup(message) {
   document.body.appendChild(popup);
 }
 
-function handleAttendanceDateRangeChange() {
-  clearAttendanceDatePopup();
-}
-
-async function calculateAttendanceDateRange(mode, button) {
+function handleAttendanceDateRangeChange(mode) {
   clearAttendanceDatePopup();
 
   const normalizedMode = mode === "stats" ? "stats" : "view";
@@ -6187,43 +6102,33 @@ async function calculateAttendanceDateRange(mode, button) {
     return;
   }
 
-  if (!endDate) {
-    showAttendanceDatePopup("Please select an end date.");
-    return;
-  }
+  if (!endDate) return;
 
-  const task = async () => {
-    if (normalizedMode === "stats") {
-      await renderAttendanceStatsScreen(startDate, endDate);
-    } else {
-      await renderViewAttendanceScreen(startDate, endDate);
-    }
-  };
-
-  if (button) {
-    await runManualRefresh(button, task);
+  if (normalizedMode === "stats") {
+    renderAttendanceStatsScreen(startDate, endDate);
   } else {
-    await task();
+    renderViewAttendanceScreen(startDate, endDate);
   }
 }
 
 function renderAttendanceDateFilter(mode, startDate, endDate) {
   const normalizedMode = mode === "stats" ? "stats" : "view";
   const prefix = normalizedMode === "stats" ? "stats" : "view";
+  const changeHandler = `handleAttendanceDateRangeChange('${normalizedMode}')`;
 
   return `
     <div class="attendance-filter-box">
+      <div class="attendance-date-title">Choose date range</div>
+
       <div class="attendance-date-row attendance-date-row-compact">
-        <input type="date" id="${prefix}-start-date" value="${escapeHtml(startDate)}" onchange="handleAttendanceDateRangeChange()">
+        <input type="date" id="${prefix}-start-date" value="${escapeHtml(startDate)}" onchange="${changeHandler}">
         <span class="attendance-date-label">START DATE</span>
       </div>
 
       <div class="attendance-date-row attendance-date-row-compact">
-        <input type="date" id="${prefix}-end-date" value="${escapeHtml(endDate)}" onchange="handleAttendanceDateRangeChange()">
+        <input type="date" id="${prefix}-end-date" value="${escapeHtml(endDate)}" onchange="${changeHandler}">
         <span class="attendance-date-label">END DATE</span>
       </div>
-
-      <button type="button" class="attendance-calculate-btn" onclick="calculateAttendanceDateRange('${normalizedMode}', this)">calculate</button>
     </div>
   `;
 }
@@ -6296,8 +6201,8 @@ function renderAttendanceRegister(dateValue) {
     <div class="attendance-register-sticky">
     <div class="attendance-modern-header">
       <h2 class="visually-hidden">Attendance</h2>
-      <button class="small-btn save-return-btn attendance-save-btn" onclick="submitAttendanceRegister()">Save Attendance</button>
       ${getBackIconButtonMarkup("showScreen('attendance-dashboard')")}
+      <button class="small-btn save-return-btn attendance-save-btn" onclick="submitAttendanceRegister()">Save Attendance →</button>
     </div>
 
     
@@ -6457,10 +6362,8 @@ async function renderViewAttendanceScreen(startDate, endDate) {
     html += `<p class="helper-text">No attendance records found.</p>`;
   }
 
-  sortedGroups.forEach((group, index) => {
-    if (index > 0) {
-      html += `<div class="attendance-group-line" aria-label="Group ${escapeHtml(group)}"></div>`;
-    }
+  sortedGroups.forEach(group => {
+    html += `<div class="attendance-group-line" aria-label="Group ${escapeHtml(group)}"></div>`;
 
     groups[group].forEach(student => {
       const rowId = `abs-${safeDomId(student.studentid)}`;
@@ -6563,7 +6466,7 @@ async function renderAttendanceStatsScreen(startDate, endDate) {
     perfectStudents
       .sort(sortAttendanceStudents)
       .forEach(student => {
-        html += `<div class="attendance-perfect-row">${escapeHtml(student.username)} <span class="mini-text">(Grp ${escapeHtml(student.classgroup)})</span></div>`;
+        html += `<div class="attendance-perfect-row">⭐ ${escapeHtml(student.username)} <span class="mini-text">(Grp ${escapeHtml(student.classgroup)})</span></div>`;
       });
   }
 

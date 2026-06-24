@@ -93,6 +93,16 @@
         <section class="timetable-card">
           <div class="timetable-card-header">
             <h3>Timetable</h3>
+            <button
+              type="button"
+              class="small-btn manual-refresh-btn"
+              title="Refresh timetable"
+              aria-label="Refresh timetable"
+              onclick="refreshStudentHomeTimetable(this)"
+            >
+              <span class="manual-refresh-btn__icon" aria-hidden="true"></span>
+              <span class="visually-hidden">Refresh timetable</span>
+            </button>
           </div>
 
           <div id="student-timetable-content">
@@ -270,7 +280,7 @@
     <section id="manage-students-screen" class="screen admin-theme student-admin-screen">
       <div class="student-admin-modern-header">
         <h2>Manage Students</h2>
-        <button class="small-btn back-icon-btn icon-action-btn icon-action-btn-large" onclick="showScreen('admin-academics')" aria-label="Back" title="Back"><span class="app-icon app-icon-large" style="--app-icon-url: url('/icons/back.svg')" aria-hidden="true"></span><span class="header-icon-label">Back</span></button>
+        <button class="small-btn" onclick="showScreen('admin-academics')">Back</button>
       </div>
 
       <div id="manage-students-content">
@@ -292,7 +302,7 @@
     <section id="manage-student-edit-screen" class="screen admin-theme student-admin-screen">
       <div class="student-admin-modern-header">
         <h2>Edit Student</h2>
-        <button class="small-btn back-icon-btn icon-action-btn icon-action-btn-large" onclick="backToManagedStudentList()" aria-label="Back" title="Back"><span class="app-icon app-icon-large" style="--app-icon-url: url('/icons/back.svg')" aria-hidden="true"></span><span class="header-icon-label">Back</span></button>
+        <button class="small-btn" onclick="backToManagedStudentList()">Back</button>
       </div>
 
       <div id="manage-student-edit-content">
@@ -416,7 +426,7 @@
     <section id="admin-timetable-admin-screen" class="screen admin-theme">
       <div class="nav-header">
         <h2>Timetable / Zoom Link</h2>
-        <button class="small-btn back-icon-btn icon-action-btn icon-action-btn-large" onclick="showScreen('admin-academics')" aria-label="Back" title="Back"><span class="app-icon app-icon-large" style="--app-icon-url: url('/icons/back.svg')" aria-hidden="true"></span><span class="header-icon-label">Back</span></button>
+        <button class="small-btn" onclick="showScreen('admin-academics')">Back</button>
       </div>
 
       <div class="dashboard-section timetable-admin-form">
