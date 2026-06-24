@@ -5,7 +5,7 @@ const APP_VERSION_STORAGE_KEY = "maktab_app_version";
 const CLASS_DUAS_ITEMS = [
   {
     arabic: "اللَّهُمَّ صَلِّ عَلَى مُحَمَّدٍ وَّعَلَى آلِ مُحَمَّدٍ وَّبَارِكْ وَسَلِّم",
-    transliteration: "30-Allahumma salli ala muhammadew wa ala aali muhammadew wa baarik wassallim",
+    transliteration: "31-Allahumma salli ala muhammadew wa ala aali muhammadew wa baarik wassallim",
     translation: "Oh Allah send peace and blessings upon Muhammad and the family of Muhammad"
   },
   {
@@ -4547,7 +4547,8 @@ const manageStudentsState = {
   selectedStudent: null,
   lastRegisteredStudent: null,
   selectedStudentActiveDraft: true,
-  studentDropdownOpen: false
+  studentDropdownOpen: false,
+  registerSubmitting: false
 };
 
 
@@ -4724,6 +4725,7 @@ function showManageStudents() {
   manageStudentsState.lastRegisteredStudent = null;
   manageStudentsState.selectedStudentActiveDraft = true;
   manageStudentsState.studentDropdownOpen = false;
+  manageStudentsState.registerSubmitting = false;
 
   if (!showScreen("manage-students-screen")) return;
 
@@ -4756,6 +4758,7 @@ async function loadStudentAssignmentOptions() {
 function setManageStudentsMode(mode) {
   manageStudentsState.mode = mode === "modify" ? "modify" : "register";
   manageStudentsState.lastRegisteredStudent = null;
+  manageStudentsState.registerSubmitting = false;
 
   if (manageStudentsState.mode === "modify") {
     manageStudentsState.selectedStudent = null;
@@ -4841,6 +4844,68 @@ function renderRegisterStudentPanel() {
 
     <div id="student-register-feedback" class="student-admin-feedback"></div>
   `;
+}
+
+function setRegisterStudentSubmitting(isSubmitting) {
+  manageStudentsState.registerSubmitting = isSubmitting === true;
+
+  const container = getDomElement("manage-students-content");
+  if (!container) return;
+
+  [
+    "student-register-name",
+    "student-register-whatsapp",
+    "student-register-group"
+  ].forEach((id) => {
+    const input = getDomElement(id);
+    if (input) {
+      input.disabled = manageStudentsState.registerSubmitting;
+    }
+  });
+
+  container.querySelectorAll('input[name="student-assignment-mode"], .student-module-checkbox, [data-manage-action="toggle-subject-modules"]').forEach((input) => {
+    if (!input) return;
+    if (input.dataset && input.dataset.permanentlyDisabled === "true") return;
+    input.disabled = manageStudentsState.registerSubmitting;
+  });
+
+  const manualMode = container.querySelector('input[name="student-assignment-mode"][value="selected"]');
+  if (manualMode) {
+    manualMode.disabled = true;
+    manualMode.dataset.permanentlyDisabled = "true";
+  }
+
+  const submitButton = container.querySelector('[data-manage-action="submit-register"]');
+  if (submitButton) {
+    submitButton.disabled = manageStudentsState.registerSubmitting;
+    submitButton.setAttribute("aria-busy", manageStudentsState.registerSubmitting ? "true" : "false");
+    submitButton.textContent = manageStudentsState.registerSubmitting ? "Registering..." : "Register Student";
+  }
+}
+
+function clearRegisterStudentForm() {
+  const nameInput = getDomElement("student-register-name");
+  const whatsappInput = getDomElement("student-register-whatsapp");
+  const groupInput = getDomElement("student-register-group");
+
+  if (nameInput) nameInput.value = "";
+  if (whatsappInput) whatsappInput.value = "";
+  if (groupInput) groupInput.value = String(DEFAULT_STUDENT_GROUP);
+
+  const assignmentAll = document.querySelector('input[name="student-assignment-mode"][value="all"]');
+  if (assignmentAll) assignmentAll.checked = true;
+
+  document.querySelectorAll(".student-module-checkbox").forEach((input) => {
+    input.checked = false;
+  });
+
+  const optionsBox = getDomElement("student-assignment-options");
+  if (optionsBox) {
+    optionsBox.classList.add("hidden");
+    optionsBox.setAttribute("aria-hidden", "true");
+  }
+
+  setDomText("student-register-feedback", "");
 }
 
 function renderStudentAssignmentOptions() {
@@ -4929,6 +4994,10 @@ function collectSelectedStudentModules() {
 }
 
 async function submitRegisterStudent(confirmDuplicate) {
+  if (manageStudentsState.registerSubmitting === true) {
+    return;
+  }
+
   const nameInput = getDomElement("student-register-name");
   const whatsappInput = getDomElement("student-register-whatsapp");
   const groupInput = getDomElement("student-register-group");
@@ -4949,6 +5018,7 @@ async function submitRegisterStudent(confirmDuplicate) {
     return;
   }
 
+  setRegisterStudentSubmitting(true);
   setDomText("student-register-feedback", "Registering student...");
 
   let result;
@@ -4964,11 +5034,13 @@ async function submitRegisterStudent(confirmDuplicate) {
     }, state.token);
   } catch (err) {
     console.error("Student registration failed", err);
+    setRegisterStudentSubmitting(false);
     setDomText("student-register-feedback", "Registration failed. Please try again.");
     return;
   }
 
   if (result.duplicate) {
+    setRegisterStudentSubmitting(false);
     setDomText("student-register-feedback", "Possible duplicate found.");
 
     const duplicateText = (result.matches || [])
@@ -4989,15 +5061,22 @@ async function submitRegisterStudent(confirmDuplicate) {
   }
 
   if (!result.success) {
+    setRegisterStudentSubmitting(false);
     setDomText("student-register-feedback", result.error || "Registration failed.");
     return;
   }
 
   manageStudentsState.lastRegisteredStudent = normalizeManagedStudent(result);
 
-  if (!showScreen("manage-students-result-screen")) return;
+  clearRegisterStudentForm();
+
+  if (!showScreen("manage-students-result-screen")) {
+    setRegisterStudentSubmitting(false);
+    return;
+  }
 
   renderManageStudentResultScreen("registered");
+  setRegisterStudentSubmitting(false);
 }
 
 function renderManageStudentResultScreen(context) {
@@ -5037,6 +5116,7 @@ function registerAnotherManagedStudent() {
   manageStudentsState.mode = "register";
   manageStudentsState.lastRegisteredStudent = null;
   manageStudentsState.selectedStudent = null;
+  manageStudentsState.registerSubmitting = false;
 
   if (!showScreen("manage-students-screen")) return;
 
