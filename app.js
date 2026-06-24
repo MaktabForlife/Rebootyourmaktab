@@ -2,6 +2,14 @@ const API_BASE = "https://rebootworker.maktab4life.workers.dev";
 const STUDENT_LOGIN_BASE = "https://rebootyourmaktab.maktab4life.org/student/";
 const DEFAULT_STUDENT_GROUP = 1;
 const APP_VERSION_STORAGE_KEY = "maktab_app_version";
+const STUDENT_HOME_CLASS_DUAS_ARABIC = [
+  "اللَّهُمَّ صَلِّ عَلَى مُحَمَّدٍ وَّعَلَى آلِ مُحَمَّدٍ وَّبَارِكْ وَسَلِّم",
+  "رَبِّ اشْرَحْ لِي صَدْرِي وَيَسِّرْ لِي أَمْرِي وَاحْلُلْ عُقْدَةً مِنْ لِسَانِي يَفْقَهُوا قَوْلِي",
+  "رَبِّ يَسِّرْ وَلاَ تُعَسِّرْ وَتَمِّمْ بِالْخَیْر وَبِكَ نَسْتَعِينُ يَا فَتَّاحُ يَا عَلِيْمُ",
+  "رَبِّ زِدْنِا عِلْمًا",
+  "اللّهُمَّ أعِنَّا على ذِكْرِكَ، وَشُكْرِكَ، وَحُسْنِ عِبَادَتِكَ",
+  "سُبْحَانَكَ لَا عِلْمَ لَنَا إِلَّا مَا عَلَّمْتَنَا ۖ إِنَّكَ أَنتَ الْعَلِيمُ الْحَكِيمُ"
+].join("\n\n");
 
 
 const state = {
@@ -1359,6 +1367,47 @@ function ensureTimetableStartImageAfterZoom(contentId, zoomButtonId, imageCardId
   }
 }
 
+function ensureStudentHomeClassDuasCardAfterTimetable(contentId, cardId) {
+  const content = document.getElementById(contentId);
+
+  if (!content) {
+    return;
+  }
+
+  const oldImageCard = document.getElementById("student-timetable-start-image-card");
+  if (oldImageCard) {
+    oldImageCard.remove();
+  }
+
+  let card = document.getElementById(cardId);
+
+  if (!card) {
+    card = document.createElement("section");
+    card.id = cardId;
+    card.className = "student-home-duas-card";
+    card.lang = "ar";
+    card.dir = "rtl";
+    card.setAttribute("aria-label", "Class duas");
+
+    const text = document.createElement("p");
+    text.className = "student-home-duas-card__text";
+    text.textContent = STUDENT_HOME_CLASS_DUAS_ARABIC;
+
+    card.appendChild(text);
+  }
+
+  const timetableCard = content.closest(".timetable-card");
+
+  if (timetableCard && timetableCard.parentNode) {
+    timetableCard.insertAdjacentElement("afterend", card);
+    return;
+  }
+
+  if (content.parentNode) {
+    content.insertAdjacentElement("afterend", card);
+  }
+}
+
 function scheduleAdminHomeTimetableLoad() {
   if (!state.token || getBottomNavRole() !== "admin") {
     return;
@@ -1479,7 +1528,7 @@ async function loadStudentHomeTimetable(force = false) {
     const result = await fetchTimetable({ force });
     renderTimetable(container, result, { showContentPanel: true });
     setTimetableZoomButtonState("student-zoom-link-btn", globalTimetableZoomLink);
-    ensureTimetableStartImageAfterZoom("student-timetable-content", "student-zoom-link-btn", "student-timetable-start-image-card", "afterTimetable");
+    ensureStudentHomeClassDuasCardAfterTimetable("student-timetable-content", "student-home-class-duas-card");
   } catch (err) {
     container.innerHTML = `<p class="error-message">${escapeHtml(err.message || "Unable to load timetable.")}</p>`;
     setTimetableZoomButtonState("student-zoom-link-btn", "");

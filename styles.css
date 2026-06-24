@@ -1923,6 +1923,29 @@ body.has-user-band .top-bar button[onclick="logout()"] {
   object-fit: contain;
 }
 
+.student-home-duas-card {
+  width: 100%;
+  margin-top: 12px;
+  padding: 18px 14px;
+  background: var(--surface-card);
+  border: 1px solid rgba(var(--primary-rgb), 0.14);
+  border-radius: 16px;
+  box-shadow: 0 2px 5px rgba(var(--black-rgb), 0.08);
+  text-align: center;
+  direction: rtl;
+}
+
+.student-home-duas-card__text {
+  margin: 0;
+  color: var(--primary);
+  font-family: "Geeza Pro", "Tahoma", "Arial", var(--font-main);
+  font-size: clamp(1.15rem, 5.4vw, 1.85rem);
+  font-weight: 750;
+  line-height: 1.9;
+  white-space: pre-line;
+  text-align: center;
+}
+
 .timetable-swipe-hint {
   display: none;
 }
