@@ -5,7 +5,7 @@ const APP_VERSION_STORAGE_KEY = "maktab_app_version";
 const CLASS_DUAS_ITEMS = [
   {
     arabic: "اللَّهُمَّ صَلِّ عَلَى مُحَمَّدٍ وَّعَلَى آلِ مُحَمَّدٍ وَّبَارِكْ وَسَلِّم",
-    transliteration: "31-Allahumma salli ala muhammadew wa ala aali muhammadew wa baarik wassallim",
+    transliteration: "32-Allahumma salli ala muhammadew wa ala aali muhammadew wa baarik wassallim",
     translation: "Oh Allah send peace and blessings upon Muhammad and the family of Muhammad"
   },
   {
@@ -95,6 +95,7 @@ function initApp() {
   try {
     checkForAppUpdate();
     setupPinDigitBoxes();
+    bindMediaViewerHandlers();
 
     const route = getPortalRouteFromLocation();
 
@@ -4186,118 +4187,193 @@ function getDisplayResourceType(type) {
   return resourceType || "LINK";
 }
 
-function toggleInlineResourcePreview(playerId, link, type) {
-  if (!link) {
+function clearInlineResourcePreviews(exceptPlayerId = "") {
+  if (!document || typeof document.querySelectorAll !== "function") {
     return;
+  }
+
+  document.querySelectorAll(".inline-resource-preview, .inline-audio-player").forEach(player => {
+    if (!player || player.id === exceptPlayerId) {
+      return;
+    }
+
+    try {
+      player.querySelectorAll("audio, video").forEach(media => {
+        try {
+          media.pause();
+          media.removeAttribute("src");
+          media.querySelectorAll("source").forEach(source => source.removeAttribute("src"));
+          if (typeof media.load === "function") media.load();
+        } catch (error) {
+          console.warn("Could not clear inline media element:", error);
+        }
+      });
+    } catch (error) {
+      console.warn("Could not clear inline media preview:", error);
+    }
+
+    if (player.classList) {
+      player.classList.add("hidden");
+    }
+
+    setDomHtml(player, "");
+  });
+}
+
+function safeOpenExternalLink(link) {
+  const cleanLink = String(link || "").trim();
+
+  if (!cleanLink) {
+    return false;
+  }
+
+  try {
+    window.open(cleanLink, "_blank", "noopener,noreferrer");
+    return true;
+  } catch (error) {
+    console.warn("Could not open external link:", error);
+    return false;
+  }
+}
+
+function toggleInlineResourcePreview(playerId, link, type) {
+  const cleanLink = String(link || "").trim();
+
+  if (!cleanLink) {
+    return false;
   }
 
   const previewBox = getDomElement(playerId);
 
   if (!previewBox) {
-    return;
+    console.warn("Missing resource preview container:", playerId);
+    return false;
   }
 
-  const isHidden = previewBox.classList.contains("hidden");
+  const isHidden = previewBox.classList ? previewBox.classList.contains("hidden") : true;
 
-  // Close other inline players so the screen stays tidy.
-  document.querySelectorAll(".inline-resource-preview, .inline-audio-player").forEach(player => {
-    if (player.id !== playerId) {
-      player.classList.add("hidden");
-      player.innerHTML = "";
-    }
-  });
+  clearInlineResourcePreviews(playerId);
 
   if (!isHidden) {
-    previewBox.classList.add("hidden");
-    previewBox.innerHTML = "";
-    return;
+    if (previewBox.classList) {
+      previewBox.classList.add("hidden");
+    }
+    setDomHtml(previewBox, "");
+    return true;
   }
 
   const resourceType = String(type || "").toUpperCase();
 
-  if (resourceType === "VIDEO") {
-    previewBox.innerHTML = `
-      <video class="resource-video-control" controls controlsList="nodownload" preload="metadata">
-        <source src="${escapeForAttribute(link)}" />
+  const mediaMarkup = resourceType === "VIDEO"
+    ? `
+      <video class="resource-video-control" controls controlsList="nodownload" preload="metadata" playsinline>
+        <source src="${escapeForAttribute(cleanLink)}" />
         Your browser cannot play this video file.
       </video>
-    `;
-  } else {
-    previewBox.innerHTML = `
+    `
+    : `
       <audio class="resource-audio-control" controls controlsList="nodownload" preload="none">
-        <source src="${escapeForAttribute(link)}" />
+        <source src="${escapeForAttribute(cleanLink)}" />
         Your browser cannot play this audio file.
       </audio>
     `;
+
+  setDomHtml(previewBox, mediaMarkup);
+
+  if (previewBox.classList) {
+    previewBox.classList.remove("hidden");
   }
 
-  previewBox.classList.remove("hidden");
+  return true;
 }
 
 function toggleInlineAudioPlayer(playerId, link) {
-  toggleInlineResourcePreview(playerId, link, "AUDIO");
+  return toggleInlineResourcePreview(playerId, link, "AUDIO");
 }
 
 function openStudentResourceLink(link, type, title = "PDF Viewer") {
-  if (!link) {
-    return;
+  const cleanLink = String(link || "").trim();
+
+  if (!cleanLink) {
+    return false;
   }
 
   const resourceType = String(type || "").toUpperCase();
 
-  if (resourceType === "EBOOKS" || resourceType === "EBOOK" || resourceType === "PRINTABLES" || resourceType === "PRINTABLE" || isPdfLink(link)) {
-    openPdfResource(link, title || "PDF Viewer");
-    return;
+  if (resourceType === "EBOOKS" || resourceType === "EBOOK" || resourceType === "PRINTABLES" || resourceType === "PRINTABLE" || isPdfLink(cleanLink)) {
+    return openPdfResource(cleanLink, title || "PDF Viewer");
   }
 
-  window.open(link, "_blank", "noopener,noreferrer");
+  return safeOpenExternalLink(cleanLink);
+}
+
+function getPdfViewerFileParam(link) {
+  const cleanLink = String(link || "").trim();
+
+  if (!cleanLink) {
+    return "";
+  }
+
+  if (cleanLink.startsWith("http://") || cleanLink.startsWith("https://")) {
+    return `/pdf-file/${base64UrlEncode(cleanLink)}`;
+  }
+
+  return cleanLink;
 }
 
 function openPdfResource(link, title = "PDF Viewer") {
-  if (!link) {
-    return;
+  const cleanLink = String(link || "").trim();
+
+  if (!cleanLink) {
+    return false;
   }
 
-  const viewerScreen = document.getElementById("pdf-viewer-screen");
-  const viewerFrame = document.getElementById("pdf-viewer-frame");
-  const viewerTitle = document.getElementById("pdf-viewer-title");
+  const viewerScreen = getDomElement("pdf-viewer-screen");
+  const viewerFrame = getDomElement("pdf-viewer-frame");
 
   // Safety fallback: if the PDF viewer screen was not added to index.html,
   // still allow the resource to open normally.
   if (!viewerScreen || !viewerFrame) {
-    window.open(link, "_blank", "noopener,noreferrer");
-    return;
+    return safeOpenExternalLink(cleanLink);
   }
 
-  const activeScreen = document.querySelector(".screen.active");
+  const activeScreen = document && typeof document.querySelector === "function"
+    ? document.querySelector(".screen.active")
+    : null;
   previousPdfScreenId = activeScreen ? activeScreen.id : "";
-  currentPdfDirectLink = link;
+  currentPdfDirectLink = cleanLink;
 
   viewerScreen.classList.remove("student-theme", "admin-theme");
-  if (activeScreen && activeScreen.classList.contains("admin-theme")) {
+  if (activeScreen && activeScreen.classList && activeScreen.classList.contains("admin-theme")) {
     viewerScreen.classList.add("admin-theme");
   } else {
     viewerScreen.classList.add("student-theme");
   }
 
-  if (viewerTitle) {
-    viewerTitle.innerText = title || "PDF Viewer";
+  setDomText("pdf-viewer-title", title || "PDF Viewer");
+
+  const pdfFileForViewer = getPdfViewerFileParam(cleanLink);
+
+  if (!pdfFileForViewer) {
+    return safeOpenExternalLink(cleanLink);
   }
 
- const cleanLink = String(link || "").trim();
+  clearInlineResourcePreviews();
+  viewerFrame.src = `${PDFJS_VIEWER_PATH}?file=${pdfFileForViewer}`;
 
-let pdfFileForViewer;
+  if (document.body) {
+    document.body.classList.add("pdf-viewer-open");
+  }
 
-if (cleanLink.startsWith("http://") || cleanLink.startsWith("https://")) {
-  pdfFileForViewer = `/pdf-file/${base64UrlEncode(cleanLink)}`;
-} else {
-  pdfFileForViewer = cleanLink;
-}
+  if (!showScreen("pdf-viewer-screen")) {
+    viewerFrame.src = "";
+    if (document.body) {
+      document.body.classList.remove("pdf-viewer-open");
+    }
+    return safeOpenExternalLink(cleanLink);
+  }
 
-viewerFrame.src = `${PDFJS_VIEWER_PATH}?file=${pdfFileForViewer}`;
-
-document.body.classList.add("pdf-viewer-open");
-showScreen("pdf-viewer-screen");
+  return true;
 }
 
 function base64UrlEncode(value) {
@@ -4314,31 +4390,77 @@ function base64UrlEncode(value) {
     .replace(/=+$/g, "");
 }
 
-
-
-
-
-
 function closePdfViewer() {
-  const viewerFrame = document.getElementById("pdf-viewer-frame");
+  const viewerFrame = getDomElement("pdf-viewer-frame");
 
   if (viewerFrame) {
     viewerFrame.src = "";
+    viewerFrame.removeAttribute("src");
   }
 
-  document.body.classList.remove("pdf-viewer-open");
+  currentPdfDirectLink = "";
 
-  if (previousPdfScreenId && document.getElementById(previousPdfScreenId)) {
+  if (document.body) {
+    document.body.classList.remove("pdf-viewer-open");
+  }
+
+  if (previousPdfScreenId && getDomElement(previousPdfScreenId)) {
     showScreen(previousPdfScreenId);
-  } else {
-    goHome();
+    previousPdfScreenId = "";
+    return true;
   }
+
+  previousPdfScreenId = "";
+  goHome();
+  return true;
 }
 
 function openCurrentPdfDirect() {
-  if (currentPdfDirectLink) {
-    window.open(currentPdfDirectLink, "_blank", "noopener,noreferrer");
+  return safeOpenExternalLink(currentPdfDirectLink);
+}
+
+function bindMediaViewerHandlers() {
+  if (!document || typeof document.addEventListener !== "function") {
+    return false;
   }
+
+  if (document.body && document.body.dataset.mediaViewerHandlersBound === "true") {
+    return true;
+  }
+
+  if (document.body) {
+    document.body.dataset.mediaViewerHandlersBound = "true";
+  }
+
+  document.addEventListener("click", event => {
+    const actionButton = event.target && event.target.closest
+      ? event.target.closest("[data-media-viewer-action]")
+      : null;
+
+    if (!actionButton || actionButton.disabled) {
+      return;
+    }
+
+    const action = actionButton.getAttribute("data-media-viewer-action") || "";
+
+    if (!action) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (action === "close-pdf") {
+      closePdfViewer();
+      return;
+    }
+
+    if (action === "open-pdf-direct") {
+      openCurrentPdfDirect();
+    }
+  });
+
+  return true;
 }
 
 function isPdfLink(link) {
