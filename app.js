@@ -8,7 +8,7 @@ const APP_VERSION_STORAGE_KEY = "maktab_app_version";
 const CLASS_DUAS_ITEMS = [
   {
     arabic: "اللَّهُمَّ صَلِّ عَلَى مُحَمَّدٍ وَّعَلَى آلِ مُحَمَّدٍ وَّبَارِكْ وَسَلِّم",
-    transliteration: "Allahumma salli ala muhammadew wa ala aali muhammadew wa baarik wassallim-56b",
+    transliteration: "Allahumma salli ala muhammadew wa ala aali muhammadew wa baarik wassallim-58",
     translation: "Oh Allah send peace and blessings upon Muhammad and the family of Muhammad"
   },
   {
@@ -449,6 +449,16 @@ function createClassDuasCard(cardId) {
   return card;
 }
 
+function getHomeDuasPanelForTimetableContent(contentId) {
+  const homeDuasPanelByContentId = {
+    "student-timetable-content": "student-home-duas-panel",
+    "admin-home-timetable-content": "admin-home-duas-panel"
+  };
+
+  const panelId = homeDuasPanelByContentId[contentId];
+  return panelId ? document.getElementById(panelId) : null;
+}
+
 function ensureClassDuasCardAfterTimetable(contentId, cardId, imageCardIds = []) {
   const content = document.getElementById(contentId);
 
@@ -467,6 +477,14 @@ function ensureClassDuasCardAfterTimetable(contentId, cardId, imageCardIds = [])
 
   if (!card) {
     card = createClassDuasCard(cardId);
+  }
+
+  const homeDuasPanel = getHomeDuasPanelForTimetableContent(contentId);
+
+  if (homeDuasPanel) {
+    homeDuasPanel.innerHTML = "";
+    homeDuasPanel.appendChild(card);
+    return;
   }
 
   const timetableCard = content.closest(".timetable-card");

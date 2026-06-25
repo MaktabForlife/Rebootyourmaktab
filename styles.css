@@ -46,6 +46,7 @@
   --nav-rail-width: 92px;
   --top-nav-height: 70px;
   --user-band-height: 58px;
+  --user-band-safe-area-top: env(safe-area-inset-top, 0px);
   --icon-size: 24px;
   --icon-size-small: 20px;
   --icon-size-large: 34px;
@@ -430,8 +431,10 @@ button:active {
   left: 0;
   right: 0;
   z-index: 110;
-  min-height: var(--user-band-height);
-  padding: 7px max(14px, env(safe-area-inset-left, 0px)) 7px max(14px, env(safe-area-inset-right, 0px));
+  width: 100%;
+  max-width: none;
+  min-height: calc(var(--user-band-height) + var(--user-band-safe-area-top));
+  padding: calc(7px + var(--user-band-safe-area-top)) max(14px, env(safe-area-inset-left, 0px)) 7px max(14px, env(safe-area-inset-right, 0px));
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -439,6 +442,7 @@ button:active {
   background: var(--banner-color);
   color: var(--text-strong);
   box-shadow: 0 5px 16px rgba(var(--black-rgb), 0.18);
+  transform: translateZ(0);
 }
 
 .app-user-band.hidden {
@@ -488,7 +492,7 @@ button:active {
 }
 
 body.has-user-band .app-shell {
-  padding-top: calc(var(--user-band-height) + 10px);
+  padding-top: calc(var(--user-band-height) + var(--user-band-safe-area-top) + 10px);
 }
 
 body.has-user-band .top-bar button[onclick="logout()"] {
@@ -1638,6 +1642,87 @@ body.has-user-band .top-bar button[onclick="logout()"] {
   max-width: 100%;
 }
 
+/* Home swipe panels: Student and Admin Home */
+.home-swipe-shell {
+  width: 100%;
+  min-width: 0;
+}
+
+.home-swipe-track {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+  margin-top: 0;
+  text-align: left;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  overscroll-behavior-inline: contain;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.home-swipe-track::-webkit-scrollbar {
+  display: none;
+}
+
+.home-swipe-panel {
+  flex: 0 0 100%;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  display: grid;
+  gap: 12px;
+  align-content: start;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+}
+
+.home-swipe-panel > * {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.home-swipe-panel--duas .class-duas-card {
+  margin-top: 0;
+}
+
+.home-swipe-dots {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(var(--bottom-nav-height) + var(--bottom-nav-safe-area) + 8px);
+  z-index: 79;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  pointer-events: none;
+}
+
+.home-swipe-dot {
+  width: 12px;
+  min-width: 12px;
+  height: 12px;
+  min-height: 12px;
+  padding: 0;
+  border: 2px solid var(--primary);
+  border-radius: 999px;
+  background: transparent;
+  box-shadow: none;
+  pointer-events: auto;
+}
+
+.home-swipe-dot.is-active {
+  background: var(--primary);
+}
+
+.home-swipe-dot:active {
+  transform: scale(0.92);
+}
+
 .student-home-card {
   background: var(--surface-card);
   border-left: 5px solid var(--primary);
@@ -1949,25 +2034,30 @@ body.has-user-band .top-bar button[onclick="logout()"] {
 }
 
 
-/* Student Home: compact timetable layout */
-#student-home .top-bar {
+/* Home: compact timetable layout */
+#student-home .top-bar,
+#admin-home .top-bar {
   display: none;
 }
 
-#student-home.screen {
+#student-home.screen,
+#admin-home.screen {
   padding-inline: 12px;
 }
 
-#student-home .student-home-panel {
+#student-home .student-home-panel,
+#admin-home .student-home-panel {
   margin-top: 0;
   gap: 12px;
 }
 
-#student-home #student-zoom-link-btn {
+#student-home #student-zoom-link-btn,
+#admin-home #admin-home-zoom-link-btn {
   order: -1;
 }
 
-#student-home .timetable-card {
+#student-home .timetable-card,
+#admin-home .timetable-card {
   overflow: visible;
   background: transparent;
   border-left: 0;
@@ -1976,22 +2066,51 @@ body.has-user-band .top-bar button[onclick="logout()"] {
   box-shadow: none;
 }
 
-#student-home .timetable-card-header {
+#student-home .timetable-card-header,
+#admin-home .timetable-card-header {
   margin: 0 0 6px;
   justify-content: flex-end;
 }
 
-#student-home .timetable-card-header h3 {
+#student-home .timetable-card-header h3,
+#admin-home .timetable-card-header h3 {
   display: none;
 }
 
-#student-home .timetable-scroll {
+#student-home .timetable-scroll,
+#admin-home .timetable-scroll {
   background: transparent;
 }
 
-#student-home .timetable-subject {
+#student-home .timetable-subject,
+#admin-home .timetable-subject {
   font-size: clamp(1rem, 3.8vw, 1.15rem);
   font-weight: 800;
+}
+
+
+@media (min-width: 768px) {
+  .app-shell {
+    max-width: 980px;
+  }
+
+  .home-swipe-track {
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+    gap: 18px;
+    overflow: visible;
+    scroll-snap-type: none;
+  }
+
+  .home-swipe-panel {
+    width: auto;
+    max-width: none;
+    scroll-snap-align: none;
+  }
+
+  .home-swipe-dots {
+    display: none;
+  }
 }
 
 /* Reusable responsive primary navigation */
@@ -2115,11 +2234,11 @@ body.has-bottom-nav .app-shell {
   }
 
   body.has-user-band.has-bottom-nav .app-shell {
-    padding-top: calc(var(--user-band-height) + var(--top-nav-height) + 22px);
+    padding-top: calc(var(--user-band-height) + var(--user-band-safe-area-top) + var(--top-nav-height) + 22px);
   }
 
   .bottom-nav {
-    top: calc(var(--user-band-height, 0px) + 10px);
+    top: calc(var(--user-band-height, 0px) + var(--user-band-safe-area-top) + 10px);
     bottom: auto;
     left: 50%;
     right: auto;
