@@ -1642,7 +1642,7 @@ body.has-user-band .top-bar button[onclick="logout()"] {
   max-width: 100%;
 }
 
-/* Swipe panels: Home and Attendance dashboard */
+/* Swipe panels: Home and section screens */
 .home-swipe-shell,
 .section-swipe-shell {
   width: 100%;
@@ -1696,16 +1696,19 @@ body.has-user-band .top-bar button[onclick="logout()"] {
 }
 
 .home-swipe-dots,
-.section-swipe-dots {
+.section-swipe-dots,
+.attendance-panel-dots {
   position: fixed;
   left: 0;
   right: 0;
-  bottom: calc(var(--bottom-nav-height) + var(--bottom-nav-safe-area) + 8px);
-  z-index: 79;
+  top: calc(var(--user-band-height) + var(--user-band-safe-area-top) + 8px);
+  z-index: 108;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 10px;
+  padding: 6px 0;
+  background: linear-gradient(180deg, var(--surface-app), rgba(var(--white-rgb), 0));
   pointer-events: none;
 }
 
@@ -2144,6 +2147,19 @@ body.has-user-band .top-bar button[onclick="logout()"] {
   font-weight: 800;
 }
 
+@media (max-width: 767px) {
+  #student-home.screen,
+  #admin-home.screen,
+  #attendance-register-screen.screen,
+  #attendance-report-screen.screen,
+  #attendance-stats-screen.screen {
+    padding-top: 46px;
+  }
+
+  .attendance-sticky-control-pane {
+    top: calc(var(--user-band-height) + var(--user-band-safe-area-top) + 42px);
+  }
+}
 
 @media (min-width: 768px) {
   .app-shell {
@@ -2172,8 +2188,32 @@ body.has-user-band .top-bar button[onclick="logout()"] {
   }
 
   .home-swipe-dots,
-  .section-swipe-dots {
+  .section-swipe-dots,
+  .attendance-panel-dots {
     display: none;
+  }
+
+  body.is-attendance-section .app-shell {
+    max-width: 1280px;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: start;
+    justify-content: stretch;
+    gap: 16px;
+  }
+
+  body.is-attendance-section #attendance-register-screen,
+  body.is-attendance-section #attendance-report-screen,
+  body.is-attendance-section #attendance-stats-screen {
+    display: block;
+    width: 100%;
+    height: auto;
+    min-height: calc(100vh - var(--top-nav-height) - 36px);
+  }
+
+  body.is-attendance-section .attendance-sticky-control-pane {
+    position: static;
+    top: auto;
   }
 }
 
@@ -2459,14 +2499,6 @@ body.has-bottom-nav .app-shell {
   font-size: clamp(1.05rem, 4.6vw, 1.35rem);
   line-height: 1.15;
   letter-spacing: 0.01em;
-}
-
-.attendance-panel-dots {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  padding: 2px 0 0;
 }
 
 .attendance-panel-dots .section-swipe-dot {
