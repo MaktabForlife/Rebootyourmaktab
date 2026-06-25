@@ -1,452 +1,1017 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <title>Maktab4Life Admin</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+/* M4L v49 - Attendance module
+   Load after /app.js, /js/m4l-auth.js, and /js/m4l-shell.js.
+   This is a classic script, not type=module, so existing onclick/global calls remain safe
+   while the app is split gradually.
+   Owns Attendance dashboard, Mark Register, Attendance Records, and Attendance Stats.
+*/
 
-  <!-- PWA: Admin install settings -->
-  <link rel="stylesheet" href="/styles.css?v=59" />
-  <link rel="manifest" href="/admin-manifest.json" />
-  <link rel="apple-touch-icon" sizes="180x180" href="/admin-apple-touch-icon.png" />
-  <link rel="icon" type="image/png" sizes="32x32" href="/admin-favicon-32x32.png" />
-  <link rel="icon" type="image/png" sizes="16x16" href="/admin-favicon-16x16.png" />
+/* =========================
+   ATTENDANCE
+========================= */
 
-</head>
+async function refreshViewAttendance(button) {
+  const startDate = getAttendanceDateInputValue("view-start-date");
+  const endDate = getAttendanceDateInputValue("view-end-date");
 
-<body>
-  <main class="app-shell">
+  if (!isValidAttendanceDateRange(startDate, endDate)) {
+    showAttendanceDatePopup("Start date must be before or the same as end date.");
+    return;
+  }
 
-    <!-- LOGIN / PIN SCREEN -->
-    <section id="auth-screen" class="screen active">
-      <div id="auth-welcome-banner" class="auth-welcome-banner hidden">
-        Ahlan wa Sahlan
-      </div>
+  await runManualRefresh(button, async () => {
+    await renderViewAttendanceScreen(startDate, endDate);
+  });
+}
 
-      <div class="auth-brand-block">
-        <h2 class="auth-brand-title">Maktabhelper</h2>
-        <img src="/logo.png" alt="Maktab4Life Logo" class="app-logo auth-logo" />
-        <h2 class="auth-brand-title">Reboot Your Maktab</h2>
-        <p id="portal-title" class="auth-login-label">Admin Login</p>
-        <p id="portal-subtitle" class="subtitle auth-user-subtitle">Checking your link...</p>
-      </div>
+async function refreshAttendanceStats(button) {
+  const startDate = getAttendanceDateInputValue("stats-start-date");
+  const endDate = getAttendanceDateInputValue("stats-end-date");
 
-      <div id="setup-pin-box" class="auth-box hidden">
-        <h2>Create PIN</h2>
-        <ol class="pin-instruction-list">
-          <li>Create a memorable PIN.</li>
-          <li>Login with your PIN.</li>
-          <li>Add the page to your Homescreen.</li>
-        </ol>
+  if (!isValidAttendanceDateRange(startDate, endDate)) {
+    showAttendanceDatePopup("Start date must be before or the same as end date.");
+    return;
+  }
 
-        <div class="pin-digit-row" data-pin-group="setup-pin" aria-label="Create 4-digit PIN">
-          <input id="setup-pin-1" class="pin-digit" type="tel" inputmode="numeric" enterkeyhint="next" pattern="[0-9]*" maxlength="1" autocomplete="one-time-code" aria-label="PIN digit 1" />
-          <input id="setup-pin-2" class="pin-digit" type="tel" inputmode="numeric" enterkeyhint="next" pattern="[0-9]*" maxlength="1" autocomplete="one-time-code" aria-label="PIN digit 2" />
-          <input id="setup-pin-3" class="pin-digit" type="tel" inputmode="numeric" enterkeyhint="next" pattern="[0-9]*" maxlength="1" autocomplete="one-time-code" aria-label="PIN digit 3" />
-          <input id="setup-pin-4" class="pin-digit" type="tel" inputmode="numeric" enterkeyhint="done" pattern="[0-9]*" maxlength="1" autocomplete="one-time-code" aria-label="PIN digit 4" />
-        </div>
-        <input id="setup-pin" type="hidden" />
+  await runManualRefresh(button, async () => {
+    await renderAttendanceStatsScreen(startDate, endDate);
+  });
+}
 
-        <button onclick="submitSetupPin()">Set PIN</button>
-      </div>
 
-      <div id="login-pin-box" class="auth-box hidden">
-        <h2>Enter PIN</h2>
-        <p class="helper-text">Enter your 4-digit PIN to continue.</p>
+/* =========================
+   ADMIN ATTENDANCE
+   Date system: YYYY-MM-DD strings generated from local browser date.
+   Backend normalizes with Africa/Johannesburg.
+========================= */
 
-        <div class="pin-digit-row" data-pin-group="login-pin" aria-label="Enter 4-digit PIN">
-          <input id="login-pin-1" class="pin-digit" type="tel" inputmode="numeric" enterkeyhint="next" pattern="[0-9]*" maxlength="1" autocomplete="one-time-code" aria-label="PIN digit 1" />
-          <input id="login-pin-2" class="pin-digit" type="tel" inputmode="numeric" enterkeyhint="next" pattern="[0-9]*" maxlength="1" autocomplete="one-time-code" aria-label="PIN digit 2" />
-          <input id="login-pin-3" class="pin-digit" type="tel" inputmode="numeric" enterkeyhint="next" pattern="[0-9]*" maxlength="1" autocomplete="one-time-code" aria-label="PIN digit 3" />
-          <input id="login-pin-4" class="pin-digit" type="tel" inputmode="numeric" enterkeyhint="done" pattern="[0-9]*" maxlength="1" autocomplete="one-time-code" aria-label="PIN digit 4" />
-        </div>
-        <input id="login-pin" type="hidden" />
-      </div>
+let attendanceStudentsCache = [];
+let attendanceState = {};
 
-      <p id="auth-error" class="error-message"></p>
-    </section>
+function showAttendanceDashboard() {
+  return openMarkRegister();
+}
 
-    <!-- ADMIN HOME -->
-    <section id="admin-home" class="screen admin-theme">
-      <div class="home-swipe-shell" data-home-swipe="admin-home">
-        <div
-          id="admin-home-panel"
-          class="student-home-panel admin-home-panel home-swipe-track"
-          data-home-swipe-track
-          aria-label="Admin Home panels"
+function getLocalDateString(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function getDefaultAttendanceDateRange() {
+  const now = new Date();
+  const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+
+  return {
+    start: getLocalDateString(firstDay),
+    end: getLocalDateString(now)
+  };
+}
+
+
+function isValidAttendanceDateRange(startDate, endDate) {
+  if (!startDate || !endDate) return true;
+  return String(startDate) <= String(endDate);
+}
+
+function clearAttendanceDatePopup() {
+  const existing = document.getElementById("attendance-date-popup");
+  if (existing) {
+    existing.remove();
+  }
+}
+
+function showAttendanceDatePopup(message) {
+  clearAttendanceDatePopup();
+
+  if (!document.body) {
+    console.warn("Unable to show attendance date popup because document.body is missing.");
+    return false;
+  }
+
+  const popup = document.createElement("div");
+  popup.id = "attendance-date-popup";
+  popup.className = "attendance-date-popup";
+  popup.setAttribute("role", "alert");
+  popup.textContent = message || "Please choose a valid date range.";
+
+  document.body.appendChild(popup);
+  return true;
+}
+
+function getAttendanceDateInputValue(id) {
+  const input = getDomElement(id);
+  return input && "value" in input ? String(input.value || "") : "";
+}
+
+function normalizeAttendanceDateRange(startDate, endDate) {
+  const defaults = getDefaultAttendanceDateRange();
+
+  return {
+    start: startDate || defaults.start,
+    end: endDate || defaults.end
+  };
+}
+
+function handleAttendanceDateRangeChange(mode) {
+  clearAttendanceDatePopup();
+
+  const normalizedMode = mode === "stats" ? "stats" : "view";
+  const prefix = normalizedMode === "stats" ? "stats" : "view";
+  const startDate = getAttendanceDateInputValue(`${prefix}-start-date`);
+  const endDate = getAttendanceDateInputValue(`${prefix}-end-date`);
+
+  if (!isValidAttendanceDateRange(startDate, endDate)) {
+    showAttendanceDatePopup("Start date must be before or the same as end date.");
+  }
+}
+
+function renderAttendancePanelDots(activePanel) {
+  const panels = [
+    {
+      key: "register",
+      action: "open-register-panel",
+      label: "Show mark register"
+    },
+    {
+      key: "records",
+      action: "open-records-panel",
+      label: "Show attendance records"
+    },
+    {
+      key: "stats",
+      action: "open-stats-panel",
+      label: "Show attendance statistics"
+    }
+  ];
+
+  return `
+    <div class="attendance-panel-dots" aria-label="Attendance panels">
+      ${panels.map(panel => {
+        const isActive = panel.key === activePanel;
+        return `
+          <button
+            type="button"
+            class="section-swipe-dot${isActive ? " is-active" : ""}"
+            data-attendance-action="${panel.action}"
+            aria-label="${panel.label}"
+            aria-current="${isActive ? "true" : "false"}"
+          ></button>
+        `;
+      }).join("")}
+    </div>
+  `;
+}
+
+function getAttendancePanelSequence() {
+  return [
+    { key: "register", handler: openMarkRegister },
+    { key: "records", handler: openViewAttendance },
+    { key: "stats", handler: openAttendanceStats }
+  ];
+}
+
+function openAdjacentAttendancePanel(activePanel, direction) {
+  const sequence = getAttendancePanelSequence();
+  const currentIndex = sequence.findIndex(panel => panel.key === activePanel);
+  if (currentIndex < 0) return false;
+
+  const nextIndex = currentIndex + direction;
+  if (nextIndex < 0 || nextIndex >= sequence.length) return false;
+
+  sequence[nextIndex].handler();
+  return true;
+}
+
+function shouldIgnoreAttendanceSwipeTarget(target) {
+  return Boolean(target && target.closest('button, a, input, select, textarea, label, [role="button"]'));
+}
+
+function bindAttendancePanelSwipe(containerOrId, activePanel) {
+  const container = getDomElement(containerOrId);
+  if (!container || container.dataset.attendanceSwipePanel === activePanel) return Boolean(container);
+
+  container.dataset.attendanceSwipePanel = activePanel || "";
+
+  if (container.dataset.attendanceSwipeBound === "true") return true;
+
+  container.dataset.attendanceSwipeBound = "true";
+
+  let touchStartX = 0;
+  let touchStartY = 0;
+  let touchStartTarget = null;
+
+  container.addEventListener("touchstart", event => {
+    const touch = event.touches && event.touches[0];
+    if (!touch) return;
+
+    touchStartX = touch.clientX;
+    touchStartY = touch.clientY;
+    touchStartTarget = event.target;
+  }, { passive: true });
+
+  container.addEventListener("touchend", event => {
+    if (shouldIgnoreAttendanceSwipeTarget(touchStartTarget)) {
+      touchStartTarget = null;
+      return;
+    }
+
+    const touch = event.changedTouches && event.changedTouches[0];
+    if (!touch) return;
+
+    const deltaX = touch.clientX - touchStartX;
+    const deltaY = touch.clientY - touchStartY;
+    touchStartTarget = null;
+
+    if (Math.abs(deltaX) < 70 || Math.abs(deltaX) < Math.abs(deltaY) * 1.4) return;
+
+    const panel = container.dataset.attendanceSwipePanel || activePanel;
+    if (deltaX < 0) {
+      openAdjacentAttendancePanel(panel, 1);
+    } else {
+      openAdjacentAttendancePanel(panel, -1);
+    }
+  }, { passive: true });
+
+  return true;
+}
+
+function renderAttendanceDateFilter(mode, startDate, endDate, buttonLabel) {
+  const normalizedMode = mode === "stats" ? "stats" : "view";
+  const prefix = normalizedMode === "stats" ? "stats" : "view";
+  const action = normalizedMode === "stats" ? "calculate-stats" : "view-records";
+  const label = buttonLabel || (normalizedMode === "stats" ? "Calculate" : "View Records");
+
+  return `
+    <div class="attendance-filter-box attendance-filter-box-compact">
+      <div class="attendance-date-row attendance-date-row-compact">
+        <input
+          type="date"
+          id="${prefix}-start-date"
+          value="${escapeHtml(startDate)}"
+          data-attendance-date-mode="${normalizedMode}"
+          data-attendance-date-field="start"
         >
-          <section class="home-swipe-panel home-swipe-panel--timetable" aria-label="Zoom and timetable">
-            <button
-              id="admin-home-zoom-link-btn"
-              type="button"
-              class="zoom-link-button"
-              data-timetable-action="open-zoom"
+        <span class="attendance-date-label">START DATE</span>
+      </div>
+
+      <div class="attendance-date-row attendance-date-row-compact">
+        <input
+          type="date"
+          id="${prefix}-end-date"
+          value="${escapeHtml(endDate)}"
+          data-attendance-date-mode="${normalizedMode}"
+          data-attendance-date-field="end"
+        >
+        <span class="attendance-date-label">END DATE</span>
+      </div>
+
+      <button
+        type="button"
+        class="attendance-filter-action-btn"
+        data-attendance-action="${action}"
+      >${escapeHtml(label)}</button>
+    </div>
+  `;
+}
+
+function handleAttendanceGeneralClick(event) {
+  const actionEl = event.target.closest("[data-attendance-action]");
+  if (!actionEl) return;
+
+  const action = actionEl.dataset.attendanceAction || "";
+
+  if (actionEl.tagName === "BUTTON" || actionEl.tagName === "A") {
+    event.preventDefault();
+  }
+
+  if (action === "open-register-panel") {
+    openMarkRegister();
+    return;
+  }
+
+  if (action === "open-records-panel") {
+    openViewAttendance();
+    return;
+  }
+
+  if (action === "open-stats-panel") {
+    openAttendanceStats();
+    return;
+  }
+
+  if (action === "view-records") {
+    const startDate = getAttendanceDateInputValue("view-start-date");
+    const endDate = getAttendanceDateInputValue("view-end-date");
+
+    if (!isValidAttendanceDateRange(startDate, endDate)) {
+      showAttendanceDatePopup("Start date must be before or the same as end date.");
+      return;
+    }
+
+    renderViewAttendanceScreen(startDate, endDate);
+    return;
+  }
+
+  if (action === "calculate-stats") {
+    const startDate = getAttendanceDateInputValue("stats-start-date");
+    const endDate = getAttendanceDateInputValue("stats-end-date");
+
+    if (!isValidAttendanceDateRange(startDate, endDate)) {
+      showAttendanceDatePopup("Start date must be before or the same as end date.");
+      return;
+    }
+
+    renderAttendanceStatsScreen(startDate, endDate);
+    return;
+  }
+
+  if (action === "toggle-absent-dates") {
+    const targetId = actionEl.dataset.attendanceTarget || "";
+    if (targetId) {
+      toggleAbsentDates(targetId);
+    }
+  }
+}
+
+function handleAttendanceGeneralKeydown(event) {
+  const actionEl = event.target.closest('[data-attendance-action="toggle-absent-dates"]');
+  if (!actionEl) return;
+
+  if (event.key === "Enter" || event.key === " ") {
+    event.preventDefault();
+    const targetId = actionEl.dataset.attendanceTarget || "";
+    if (targetId) {
+      toggleAbsentDates(targetId);
+    }
+  }
+}
+
+function bindAttendanceUiHandlers(containerOrId) {
+  const container = getDomElement(containerOrId);
+  if (!container) return false;
+
+  if (container.dataset.attendanceUiBound !== "true") {
+    container.dataset.attendanceUiBound = "true";
+    container.addEventListener("click", handleAttendanceGeneralClick);
+    container.addEventListener("keydown", handleAttendanceGeneralKeydown);
+    container.addEventListener("change", event => {
+      const input = event.target.closest("[data-attendance-date-mode]");
+      if (input && container.contains(input)) {
+        handleAttendanceDateRangeChange(input.dataset.attendanceDateMode || "view");
+      }
+    });
+  }
+
+  return true;
+}
+
+function formatDisplayDate(dateString) {
+  if (!dateString || !/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+    return dateString || "";
+  }
+
+  const [year, month, day] = dateString.split("-").map(Number);
+  const localDate = new Date(year, month - 1, day);
+
+  return localDate.toLocaleDateString("en-ZA", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric"
+  });
+}
+
+let attendanceRegisterSaveInProgress = false;
+
+function bindAttendanceRegisterUiHandlers(containerOrId) {
+  const container = getDomElement(containerOrId);
+  if (!container) return false;
+
+  if (container.__attendanceRegisterHandlersBound === true) {
+    return true;
+  }
+
+  container.__attendanceRegisterHandlersBound = true;
+  container.addEventListener("click", handleAttendanceRegisterClick);
+  container.addEventListener("change", handleAttendanceRegisterChange);
+  return true;
+}
+
+function handleAttendanceRegisterClick(event) {
+  const actionEl = event.target.closest("[data-attendance-register-action]");
+  if (!actionEl) return;
+
+  const container = getDomElement("attendance-register-content");
+  if (container && !container.contains(actionEl)) return;
+
+  const action = actionEl.dataset.attendanceRegisterAction || "";
+
+  if (actionEl.tagName === "BUTTON" || actionEl.tagName === "A") {
+    event.preventDefault();
+  }
+
+  if (action === "toggle-status") {
+    const studentid = actionEl.dataset.studentId || "";
+    if (studentid) {
+      toggleAttendanceStatus(studentid);
+    }
+    return;
+  }
+
+  if (action === "save-register") {
+    submitAttendanceRegister();
+  }
+}
+
+function handleAttendanceRegisterChange(event) {
+  const input = event.target.closest("[data-attendance-register-field]");
+  if (!input) return;
+
+  const container = getDomElement("attendance-register-content");
+  if (container && !container.contains(input)) return;
+
+  if (input.dataset.attendanceRegisterField === "date") {
+    // The selected date is read at save time. This handler exists so the date input is
+    // safely owned by the attendance register module without inline onchange code.
+  }
+}
+
+function getAttendanceRegisterDateValue() {
+  const dateInput = getDomElement("attendance-date");
+  return dateInput && dateInput.value ? dateInput.value : getLocalDateString();
+}
+
+function setAttendanceSaveButtonState(isSaving) {
+  const saveButton = document.querySelector("#attendance-register-content .attendance-save-btn");
+  if (!saveButton) return false;
+
+  saveButton.disabled = Boolean(isSaving);
+  saveButton.innerText = isSaving ? "Saving..." : "Save";
+  return true;
+}
+
+async function openMarkRegister() {
+  const didShow = showScreen("attendance-register-screen");
+  if (!didShow) return;
+
+  const container = getDomElement("attendance-register-content");
+  if (!container) {
+    console.warn("Missing attendance register container.");
+    return;
+  }
+
+  bindAttendanceRegisterUiHandlers(container);
+  setDomHtml(container, `<p class="helper-text">Loading students...</p>`);
+
+  let result;
+  try {
+    result = await apiPost("/api/attendance/students", {
+      classgroup: "ALL"
+    }, state.token);
+  } catch (error) {
+    console.error("Failed to load attendance students:", error);
+    setDomHtml(container, `<p class="error-message">Failed to load students.</p>`);
+    return;
+  }
+
+  if (!result || !result.success) {
+    setDomHtml(container, `<p class="error-message">${escapeHtml(result?.error || result?.message || "Failed to load students.")}</p>`);
+    return;
+  }
+
+  attendanceStudentsCache = Array.isArray(result.students) ? result.students : [];
+  attendanceState = {};
+
+  attendanceStudentsCache.forEach(student => {
+    if (student && student.studentid != null) {
+      attendanceState[student.studentid] = "Present";
+    }
+  });
+
+  renderAttendanceRegister(getLocalDateString());
+}
+
+function getAttendanceInitials(name) {
+  const cleanName = String(name || "").trim();
+
+  if (!cleanName) {
+    return "?";
+  }
+
+  const parts = cleanName
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .split(/\s+/)
+    .filter(Boolean);
+
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[1][0]).toUpperCase();
+  }
+
+  return cleanName.slice(0, 2).toUpperCase();
+}
+
+function renderAttendanceRegister(dateValue) {
+  const container = getDomElement("attendance-register-content");
+  if (!container) {
+    console.warn("Missing attendance register container.");
+    return false;
+  }
+
+  bindAttendanceRegisterUiHandlers(container);
+
+  const students = [...attendanceStudentsCache].sort(sortAttendanceStudents);
+  const absentCount = students.filter(student => attendanceState[student.studentid] === "Absent").length;
+
+  let html = `
+    <div class="attendance-register-sticky attendance-sticky-control-pane">
+      <div class="attendance-summary-card">
+        <div class="attendance-summary-item">
+          <span class="attendance-summary-icon" aria-hidden="true">📅</span>
+          <div class="attendance-summary-text">
+            <span class="attendance-summary-label">Date</span>
+            <input
+              type="date"
+              id="attendance-date"
+              value="${escapeHtml(dateValue || getLocalDateString())}"
+              data-attendance-register-field="date"
             >
-              <span class="zoom-link-button__icon" aria-hidden="true"></span>
-              <span class="zoom-link-button__text">Join Zoom Class</span>
-            </button>
-
-            <section class="timetable-card">
-              <div class="timetable-card-header">
-                <h3>Timetable</h3>
-                <button
-                  type="button"
-                  class="small-btn manual-refresh-btn"
-                  title="Refresh timetable"
-                  aria-label="Refresh timetable"
-                  onclick="refreshAdminHomeTimetable(this)"
-                >
-                  <span class="manual-refresh-btn__icon" aria-hidden="true"></span>
-                  <span class="visually-hidden">Refresh timetable</span>
-                </button>
-              </div>
-
-              <div id="admin-home-timetable-content">
-                <p class="helper-text">Loading timetable...</p>
-              </div>
-            </section>
-          </section>
-
-          <section
-            id="admin-home-duas-panel"
-            class="home-swipe-panel home-swipe-panel--duas"
-            aria-label="Class duas"
-          >
-            <p class="helper-text">Loading class duas...</p>
-          </section>
+          </div>
         </div>
 
-        <div class="home-swipe-dots" data-home-swipe-dots aria-label="Home panels">
-          <button type="button" class="home-swipe-dot is-active" data-home-panel-index="0" aria-label="Show timetable panel" aria-current="true"></button>
-          <button type="button" class="home-swipe-dot" data-home-panel-index="1" aria-label="Show class duas panel" aria-current="false"></button>
+        <div class="attendance-summary-divider" aria-hidden="true"></div>
+
+        <div class="attendance-summary-item">
+          <span class="attendance-summary-icon" aria-hidden="true">👥</span>
+          <div class="attendance-summary-text">
+            <span class="attendance-summary-label">Absent</span>
+            <strong class="attendance-absence-feedback">${absentCount} student${absentCount === 1 ? "" : "s"}</strong>
+            <span class="attendance-summary-subtext">marked absent</span>
+          </div>
         </div>
       </div>
-    </section>
 
-    <!-- ADMIN ACADEMICS MENU -->
-    <section id="admin-academics" class="screen admin-theme">
-      <div class="nav-header">
-        <h2>Admin</h2>
-        <button class="small-btn home-icon-btn" onclick="showScreen('admin-home')" aria-label="Home" title="Home"><span class="home-icon-btn__icon" aria-hidden="true"></span><span class="visually-hidden">Home</span></button>
+      <button
+        type="button"
+        class="small-btn save-return-btn attendance-save-btn"
+        data-attendance-register-action="save-register"
+      >Save</button>
+
+      ${renderAttendancePanelDots("register")}
+    </div>
+  `;
+
+  if (students.length === 0) {
+    html += `<p class="helper-text">No active students found.</p>`;
+  }
+
+  let currentGroup = "";
+
+  students.forEach(student => {
+    if (!student || student.studentid == null) return;
+
+    const studentid = String(student.studentid);
+    const group = String(student.classgroup || "Ungrouped");
+    if (group !== currentGroup) {
+      currentGroup = group;
+      html += `<div class="attendance-group-line" aria-label="Group ${escapeHtml(group)}"></div>`;
+    }
+
+    const status = attendanceState[studentid] || "Present";
+    const isPresent = status === "Present";
+    const displayName = student.username || studentid;
+
+    html += `
+      <div class="attendance-register-row">
+        <div class="attendance-student-main">
+          <span class="attendance-student-avatar" aria-hidden="true">${escapeHtml(getAttendanceInitials(displayName))}</span>
+          <div class="attendance-student-name">${escapeHtml(displayName)}</div>
+        </div>
+        <button
+          type="button"
+          class="attendance-toggle ${isPresent ? "is-present" : "is-absent"}"
+          data-attendance-register-action="toggle-status"
+          data-student-id="${escapeHtml(studentid)}"
+          aria-pressed="${isPresent ? "false" : "true"}"
+        >
+          ${isPresent ? "PRESENT ✔" : "ABSENT ✘"}
+        </button>
+      </div>
+    `;
+  });
+
+  setDomHtml(container, html);
+  bindAttendanceUiHandlers(container);
+  bindAttendancePanelSwipe(container, "register");
+  setAttendanceSaveButtonState(attendanceRegisterSaveInProgress);
+  return true;
+}
+
+function toggleAttendanceStatus(studentid) {
+  if (!studentid) return;
+
+  attendanceState[studentid] = attendanceState[studentid] === "Absent" ? "Present" : "Absent";
+  renderAttendanceRegister(getAttendanceRegisterDateValue());
+}
+
+async function submitAttendanceRegister() {
+  if (attendanceRegisterSaveInProgress) return;
+
+  const dateValue = getAttendanceRegisterDateValue();
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateValue)) {
+    alert("Please select a valid date.");
+    return;
+  }
+
+  const absentStudents = attendanceStudentsCache
+    .filter(student => student && attendanceState[student.studentid] === "Absent")
+    .map(student => ({
+      studentid: student.studentid,
+      username: student.username,
+      classgroup: student.classgroup
+    }));
+
+  attendanceRegisterSaveInProgress = true;
+  setAttendanceSaveButtonState(true);
+
+  let result;
+  try {
+    result = await apiPost("/api/attendance/submit-absent", {
+      date: dateValue,
+      absentStudents
+    }, state.token);
+  } catch (error) {
+    console.error("Failed to save attendance:", error);
+    result = { success: false, message: "Failed to save attendance." };
+  }
+
+  if (!result || !result.success) {
+    attendanceRegisterSaveInProgress = false;
+    setAttendanceSaveButtonState(false);
+    alert(result?.error || result?.message || "Failed to save attendance.");
+    return;
+  }
+
+  attendanceRegisterSaveInProgress = false;
+  setAttendanceSaveButtonState(false);
+  alert(`Attendance saved successfully. ${absentStudents.length} student${absentStudents.length === 1 ? "" : "s"} marked absent.`);
+}
+
+function openViewAttendance() {
+  const range = getDefaultAttendanceDateRange();
+  renderViewAttendanceControls(range.start, range.end);
+}
+
+function renderAttendanceRecordsControlsMarkup(range) {
+  return `
+    <div class="attendance-sticky-control-pane attendance-report-control-pane">
+      <div class="attendance-subscreen-header">
+        <h2>Attendance Records</h2>
+      </div>
+      ${renderAttendanceDateFilter("view", range.start, range.end, "View Records")}
+      ${renderAttendancePanelDots("records")}
+    </div>
+  `;
+}
+
+function renderViewAttendanceControls(startDate, endDate, message) {
+  const range = normalizeAttendanceDateRange(startDate, endDate);
+  const didShow = showScreen("attendance-report-screen");
+  if (!didShow) return false;
+
+  const container = getDomElement("attendance-report-content");
+  if (!container) {
+    console.warn("Missing attendance report container.");
+    return false;
+  }
+
+  setDomHtml(container, `
+    ${renderAttendanceRecordsControlsMarkup(range)}
+    <p class="helper-text attendance-empty-state">${escapeHtml(message || "Choose a date range, then tap View Records.")}</p>
+  `);
+  bindAttendanceUiHandlers(container);
+  bindAttendancePanelSwipe(container, "records");
+  return true;
+}
+
+async function renderViewAttendanceScreen(startDate, endDate) {
+  const range = normalizeAttendanceDateRange(startDate, endDate);
+
+  if (!isValidAttendanceDateRange(range.start, range.end)) {
+    showAttendanceDatePopup("Start date must be before or the same as end date.");
+    return;
+  }
+
+  const didShow = showScreen("attendance-report-screen");
+  if (!didShow) return;
+
+  const container = getDomElement("attendance-report-content");
+  if (!container) {
+    console.warn("Missing attendance report container.");
+    return;
+  }
+
+  setDomHtml(container, `
+    ${renderAttendanceRecordsControlsMarkup(range)}
+    <p class="helper-text attendance-empty-state">Loading attendance records...</p>
+  `);
+  bindAttendanceUiHandlers(container);
+  bindAttendancePanelSwipe(container, "records");
+
+  let result;
+  try {
+    result = await apiPost("/api/attendance/report", {
+      startDate: range.start,
+      endDate: range.end,
+      classgroup: "ALL"
+    }, state.token);
+  } catch (error) {
+    console.error("Failed to load attendance report:", error);
+    setDomHtml(container, `
+      ${renderAttendanceRecordsControlsMarkup(range)}
+      <p class="error-message">Failed to load attendance.</p>
+    `);
+    bindAttendanceUiHandlers(container);
+    bindAttendancePanelSwipe(container, "records");
+    return;
+  }
+
+  if (!result.success) {
+    setDomHtml(container, `
+      ${renderAttendanceRecordsControlsMarkup(range)}
+      <p class="error-message">${escapeHtml(result.error || result.message || "Failed to load attendance.")}</p>
+    `);
+    bindAttendanceUiHandlers(container);
+    bindAttendancePanelSwipe(container, "records");
+    return;
+  }
+
+  const groups = groupAttendanceStudents(result.students || []);
+  const sortedGroups = Object.keys(groups).sort(sortGroupValues);
+
+  let html = renderAttendanceRecordsControlsMarkup(range);
+
+  if (sortedGroups.length === 0) {
+    html += `<p class="helper-text attendance-empty-state">No attendance records found.</p>`;
+  }
+
+  sortedGroups.forEach(group => {
+    html += `<div class="attendance-group-line" aria-label="Group ${escapeHtml(group)}"></div>`;
+
+    groups[group].forEach(student => {
+      const rowId = `abs-${safeDomId(student.studentid)}`;
+
+      html += `
+        <div
+          class="attendance-report-row"
+          role="button"
+          tabindex="0"
+          data-attendance-action="toggle-absent-dates"
+          data-attendance-target="${escapeHtml(rowId)}"
+        >
+          <div>${escapeHtml(student.username || student.studentid)}</div>
+          <div>${student.absentDays || 0}</div>
+          <div>${formatPercent(student.attendancePercent)}</div>
+        </div>
+
+        <div id="${rowId}" class="attendance-absent-dates">
+          ${renderAbsentDates(student.absentDates || [])}
+        </div>
+      `;
+    });
+  });
+
+  setDomHtml(container, html);
+  bindAttendanceUiHandlers(container);
+  bindAttendancePanelSwipe(container, "records");
+}
+
+function openAttendanceStats() {
+  const range = getDefaultAttendanceDateRange();
+  renderAttendanceStatsControls(range.start, range.end);
+}
+
+function renderAttendanceStatsControlsMarkup(range) {
+  return `
+    <div class="attendance-sticky-control-pane attendance-stats-control-pane">
+      <div class="attendance-subscreen-header">
+        <h2>Statistics</h2>
+      </div>
+      ${renderAttendanceDateFilter("stats", range.start, range.end, "Calculate")}
+      ${renderAttendancePanelDots("stats")}
+    </div>
+  `;
+}
+
+function renderAttendanceStatsControls(startDate, endDate, message) {
+  const range = normalizeAttendanceDateRange(startDate, endDate);
+  const didShow = showScreen("attendance-stats-screen");
+  if (!didShow) return false;
+
+  const container = getDomElement("attendance-stats-content");
+  if (!container) {
+    console.warn("Missing attendance stats container.");
+    return false;
+  }
+
+  setDomHtml(container, `
+    ${renderAttendanceStatsControlsMarkup(range)}
+    <p class="helper-text attendance-empty-state">${escapeHtml(message || "Choose a date range, then tap Calculate.")}</p>
+  `);
+  bindAttendanceUiHandlers(container);
+  bindAttendancePanelSwipe(container, "stats");
+  return true;
+}
+
+async function renderAttendanceStatsScreen(startDate, endDate) {
+  const range = normalizeAttendanceDateRange(startDate, endDate);
+
+  if (!isValidAttendanceDateRange(range.start, range.end)) {
+    showAttendanceDatePopup("Start date must be before or the same as end date.");
+    return;
+  }
+
+  const didShow = showScreen("attendance-stats-screen");
+  if (!didShow) return;
+
+  const container = getDomElement("attendance-stats-content");
+  if (!container) {
+    console.warn("Missing attendance stats container.");
+    return;
+  }
+
+  setDomHtml(container, `
+    ${renderAttendanceStatsControlsMarkup(range)}
+    <p class="helper-text attendance-empty-state">Calculating statistics...</p>
+  `);
+  bindAttendanceUiHandlers(container);
+  bindAttendancePanelSwipe(container, "stats");
+
+  let result;
+  try {
+    result = await apiPost("/api/attendance/report", {
+      startDate: range.start,
+      endDate: range.end,
+      classgroup: "ALL"
+    }, state.token);
+  } catch (error) {
+    console.error("Failed to load attendance stats:", error);
+    setDomHtml(container, `
+      ${renderAttendanceStatsControlsMarkup(range)}
+      <p class="error-message">Failed to load statistics.</p>
+    `);
+    bindAttendanceUiHandlers(container);
+    bindAttendancePanelSwipe(container, "stats");
+    return;
+  }
+
+  if (!result.success) {
+    setDomHtml(container, `
+      ${renderAttendanceStatsControlsMarkup(range)}
+      <p class="error-message">${escapeHtml(result.error || result.message || "Failed to load statistics.")}</p>
+    `);
+    bindAttendanceUiHandlers(container);
+    bindAttendancePanelSwipe(container, "stats");
+    return;
+  }
+
+  const groupAverages = Array.isArray(result.groupAverages) ? result.groupAverages : [];
+  const perfectStudents = Array.isArray(result.perfectAttendanceStudents) ? result.perfectAttendanceStudents : [];
+
+  let html = `
+    ${renderAttendanceStatsControlsMarkup(range)}
+
+    <div class="attendance-stat-grid">
+      <div class="attendance-stat-card">
+        <div class="attendance-stat-label">MAKTAB DAYS</div>
+        <div class="attendance-stat-number">${result.totalMaktabDays || 0}</div>
       </div>
 
-      <div class="list-stack">
-        <button class="list-btn" onclick="showManageStudents()">Add / Modify Students</button>
-        <button class="list-btn" onclick="showSubjectsScreen()">Curriculum</button>
-        <button class="list-btn" onclick="showAdminResources()">Resources</button>
-        <button class="list-btn" onclick="showPlaceholder('Tasks')">Tasks</button>
-        <button class="list-btn" onclick="showAdminTimetableAdmin()">Timetable</button>
-        <button class="list-btn" onclick="showAdminZoomLinkAdmin()">Zoom Link</button>
+      <div class="attendance-stat-card">
+        <div class="attendance-stat-label">Class average attendance</div>
+        <div class="attendance-stat-number">${formatPercent(result.registerAverageAttendancePercent)}</div>
       </div>
-    </section>
-
-    <!-- SHARED RESOURCE SCREENS (used by Admin Resources) -->
-    <section id="student-resources-subjects" class="screen admin-theme">
-      <div class="nav-header">
-        <h2 class="visually-hidden">Resources</h2>
-        <button class="small-btn home-icon-btn" onclick="showScreen('admin-home')" aria-label="Home" title="Home"><span class="home-icon-btn__icon" aria-hidden="true"></span><span class="visually-hidden">Home</span></button>
-      </div>
-
-      <div id="student-resource-subject-list" class="list-stack">
-        <p class="helper-text">Loading resources...</p>
-      </div>
-    </section>
-
-    <section id="student-resources-media" class="screen admin-theme">
-      <div class="nav-header">
-        <h2 id="student-resource-media-title">Resources</h2>
-        <button class="small-btn" onclick="showScreen('student-resources-subjects')">Back</button>
-      </div>
-
-      <div id="student-resource-media-list" class="list-stack">
-        <p class="helper-text">Loading media types...</p>
-      </div>
-    </section>
-
-    <section id="student-resources-modules" class="screen admin-theme">
-      <div class="nav-header">
-        <h2 id="student-resource-module-title">Modules</h2>
-        <button class="small-btn" onclick="showScreen('student-resources-media')">Back</button>
-      </div>
-
-      <div id="student-resource-module-list" class="list-stack">
-        <p class="helper-text">Loading modules...</p>
-      </div>
-    </section>
-
-    <section id="student-resources-detail" class="screen admin-theme">
-      <div class="nav-header">
-        <h2 id="student-resource-detail-title">Resources</h2>
-        <button class="small-btn" onclick="showScreen('student-resources-subjects')">Back</button>
-      </div>
-
-      <div id="student-resource-detail-content" class="list-stack">
-        <p class="helper-text">Loading resources...</p>
-      </div>
-    </section>
-
-    <!-- PROGRESS REPORT -->
-<section id="progress-report" class="screen admin-theme">
-  <div class="nav-header">
-    <h2 class="visually-hidden">Progress Monitor</h2>
-    <button class="small-btn home-icon-btn" onclick="showScreen('admin-home')" aria-label="Home" title="Home"><span class="home-icon-btn__icon" aria-hidden="true"></span><span class="visually-hidden">Home</span></button>
-  </div>
-
-  <div class="dashboard-section">
-    <h3>Progress for Class</h3>
-    <button class="list-btn" onclick="openProgressContext('class', 'ALL')">
-      View Full Class
-    </button>
-  </div>
-
-  <div class="dashboard-section">
-    <h3>Progress for Groups</h3>
-    <select id="progress-group-select">
-      <option value="">Select a Group...</option>
-    </select>
-    <button class="list-btn" onclick="openSelectedGroupProgress()">
-      View Group
-    </button>
-  </div>
-
-  <div class="dashboard-section">
-    <h3>Progress for Individuals</h3>
-    <select id="progress-student-select">
-      <option value="">Select a Student...</option>
-    </select>
-    <button class="list-btn" onclick="openSelectedStudentProgress()">
-      View Student
-    </button>
-  </div>
-</section>
-
-<section id="progress-subjects-screen" class="screen admin-theme">
-  <div class="nav-header">
-    <h2 id="progress-subjects-title">Modules</h2>
-    <button class="small-btn" onclick="showScreen('progress-report')">Back</button>
-  </div>
-
-  <div id="progress-subjects-list" class="list-stack"></div>
-</section>
-
-<section id="progress-tasks-screen" class="screen admin-theme">
-  <div class="nav-header">
-    <h2 id="progress-tasks-title">Tasks</h2>
-    <button class="small-btn" onclick="showScreen('progress-subjects-screen')">Back</button>
-  </div>
-
-  <div id="progress-tasks-list" class="list-stack"></div>
-</section>
-
-<section id="progress-task-students-screen" class="screen admin-theme">
-  <div class="nav-header">
-    <h2 id="progress-task-students-title">Task</h2>
-    <button class="small-btn" onclick="showScreen('progress-tasks-screen')">Back</button>
-  </div>
-
-  <div id="progress-task-students-list" class="list-stack"></div>
-</section>
-
-    
-
-
-
-
-    <!-- MANAGE STUDENTS -->
-    <section id="manage-students-screen" class="screen admin-theme student-admin-screen">
-      <div class="student-admin-modern-header">
-        <h2>Manage Students</h2>
-        <button class="small-btn" onclick="showScreen('admin-academics')">Back</button>
-      </div>
-
-      <div id="manage-students-content">
-        <p class="helper-text">Loading student management...</p>
-      </div>
-    </section>
-
-    <section id="manage-students-result-screen" class="screen admin-theme student-admin-screen">
-      <div class="student-admin-modern-header">
-        <h2>Student Link</h2>
-        <button class="small-btn home-icon-btn" onclick="showScreen('admin-home')" aria-label="Home" title="Home"><span class="home-icon-btn__icon" aria-hidden="true"></span><span class="visually-hidden">Home</span></button>
-      </div>
-
-      <div id="manage-students-result-content">
-        <p class="helper-text">Loading student link...</p>
-      </div>
-    </section>
-
-    <section id="manage-student-edit-screen" class="screen admin-theme student-admin-screen">
-      <div class="student-admin-modern-header">
-        <h2>Edit Student</h2>
-        <button class="small-btn" onclick="backToManagedStudentList()">Back</button>
-      </div>
-
-      <div id="manage-student-edit-content">
-        <p class="helper-text">Loading student...</p>
-      </div>
-    </section>
-    
-    <section id="subjects-screen" class="screen admin-theme">
-         <div class="nav-header">
-            <h2>Subjects</h2>
-    <button class="small-btn home-icon-btn" onclick="showScreen('admin-home')" aria-label="Home" title="Home"><span class="home-icon-btn__icon" aria-hidden="true"></span><span class="visually-hidden">Home</span></button>
-  </div>
-
-  <div class="dashboard-section subject-panel">
-       <h3>Add Subjects</h3>
-
-        <div id="subject-add-list" class="subject-add-list"></div>
-
-       <button id="submit-subjects-btn" class="save-btn hidden" onclick="submitPendingSubjects()">
-      Submit Subjects
-    </button>
-
-    <p id="subject-add-message" class="helper-text"></p>
-  </div>
-
-  <div class="dashboard-section subject-panel">
-    <h3>Modify Subject</h3>
-
-    <select id="modify-subject-select" onchange="selectSubjectToModify()">
-      <option value="">Select subject...</option>
-    </select>
-
-   <div id="modify-subject-box" class="hidden">
-  <input id="modify-subject-name" type="text" placeholder="Subject name" />
-
-  <div class="status-action-row">
-    <div id="selected-subject-status" class="status-display">
-      STATUS: -
     </div>
 
-    <button
-      id="toggle-subject-status-btn"
-      class="status-toggle-btn"
-      onclick="toggleSubjectStatusLocal()"
-    >
-      Change Status
-    </button>
-  </div>
+    <div class="attendance-breakdown-card">
+      <h3>Group Breakdown</h3>
+  `;
 
-  <button class="save-btn" onclick="saveSubjectChanges()">
-    Save These Changes
-  </button>
-</div>
-  </div>
-</section>
+  groupAverages.sort((a, b) => sortGroupValues(a.classgroup, b.classgroup)).forEach(group => {
+    const pct = Number(group.averageAttendancePercent || 0);
 
-<section id="teacher-student-tasks" class="screen admin-theme">
-  <div class="nav-header">
-    <h2 id="teacher-student-tasks-title">Student Tasks</h2>
-    <button class="small-btn" onclick="showScreen('progress-report')">Back</button>
-  </div>
-
-  <div id="teacher-student-task-list" class="list-stack">
-    <p class="helper-text">Loading student tasks...</p>
-  </div>
-</section>
-    <!-- ADMIN ATTENDANCE -->
-<section id="attendance-register-screen" class="screen admin-theme">
-  <div id="attendance-register-content">
-    <p class="helper-text">Loading attendance...</p>
-  </div>
-</section>
-
-
-    
-    <section id="attendance-report-screen" class="screen admin-theme">
-      <div id="attendance-report-content" class="list-stack">
-        <p class="helper-text">Loading attendance...</p>
-      </div>
-    </section>
-
-    <section id="attendance-stats-screen" class="screen admin-theme">
-      <div id="attendance-stats-content" class="list-stack">
-        <p class="helper-text">Loading statistics...</p>
-      </div>
-    </section>
-
-
-    <!-- ADMIN TIMETABLE -->
-    <section id="admin-timetable-screen" class="screen admin-theme">
-      <div class="nav-header">
-        <h2>Timetable</h2>
-        <button class="small-btn home-icon-btn" onclick="showScreen('admin-home')" aria-label="Home" title="Home"><span class="home-icon-btn__icon" aria-hidden="true"></span><span class="visually-hidden">Home</span></button>
-      </div>
-
-      <div class="timetable-card">
-        <div id="admin-timetable-content">
-          <p class="helper-text">Loading timetable...</p>
+    html += `
+      <div class="attendance-breakdown-row">
+        <div class="attendance-breakdown-label attendance-breakdown-label-grid">
+          <span>Group ${escapeHtml(group.classgroup)}</span>
+          <span>${formatPercent(pct)}</span>
+        </div>
+        <div class="attendance-bar-track">
+          <div class="attendance-bar-fill" style="width:${Math.max(0, Math.min(100, pct))}%"></div>
         </div>
       </div>
-    </section>
+    `;
+  });
 
-    <section id="admin-timetable-admin-screen" class="screen admin-theme">
-      <div class="nav-header">
-        <h2>Timetable / Zoom Link</h2>
-        <button class="small-btn" onclick="showScreen('admin-academics')">Back</button>
+  html += `
+    </div>
+
+    <div class="attendance-breakdown-card">
+      <h3>100% Attendance</h3>
+      <div class="attendance-perfect-list">
+  `;
+
+  if (!result.totalMaktabDays) {
+    html += `<div class="helper-text">No maktab days recorded for this date range.</div>`;
+  } else if (perfectStudents.length === 0) {
+    html += `<div class="helper-text">No students have 100% attendance.</div>`;
+  } else {
+    perfectStudents
+      .sort(sortAttendanceStudents)
+      .forEach(student => {
+        html += `<div class="attendance-perfect-row">⭐ ${escapeHtml(student.username)} <span class="mini-text">(Grp ${escapeHtml(student.classgroup)})</span></div>`;
+      });
+  }
+
+  html += `
       </div>
+    </div>
+  `;
 
-      <div class="dashboard-section timetable-admin-form">
-        <h3>Global Zoom Link</h3>
-        <p class="helper-text">This link is stored in the TimeTable tab, row 2, ZoomLink column.</p>
-        <input id="admin-global-zoom-link" type="url" inputmode="url" placeholder="https://..." />
-        <button type="button" class="save-btn" onclick="saveAdminTimetableZoomLink(this)">
-          Save Zoom Link
-        </button>
-        <p id="admin-timetable-message" class="helper-text timetable-status-message"></p>
-      </div>
+  setDomHtml(container, html);
+  bindAttendanceUiHandlers(container);
+  bindAttendancePanelSwipe(container, "stats");
+}
 
-      <div class="timetable-card">
-        <h3>Timetable Preview</h3>
-        <div id="admin-timetable-admin-preview">
-          <p class="helper-text">Loading timetable...</p>
-        </div>
-      </div>
-    </section>
+function sortAttendanceStudents(a, b) {
+  const groupCompare = sortGroupValues(a.classgroup, b.classgroup);
+  if (groupCompare !== 0) return groupCompare;
 
+  return String(a.username || "").localeCompare(String(b.username || ""), undefined, {
+    numeric: true,
+    sensitivity: "base"
+  });
+}
 
-    <!-- PDF VIEWER -->
-    <section id="pdf-viewer-screen" class="screen admin-theme">
-      <div class="nav-header pdf-viewer-header">
-        <h2 id="pdf-viewer-title">PDF Viewer</h2>
-        <div class="pdf-viewer-actions">
-          <button class="small-btn pdf-direct-btn" onclick="openCurrentPdfDirect()">Open</button>
-          <button class="small-btn" onclick="closePdfViewer()">Back</button>
-        </div>
-      </div>
+function sortGroupValues(a, b) {
+  return String(a || "").localeCompare(String(b || ""), undefined, {
+    numeric: true,
+    sensitivity: "base"
+  });
+}
 
-      <iframe
-        id="pdf-viewer-frame"
-        class="pdf-viewer-frame"
-        title="PDF Viewer"
-      ></iframe>
-    </section>
+function groupAttendanceStudents(students) {
+  const groups = {};
 
-    <!-- PLACEHOLDER SCREEN -->
-    <section id="placeholder-screen" class="screen">
-      <div class="nav-header">
-        <h2 id="placeholder-title">Screen</h2>
-        <button class="small-btn home-icon-btn" onclick="goHome()" aria-label="Home" title="Home"><span class="home-icon-btn__icon" aria-hidden="true"></span><span class="visually-hidden">Home</span></button>
-      </div>
+  students.forEach(student => {
+    const group = String(student.classgroup || "Ungrouped");
+    if (!groups[group]) {
+      groups[group] = [];
+    }
 
-      <div class="dashboard-section">
-        <p class="helper-text">This screen will be connected next.</p>
-      </div>
-    </section>
+    groups[group].push(student);
+  });
 
-    <nav id="bottom-nav" class="bottom-nav hidden" aria-label="Primary navigation"></nav>
+  Object.keys(groups).forEach(group => {
+    groups[group].sort(sortAttendanceStudents);
+  });
 
-  </main>
-<script src="/js/m4l-dom.js?v=11"></script>
-<script src="/app.js?v=56a"></script>
-<script src="/js/m4l-auth.js?v=55"></script>
-<script src="/js/m4l-shell.js?v=59"></script>
-<script src="/js/m4l-attendance.js?v=59"></script>
-<script src="/js/m4l-admin-academics.js?v=55"></script>
-<script src="/js/m4l-timetable.js?v=55"></script>
-<script src="/js/m4l-resources.js?v=55"></script>
-<script src="/js/m4l-progress.js?v=55"></script>
-<script src="/js/m4l-manage-students.js?v=55"></script>
-</body>
-</html>
+  return groups;
+}
+
+function renderAbsentDates(absentDates) {
+  if (!absentDates.length) {
+    return `<div>No absences recorded</div>`;
+  }
+
+  return `
+    <div style="margin-bottom:6px; font-weight:bold;">Absent Dates</div>
+    ${absentDates.map(date => `<div>${escapeHtml(formatDisplayDate(date))}</div>`).join("")}
+  `;
+}
+
+function toggleAbsentDates(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.classList.toggle("is-open");
+}
+
+function formatPercent(value) {
+  const n = Number(value || 0);
+  return `${Math.round(n)}%`;
+}
+
+function safeDomId(value) {
+  return String(value || "").replace(/[^a-zA-Z0-9_-]/g, "_");
+}
+
+window.M4LAttendance = {
+  showAttendanceDashboard,
+  openMarkRegister,
+  openViewAttendance,
+  openAttendanceStats,
+  refreshViewAttendance,
+  refreshAttendanceStats,
+  renderViewAttendanceScreen,
+  renderAttendanceStatsScreen
+};
