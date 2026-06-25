@@ -1,4 +1,4 @@
-/* M4L v42 - Progress module
+/* M4L v44 - Progress module
    Load after /app.js, /js/m4l-auth.js, /js/m4l-shell.js, /js/m4l-timetable.js, and /js/m4l-resources.js.
    This is a classic script, not type=module, so existing global function calls remain safe
    while the app is split gradually.
