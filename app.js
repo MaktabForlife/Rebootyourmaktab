@@ -1,4 +1,4 @@
-/* M4L v50 - App shell after Admin Academics split.
+/* M4L v51 - Clean app core after module splits.
    Load before m4l-auth, m4l-shell, m4l-attendance, m4l-admin-academics, m4l-timetable, m4l-resources, m4l-progress, and m4l-manage-students. */
 const API_BASE = "https://rebootworker.maktab4life.workers.dev";
 const STUDENT_LOGIN_BASE = "https://rebootyourmaktab.maktab4life.org/student/";
@@ -6,8 +6,8 @@ const DEFAULT_STUDENT_GROUP = 1;
 const APP_VERSION_STORAGE_KEY = "maktab_app_version";
 const CLASS_DUAS_ITEMS = [
   {
-    arabic: "اللَّهُمَّ صَلِّ عَلَى مُحَمَّدٍ وَّعَلَى آلِ مُحَمَّدٍ وَّبَارِكْ وَسَلِّم",
-    transliteration: "Allahumma salli ala muhammadew wa ala aali muhammadew wa baarik wassallim",
+    arabic: "اللَّهُمَّ صَلِّ عَلَى مُحَمَّدٍ وَّعَلَى آلِ مُحَمَّدٍ وَّبَارِكْ وَسَلِّم",
+    transliteration: "Allahumma salli ala muhammadew wa ala aali muhammadew wa baarik wassallim-51",
     translation: "Oh Allah send peace and blessings upon Muhammad and the family of Muhammad"
   },
   {
@@ -16,7 +16,7 @@ const CLASS_DUAS_ITEMS = [
     translation: "O my Sustainer! Open up my heart and make my task easy for me, and loosen the knot from my tongue so that they might fully understand my speech"
   },
   {
-    arabic: "رَبِّ يَسِّرْ وَلاَ تُعَسِّرْ وَتَمِّمْ بِالْخَیْر وَبِكَ نَسْتَعِينُ يَا فَتَّاحُ يَا عَلِيْمُ",
+    arabic: "رَبِّ يَسِّرْ وَلاَ تُعَسِّرْ وَتَمِّمْ بِالْخَیْر وَبِكَ نَسْتَعِينُ يَا فَتَّاحُ يَا عَلِيْمُ",
     transliteration: "Rabbi, yassir wa la tu’assir wa tammim bil khair wa bika nasta’een. yaa fattaah Ya A’LeemU",
     translation: "O Lord, make it easy and do not make it difficult, and make it end well. We seek your help. Oh the Opener, Oh the All Knowing"
   },
@@ -26,12 +26,12 @@ const CLASS_DUAS_ITEMS = [
     translation: "Oh lord increase us in knowledge"
   },
   {
-    arabic: "اللّهُمَّ أعِنَّا على ذِكْرِكَ، وَشُكْرِكَ، وَحُسْنِ عِبَادَتِكَ",
+    arabic: "اللّهُمَّ أعِنَّا على ذِكْرِكَ، وَشُكْرِكَ، وَحُسْنِ عِبَادَتِكَ",
     transliteration: "Allahumma A inna Ala Zikrika, Wa Shukrika, Wa Husni Ibadatika",
     translation: "O Allah, help me remember You, to be grateful to You and to worship You in an excellent manner"
   },
   {
-    arabic: "سُبْحَانَكَ لَا عِلْمَ لَنَا إِلَّا مَا عَلَّمْتَنَا ۖ إِنَّكَ أَنتَ الْعَلِيمُ الْحَكِيمُ",
+    arabic: "سُبْحَانَكَ لَا عِلْمَ لَنَا إِلَّا مَا عَلَّمْتَنَا ۖ إِنَّكَ أَنتَ الْعَلِيمُ الْحَكِيمُ",
     transliteration: "subḥānaka lā ‘ilma lanā illā mā ‘allamtana, innaka antal-‘Alīmul-Ḥakīm.",
     translation: "Glory be to You; we have no knowledge except what You have taught us. Indeed, it is You who is the All-Knowing, the All-Wise"
   }
@@ -251,62 +251,39 @@ function hideDomElement(id) {
   return true;
 }
 
-/* =========================
-   AUTH / PIN / API MODULE
-   Moved to /js/m4l-auth.js in V37.
-   Keep loading this module after app.js so the existing app state and helpers are available.
-========================= */
+function setAuthTheme(type) {
+  const authScreen = document.getElementById("auth-screen");
+  const body = document.body;
 
-/* M4L v38: headerIconActionHandlersBound moved to /js/m4l-shell.js */
-/* M4L v38: getHeaderIconActionDescriptor moved to /js/m4l-shell.js */
-/* M4L v38: applyHeaderIconAction moved to /js/m4l-shell.js */
-/* M4L v38: bindHeaderIconActionHandlers moved to /js/m4l-shell.js */
-/* M4L v38: handleHeaderIconActionClick moved to /js/m4l-shell.js */
-/* M4L v38: setHomeIconButton moved to /js/m4l-shell.js */
-/* M4L v38: setBackIconButton moved to /js/m4l-shell.js */
-/* M4L v38: getHeaderIconButtonMarkup moved to /js/m4l-shell.js */
-/* M4L v38: getHomeIconButtonMarkup moved to /js/m4l-shell.js */
-/* M4L v38: getBackIconButtonMarkup moved to /js/m4l-shell.js */
-/* M4L v38: getCurrentUserName moved to /js/m4l-shell.js */
-/* M4L v38: getCurrentUserLevelText moved to /js/m4l-shell.js */
-/* M4L v38: getUserBandElement moved to /js/m4l-shell.js */
-/* M4L v38: clearUserBand moved to /js/m4l-shell.js */
-/* M4L v38: setBodyUserBandState moved to /js/m4l-shell.js */
-/* M4L v38: attachUserBandLogoutHandler moved to /js/m4l-shell.js */
-/* M4L v38: getActiveScreenId moved to /js/m4l-shell.js */
-/* M4L v38: removeLegacyScreenRefreshButtons moved to /js/m4l-shell.js */
-/* M4L v38: userBandRefreshInProgress moved to /js/m4l-shell.js */
-/* M4L v38: setUserBandRefreshState moved to /js/m4l-shell.js */
-/* M4L v38: waitForUserBandRefreshFrame moved to /js/m4l-shell.js */
-/* M4L v38: waitForUserBandRefreshMinimumDuration moved to /js/m4l-shell.js */
-/* M4L v39: removed stray async token left after moving runUserBandRefresh to /js/m4l-shell.js */
-/* M4L v38: runUserBandRefresh moved to /js/m4l-shell.js */
-/* M4L v39: removed stray async token left after moving refreshCurrentResourceView to /js/m4l-shell.js */
-/* M4L v38: refreshCurrentResourceView moved to /js/m4l-shell.js */
-/* M4L v38: getUserBandRefreshAction moved to /js/m4l-shell.js */
-/* M4L v38: attachUserBandRefreshHandler moved to /js/m4l-shell.js */
-/* M4L v38: updateUserBand moved to /js/m4l-shell.js */
-/* M4L v38: setTextActionButton moved to /js/m4l-shell.js */
-/* =========================
-   REUSABLE BOTTOM NAVIGATION
-========================= */
+  if (authScreen) {
+    authScreen.classList.remove("student-theme", "admin-theme");
 
-/* M4L v38: BOTTOM_NAV_ITEMS moved to /js/m4l-shell.js */
-/* M4L v38: getBottomNavRole moved to /js/m4l-shell.js */
-/* M4L v38: getBottomNavElement moved to /js/m4l-shell.js */
-/* M4L v38: installBottomNavigationGestureGuard moved to /js/m4l-shell.js */
-/* M4L v38: getBottomNavItems moved to /js/m4l-shell.js */
-/* M4L v38: isBottomNavItemAvailable moved to /js/m4l-shell.js */
-/* M4L v38: getAvailableBottomNavItems moved to /js/m4l-shell.js */
-/* M4L v38: createBottomNavButton moved to /js/m4l-shell.js */
-/* M4L v38: renderBottomNavigation moved to /js/m4l-shell.js */
-/* M4L v38: shouldShowBottomNavigation moved to /js/m4l-shell.js */
-/* M4L v38: getBottomNavActiveKey moved to /js/m4l-shell.js */
-/* M4L v38: handleBottomNavigationClick moved to /js/m4l-shell.js */
-/* M4L v38: updateBottomNavigation moved to /js/m4l-shell.js */
+    if (type === "student") {
+      authScreen.classList.add("student-theme");
+    }
+
+    if (type === "admin") {
+      authScreen.classList.add("admin-theme");
+    }
+  }
+
+  if (body) {
+    body.classList.remove("student-body", "admin-body");
+
+    if (type === "student") {
+      body.classList.add("student-body");
+    }
+
+    if (type === "admin") {
+      body.classList.add("admin-body");
+    }
+  }
+}
+
 /* =========================
-   ADMIN ACADEMICS / PLACEHOLDER SCREENS
-   M4L v50: moved to /js/m4l-admin-academics.js
+   FEATURE MODULES
+   Auth, shell/navigation, attendance, admin academics, timetable, resources, progress, and manage-students load from /js/.
+   app.js keeps shared constants, state, startup, safe DOM wrappers, and home-only content.
 ========================= */
 
 /* =========================
@@ -389,33 +366,6 @@ function ensureClassDuasCardAfterTimetable(contentId, cardId, imageCardIds = [])
   }
 }
 
-/* M4L v40: Timetable functions moved to /js/m4l-timetable.js */
-
-function escapeJsString(value) {
-  return String(value || "")
-    .replace(/\\/g, "\\\\")
-    .replace(/'/g, "\\'")
-    .replace(/\n/g, "\\n")
-    .replace(/\r/g, "");
-}
-
-
-/* =========================
-   STUDENT TASK / PROGRESS VIEW
-   M4L v42: moved to /js/m4l-progress.js
-========================= */
-
-/* =========================
-   STUDENT RESOURCE VIEW / MEDIA VIEWERS
-   M4L v41: moved to /js/m4l-resources.js
-========================= */
-
-/* =========================
-   MANAGE STUDENTS UI
-   M4L v43: moved to /js/m4l-manage-students.js
-   Keep loading this module after app.js, auth, shell, timetable, resources, and progress.
-========================= */
-
 function escapeAttribute(value) {
   return escapeHtml(value).replace(/"/g, "&quot;");
 }
@@ -436,15 +386,6 @@ function cssEscapeValue(value) {
   return String(value || "").replace(/"/g, "\\\"");
 }
 
-/* =========================
-   SUBJECTS UI
-   M4L v50: moved to /js/m4l-admin-academics.js
-========================= */
-
-/* =========================
-   ATTENDANCE
-   M4L v49: moved to /js/m4l-attendance.js
-========================= */
 
 function escapeHtml(value) {
   return String(value ?? "")
