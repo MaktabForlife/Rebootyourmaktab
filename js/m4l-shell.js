@@ -33,6 +33,11 @@ function showScreen(screenId) {
     updateBottomNavigation(screenId);
   }
 
+
+  if ((screenId === "student-home" || screenId === "admin-home") && typeof bindHomeSwipeControls === "function") {
+    bindHomeSwipeControls(screenId);
+  }
+
   if (screenId === "student-home" && typeof scheduleStudentHomeTimetableLoad === "function") {
     scheduleStudentHomeTimetableLoad();
   }
@@ -41,6 +46,121 @@ function showScreen(screenId) {
     scheduleAdminHomeTimetableLoad();
   }
 
+  return true;
+}
+
+
+let homeSwipeResizeHandlerBound = false;
+
+function getHomeSwipeElements(screenId) {
+  const screen = document.getElementById(screenId);
+
+  if (!screen) {
+    return { screen: null, track: null, dots: [] };
+  }
+
+  const track = screen.querySelector("[data-home-swipe-track]");
+  const dots = Array.from(screen.querySelectorAll("[data-home-swipe-dots] [data-home-panel-index]"));
+
+  return { screen, track, dots };
+}
+
+function getHomeSwipeActiveIndex(track) {
+  if (!track) return 0;
+
+  const panelCount = track.children ? track.children.length : 0;
+  if (panelCount <= 1) return 0;
+
+  const panelWidth = track.clientWidth || 1;
+  const index = Math.round(track.scrollLeft / panelWidth);
+
+  return Math.max(0, Math.min(panelCount - 1, index));
+}
+
+function updateHomeSwipeDots(screenId) {
+  const { track, dots } = getHomeSwipeElements(screenId);
+
+  if (!track || !dots.length) {
+    return false;
+  }
+
+  const activeIndex = getHomeSwipeActiveIndex(track);
+
+  dots.forEach((dot, index) => {
+    const isActive = index === activeIndex;
+    dot.classList.toggle("is-active", isActive);
+    dot.setAttribute("aria-current", isActive ? "true" : "false");
+  });
+
+  return true;
+}
+
+function scrollHomeSwipeToPanel(screenId, panelIndex) {
+  const { track } = getHomeSwipeElements(screenId);
+
+  if (!track || !track.children || !track.children[panelIndex]) {
+    return false;
+  }
+
+  track.children[panelIndex].scrollIntoView({
+    behavior: "smooth",
+    block: "nearest",
+    inline: "start"
+  });
+
+  return true;
+}
+
+function bindHomeSwipeResizeHandler() {
+  if (homeSwipeResizeHandlerBound === true) return true;
+  if (typeof window === "undefined" || typeof window.addEventListener !== "function") return false;
+
+  homeSwipeResizeHandlerBound = true;
+
+  window.addEventListener("resize", () => {
+    updateHomeSwipeDots("student-home");
+    updateHomeSwipeDots("admin-home");
+  }, { passive: true });
+
+  return true;
+}
+
+function bindHomeSwipeControls(screenId) {
+  const { track, dots } = getHomeSwipeElements(screenId);
+
+  if (!track || !dots.length) {
+    return false;
+  }
+
+  bindHomeSwipeResizeHandler();
+
+  if (track.dataset.homeSwipeBound !== "true") {
+    track.dataset.homeSwipeBound = "true";
+
+    let pendingFrame = 0;
+
+    track.addEventListener("scroll", () => {
+      if (pendingFrame) return;
+
+      pendingFrame = window.requestAnimationFrame(() => {
+        pendingFrame = 0;
+        updateHomeSwipeDots(screenId);
+      });
+    }, { passive: true });
+  }
+
+  dots.forEach(dot => {
+    if (dot.dataset.homeSwipeDotBound === "true") return;
+
+    dot.dataset.homeSwipeDotBound = "true";
+    dot.addEventListener("click", () => {
+      const index = Number(dot.dataset.homePanelIndex || 0);
+      scrollHomeSwipeToPanel(screenId, index);
+      updateHomeSwipeDots(screenId);
+    });
+  });
+
+  setTimeout(() => updateHomeSwipeDots(screenId), 0);
   return true;
 }
 
@@ -695,7 +815,7 @@ function placeBottomNavigationForViewport(nav) {
 
 function bindBottomNavigationViewportHandler(nav) {
   if (bottomNavigationViewportHandlerBound === true) return true;
-  if (!window || typeof window.addEventListener !== "function") return false;
+  if (typeof window === "undefined" || typeof window.addEventListener !== "function") return false;
 
   bottomNavigationViewportHandlerBound = true;
 
@@ -1022,6 +1142,7 @@ window.M4LShell = {
   setTextActionButton: typeof setTextActionButton === "function" ? setTextActionButton : undefined,
   getBottomNavRole: typeof getBottomNavRole === "function" ? getBottomNavRole : undefined,
   updateBottomNavigation: typeof updateBottomNavigation === "function" ? updateBottomNavigation : undefined,
+  bindHomeSwipeControls: typeof bindHomeSwipeControls === "function" ? bindHomeSwipeControls : undefined,
   placeBottomNavigationForViewport: typeof placeBottomNavigationForViewport === "function" ? placeBottomNavigationForViewport : undefined,
   runUserBandRefresh: typeof runUserBandRefresh === "function" ? runUserBandRefresh : undefined,
   refreshCurrentResourceView: typeof refreshCurrentResourceView === "function" ? refreshCurrentResourceView : undefined,
