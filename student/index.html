@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <!-- PWA: Student install settings -->
-  <link rel="stylesheet" href="/styles.css?v=56" />
+  <link rel="stylesheet" href="/styles.css?v=58" />
   <link rel="manifest" href="/student-manifest.json" />
   <link rel="apple-touch-icon" sizes="180x180" href="/student-apple-touch-icon.png" />
   <link rel="icon" type="image/png" sizes="32x32" href="/student-favicon-32x32.png" />
@@ -76,38 +76,59 @@
         <button class="small-btn" onclick="logout()">Logout</button>
       </div>
 
-      <div class="student-home-panel">
-
-        <button
-          id="student-zoom-link-btn"
-          type="button"
-          class="zoom-link-button"
-          onclick="openStudentTimetableZoom()"
-          disabled
+      <div class="home-swipe-shell" data-home-swipe="student-home">
+        <div
+          id="student-home-swipe-track"
+          class="student-home-panel home-swipe-track"
+          data-home-swipe-track
+          aria-label="Student Home panels"
         >
-          <span class="zoom-link-button__icon" aria-hidden="true"></span>
-          <span class="zoom-link-button__text">Join Zoom Class</span>
-        </button>
-
-        <section class="timetable-card">
-          <div class="timetable-card-header">
-            <h3>Timetable</h3>
+          <section class="home-swipe-panel home-swipe-panel--timetable" aria-label="Zoom and timetable">
             <button
+              id="student-zoom-link-btn"
               type="button"
-              class="small-btn manual-refresh-btn"
-              title="Refresh timetable"
-              aria-label="Refresh timetable"
-              onclick="refreshStudentHomeTimetable(this)"
+              class="zoom-link-button"
+              onclick="openStudentTimetableZoom()"
+              disabled
             >
-              <span class="manual-refresh-btn__icon" aria-hidden="true"></span>
-              <span class="visually-hidden">Refresh timetable</span>
+              <span class="zoom-link-button__icon" aria-hidden="true"></span>
+              <span class="zoom-link-button__text">Join Zoom Class</span>
             </button>
-          </div>
 
-          <div id="student-timetable-content">
-            <p class="helper-text">Loading timetable...</p>
-          </div>
-        </section>
+            <section class="timetable-card">
+              <div class="timetable-card-header">
+                <h3>Timetable</h3>
+                <button
+                  type="button"
+                  class="small-btn manual-refresh-btn"
+                  title="Refresh timetable"
+                  aria-label="Refresh timetable"
+                  onclick="refreshStudentHomeTimetable(this)"
+                >
+                  <span class="manual-refresh-btn__icon" aria-hidden="true"></span>
+                  <span class="visually-hidden">Refresh timetable</span>
+                </button>
+              </div>
+
+              <div id="student-timetable-content">
+                <p class="helper-text">Loading timetable...</p>
+              </div>
+            </section>
+          </section>
+
+          <section
+            id="student-home-duas-panel"
+            class="home-swipe-panel home-swipe-panel--duas"
+            aria-label="Class duas"
+          >
+            <p class="helper-text">Loading class duas...</p>
+          </section>
+        </div>
+
+        <div class="home-swipe-dots" data-home-swipe-dots aria-label="Home panels">
+          <button type="button" class="home-swipe-dot is-active" data-home-panel-index="0" aria-label="Show timetable panel" aria-current="true"></button>
+          <button type="button" class="home-swipe-dot" data-home-panel-index="1" aria-label="Show class duas panel" aria-current="false"></button>
+        </div>
       </div>
     </section>
 
@@ -224,10 +245,10 @@
 
   </main>
 <script src="/js/m4l-dom.js?v=11"></script>
-<script src="/app.js?v=56b"></script>
+<script src="/app.js?v=58"></script>
 <script src="/js/m4l-auth.js?v=56"></script>
-<script src="/js/m4l-shell.js?v=56"></script>
-<script src="/js/m4l-timetable.js?v=56"></script>
+<script src="/js/m4l-shell.js?v=58"></script>
+<script src="/js/m4l-timetable.js?v=58"></script>
 <script src="/js/m4l-resources.js?v=56"></script>
 <script src="/js/m4l-progress.js?v=56"></script>
 </body>
