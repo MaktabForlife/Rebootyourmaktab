@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <!-- PWA: Student install settings -->
-  <link rel="stylesheet" href="/styles.css?v=58" />
+  <link rel="stylesheet" href="/styles.css?v=59.1" />
   <link rel="manifest" href="/student-manifest.json" />
   <link rel="apple-touch-icon" sizes="180x180" href="/student-apple-touch-icon.png" />
   <link rel="icon" type="image/png" sizes="32x32" href="/student-favicon-32x32.png" />
@@ -77,6 +77,10 @@
       </div>
 
       <div class="home-swipe-shell" data-home-swipe="student-home">
+        <div class="home-swipe-dots" data-home-swipe-dots aria-label="Home panels">
+          <button type="button" class="home-swipe-dot is-active" data-home-panel-index="0" aria-label="Show timetable panel" aria-current="true"></button>
+          <button type="button" class="home-swipe-dot" data-home-panel-index="1" aria-label="Show class duas panel" aria-current="false"></button>
+        </div>
         <div
           id="student-home-swipe-track"
           class="student-home-panel home-swipe-track"
@@ -125,10 +129,6 @@
           </section>
         </div>
 
-        <div class="home-swipe-dots" data-home-swipe-dots aria-label="Home panels">
-          <button type="button" class="home-swipe-dot is-active" data-home-panel-index="0" aria-label="Show timetable panel" aria-current="true"></button>
-          <button type="button" class="home-swipe-dot" data-home-panel-index="1" aria-label="Show class duas panel" aria-current="false"></button>
-        </div>
       </div>
     </section>
 
@@ -245,10 +245,10 @@
 
   </main>
 <script src="/js/m4l-dom.js?v=11"></script>
-<script src="/app.js?v=58"></script>
+<script src="/app.js?v=59.1"></script>
 <script src="/js/m4l-auth.js?v=56"></script>
-<script src="/js/m4l-shell.js?v=58"></script>
-<script src="/js/m4l-timetable.js?v=58"></script>
+<script src="/js/m4l-shell.js?v=59.1"></script>
+<script src="/js/m4l-timetable.js?v=56"></script>
 <script src="/js/m4l-resources.js?v=56"></script>
 <script src="/js/m4l-progress.js?v=56"></script>
 </body>
