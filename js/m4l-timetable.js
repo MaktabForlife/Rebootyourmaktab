@@ -531,33 +531,70 @@ function ensureAdminHomePanel() {
   });
 
   let panel = document.getElementById("admin-home-panel");
+  let swipeShell = null;
 
   if (!panel) {
+    swipeShell = document.createElement("div");
+    swipeShell.className = "home-swipe-shell";
+    swipeShell.dataset.homeSwipe = "admin-home";
+
     panel = document.createElement("div");
     panel.id = "admin-home-panel";
-    panel.className = "student-home-panel admin-home-panel";
+    panel.className = "student-home-panel admin-home-panel home-swipe-track";
+    panel.dataset.homeSwipeTrack = "";
+    panel.setAttribute("aria-label", "Admin Home panels");
     panel.innerHTML = `
-      <div class="timetable-card">
-        <div class="timetable-card-header">
-          <h3>Timetable</h3>
-        </div>
-        <div id="admin-home-timetable-content">
-          <p class="helper-text">Loading timetable...</p>
-        </div>
-      </div>
-      <button
-        id="admin-home-zoom-link-btn"
-        type="button"
-        class="zoom-link-button"
-        data-timetable-action="open-zoom"
+      <section class="home-swipe-panel home-swipe-panel--timetable" aria-label="Zoom and timetable">
+        <button
+          id="admin-home-zoom-link-btn"
+          type="button"
+          class="zoom-link-button"
+          data-timetable-action="open-zoom"
+        >
+          <span class="zoom-link-button__icon" aria-hidden="true"></span>
+          <span class="zoom-link-button__text">Join Zoom Class</span>
+        </button>
+
+        <section class="timetable-card">
+          <div class="timetable-card-header">
+            <h3>Timetable</h3>
+          </div>
+          <div id="admin-home-timetable-content">
+            <p class="helper-text">Loading timetable...</p>
+          </div>
+        </section>
+      </section>
+
+      <section
+        id="admin-home-duas-panel"
+        class="home-swipe-panel home-swipe-panel--duas"
+        aria-label="Class duas"
       >
-        Join Zoom Class
-      </button>
+        <p class="helper-text">Loading class duas...</p>
+      </section>
     `;
+
+    const dots = document.createElement("div");
+    dots.className = "home-swipe-dots";
+    dots.dataset.homeSwipeDots = "";
+    dots.setAttribute("aria-label", "Home panels");
+    dots.innerHTML = `
+      <button type="button" class="home-swipe-dot is-active" data-home-panel-index="0" aria-label="Show timetable panel" aria-current="true"></button>
+      <button type="button" class="home-swipe-dot" data-home-panel-index="1" aria-label="Show class duas panel" aria-current="false"></button>
+    `;
+
+    swipeShell.appendChild(panel);
+    swipeShell.appendChild(dots);
   }
 
-  if (!panel.parentNode) {
+  if (swipeShell) {
+    screen.prepend(swipeShell);
+  } else if (!panel.parentNode) {
     screen.prepend(panel);
+  }
+
+  if (typeof bindHomeSwipePanels === "function") {
+    bindHomeSwipePanels();
   }
 
   removeLegacyScreenRefreshButtons();
