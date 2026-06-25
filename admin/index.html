@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <!-- PWA: Admin install settings -->
-  <link rel="stylesheet" href="/styles.css?v=56" />
+  <link rel="stylesheet" href="/styles.css?v=58" />
   <link rel="manifest" href="/admin-manifest.json" />
   <link rel="apple-touch-icon" sizes="180x180" href="/admin-apple-touch-icon.png" />
   <link rel="icon" type="image/png" sizes="32x32" href="/admin-favicon-32x32.png" />
@@ -68,24 +68,58 @@
 
     <!-- ADMIN HOME -->
     <section id="admin-home" class="screen admin-theme">
-      <div class="top-bar">
-        <div>
-          <h2>Admin Home</h2>
-          <p id="admin-welcome" class="mini-text"></p>
+      <div class="home-swipe-shell" data-home-swipe="admin-home">
+        <div
+          id="admin-home-panel"
+          class="student-home-panel admin-home-panel home-swipe-track"
+          data-home-swipe-track
+          aria-label="Admin Home panels"
+        >
+          <section class="home-swipe-panel home-swipe-panel--timetable" aria-label="Zoom and timetable">
+            <button
+              id="admin-home-zoom-link-btn"
+              type="button"
+              class="zoom-link-button"
+              data-timetable-action="open-zoom"
+            >
+              <span class="zoom-link-button__icon" aria-hidden="true"></span>
+              <span class="zoom-link-button__text">Join Zoom Class</span>
+            </button>
+
+            <section class="timetable-card">
+              <div class="timetable-card-header">
+                <h3>Timetable</h3>
+                <button
+                  type="button"
+                  class="small-btn manual-refresh-btn"
+                  title="Refresh timetable"
+                  aria-label="Refresh timetable"
+                  onclick="refreshAdminHomeTimetable(this)"
+                >
+                  <span class="manual-refresh-btn__icon" aria-hidden="true"></span>
+                  <span class="visually-hidden">Refresh timetable</span>
+                </button>
+              </div>
+
+              <div id="admin-home-timetable-content">
+                <p class="helper-text">Loading timetable...</p>
+              </div>
+            </section>
+          </section>
+
+          <section
+            id="admin-home-duas-panel"
+            class="home-swipe-panel home-swipe-panel--duas"
+            aria-label="Class duas"
+          >
+            <p class="helper-text">Loading class duas...</p>
+          </section>
         </div>
-        <button class="small-btn" onclick="logout()">Logout</button>
-      </div>
 
-      <div class="card-grid staff-dashboard-grid">
-        <button class="home-card" onclick="openMarkRegister()">
-          <span class="card-icon">✓</span>
-          <span>Mark Register</span>
-        </button>
-
-        <button class="home-card" onclick="showManageStudents()">
-          <span class="card-icon">＋</span>
-          <span>Add / Modify Students</span>
-        </button>
+        <div class="home-swipe-dots" data-home-swipe-dots aria-label="Home panels">
+          <button type="button" class="home-swipe-dot is-active" data-home-panel-index="0" aria-label="Show timetable panel" aria-current="true"></button>
+          <button type="button" class="home-swipe-dot" data-home-panel-index="1" aria-label="Show class duas panel" aria-current="false"></button>
+        </div>
       </div>
     </section>
 
@@ -423,7 +457,7 @@
 
   </main>
 <script src="/js/m4l-dom.js?v=11"></script>
-<script src="/app.js?v=56a"></script>
+<script src="/app.js?v=58"></script>
 <script src="/js/m4l-auth.js?v=55"></script>
 <script src="/js/m4l-shell.js?v=55"></script>
 <script src="/js/m4l-attendance.js?v=55"></script>
