@@ -29,6 +29,10 @@ function showScreen(screenId) {
     updateUserBand(screenId);
   }
 
+  if (typeof updateActiveSectionBodyClasses === "function") {
+    updateActiveSectionBodyClasses(screenId);
+  }
+
   if (typeof updateBottomNavigation === "function") {
     updateBottomNavigation(screenId);
   }
@@ -108,6 +112,18 @@ function scrollSectionSwipeToPanel(screenId, panelIndex) {
     inline: "start"
   });
 
+  return true;
+}
+
+function updateActiveSectionBodyClasses(screenId) {
+  if (!document || !document.body) return false;
+
+  const normalizedId = String(screenId || "");
+  const isAttendanceSection = normalizedId === "attendance-register-screen" ||
+    normalizedId === "attendance-report-screen" ||
+    normalizedId === "attendance-stats-screen";
+
+  document.body.classList.toggle("is-attendance-section", isAttendanceSection);
   return true;
 }
 
