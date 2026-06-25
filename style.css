@@ -1642,6 +1642,137 @@ body.has-user-band .top-bar button[onclick="logout()"] {
   max-width: 100%;
 }
 
+/* Swipe panels: Home and Attendance dashboard */
+.home-swipe-shell,
+.section-swipe-shell {
+  width: 100%;
+  min-width: 0;
+}
+
+.home-swipe-track,
+.section-swipe-track {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+  margin-top: 0;
+  text-align: left;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  overscroll-behavior-inline: contain;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.home-swipe-track::-webkit-scrollbar,
+.section-swipe-track::-webkit-scrollbar {
+  display: none;
+}
+
+.home-swipe-panel,
+.section-swipe-panel {
+  flex: 0 0 100%;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  display: grid;
+  gap: 12px;
+  align-content: start;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+}
+
+.home-swipe-panel > *,
+.section-swipe-panel > * {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.home-swipe-panel--duas .class-duas-card,
+.section-swipe-panel--duas .class-duas-card {
+  margin-top: 0;
+}
+
+.home-swipe-dots,
+.section-swipe-dots {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(var(--bottom-nav-height) + var(--bottom-nav-safe-area) + 8px);
+  z-index: 79;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  pointer-events: none;
+}
+
+.home-swipe-dot,
+.section-swipe-dot {
+  width: 12px;
+  min-width: 12px;
+  height: 12px;
+  min-height: 12px;
+  padding: 0;
+  border: 2px solid var(--primary);
+  border-radius: 999px;
+  background: transparent;
+  box-shadow: none;
+  pointer-events: auto;
+}
+
+.home-swipe-dot.is-active,
+.section-swipe-dot.is-active {
+  background: var(--primary);
+}
+
+.home-swipe-dot:active,
+.section-swipe-dot:active {
+  transform: scale(0.92);
+}
+
+.attendance-dashboard-panel {
+  margin-top: 0;
+}
+
+.attendance-swipe-panel {
+  min-height: 180px;
+}
+
+.attendance-panel-card {
+  min-height: 180px;
+  display: grid;
+  align-content: center;
+  gap: 10px;
+  padding: 22px 18px;
+  background: var(--surface-card);
+  color: var(--primary);
+  border: 1px solid rgba(var(--primary-rgb), 0.14);
+  border-radius: 18px;
+  text-align: center;
+  box-shadow: 0 2px 5px rgba(var(--black-rgb), 0.08);
+}
+
+.attendance-panel-card__title {
+  display: block;
+  color: var(--primary);
+  font-family: var(--font-heading);
+  font-size: clamp(1.15rem, 5vw, 1.45rem);
+  font-weight: 800;
+  line-height: 1.15;
+}
+
+.attendance-panel-card__text {
+  display: block;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+
 .student-home-card {
   background: var(--surface-card);
   border-left: 5px solid var(--primary);
@@ -1953,25 +2084,36 @@ body.has-user-band .top-bar button[onclick="logout()"] {
 }
 
 
-/* Student Home: compact timetable layout */
-#student-home .top-bar {
+/* Home: compact timetable layout */
+#student-home .top-bar,
+#admin-home .top-bar {
   display: none;
 }
 
-#student-home.screen {
+#attendance-dashboard .nav-header {
+  margin-bottom: 0;
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+#student-home.screen,
+#admin-home.screen {
   padding-inline: 12px;
 }
 
-#student-home .student-home-panel {
+#student-home .student-home-panel,
+#admin-home .student-home-panel {
   margin-top: 0;
   gap: 12px;
 }
 
-#student-home #student-zoom-link-btn {
+#student-home #student-zoom-link-btn,
+#admin-home #admin-home-zoom-link-btn {
   order: -1;
 }
 
-#student-home .timetable-card {
+#student-home .timetable-card,
+#admin-home .timetable-card {
   overflow: visible;
   background: transparent;
   border-left: 0;
@@ -1980,22 +2122,59 @@ body.has-user-band .top-bar button[onclick="logout()"] {
   box-shadow: none;
 }
 
-#student-home .timetable-card-header {
+#student-home .timetable-card-header,
+#admin-home .timetable-card-header {
   margin: 0 0 6px;
   justify-content: flex-end;
 }
 
-#student-home .timetable-card-header h3 {
+#student-home .timetable-card-header h3,
+#admin-home .timetable-card-header h3 {
   display: none;
 }
 
-#student-home .timetable-scroll {
+#student-home .timetable-scroll,
+#admin-home .timetable-scroll {
   background: transparent;
 }
 
-#student-home .timetable-subject {
+#student-home .timetable-subject,
+#admin-home .timetable-subject {
   font-size: clamp(1rem, 3.8vw, 1.15rem);
   font-weight: 800;
+}
+
+
+@media (min-width: 768px) {
+  .app-shell {
+    max-width: 980px;
+  }
+
+  .home-swipe-track,
+  .section-swipe-track {
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+    gap: 18px;
+    overflow: visible;
+    scroll-snap-type: none;
+  }
+
+
+  .attendance-swipe-track {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .home-swipe-panel,
+  .section-swipe-panel {
+    width: auto;
+    max-width: none;
+    scroll-snap-align: none;
+  }
+
+  .home-swipe-dots,
+  .section-swipe-dots {
+    display: none;
+  }
 }
 
 /* Reusable responsive primary navigation */
@@ -2238,8 +2417,65 @@ body.has-bottom-nav .app-shell {
   margin-bottom: 16px;
 }
 
-.attendance-filter-box button {
-  margin-top: 10px;
+.attendance-filter-box-compact {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 0;
+}
+
+.attendance-filter-box-compact .attendance-date-row {
+  margin: 0;
+}
+
+.attendance-filter-action-btn,
+.attendance-register-sticky .attendance-save-btn {
+  width: 100%;
+  min-height: 48px;
+  margin-top: 2px;
+  border-radius: 14px;
+  background: var(--surface-card);
+  color: var(--primary);
+  border: 1px solid rgba(var(--primary-rgb), 0.18);
+  box-shadow: 0 2px 5px rgba(var(--black-rgb), 0.08);
+}
+
+.attendance-sticky-control-pane {
+  position: sticky;
+  top: 0;
+  z-index: 55;
+  display: grid;
+  gap: 10px;
+  padding: 8px 0 12px;
+  margin-bottom: 10px;
+  background: var(--surface-tint);
+}
+
+.attendance-subscreen-header {
+  text-align: left;
+}
+
+.attendance-subscreen-header h2 {
+  margin: 0;
+  font-size: clamp(1.05rem, 4.6vw, 1.35rem);
+  line-height: 1.15;
+  letter-spacing: 0.01em;
+}
+
+.attendance-panel-dots {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 2px 0 0;
+}
+
+.attendance-panel-dots .section-swipe-dot {
+  pointer-events: auto;
+}
+
+.attendance-empty-state {
+  margin: 14px 0 0;
+  text-align: center;
 }
 
 .attendance-group-heading {
@@ -3402,12 +3638,7 @@ body.resource-module-picker-open {
 }
 
 .attendance-register-sticky {
-  position: sticky;
-  top: 0;
-  z-index: 50;
-  padding: 8px 0 12px;
-  margin-bottom: 4px;
-  background: var(--surface-tint);
+  margin-bottom: 10px;
 }
 
 
@@ -3611,8 +3842,7 @@ body.resource-module-picker-open {
     border-radius: 13px;
   }
 
-  .attendance-register-sticky {
-    top: 0;
+  .attendance-sticky-control-pane {
     padding-top: 6px;
   }
 
