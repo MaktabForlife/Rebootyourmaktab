@@ -1,436 +1,65 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <title>Maktab4Life Admin</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+M4L_v55 — admin/index.html role-based loading patch
+===================================================
 
-  <!-- PWA: Admin install settings -->
-  <link rel="stylesheet" href="/styles.css?v=53" />
-  <link rel="manifest" href="/admin-manifest.json" />
-  <link rel="apple-touch-icon" sizes="180x180" href="/admin-apple-touch-icon.png" />
-  <link rel="icon" type="image/png" sizes="32x32" href="/admin-favicon-32x32.png" />
-  <link rel="icon" type="image/png" sizes="16x16" href="/admin-favicon-16x16.png" />
+Source baseline:
+- M4L_v54_admin_index_bootstrap_guards.html.txt
 
-</head>
+Purpose:
+- Keep admin loading the full feature module set.
+- Update cache-busting query strings to V55 so the admin route stays aligned with the new baseline.
+- No admin modules are removed in V55.
 
-<body>
-  <main class="app-shell">
+Change 1 — update the stylesheet cache version
+----------------------------------------------
+Find this line in admin/index.html:
 
-    <!-- LOGIN / PIN SCREEN -->
-    <section id="auth-screen" class="screen active">
-      <div id="auth-welcome-banner" class="auth-welcome-banner hidden">
-        Ahlan wa Sahlan
-      </div>
+<link rel="stylesheet" href="/styles.css?v=54" />
 
-      <div class="auth-brand-block">
-        <h2 class="auth-brand-title">Maktabhelper</h2>
-        <img src="/logo.png" alt="Maktab4Life Logo" class="app-logo auth-logo" />
-        <h2 class="auth-brand-title">Reboot Your Maktab</h2>
-        <p id="portal-title" class="auth-login-label">Admin Login</p>
-        <p id="portal-subtitle" class="subtitle auth-user-subtitle">Checking your link...</p>
-      </div>
+Replace it with:
 
-      <div id="setup-pin-box" class="auth-box hidden">
-        <h2>Create PIN</h2>
-        <ol class="pin-instruction-list">
-          <li>Create a memorable PIN.</li>
-          <li>Login with your PIN.</li>
-          <li>Add the page to your Homescreen.</li>
-        </ol>
+<link rel="stylesheet" href="/styles.css?v=55" />
 
-        <div class="pin-digit-row" data-pin-group="setup-pin" aria-label="Create 4-digit PIN">
-          <input id="setup-pin-1" class="pin-digit" type="tel" inputmode="numeric" enterkeyhint="next" pattern="[0-9]*" maxlength="1" autocomplete="one-time-code" aria-label="PIN digit 1" />
-          <input id="setup-pin-2" class="pin-digit" type="tel" inputmode="numeric" enterkeyhint="next" pattern="[0-9]*" maxlength="1" autocomplete="one-time-code" aria-label="PIN digit 2" />
-          <input id="setup-pin-3" class="pin-digit" type="tel" inputmode="numeric" enterkeyhint="next" pattern="[0-9]*" maxlength="1" autocomplete="one-time-code" aria-label="PIN digit 3" />
-          <input id="setup-pin-4" class="pin-digit" type="tel" inputmode="numeric" enterkeyhint="done" pattern="[0-9]*" maxlength="1" autocomplete="one-time-code" aria-label="PIN digit 4" />
-        </div>
-        <input id="setup-pin" type="hidden" />
 
-        <button onclick="submitSetupPin()">Set PIN</button>
-      </div>
+Change 2 — replace the full script block at the bottom
+------------------------------------------------------
+Find the existing script block at the bottom of admin/index.html:
 
-      <div id="login-pin-box" class="auth-box hidden">
-        <h2>Enter PIN</h2>
-        <p class="helper-text">Enter your 4-digit PIN to continue.</p>
-
-        <div class="pin-digit-row" data-pin-group="login-pin" aria-label="Enter 4-digit PIN">
-          <input id="login-pin-1" class="pin-digit" type="tel" inputmode="numeric" enterkeyhint="next" pattern="[0-9]*" maxlength="1" autocomplete="one-time-code" aria-label="PIN digit 1" />
-          <input id="login-pin-2" class="pin-digit" type="tel" inputmode="numeric" enterkeyhint="next" pattern="[0-9]*" maxlength="1" autocomplete="one-time-code" aria-label="PIN digit 2" />
-          <input id="login-pin-3" class="pin-digit" type="tel" inputmode="numeric" enterkeyhint="next" pattern="[0-9]*" maxlength="1" autocomplete="one-time-code" aria-label="PIN digit 3" />
-          <input id="login-pin-4" class="pin-digit" type="tel" inputmode="numeric" enterkeyhint="done" pattern="[0-9]*" maxlength="1" autocomplete="one-time-code" aria-label="PIN digit 4" />
-        </div>
-        <input id="login-pin" type="hidden" />
-      </div>
-
-      <p id="auth-error" class="error-message"></p>
-    </section>
-
-    <!-- ADMIN HOME -->
-    <section id="admin-home" class="screen admin-theme">
-      <div class="top-bar">
-        <div>
-          <h2>Admin Home</h2>
-          <p id="admin-welcome" class="mini-text"></p>
-        </div>
-        <button class="small-btn" onclick="logout()">Logout</button>
-      </div>
-
-      <div class="card-grid staff-dashboard-grid">
-        <button class="home-card" onclick="openMarkRegister()">
-          <span class="card-icon">✓</span>
-          <span>Mark Register</span>
-        </button>
-
-        <button class="home-card" onclick="showManageStudents()">
-          <span class="card-icon">＋</span>
-          <span>Add / Modify Students</span>
-        </button>
-      </div>
-    </section>
-
-    <!-- ADMIN ACADEMICS MENU -->
-    <section id="admin-academics" class="screen admin-theme">
-      <div class="nav-header">
-        <h2>Admin</h2>
-        <button class="small-btn home-icon-btn" onclick="showScreen('admin-home')" aria-label="Home" title="Home"><span class="home-icon-btn__icon" aria-hidden="true"></span><span class="visually-hidden">Home</span></button>
-      </div>
-
-      <div class="list-stack">
-        <button class="list-btn" onclick="showManageStudents()">Add / Modify Students</button>
-        <button class="list-btn" onclick="showSubjectsScreen()">Curriculum</button>
-        <button class="list-btn" onclick="showAdminResources()">Resources</button>
-        <button class="list-btn" onclick="showPlaceholder('Tasks')">Tasks</button>
-        <button class="list-btn" onclick="showAdminTimetableAdmin()">Timetable</button>
-        <button class="list-btn" onclick="showAdminZoomLinkAdmin()">Zoom Link</button>
-      </div>
-    </section>
-
-    <!-- SHARED RESOURCE SCREENS (used by Admin Resources) -->
-    <section id="student-resources-subjects" class="screen admin-theme">
-      <div class="nav-header">
-        <h2 class="visually-hidden">Resources</h2>
-        <button class="small-btn home-icon-btn" onclick="showScreen('admin-home')" aria-label="Home" title="Home"><span class="home-icon-btn__icon" aria-hidden="true"></span><span class="visually-hidden">Home</span></button>
-      </div>
-
-      <div id="student-resource-subject-list" class="list-stack">
-        <p class="helper-text">Loading resources...</p>
-      </div>
-    </section>
-
-    <section id="student-resources-media" class="screen admin-theme">
-      <div class="nav-header">
-        <h2 id="student-resource-media-title">Resources</h2>
-        <button class="small-btn" onclick="showScreen('student-resources-subjects')">Back</button>
-      </div>
-
-      <div id="student-resource-media-list" class="list-stack">
-        <p class="helper-text">Loading media types...</p>
-      </div>
-    </section>
-
-    <section id="student-resources-modules" class="screen admin-theme">
-      <div class="nav-header">
-        <h2 id="student-resource-module-title">Modules</h2>
-        <button class="small-btn" onclick="showScreen('student-resources-media')">Back</button>
-      </div>
-
-      <div id="student-resource-module-list" class="list-stack">
-        <p class="helper-text">Loading modules...</p>
-      </div>
-    </section>
-
-    <section id="student-resources-detail" class="screen admin-theme">
-      <div class="nav-header">
-        <h2 id="student-resource-detail-title">Resources</h2>
-        <button class="small-btn" onclick="showScreen('student-resources-subjects')">Back</button>
-      </div>
-
-      <div id="student-resource-detail-content" class="list-stack">
-        <p class="helper-text">Loading resources...</p>
-      </div>
-    </section>
-
-    <!-- PROGRESS REPORT -->
-<section id="progress-report" class="screen admin-theme">
-  <div class="nav-header">
-    <h2 class="visually-hidden">Progress Monitor</h2>
-    <button class="small-btn home-icon-btn" onclick="showScreen('admin-home')" aria-label="Home" title="Home"><span class="home-icon-btn__icon" aria-hidden="true"></span><span class="visually-hidden">Home</span></button>
-  </div>
-
-  <div class="dashboard-section">
-    <h3>Progress for Class</h3>
-    <button class="list-btn" onclick="openProgressContext('class', 'ALL')">
-      View Full Class
-    </button>
-  </div>
-
-  <div class="dashboard-section">
-    <h3>Progress for Groups</h3>
-    <select id="progress-group-select">
-      <option value="">Select a Group...</option>
-    </select>
-    <button class="list-btn" onclick="openSelectedGroupProgress()">
-      View Group
-    </button>
-  </div>
-
-  <div class="dashboard-section">
-    <h3>Progress for Individuals</h3>
-    <select id="progress-student-select">
-      <option value="">Select a Student...</option>
-    </select>
-    <button class="list-btn" onclick="openSelectedStudentProgress()">
-      View Student
-    </button>
-  </div>
-</section>
-
-<section id="progress-subjects-screen" class="screen admin-theme">
-  <div class="nav-header">
-    <h2 id="progress-subjects-title">Modules</h2>
-    <button class="small-btn" onclick="showScreen('progress-report')">Back</button>
-  </div>
-
-  <div id="progress-subjects-list" class="list-stack"></div>
-</section>
-
-<section id="progress-tasks-screen" class="screen admin-theme">
-  <div class="nav-header">
-    <h2 id="progress-tasks-title">Tasks</h2>
-    <button class="small-btn" onclick="showScreen('progress-subjects-screen')">Back</button>
-  </div>
-
-  <div id="progress-tasks-list" class="list-stack"></div>
-</section>
-
-<section id="progress-task-students-screen" class="screen admin-theme">
-  <div class="nav-header">
-    <h2 id="progress-task-students-title">Task</h2>
-    <button class="small-btn" onclick="showScreen('progress-tasks-screen')">Back</button>
-  </div>
-
-  <div id="progress-task-students-list" class="list-stack"></div>
-</section>
-
-    
-
-
-
-
-    <!-- MANAGE STUDENTS -->
-    <section id="manage-students-screen" class="screen admin-theme student-admin-screen">
-      <div class="student-admin-modern-header">
-        <h2>Manage Students</h2>
-        <button class="small-btn" onclick="showScreen('admin-academics')">Back</button>
-      </div>
-
-      <div id="manage-students-content">
-        <p class="helper-text">Loading student management...</p>
-      </div>
-    </section>
-
-    <section id="manage-students-result-screen" class="screen admin-theme student-admin-screen">
-      <div class="student-admin-modern-header">
-        <h2>Student Link</h2>
-        <button class="small-btn home-icon-btn" onclick="showScreen('admin-home')" aria-label="Home" title="Home"><span class="home-icon-btn__icon" aria-hidden="true"></span><span class="visually-hidden">Home</span></button>
-      </div>
-
-      <div id="manage-students-result-content">
-        <p class="helper-text">Loading student link...</p>
-      </div>
-    </section>
-
-    <section id="manage-student-edit-screen" class="screen admin-theme student-admin-screen">
-      <div class="student-admin-modern-header">
-        <h2>Edit Student</h2>
-        <button class="small-btn" onclick="backToManagedStudentList()">Back</button>
-      </div>
-
-      <div id="manage-student-edit-content">
-        <p class="helper-text">Loading student...</p>
-      </div>
-    </section>
-    
-    <section id="subjects-screen" class="screen admin-theme">
-         <div class="nav-header">
-            <h2>Subjects</h2>
-    <button class="small-btn home-icon-btn" onclick="showScreen('admin-home')" aria-label="Home" title="Home"><span class="home-icon-btn__icon" aria-hidden="true"></span><span class="visually-hidden">Home</span></button>
-  </div>
-
-  <div class="dashboard-section subject-panel">
-       <h3>Add Subjects</h3>
-
-        <div id="subject-add-list" class="subject-add-list"></div>
-
-       <button id="submit-subjects-btn" class="save-btn hidden" onclick="submitPendingSubjects()">
-      Submit Subjects
-    </button>
-
-    <p id="subject-add-message" class="helper-text"></p>
-  </div>
-
-  <div class="dashboard-section subject-panel">
-    <h3>Modify Subject</h3>
-
-    <select id="modify-subject-select" onchange="selectSubjectToModify()">
-      <option value="">Select subject...</option>
-    </select>
-
-   <div id="modify-subject-box" class="hidden">
-  <input id="modify-subject-name" type="text" placeholder="Subject name" />
-
-  <div class="status-action-row">
-    <div id="selected-subject-status" class="status-display">
-      STATUS: -
-    </div>
-
-    <button
-      id="toggle-subject-status-btn"
-      class="status-toggle-btn"
-      onclick="toggleSubjectStatusLocal()"
-    >
-      Change Status
-    </button>
-  </div>
-
-  <button class="save-btn" onclick="saveSubjectChanges()">
-    Save These Changes
-  </button>
-</div>
-  </div>
-</section>
-
-<section id="teacher-student-tasks" class="screen admin-theme">
-  <div class="nav-header">
-    <h2 id="teacher-student-tasks-title">Student Tasks</h2>
-    <button class="small-btn" onclick="showScreen('progress-report')">Back</button>
-  </div>
-
-  <div id="teacher-student-task-list" class="list-stack">
-    <p class="helper-text">Loading student tasks...</p>
-  </div>
-</section>
-    
-
-    
-
-    <!-- ADMIN ATTENDANCE -->
-    <section id="attendance-dashboard" class="screen admin-theme">
-      <div class="nav-header">
-        <h2 class="visually-hidden">Attendance</h2>
-        <button class="small-btn home-icon-btn" onclick="showScreen('admin-home')" aria-label="Home" title="Home"><span class="home-icon-btn__icon" aria-hidden="true"></span><span class="visually-hidden">Home</span></button>
-      </div>
-
-      <div class="list-stack">
-        <button class="list-btn" onclick="openMarkRegister()">Mark Register</button>
-        <button class="list-btn" onclick="openViewAttendance()">Attendance Records</button>
-        <button class="list-btn" onclick="openAttendanceStats()">View Attendance Stats</button>
-      </div>
-    </section>
-
-   
-<section id="attendance-register-screen" class="screen admin-theme">
-  <div id="attendance-register-content">
-    <p class="helper-text">Loading attendance...</p>
-  </div>
-</section>
-
-
-    
-    <section id="attendance-report-screen" class="screen admin-theme">
-      <div id="attendance-report-content" class="list-stack">
-        <p class="helper-text">Loading attendance...</p>
-      </div>
-    </section>
-
-    <section id="attendance-stats-screen" class="screen admin-theme">
-      <div id="attendance-stats-content" class="list-stack">
-        <p class="helper-text">Loading statistics...</p>
-      </div>
-    </section>
-
-
-    <!-- ADMIN TIMETABLE -->
-    <section id="admin-timetable-screen" class="screen admin-theme">
-      <div class="nav-header">
-        <h2>Timetable</h2>
-        <button class="small-btn home-icon-btn" onclick="showScreen('admin-home')" aria-label="Home" title="Home"><span class="home-icon-btn__icon" aria-hidden="true"></span><span class="visually-hidden">Home</span></button>
-      </div>
-
-      <div class="timetable-card">
-        <div id="admin-timetable-content">
-          <p class="helper-text">Loading timetable...</p>
-        </div>
-      </div>
-    </section>
-
-    <section id="admin-timetable-admin-screen" class="screen admin-theme">
-      <div class="nav-header">
-        <h2>Timetable / Zoom Link</h2>
-        <button class="small-btn" onclick="showScreen('admin-academics')">Back</button>
-      </div>
-
-      <div class="dashboard-section timetable-admin-form">
-        <h3>Global Zoom Link</h3>
-        <p class="helper-text">This link is stored in the TimeTable tab, row 2, ZoomLink column.</p>
-        <input id="admin-global-zoom-link" type="url" inputmode="url" placeholder="https://..." />
-        <button type="button" class="save-btn" onclick="saveAdminTimetableZoomLink(this)">
-          Save Zoom Link
-        </button>
-        <p id="admin-timetable-message" class="helper-text timetable-status-message"></p>
-      </div>
-
-      <div class="timetable-card">
-        <h3>Timetable Preview</h3>
-        <div id="admin-timetable-admin-preview">
-          <p class="helper-text">Loading timetable...</p>
-        </div>
-      </div>
-    </section>
-
-
-    <!-- PDF VIEWER -->
-    <section id="pdf-viewer-screen" class="screen admin-theme">
-      <div class="nav-header pdf-viewer-header">
-        <h2 id="pdf-viewer-title">PDF Viewer</h2>
-        <div class="pdf-viewer-actions">
-          <button class="small-btn pdf-direct-btn" onclick="openCurrentPdfDirect()">Open</button>
-          <button class="small-btn" onclick="closePdfViewer()">Back</button>
-        </div>
-      </div>
-
-      <iframe
-        id="pdf-viewer-frame"
-        class="pdf-viewer-frame"
-        title="PDF Viewer"
-      ></iframe>
-    </section>
-
-    <!-- PLACEHOLDER SCREEN -->
-    <section id="placeholder-screen" class="screen">
-      <div class="nav-header">
-        <h2 id="placeholder-title">Screen</h2>
-        <button class="small-btn home-icon-btn" onclick="goHome()" aria-label="Home" title="Home"><span class="home-icon-btn__icon" aria-hidden="true"></span><span class="visually-hidden">Home</span></button>
-      </div>
-
-      <div class="dashboard-section">
-        <p class="helper-text">This screen will be connected next.</p>
-      </div>
-    </section>
-
-    <nav id="bottom-nav" class="bottom-nav hidden" aria-label="Primary navigation"></nav>
-
-  </main>
 <script src="/js/m4l-dom.js?v=11"></script>
 <script src="/app.js?v=54"></script>
-<script src="/js/m4l-auth.js?v=53"></script>
+<script src="/js/m4l-auth.js?v=54"></script>
 <script src="/js/m4l-shell.js?v=54"></script>
-<script src="/js/m4l-attendance.js?v=53"></script>
-<script src="/js/m4l-admin-academics.js?v=53"></script>
-<script src="/js/m4l-timetable.js?v=53"></script>
-<script src="/js/m4l-resources.js?v=53"></script>
-<script src="/js/m4l-progress.js?v=53"></script>
-<script src="/js/m4l-manage-students.js?v=53"></script>
-</body>
-</html>
+<script src="/js/m4l-attendance.js?v=54"></script>
+<script src="/js/m4l-admin-academics.js?v=54"></script>
+<script src="/js/m4l-timetable.js?v=54"></script>
+<script src="/js/m4l-resources.js?v=54"></script>
+<script src="/js/m4l-progress.js?v=54"></script>
+<script src="/js/m4l-manage-students.js?v=54"></script>
+
+Replace it with this V55 admin script block:
+
+<script src="/js/m4l-dom.js?v=11"></script>
+<script src="/app.js?v=55"></script>
+<script src="/js/m4l-auth.js?v=55"></script>
+<script src="/js/m4l-shell.js?v=55"></script>
+<script src="/js/m4l-attendance.js?v=55"></script>
+<script src="/js/m4l-admin-academics.js?v=55"></script>
+<script src="/js/m4l-timetable.js?v=55"></script>
+<script src="/js/m4l-resources.js?v=55"></script>
+<script src="/js/m4l-progress.js?v=55"></script>
+<script src="/js/m4l-manage-students.js?v=55"></script>
+
+
+Expected admin script order after V55
+-------------------------------------
+<link rel="stylesheet" href="/styles.css?v=55" />
+
+<script src="/js/m4l-dom.js?v=11"></script>
+<script src="/app.js?v=55"></script>
+<script src="/js/m4l-auth.js?v=55"></script>
+<script src="/js/m4l-shell.js?v=55"></script>
+<script src="/js/m4l-attendance.js?v=55"></script>
+<script src="/js/m4l-admin-academics.js?v=55"></script>
+<script src="/js/m4l-timetable.js?v=55"></script>
+<script src="/js/m4l-resources.js?v=55"></script>
+<script src="/js/m4l-progress.js?v=55"></script>
+<script src="/js/m4l-manage-students.js?v=55"></script>
