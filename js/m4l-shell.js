@@ -1,4 +1,4 @@
-/* M4L v38 - Shell / Navigation / User Band module
+/* M4L v41 - Shell / Navigation / User Band module
    Load after /app.js and /js/m4l-auth.js.
    Classic script: keeps existing global function names while app.js is split gradually.
 */
@@ -597,6 +597,81 @@ function getBottomNavRole() {
   return "";
 }
 
+let bottomNavigationViewportHandlerBound = false;
+
+function isDesktopBottomNavigationLayout() {
+  if (!window || typeof window.matchMedia !== "function") return false;
+  return window.matchMedia("(min-width: 768px)").matches;
+}
+
+function placeBottomNavigationForViewport(nav) {
+  if (!nav || !document.body) return false;
+
+  const isDesktop = isDesktopBottomNavigationLayout();
+  nav.classList.toggle("bottom-nav--desktop-top", isDesktop);
+  nav.classList.toggle("bottom-nav--mobile-bottom", !isDesktop);
+  document.body.classList.toggle("has-desktop-top-nav", isDesktop);
+  document.body.classList.toggle("has-mobile-bottom-nav", !isDesktop);
+
+  if (isDesktop) {
+    const userBand = document.getElementById("app-user-band");
+    const appShell = document.querySelector(".app-shell");
+
+    if (userBand && userBand.parentNode === document.body && userBand.nextSibling !== nav) {
+      document.body.insertBefore(nav, userBand.nextSibling);
+    } else if (!userBand && appShell && appShell.parentNode && appShell.previousSibling !== nav) {
+      appShell.parentNode.insertBefore(nav, appShell);
+    }
+
+    nav.style.position = "sticky";
+    nav.style.top = "0";
+    nav.style.bottom = "auto";
+    nav.style.left = "0";
+    nav.style.right = "0";
+    nav.style.width = "100%";
+    nav.style.zIndex = "900";
+    return true;
+  }
+
+  if (nav.parentNode !== document.body || nav.nextSibling) {
+    document.body.appendChild(nav);
+  }
+
+  ["position", "top", "bottom", "left", "right", "width", "z-index"].forEach(propertyName => {
+    nav.style.removeProperty(propertyName);
+  });
+
+  return true;
+}
+
+function bindBottomNavigationViewportHandler(nav) {
+  if (bottomNavigationViewportHandlerBound === true) return true;
+  if (!window || typeof window.addEventListener !== "function") return false;
+
+  bottomNavigationViewportHandlerBound = true;
+
+  const handleViewportChange = () => {
+    const currentNav = document.getElementById("bottom-nav");
+    if (currentNav) {
+      placeBottomNavigationForViewport(currentNav);
+    }
+  };
+
+  window.addEventListener("resize", handleViewportChange, { passive: true });
+
+  if (typeof window.matchMedia === "function") {
+    const mediaQuery = window.matchMedia("(min-width: 768px)");
+    if (typeof mediaQuery.addEventListener === "function") {
+      mediaQuery.addEventListener("change", handleViewportChange);
+    } else if (typeof mediaQuery.addListener === "function") {
+      mediaQuery.addListener(handleViewportChange);
+    }
+  }
+
+  placeBottomNavigationForViewport(nav);
+  return true;
+}
+
 function getBottomNavElement() {
   if (!document.body) {
     console.warn("Bottom navigation could not be created because document.body is missing.");
@@ -614,6 +689,8 @@ function getBottomNavElement() {
   }
 
   installBottomNavigationGestureGuard(nav);
+  bindBottomNavigationViewportHandler(nav);
+  placeBottomNavigationForViewport(nav);
   return nav;
 }
 
@@ -849,6 +926,8 @@ function updateBottomNavigation(screenId) {
   const nav = renderBottomNavigation(role);
   if (!nav) return;
 
+  placeBottomNavigationForViewport(nav);
+
   const itemCount = nav.querySelectorAll(".bottom-nav__item").length;
   const isVisible = itemCount > 0 && shouldShowBottomNavigation(screenId, role);
 
@@ -894,6 +973,7 @@ window.M4LShell = {
   setTextActionButton: typeof setTextActionButton === "function" ? setTextActionButton : undefined,
   getBottomNavRole: typeof getBottomNavRole === "function" ? getBottomNavRole : undefined,
   updateBottomNavigation: typeof updateBottomNavigation === "function" ? updateBottomNavigation : undefined,
+  placeBottomNavigationForViewport: typeof placeBottomNavigationForViewport === "function" ? placeBottomNavigationForViewport : undefined,
   runUserBandRefresh: typeof runUserBandRefresh === "function" ? runUserBandRefresh : undefined,
   refreshCurrentResourceView: typeof refreshCurrentResourceView === "function" ? refreshCurrentResourceView : undefined,
   getUserBandRefreshAction: typeof getUserBandRefreshAction === "function" ? getUserBandRefreshAction : undefined
