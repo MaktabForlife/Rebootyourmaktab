@@ -607,54 +607,18 @@ function isDesktopBottomNavigationLayout() {
 function setBottomNavigationDesktopPlacement(nav) {
   if (!nav || !document.body) return false;
 
-  const userBand = document.getElementById("app-user-band");
-  const appShell = document.querySelector(".app-shell");
-
-  if (userBand && userBand.parentNode) {
-    const parent = userBand.parentNode;
-    if (nav.parentNode !== parent || userBand.nextSibling !== nav) {
-      parent.insertBefore(nav, userBand.nextSibling);
-    }
-  } else if (appShell && appShell.parentNode) {
-    const parent = appShell.parentNode;
-    if (nav.parentNode !== parent || appShell.previousSibling !== nav) {
-      parent.insertBefore(nav, appShell);
-    }
-  } else if (nav.parentNode !== document.body || nav.nextSibling) {
+  /*
+    Large-screen nav layout is controlled by styles.css.
+    Keep the nav as a fixed-position body child so it is not treated as a
+    flex item beside .app-shell. V45 inserted it immediately after the fixed
+    user band and applied sticky inline positioning; because body is a flex
+    container, that made the nav occupy the left side of the desktop layout.
+  */
+  if (nav.parentNode !== document.body || nav.nextSibling) {
     document.body.appendChild(nav);
   }
 
-  const userBandHeight = userBand ? Math.ceil(userBand.getBoundingClientRect().height || userBand.offsetHeight || 0) : 0;
-
-  nav.style.position = "sticky";
-  nav.style.top = userBandHeight > 0 ? `${userBandHeight}px` : "0";
-  nav.style.bottom = "auto";
-  nav.style.left = "0";
-  nav.style.right = "0";
-  nav.style.width = "100%";
-  nav.style.maxWidth = "none";
-  nav.style.height = "auto";
-  nav.style.minHeight = "64px";
-  nav.style.display = "flex";
-  nav.style.flexDirection = "row";
-  nav.style.alignItems = "center";
-  nav.style.justifyContent = "center";
-  nav.style.gap = "0";
-  nav.style.overflowX = "auto";
-  nav.style.overflowY = "hidden";
-  nav.style.boxSizing = "border-box";
-  nav.style.margin = "0";
-  nav.style.padding = "8px max(12px, env(safe-area-inset-left)) 8px max(12px, env(safe-area-inset-right))";
-  nav.style.transform = "none";
-  nav.style.borderRadius = "0";
-  nav.style.zIndex = "900";
-
-  nav.querySelectorAll(".bottom-nav__item").forEach(item => {
-    item.style.flex = "0 0 auto";
-    item.style.width = "auto";
-    item.style.minWidth = "96px";
-  });
-
+  clearBottomNavigationDesktopPlacement(nav);
   return true;
 }
 
