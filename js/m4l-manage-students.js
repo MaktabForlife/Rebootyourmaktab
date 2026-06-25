@@ -1,4 +1,4 @@
-/* M4L v43 - Manage Students module
+/* M4L v44 - Manage Students module
    Load after /app.js, /js/m4l-auth.js, /js/m4l-shell.js, /js/m4l-timetable.js, /js/m4l-resources.js, and /js/m4l-progress.js.
    This is a classic script, not type=module, so existing global function calls remain safe
    while the app is split gradually.
@@ -42,8 +42,14 @@ function bindManageStudentsUiHandlers(containerOrId) {
 
   bindManageStudentsGlobalClickHandler();
 
-  if (!container || container.__manageStudentsHandlersBound === true) {
-    return !!container;
+  if (!container) {
+    return false;
+  }
+
+  upgradeManageStudentsBackButtons(container);
+
+  if (container.__manageStudentsHandlersBound === true) {
+    return true;
   }
 
   container.__manageStudentsHandlersBound = true;
@@ -67,6 +73,53 @@ function bindManagedStudentEditActionHandlers(containerOrId) {
   // so dynamically-rendered buttons such as Confirm Changes do not need per-button touch/click binding.
   bindManageStudentsGlobalClickHandler();
   return !!getDomElement(containerOrId);
+}
+
+function getManageStudentsBackAction(button) {
+  if (!button) return "";
+  if (button.dataset && button.dataset.manageAction) return button.dataset.manageAction;
+  if (button.dataset && button.dataset.headerAction) return "";
+  if (button.getAttribute("onclick")) return "";
+
+  if (button.closest("#manage-student-edit-screen")) return "back-to-list";
+  if (button.closest("#manage-students-result-screen")) return "back-to-list";
+  if (button.closest("#manage-students-screen")) return "back-to-admin-academics";
+
+  return "";
+}
+
+function upgradeManageStudentsBackButtons(rootOrId) {
+  const root = getDomElement(rootOrId) || document;
+  if (!root || typeof root.querySelectorAll !== "function") return false;
+
+  root.querySelectorAll("button").forEach(button => {
+    if (!button || button.dataset.manageBackIconUpgraded === "true") return;
+
+    const labelText = String(button.textContent || "").replace(/\s+/g, " ").trim();
+    const ariaLabel = String(button.getAttribute("aria-label") || "").trim();
+    const titleText = String(button.getAttribute("title") || "").trim();
+    const combinedLabel = `${labelText} ${ariaLabel} ${titleText}`.toLowerCase();
+
+    if (!/^back(\s|$)/i.test(labelText) && !combinedLabel.includes("back to")) return;
+
+    const inferredAction = getManageStudentsBackAction(button);
+    if (inferredAction && button.dataset) {
+      button.dataset.manageAction = inferredAction;
+    }
+
+    button.type = "button";
+    button.classList.add("back-icon-btn", "icon-action-btn", "icon-action-btn-large");
+    button.setAttribute("aria-label", ariaLabel || "Back");
+    button.setAttribute("title", titleText || ariaLabel || "Back");
+    button.innerHTML = `
+      <span class="app-icon app-icon-large" style="--app-icon-url: url('/icons/back.svg')" aria-hidden="true"></span>
+      <span class="header-icon-label">Back</span>
+    `;
+    button.dataset.manageBackIconUpgraded = "true";
+  });
+
+  bindManageStudentsGlobalClickHandler();
+  return true;
 }
 
 function getManageStudentsActionElement(event) {
@@ -120,6 +173,9 @@ function handleManageStudentsUiClick(event) {
       break;
     case "back-to-list":
       backToManagedStudentList();
+      break;
+    case "back-to-admin-academics":
+      showScreen("admin-academics");
       break;
     case "toggle-dropdown":
       toggleManagedStudentDropdown();
@@ -202,6 +258,7 @@ function showManageStudents() {
 
   if (!showScreen("manage-students-screen")) return;
 
+  upgradeManageStudentsBackButtons("manage-students-screen");
   renderManageStudentsScreen();
   loadStudentAssignmentOptions();
 }
@@ -582,6 +639,7 @@ function renderManageStudentResultScreen(context) {
     ${actionButtons}
   `);
 
+  upgradeManageStudentsBackButtons("manage-students-result-screen");
   bindManageStudentsUiHandlers(container);
 }
 
@@ -902,6 +960,7 @@ function renderManagedStudentEditScreen() {
   }
 
   setDomHtml(container, renderSelectedStudentEditor());
+  upgradeManageStudentsBackButtons("manage-student-edit-screen");
   bindManageStudentsUiHandlers(container);
   bindManagedStudentEditActionHandlers(container);
 }
@@ -1300,6 +1359,7 @@ window.M4LManageStudents = {
   searchManagedStudents: typeof searchManagedStudents === "function" ? searchManagedStudents : undefined,
   selectManagedStudentByUniqueId: typeof selectManagedStudentByUniqueId === "function" ? selectManagedStudentByUniqueId : undefined,
   renderManagedStudentEditScreen: typeof renderManagedStudentEditScreen === "function" ? renderManagedStudentEditScreen : undefined,
+  upgradeManageStudentsBackButtons: typeof upgradeManageStudentsBackButtons === "function" ? upgradeManageStudentsBackButtons : undefined,
   saveManagedStudentChanges: typeof saveManagedStudentChanges === "function" ? saveManagedStudentChanges : undefined,
   resetManagedStudentPin: typeof resetManagedStudentPin === "function" ? resetManagedStudentPin : undefined,
   copyStudentLoginLink: typeof copyStudentLoginLink === "function" ? copyStudentLoginLink : undefined,
