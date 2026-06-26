@@ -1,4 +1,4 @@
-/* M4L v65.4.1 - Library / Resources ribbon module
+/* M4L v65.4.2 - Library / Resources ribbon module
    Load after /app.js, /js/m4l-auth.js, /js/m4l-shell.js, and /js/m4l-timetable.js.
    This is a classic script, not type=module, so existing global function calls remain safe.
    Owns the Library resource ribbons plus PDF/audio/video resource viewing.
@@ -9,7 +9,6 @@
 ========================= */
 
 let studentResourceSubjects = [];
-let studentResourceGroupsByType = {};
 let libraryResourceSubjects = [];
 let libraryResourceMap = new Map();
 let libraryResourceSequence = 0;
@@ -83,7 +82,6 @@ function resetStudentResourceSelection() {
   libraryResourceSubjects = [];
   libraryResourceMap = new Map();
   libraryResourceSequence = 0;
-  closeStudentResourceModulePicker();
 }
 
 async function showStudentResources() {
@@ -99,49 +97,29 @@ async function showAdminResources() {
 }
 
 function setResourceScreensForStudent() {
-  ["student-resources-subjects", "student-resources-media", "student-resources-modules", "student-resources-detail"].forEach(id => {
-    const screen = document.getElementById(id);
-    if (!screen) return;
+  const screen = document.getElementById("student-resources-subjects");
+  if (screen) {
     screen.classList.remove("admin-theme");
     screen.classList.add("student-theme");
-  });
+  }
 
   const listTitle = document.querySelector("#student-resources-subjects h2");
   if (listTitle) listTitle.innerText = "Library";
 
   removeLibraryHeaderActionButton();
-
-  const mediaBackButton = document.querySelector("#student-resources-media .small-btn");
-  setBackIconButton(mediaBackButton, "showScreen('student-resources-subjects')");
-
-  const moduleBackButton = document.querySelector("#student-resources-modules .small-btn");
-  setBackIconButton(moduleBackButton, "showScreen('student-resources-subjects')");
-
-  const detailBackButton = document.querySelector("#student-resources-detail .small-btn");
-  setBackIconButton(detailBackButton, "goBackFromStudentResourceDetail()");
 }
 
 function setResourceScreensForAdmin() {
-  ["student-resources-subjects", "student-resources-media", "student-resources-modules", "student-resources-detail"].forEach(id => {
-    const screen = document.getElementById(id);
-    if (!screen) return;
+  const screen = document.getElementById("student-resources-subjects");
+  if (screen) {
     screen.classList.remove("student-theme");
     screen.classList.add("admin-theme");
-  });
+  }
 
   const listTitle = document.querySelector("#student-resources-subjects h2");
   if (listTitle) listTitle.innerText = "Library";
 
   removeLibraryHeaderActionButton();
-
-  const mediaBackButton = document.querySelector("#student-resources-media .small-btn");
-  setBackIconButton(mediaBackButton, "showScreen('student-resources-subjects')");
-
-  const moduleBackButton = document.querySelector("#student-resources-modules .small-btn");
-  setBackIconButton(moduleBackButton, "showScreen('student-resources-subjects')");
-
-  const detailBackButton = document.querySelector("#student-resources-detail .small-btn");
-  setBackIconButton(detailBackButton, "goBackFromStudentResourceDetail()");
 }
 
 function removeLibraryHeaderActionButton() {
@@ -179,7 +157,6 @@ async function fetchResourceCategories(apiPath, body = {}) {
   }
 
   studentResourceSubjects = Array.isArray(result.subjects) ? result.subjects : [];
-  studentResourceGroupsByType = normalizeStudentResourceGroups(result);
   libraryResourceSubjects = buildLibraryResourceSubjects(result);
 
   return result;
@@ -219,49 +196,6 @@ async function openStudentResourceDirect() {
   }
 
   await showStudentResources();
-}
-
-function normalizeStudentResourceGroups(result) {
-  const map = {};
-
-  function addGroup(group, fallbackType) {
-    if (!group) return;
-
-    const type = normalizeLibraryResourceType(group.type || group.key || fallbackType || "");
-    if (!type) return;
-
-    const subjects = Array.isArray(group.subjects) ? group.subjects : [];
-
-    map[type] = {
-      type,
-      label: getLibraryResourceTypeLabel(type),
-      count: Number(group.count || 0),
-      subjects
-    };
-  }
-
-  if (Array.isArray(result.groups)) {
-    result.groups.forEach(group => addGroup(group));
-  }
-
-  addGroup(result.video, "VIDEO");
-  addGroup(result.audio, "AUDIO");
-  addGroup(result.ebooks, "EBOOK");
-  addGroup(result.ebook, "EBOOK");
-  addGroup(result.pdf, "EBOOK");
-  addGroup(result.printables, "PRINTABLE");
-  addGroup(result.printable, "PRINTABLE");
-  addGroup(result.other, "OTHER");
-
-  Object.keys(map).forEach(type => {
-    const calculatedCount = countResourcesInSubjects(map[type].subjects);
-
-    if (!map[type].count && calculatedCount) {
-      map[type].count = calculatedCount;
-    }
-  });
-
-  return map;
 }
 
 function normalizeLibraryResourceType(type, fallbackType = "OTHER") {
@@ -891,51 +825,6 @@ function openInlineResourcePreview(playerId, resourceId, link, type, title = "Re
   return true;
 }
 
-function closeStudentResourceModulePicker() {
-  const picker = document.getElementById("resource-module-picker");
-
-  if (!picker) return;
-
-  picker.classList.add("hidden");
-  picker.setAttribute("aria-hidden", "true");
-  setDomHtml(picker, "");
-  if (document.body) {
-    document.body.classList.remove("resource-module-picker-open");
-  }
-}
-
-function openStudentResourceSubject() {
-  renderStudentResourceSubjects();
-  showScreen("student-resources-subjects");
-}
-
-function openStudentResourceCategory() {
-  renderStudentResourceSubjects();
-  showScreen("student-resources-subjects");
-}
-
-function openStudentResourceModule() {
-  renderStudentResourceSubjects();
-  showScreen("student-resources-subjects");
-}
-
-function goBackFromStudentResourceDetail() {
-  closeStudentResourceModulePicker();
-  showScreen("student-resources-subjects");
-}
-
-function countResourcesInSubjects(subjects) {
-  if (!Array.isArray(subjects)) return 0;
-
-  return subjects.reduce((subjectTotal, subject) => {
-    const moduleTotal = getSubjectModules(subject).reduce((sum, module) => {
-      return sum + getModuleResources(module).filter(resource => getResourceLink(resource)).length;
-    }, 0);
-
-    return subjectTotal + moduleTotal;
-  }, 0);
-}
-
 function compareResourceIds(a, b) {
   return String(a || "").localeCompare(String(b || ""), undefined, {
     numeric: true,
@@ -1073,7 +962,7 @@ function clearInlineResourcePreviews(exceptPlayerId = "") {
     return;
   }
 
-  document.querySelectorAll(".library-inline-preview, .inline-resource-preview, .inline-audio-player").forEach(player => {
+  document.querySelectorAll(".library-inline-preview").forEach(player => {
     if (!player || player.id === exceptPlayerId) {
       return;
     }
@@ -1300,17 +1189,6 @@ function isPdfLink(link) {
   return /\.pdf($|[?#])/i.test(String(link || ""));
 }
 
-function getSmallResourceButtonLabel(type) {
-  const resourceType = normalizeLibraryResourceType(type);
-
-  if (resourceType === "EBOOK") return "Open eBook";
-  if (resourceType === "PRINTABLE") return "Open Printable";
-  if (resourceType === "AUDIO") return "Play Audio";
-  if (resourceType === "VIDEO") return "Watch Video";
-
-  return "Open Resource";
-}
-
 function getDisplayResourceType(type) {
   return getLibraryResourceTypeLabel(type).toUpperCase();
 }
@@ -1461,41 +1339,12 @@ function makeDomSafeId(value) {
     .slice(0, 96);
 }
 
-function countResourcesForCategory(category) {
-  if (!category) return 0;
-
-  const type = normalizeLibraryResourceType(category.key || category.type || category);
-
-  return libraryResourceSubjects.reduce((subjectTotal, subject) => {
-    return subjectTotal + subject.modules.reduce((moduleTotal, module) => {
-      return moduleTotal + module.resources.filter(resource => resource.type === type).length;
-    }, 0);
-  }, 0);
-}
-
-function countResourcesForSubject(subject) {
-  const subjectResources = getSubjectResourceArray(subject).filter(resource => getResourceLink(resource)).length;
-
-  const taskResources = Array.isArray(subject && subject.tasks)
-    ? subject.tasks.reduce((sum, task) => {
-        return sum + getTaskResourceArray(task).filter(resource => getResourceLink(resource)).length;
-      }, 0)
-    : 0;
-
-  return subjectResources + taskResources;
-}
-
 window.M4LResources = {
   showStudentResources: typeof showStudentResources === "function" ? showStudentResources : undefined,
   showAdminResources: typeof showAdminResources === "function" ? showAdminResources : undefined,
   loadResourceCategories: typeof loadResourceCategories === "function" ? loadResourceCategories : undefined,
   openStudentResourceDirect: typeof openStudentResourceDirect === "function" ? openStudentResourceDirect : undefined,
   openLibraryResourceById: typeof openLibraryResourceById === "function" ? openLibraryResourceById : undefined,
-  openStudentResourceSubject: typeof openStudentResourceSubject === "function" ? openStudentResourceSubject : undefined,
-  openStudentResourceCategory: typeof openStudentResourceCategory === "function" ? openStudentResourceCategory : undefined,
-  openStudentResourceModule: typeof openStudentResourceModule === "function" ? openStudentResourceModule : undefined,
-  goBackFromStudentResourceDetail: typeof goBackFromStudentResourceDetail === "function" ? goBackFromStudentResourceDetail : undefined,
-  closeStudentResourceModulePicker: typeof closeStudentResourceModulePicker === "function" ? closeStudentResourceModulePicker : undefined,
   bindResourceUiHandlers: typeof bindResourceUiHandlers === "function" ? bindResourceUiHandlers : undefined,
   bindMediaViewerHandlers: typeof bindMediaViewerHandlers === "function" ? bindMediaViewerHandlers : undefined,
   clearInlineResourcePreviews: typeof clearInlineResourcePreviews === "function" ? clearInlineResourcePreviews : undefined,
