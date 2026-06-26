@@ -1,4 +1,4 @@
-/* M4L v65 - Library / Resources ribbon module
+/* M4L v65.1 - Library / Resources ribbon module
    Load after /app.js, /js/m4l-auth.js, /js/m4l-shell.js, and /js/m4l-timetable.js.
    This is a classic script, not type=module, so existing global function calls remain safe.
    Owns the Library resource ribbons plus PDF/audio/video resource viewing.
@@ -28,16 +28,16 @@ const LIBRARY_RESOURCE_TYPES = [
     className: "video"
   },
   {
-    key: "AUDIO",
-    label: "Audio",
-    icon: "/icons/audio.svg",
-    className: "audio"
-  },
-  {
     key: "EBOOK",
     label: "eBook",
     icon: "/icons/ebook.svg",
     className: "ebook"
+  },
+  {
+    key: "AUDIO",
+    label: "Audio",
+    icon: "/icons/audio.svg",
+    className: "audio"
   },
   {
     key: "PRINTABLE",
@@ -109,8 +109,7 @@ function setResourceScreensForStudent() {
   const listTitle = document.querySelector("#student-resources-subjects h2");
   if (listTitle) listTitle.innerText = "Library";
 
-  const listBackButton = document.querySelector("#student-resources-subjects .small-btn");
-  setHomeIconButton(listBackButton, "showScreen('student-home')");
+  removeLibraryHeaderActionButton();
 
   const mediaBackButton = document.querySelector("#student-resources-media .small-btn");
   setBackIconButton(mediaBackButton, "showScreen('student-resources-subjects')");
@@ -133,8 +132,7 @@ function setResourceScreensForAdmin() {
   const listTitle = document.querySelector("#student-resources-subjects h2");
   if (listTitle) listTitle.innerText = "Library";
 
-  const listBackButton = document.querySelector("#student-resources-subjects .small-btn");
-  setHomeIconButton(listBackButton, "showScreen('admin-home')");
+  removeLibraryHeaderActionButton();
 
   const mediaBackButton = document.querySelector("#student-resources-media .small-btn");
   setBackIconButton(mediaBackButton, "showScreen('student-resources-subjects')");
@@ -144,6 +142,16 @@ function setResourceScreensForAdmin() {
 
   const detailBackButton = document.querySelector("#student-resources-detail .small-btn");
   setBackIconButton(detailBackButton, "goBackFromStudentResourceDetail()");
+}
+
+function removeLibraryHeaderActionButton() {
+  const listBackButton = document.querySelector("#student-resources-subjects .small-btn");
+
+  if (!listBackButton) {
+    return;
+  }
+
+  listBackButton.remove();
 }
 
 async function fetchResourceCategories(apiPath, body = {}) {
@@ -296,15 +304,77 @@ function buildLibraryResourceSubjects(result) {
   }
 
   return Array.from(subjectMap.values()).sort(compareLibrarySubjectGroups).map(subject => {
-    subject.modules = Array.from(subject.moduleMap.values()).sort(compareLibraryModuleGroups).map(module => {
-      module.resources.sort(compareLibraryResourceRecords);
-      delete module.resourceDedupe;
-      return module;
-    });
+    subject.modules = buildLibraryModuleRowsForSubject(subject);
 
     delete subject.moduleMap;
     return subject;
+  }).filter(subject => subject.modules.length > 0);
+}
+
+function buildLibraryModuleRowsForSubject(subject) {
+  const modules = Array.from(subject.moduleMap.values()).sort(compareLibraryModuleGroups);
+
+  if (modules.length === 0) {
+    return [];
+  }
+
+  const genericModules = modules.filter(isGenericLibraryModule);
+  const namedModules = modules.filter(module => !isGenericLibraryModule(module));
+
+  if (genericModules.length > 0 && namedModules.length > 0) {
+    const targetModule = namedModules[0];
+
+    genericModules.forEach(genericModule => {
+      mergeLibraryModuleResourcesIntoTarget(genericModule, targetModule);
+    });
+  }
+
+  if (genericModules.length > 1 && namedModules.length === 0) {
+    const targetModule = genericModules[0];
+
+    genericModules.slice(1).forEach(genericModule => {
+      mergeLibraryModuleResourcesIntoTarget(genericModule, targetModule);
+    });
+  }
+
+  const visibleModules = namedModules.length > 0 ? namedModules : genericModules;
+
+  return visibleModules.map(module => {
+    module.resources.sort(compareLibraryResourceRecords);
+    delete module.resourceDedupe;
+    return module;
+  }).filter(module => module.resources.length > 0);
+}
+
+function mergeLibraryModuleResourcesIntoTarget(sourceModule, targetModule) {
+  if (!sourceModule || !targetModule || sourceModule === targetModule) {
+    return;
+  }
+
+  sourceModule.resources.forEach(resource => {
+    resource.moduleKey = targetModule.key;
+    resource.moduleName = targetModule.name;
+    resource.previewId = targetModule.previewId;
   });
+
+  targetModule.resources.push(...sourceModule.resources);
+}
+
+function isGenericLibraryModule(module) {
+  const moduleName = String(module && module.name || "").trim();
+
+  return !moduleName || moduleName.toLowerCase() === "general";
+}
+
+function getLibraryModuleRowTitle(subject, module) {
+  const subjectName = String(subject && subject.name || "Subject").trim() || "Subject";
+  const moduleName = String(module && module.name || "").trim();
+
+  if (!moduleName || moduleName.toLowerCase() === "general") {
+    return subjectName;
+  }
+
+  return `${subjectName} ${moduleName}`;
 }
 
 function collectResourcesFromTypedGroups(result, subjectMap, seenResources) {
@@ -452,6 +522,7 @@ function addLibraryResourceRecord({ subject, module, task, resource, fallbackTyp
     moduleKey,
     moduleName,
     previewId: moduleGroup.previewId,
+    sequence: libraryResourceSequence,
     source: resource
   };
 
@@ -597,27 +668,20 @@ function renderStudentResourceSubjects() {
 
   setDomHtml(container, `
     <div class="library-resource-browser" aria-label="Library resources">
-      ${libraryResourceSubjects.map(subject => renderLibrarySubjectSection(subject)).join("")}
+      ${libraryResourceSubjects.map(subject => {
+        return subject.modules.map(module => renderLibraryModuleSection(subject, module)).join("");
+      }).join("")}
     </div>
   `);
 }
 
-function renderLibrarySubjectSection(subject) {
-  return `
-    <section class="library-subject-section" aria-labelledby="${escapeForAttribute(subject.headingId)}">
-      <h3 id="${escapeForAttribute(subject.headingId)}" class="library-subject-title">${escapeHtml(subject.name)}</h3>
-      <div class="library-module-list">
-        ${subject.modules.map(module => renderLibraryModuleSection(subject, module)).join("")}
-      </div>
-    </section>
-  `;
-}
-
 function renderLibraryModuleSection(subject, module) {
+  const rowTitle = getLibraryModuleRowTitle(subject, module);
+
   return `
     <section class="library-module-section" aria-labelledby="${escapeForAttribute(module.headingId)}">
-      <h4 id="${escapeForAttribute(module.headingId)}" class="library-module-title">${escapeHtml(module.name)}</h4>
-      <div class="library-resource-row" role="list" aria-label="${escapeForAttribute(`${subject.name} - ${module.name} resources`)}">
+      <h3 id="${escapeForAttribute(module.headingId)}" class="library-module-title">${escapeHtml(rowTitle)}</h3>
+      <div class="library-resource-row" role="list" aria-label="${escapeForAttribute(`${rowTitle} resources`)}">
         ${module.resources.map(resource => renderLibraryResourceCard(resource)).join("")}
       </div>
       <div id="${escapeForAttribute(module.previewId)}" class="library-inline-preview hidden" aria-live="polite"></div>
@@ -835,10 +899,10 @@ function compareLibraryResourceRecords(a, b) {
     return typeOrderA - typeOrderB;
   }
 
-  return String(a.title || "").localeCompare(String(b.title || ""), undefined, {
-    numeric: true,
-    sensitivity: "base"
-  });
+  const sequenceA = Number.isFinite(Number(a.sequence)) ? Number(a.sequence) : Number.MAX_SAFE_INTEGER;
+  const sequenceB = Number.isFinite(Number(b.sequence)) ? Number(b.sequence) : Number.MAX_SAFE_INTEGER;
+
+  return sequenceA - sequenceB;
 }
 
 function compareResourceModuleGroups(a, b) {
