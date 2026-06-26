@@ -1,4 +1,4 @@
-/* M4L v65.4.2 - Library / Resources ribbon module
+/* M4L v65.4.4 - Library / Resources ribbon module
    Load after /app.js, /js/m4l-auth.js, /js/m4l-shell.js, and /js/m4l-timetable.js.
    This is a classic script, not type=module, so existing global function calls remain safe.
    Owns the Library resource ribbons plus PDF/audio/video resource viewing.
@@ -628,60 +628,28 @@ function renderStudentResourceSubjects() {
 
 function renderLibraryModuleSection(subject, module) {
   const rowTitle = getLibraryModuleRowTitle(subject, module);
-  const displayResources = getLibraryModuleDisplayResources(module.resources);
-  const rowClass = module.resources.length < 3
-    ? "library-resource-row library-resource-row--loop-fill"
-    : "library-resource-row";
+  const resources = Array.isArray(module.resources) ? module.resources : [];
 
   return `
     <section class="library-module-section" aria-labelledby="${escapeForAttribute(module.headingId)}">
       <h3 id="${escapeForAttribute(module.headingId)}" class="library-module-title">${escapeHtml(rowTitle)}</h3>
-      <div class="${rowClass}" role="list" aria-label="${escapeForAttribute(`${rowTitle} resources`)}">
-        ${displayResources.map(item => renderLibraryResourceCard(item.resource, { isClone: item.isClone })).join("")}
+      <div class="library-resource-row" role="list" aria-label="${escapeForAttribute(`${rowTitle} resources`)}">
+        ${resources.map(resource => renderLibraryResourceCard(resource)).join("")}
       </div>
       <div id="${escapeForAttribute(module.previewId)}" class="library-inline-preview hidden" aria-live="polite"></div>
     </section>
   `;
 }
 
-function getLibraryModuleDisplayResources(resources) {
-  const safeResources = Array.isArray(resources) ? resources : [];
-
-  if (safeResources.length === 0) {
-    return [];
-  }
-
-  if (safeResources.length >= 3) {
-    return safeResources.map(resource => ({ resource, isClone: false }));
-  }
-
-  const targetCount = safeResources.length === 1 ? 6 : 6;
-  const displayResources = [];
-
-  while (displayResources.length < targetCount) {
-    safeResources.forEach(resource => {
-      if (displayResources.length < targetCount) {
-        displayResources.push({
-          resource,
-          isClone: displayResources.length >= safeResources.length
-        });
-      }
-    });
-  }
-
-  return displayResources;
-}
-
-function renderLibraryResourceCard(resource, options = {}) {
-  const cardClass = getLibraryResourceCardClassName(resource, options);
-  const cloneAttribute = options.isClone ? ' data-library-card-clone="true"' : "";
+function renderLibraryResourceCard(resource) {
+  const cardClass = getLibraryResourceCardClassName(resource);
 
   return `
     <button
       type="button"
       class="${escapeForAttribute(cardClass)}"
       data-resource-id="${escapeForAttribute(resource.id)}"
-      data-resource-preview-id="${escapeForAttribute(resource.previewId)}"${cloneAttribute}
+      data-resource-preview-id="${escapeForAttribute(resource.previewId)}"
       aria-label="${escapeForAttribute(`${resource.typeLabel} resource: ${resource.title}`)}"
     >
       <span class="library-resource-icon-wrap">
@@ -697,15 +665,11 @@ function renderLibraryResourceCard(resource, options = {}) {
   `;
 }
 
-function getLibraryResourceCardClassName(resource, options = {}) {
+function getLibraryResourceCardClassName(resource) {
   const classes = ["library-resource-card", `type-${resource.typeClass}`];
 
   if (isPartVideoResource(resource)) {
     classes.push("library-resource-card--part-video");
-  }
-
-  if (options.isClone) {
-    classes.push("library-resource-card--clone");
   }
 
   return classes.join(" ");
