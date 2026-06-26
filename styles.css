@@ -1784,8 +1784,8 @@ body.has-user-band .top-bar button[onclick="logout()"] {
   display: block;
   color: var(--primary);
   font-family: var(--font-heading);
-  font-size: clamp(1.15rem, 5vw, 1.45rem);
-  font-weight: 800;
+  font-size: clamp(0.75rem, 5vw, 1.45rem);
+  font-weight: 600;
   line-height: 1.15;
 }
 
@@ -2472,7 +2472,7 @@ body.has-bottom-nav .app-shell {
   gap: 10px;
   padding: 0 0 14px;
   margin-bottom: 14px;
-  background: var(--surface-app);
+  background: var(--surface-card);
 }
 
 .attendance-top-panel {
@@ -2483,7 +2483,7 @@ body.has-bottom-nav .app-shell {
   padding: 18px;
   border: 1px solid rgba(var(--black-rgb), 0.10);
   border-radius: 22px;
-  background: var(--surface-chip);
+  background: var(--surface-soft);
   box-shadow: none;
 }
 
@@ -2717,8 +2717,8 @@ body.has-bottom-nav .app-shell {
   margin-bottom: 10px;
   border: 1px solid rgba(var(--primary-rgb), 0.08);
   border-radius: 17px;
-  background: var(--surface-card);
-  color: var(--primary);
+  background: var(--surface-app);
+  color: var(--text);
   box-shadow: 0 5px 14px rgba(var(--black-rgb), 0.06);
   text-align: left;
 }
