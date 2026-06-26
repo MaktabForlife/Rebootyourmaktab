@@ -308,7 +308,7 @@ button {
   font-weight: 700;
   letter-spacing: 0.02em;
   cursor: pointer;
-  color: var(--text-inverse);
+  color: #FFFFFF;
   background: var(--banner-color);
   box-shadow: 0 4px 8px rgba(var(--black-rgb), 0.16);
   width: 100%;
@@ -452,7 +452,7 @@ button:active {
   justify-content: space-between;
   gap: 14px;
   background: var(--banner-color);
-  color: var(--text-strong);
+  color: #FFFFFF;
   box-shadow: 0 5px 16px rgba(var(--black-rgb), 0.18);
   transform: translateZ(0);
 }
@@ -470,14 +470,14 @@ button:active {
 
 .app-user-band__name {
   margin: 0;
-  color: var(--text-strong);
+  color: #FFFFFF;
   font-size: clamp(1.08rem, 4.4vw, 1.55rem);
   line-height: 1.05;
 }
 
 .app-user-band__level {
   margin: 0;
-  color: rgba(var(--black-rgb), 0.72);
+  color: rgba(var(--white-rgb), 0.86);
   font-size: 0.86rem;
   font-weight: 500;
 }
@@ -492,7 +492,7 @@ button:active {
   align-items: center;
   justify-content: center;
   gap: 3px;
-  color: var(--text-strong);
+  color: #FFFFFF;
 }
 
 .app-user-band__logout-label {
@@ -501,6 +501,14 @@ button:active {
   font-size: 0.68rem;
   font-weight: 800;
   line-height: 1;
+}
+
+.app-user-band .icon-action-btn,
+.app-user-band .manual-refresh-btn,
+.app-user-band .home-icon-btn,
+.app-user-band .back-icon-btn,
+.app-user-band button {
+  color: #FFFFFF;
 }
 
 body.has-user-band .app-shell {
@@ -1953,7 +1961,7 @@ body.has-user-band .top-bar button[onclick="logout()"] {
   margin: 12px auto 0;
   border-radius: 16px;
   background: var(--banner-color);
-  color: var(--text-inverse);
+  color: #FFFFFF;
   border: 0;
   box-shadow: 0 2px 5px rgba(var(--black-rgb), 0.08);
 }
@@ -2532,6 +2540,9 @@ body.is-attendance-section #attendance-stats-screen.screen {
 #attendance-report-screen.screen,
 #attendance-stats-screen.screen {
   padding: 18px 14px;
+  background: transparent;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 .attendance-sticky-control-pane {
@@ -2539,22 +2550,22 @@ body.is-attendance-section #attendance-stats-screen.screen {
   top: 0;
   z-index: 55;
   display: grid;
-  gap: 10px;
-  padding: 0 0 14px;
-  margin-bottom: 14px;
-  background: var(--surface-card);
+  gap: 8px;
+  padding: 0 0 10px;
+  margin-bottom: 10px;
+  background: transparent;
 }
 
 .attendance-top-panel {
-  min-height: var(--attendance-top-panel-height);
+  min-height: auto;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  gap: 16px;
-  padding: 18px;
-  border: 1px solid rgba(var(--black-rgb), 0.10);
-  border-radius: 22px;
-  background: var(--surface-soft);
-  box-shadow: none;
+  grid-template-rows: auto auto;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid rgba(var(--primary-rgb), 0.12);
+  border-radius: 18px;
+  background: var(--surface-card);
+  box-shadow: 0 5px 14px rgba(var(--black-rgb), 0.05);
 }
 
 .attendance-top-content {
@@ -2691,7 +2702,7 @@ body.is-attendance-section #attendance-stats-screen.screen {
   padding: 9px 14px;
   border-radius: 14px;
   background: var(--banner-color);
-  color: var(--text-inverse);
+  color: #FFFFFF;
   border: 0;
   box-shadow: 0 2px 5px rgba(var(--black-rgb), 0.08);
   font-size: 0.92rem;
@@ -2704,10 +2715,10 @@ body.is-attendance-section #attendance-stats-screen.screen {
 
 @media (max-width: 520px) {
   .attendance-top-panel {
-    min-height: var(--attendance-top-panel-height-mobile);
-    padding: 15px;
-    border-radius: 18px;
-    gap: 12px;
+    min-height: auto;
+    padding: 14px;
+    border-radius: 16px;
+    gap: 10px;
   }
 
   .attendance-control-block,
@@ -2768,16 +2779,19 @@ body.is-attendance-section #attendance-stats-screen.screen {
   margin: 16px 0 8px;
 }
 
-.attendance-group-line,
-#attendance-register-screen .attendance-group-line {
-  height: 3px;
-  background: var(--primary);
-  border-radius: 999px;
-  margin: 16px 3px 12px;
+.attendance-group-container {
+  background: var(--surface-card);
+  border: 1px solid rgba(var(--primary-rgb), 0.10);
+  border-radius: 16px;
+  box-shadow: 0 5px 14px rgba(var(--black-rgb), 0.05);
+  padding: 6px 8px;
+  margin: 10px 0 12px;
+  text-align: left;
 }
 
-#attendance-register-screen .attendance-group-line:first-of-type {
-  margin-top: 4px;
+.attendance-group-line,
+#attendance-register-screen .attendance-group-line {
+  display: none;
 }
 
 .attendance-register-row,
@@ -2785,19 +2799,19 @@ body.is-attendance-section #attendance-stats-screen.screen {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 12px;
-  padding: 13px 14px;
-  margin-bottom: 10px;
-  border: 1px solid rgba(var(--primary-rgb), 0.08);
-  border-radius: 17px;
-  background: var(--surface-app);
+  gap: 10px;
+  padding: 7px 6px;
+  margin-bottom: 4px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
   color: var(--text);
-  box-shadow: 0 5px 14px rgba(var(--black-rgb), 0.06);
+  box-shadow: none;
   text-align: left;
 }
 
 .attendance-report-row {
-  grid-template-columns: minmax(0, 1fr) 68px 72px;
+  grid-template-columns: minmax(0, 1fr) 56px 66px;
   cursor: pointer;
 }
 
@@ -2836,12 +2850,12 @@ body.is-attendance-section #attendance-stats-screen.screen {
 .attendance-toggle,
 #attendance-register-screen .attendance-toggle {
   width: auto;
-  min-width: 122px;
-  min-height: 42px;
-  padding: 8px 12px;
-  border-radius: 15px;
+  min-width: 108px;
+  min-height: 34px;
+  padding: 5px 9px;
+  border-radius: 999px;
   font-family: var(--font-main);
-  font-size: 0.84rem;
+  font-size: 0.76rem;
   font-weight: bold;
   letter-spacing: 0.03em;
   box-shadow: none;
@@ -2865,11 +2879,12 @@ body.is-attendance-section #attendance-stats-screen.screen {
 
 .attendance-absent-dates {
   display: none;
-  background: var(--surface-card);
+  background: var(--surface-app);
   color: var(--primary);
-  border-radius: 0 0 12px 12px;
-  padding: 10px;
-  font-size: 0.9rem;
+  border-radius: 12px;
+  padding: 8px 10px;
+  margin: 0 4px 6px;
+  font-size: 0.86rem;
   text-align: left;
 }
 
@@ -2985,8 +3000,14 @@ body.is-attendance-section #attendance-stats-screen.screen {
 
   .attendance-register-row,
   .attendance-report-row {
-    padding: 12px 10px;
-    gap: 8px;
+    padding: 6px 4px;
+    gap: 7px;
+    margin-bottom: 3px;
+  }
+
+  .attendance-group-container {
+    padding: 5px 7px;
+    margin: 8px 0 10px;
   }
 
   .attendance-student-main {
@@ -3000,9 +3021,10 @@ body.is-attendance-section #attendance-stats-screen.screen {
 
   .attendance-toggle,
   #attendance-register-screen .attendance-toggle {
-    min-width: 105px;
-    padding: 7px 8px;
-    font-size: 0.72rem;
+    min-width: 96px;
+    min-height: 32px;
+    padding: 5px 7px;
+    font-size: 0.68rem;
   }
 
   .attendance-action-btn,
