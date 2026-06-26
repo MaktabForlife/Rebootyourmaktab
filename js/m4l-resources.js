@@ -1,4 +1,4 @@
-/* M4L v65.3 - Library / Resources ribbon module
+/* M4L v65.4.1 - Library / Resources ribbon module
    Load after /app.js, /js/m4l-auth.js, /js/m4l-shell.js, and /js/m4l-timetable.js.
    This is a classic script, not type=module, so existing global function calls remain safe.
    Owns the Library resource ribbons plus PDF/audio/video resource viewing.
@@ -377,6 +377,23 @@ function getLibraryModuleRowTitle(subject, module) {
   return `${subjectName} ${moduleName}`;
 }
 
+function buildLibraryModuleGroupingKey(moduleName) {
+  return `name:${normalizeLibraryModuleNameForGrouping(moduleName)}`;
+}
+
+function normalizeLibraryModuleNameForGrouping(moduleName) {
+  const cleanedName = String(moduleName || "General")
+    .trim()
+    .normalize("NFKC")
+    .replace(/[‐-―−]/g, "-")
+    .replace(/[_]+/g, " ")
+    .replace(/\s*-\s*/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return (cleanedName || "General").toUpperCase();
+}
+
 function collectResourcesFromTypedGroups(result, subjectMap, seenResources) {
   const groups = [];
 
@@ -466,7 +483,7 @@ function addLibraryResourceRecord({ subject, module, task, resource, fallbackTyp
   const subjectKey = subjectId ? `id:${subjectId.toUpperCase()}` : `name:${subjectName.toUpperCase()}`;
   const moduleId = getResourceModuleId(module) || getResourceModuleId(resource) || getResourceModuleId(task);
   const moduleName = getResourceModuleName(module) || getResourceModuleName(resource) || getResourceModuleName(task) || "General";
-  const moduleKey = moduleId ? `id:${moduleId.toUpperCase()}` : `name:${moduleName.toUpperCase()}`;
+  const moduleKey = buildLibraryModuleGroupingKey(moduleName);
   const dedupeKey = buildLibraryResourceDedupeKey({ subjectKey, moduleKey, type, title, link, resource });
 
   if (seenResources.has(dedupeKey)) {
@@ -611,7 +628,7 @@ function getSubjectModules(subject) {
     directResources.forEach(resource => {
       const moduleId = getResourceModuleId(resource) || getResourceModuleId(subject);
       const moduleName = getResourceModuleName(resource) || getResourceModuleName(subject) || "General";
-      const moduleKey = moduleId ? `id:${moduleId.toUpperCase()}` : `name:${moduleName.toUpperCase()}`;
+      const moduleKey = buildLibraryModuleGroupingKey(moduleName);
       const moduleSortOrder = getResourceModuleSortOrder(resource);
 
       if (!moduleMap.has(moduleKey)) {
