@@ -54,6 +54,7 @@
   --user-band-safe-area-top: env(safe-area-inset-top, 0px);
   --swipe-dot-band-gap: 18px;
   --swipe-dot-bar-height: 24px;
+  --attendance-panel-visible-gap: 10px;
   --attendance-top-panel-height: 230px;
   --attendance-top-panel-height-mobile: 214px;
   --attendance-desktop-min-width: 1180px;
@@ -308,7 +309,7 @@ button {
   letter-spacing: 0.02em;
   cursor: pointer;
   color: var(--text-inverse);
-  background: var(--primary);
+  background: var(--banner-color);
   box-shadow: 0 4px 8px rgba(var(--black-rgb), 0.16);
   width: 100%;
   min-height: 48px;
@@ -1949,11 +1950,11 @@ body.has-user-band .top-bar button[onclick="logout()"] {
   justify-content: center;
   gap: 10px;
   min-height: 56px;
-  margin-top: 12px;
+  margin: 12px auto 0;
   border-radius: 16px;
   background: var(--banner-color);
-  color: var(--primary);
-  border: 1px solid rgba(var(--primary-rgb), 0.18);
+  color: var(--text-inverse);
+  border: 0;
   box-shadow: 0 2px 5px rgba(var(--black-rgb), 0.08);
 }
 
@@ -2199,31 +2200,27 @@ body.has-user-band .top-bar button[onclick="logout()"] {
   body.is-attendance-section .app-shell {
     display: flex;
     align-items: flex-start;
-    justify-content: flex-start;
-    gap: 16px;
-    overflow-x: auto;
-    overflow-y: visible;
-    scroll-snap-type: x mandatory;
-    scroll-behavior: smooth;
-    overscroll-behavior-inline: contain;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-  }
-
-  body.is-attendance-section .app-shell::-webkit-scrollbar {
-    display: none;
+    justify-content: center;
+    gap: 0;
+    overflow: visible;
+    scroll-snap-type: none;
   }
 
   body.is-attendance-section #attendance-register-screen.screen,
   body.is-attendance-section #attendance-report-screen.screen,
   body.is-attendance-section #attendance-stats-screen.screen {
-    display: block;
-    flex: 0 0 100%;
+    display: none;
+    flex: 0 0 auto;
     width: 100%;
     max-width: 100%;
     min-width: 0;
-    scroll-snap-align: start;
-    scroll-snap-stop: always;
+    scroll-snap-align: none;
+  }
+
+  body.is-attendance-section #attendance-register-screen.screen.active,
+  body.is-attendance-section #attendance-report-screen.screen.active,
+  body.is-attendance-section #attendance-stats-screen.screen.active {
+    display: block;
   }
 
   body.is-attendance-section #attendance-register-screen:not(.active) .attendance-panel-dots,
@@ -2233,7 +2230,7 @@ body.has-user-band .top-bar button[onclick="logout()"] {
   }
 }
 
-@media (min-width: 768px) and (max-width: 1179px) {
+@media (min-width: 768px) and (max-width: 1179px), (hover: hover) and (pointer: fine) and (max-width: 1179px) {
   body.is-attendance-section.has-bottom-nav .app-shell,
   body.is-attendance-section.has-user-band.has-bottom-nav .app-shell {
     padding-top: calc(var(--user-band-height) + var(--user-band-safe-area-top) + var(--top-nav-height) + var(--swipe-dot-bar-height) + var(--swipe-dot-band-gap) + 26px);
@@ -2396,7 +2393,7 @@ body.has-bottom-nav .app-shell {
 }
 
 
-@media (min-width: 768px) {
+@media (min-width: 768px), (hover: hover) and (pointer: fine) {
   body.has-bottom-nav .app-shell {
     padding-bottom: 0;
     padding-top: calc(var(--top-nav-height) + 16px);
@@ -2459,7 +2456,7 @@ body.has-bottom-nav .app-shell {
   }
 }
 
-@media (min-width: 768px) and (hover: hover) and (pointer: fine) {
+@media (hover: hover) and (pointer: fine) {
   .bottom-nav__item:hover {
     color: var(--primary);
     background: transparent;
@@ -2491,6 +2488,36 @@ body.has-bottom-nav .app-shell {
   margin-top: 16px;
   border-radius: 999px;
   background: var(--primary);
+}
+
+/* Attendance top alignment: when a panel is opened or the browser resizes,
+   the active panel should sit below the fixed user band/nav and swipe dots. */
+body.is-attendance-section #attendance-register-screen.screen,
+body.is-attendance-section #attendance-report-screen.screen,
+body.is-attendance-section #attendance-stats-screen.screen {
+  scroll-margin-top: calc(
+    var(--user-band-height) +
+    var(--user-band-safe-area-top) +
+    var(--swipe-dot-band-gap) +
+    var(--swipe-dot-bar-height) +
+    var(--attendance-panel-visible-gap)
+  );
+}
+
+@media (min-width: 768px) and (max-width: 1179px),
+  (hover: hover) and (pointer: fine) and (max-width: 1179px) {
+  body.is-attendance-section #attendance-register-screen.screen,
+  body.is-attendance-section #attendance-report-screen.screen,
+  body.is-attendance-section #attendance-stats-screen.screen {
+    scroll-margin-top: calc(
+      var(--user-band-height) +
+      var(--user-band-safe-area-top) +
+      var(--top-nav-height) +
+      var(--swipe-dot-band-gap) +
+      var(--swipe-dot-bar-height) +
+      var(--attendance-panel-visible-gap)
+    );
+  }
 }
 
 /* Admin Attendance */
@@ -2533,7 +2560,7 @@ body.has-bottom-nav .app-shell {
 .attendance-top-content {
   min-height: 0;
   display: grid;
-  align-content: stretch;
+  align-content: start;
 }
 
 .attendance-subscreen-header {
@@ -2555,10 +2582,11 @@ body.has-bottom-nav .app-shell {
 .attendance-filter-box,
 .attendance-filter-box-compact,
 .attendance-register-control-block {
-  min-height: 100%;
+  min-height: 0;
   display: grid;
-  grid-template-rows: auto 1fr;
-  gap: 14px;
+  grid-template-rows: auto auto;
+  gap: 10px;
+  align-content: start;
   margin: 0;
   padding: 0;
   background: transparent;
@@ -2654,17 +2682,18 @@ body.has-bottom-nav .app-shell {
 .attendance-action-btn,
 .attendance-filter-action-btn,
 .attendance-save-btn {
-  width: min(50%, 260px);
+  width: 50%;
+  max-width: 300px;
   justify-self: center;
-  align-self: end;
+  align-self: start;
   min-height: 46px;
-  margin: 0;
+  margin: 0 auto;
   padding: 9px 14px;
   border-radius: 14px;
-  background: var(--surface-app);
-  color: var(--primary);
-  border: 1px solid rgba(var(--primary-rgb), 0.18);
-  box-shadow: none;
+  background: var(--banner-color);
+  color: var(--text-inverse);
+  border: 0;
+  box-shadow: 0 2px 5px rgba(var(--black-rgb), 0.08);
   font-size: 0.92rem;
   font-weight: 800;
 }
@@ -2691,7 +2720,8 @@ body.has-bottom-nav .app-shell {
   .attendance-action-btn,
   .attendance-filter-action-btn,
   .attendance-save-btn {
-    width: 100%;
+    width: 50%;
+    max-width: 300px;
     min-height: 48px;
   }
 
@@ -2978,7 +3008,8 @@ body.has-bottom-nav .app-shell {
   .attendance-action-btn,
   .attendance-filter-action-btn,
   .attendance-save-btn {
-    width: 100%;
+    width: 50%;
+    max-width: 300px;
     min-height: 48px;
     font-size: 0.82rem;
   }
