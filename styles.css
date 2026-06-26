@@ -1,3 +1,4 @@
+/* M4L v67.2 - Home native scroll CSS; unchanged from v67.1 except cache version. */
 :root {
   /* ==========================================
      BRAND PALETTE (Sage & Lavender)
@@ -1380,6 +1381,7 @@ body.has-user-band .top-bar button[onclick="logout()"] {
   overscroll-behavior-inline: contain;
   scrollbar-width: thin;
   -webkit-overflow-scrolling: touch;
+  touch-action: pan-x;
 }
 
 .library-resource-card {
@@ -1568,15 +1570,13 @@ body.has-user-band .top-bar button[onclick="logout()"] {
   max-width: 100%;
 }
 
-/* Swipe panels: Home and section screens */
-.home-swipe-shell,
-.section-swipe-shell {
+/* Home native scroll panels - V67.1 */
+.home-swipe-shell {
   width: 100%;
   min-width: 0;
 }
 
-.home-swipe-track,
-.section-swipe-track {
+.home-swipe-track {
   display: flex;
   gap: 12px;
   width: 100%;
@@ -1592,13 +1592,11 @@ body.has-user-band .top-bar button[onclick="logout()"] {
   -webkit-overflow-scrolling: touch;
 }
 
-.home-swipe-track::-webkit-scrollbar,
-.section-swipe-track::-webkit-scrollbar {
+.home-swipe-track::-webkit-scrollbar {
   display: none;
 }
 
-.home-swipe-panel,
-.section-swipe-panel {
+.home-swipe-panel {
   flex: 0 0 100%;
   width: 100%;
   min-width: 0;
@@ -1621,19 +1619,16 @@ body.has-user-band .top-bar button[onclick="logout()"] {
   margin-top: 0;
 }
 
-.home-swipe-panel > *,
-.section-swipe-panel > * {
+.home-swipe-panel > * {
   min-width: 0;
   max-width: 100%;
 }
 
-.home-swipe-panel--duas .class-duas-card,
-.section-swipe-panel--duas .class-duas-card {
+.home-swipe-panel--duas .class-duas-card {
   margin-top: 0;
 }
 
 .home-swipe-dots,
-.section-swipe-dots,
 .attendance-panel-dots {
   position: fixed;
   left: 0;
@@ -1655,7 +1650,6 @@ body.has-user-band .top-bar button[onclick="logout()"] {
 }
 
 .home-swipe-dot,
-.section-swipe-dot,
 .attendance-panel-dot {
   width: 12px;
   min-width: 12px;
@@ -1670,13 +1664,11 @@ body.has-user-band .top-bar button[onclick="logout()"] {
 }
 
 .home-swipe-dot.is-active,
-.section-swipe-dot.is-active,
 .attendance-panel-dot.is-active {
   background: var(--primary);
 }
 
 .home-swipe-dot:active,
-.section-swipe-dot:active,
 .attendance-panel-dot:active {
   transform: scale(0.92);
 }
@@ -2036,9 +2028,24 @@ body.has-user-band .top-bar button[onclick="logout()"] {
   .app-shell {
     max-width: 980px;
   }
+}
 
-  .home-swipe-track,
-  .section-swipe-track {
+/* Home stays native-scroll/swipe on mobile and tablet.
+   It only becomes side-by-side on large desktop, matching the Attendance model. */
+@media (min-width: 768px) and (max-width: 1179px),
+  (hover: hover) and (pointer: fine) and (max-width: 1179px) {
+  #student-home.screen,
+  #admin-home.screen {
+    padding-top: calc(var(--swipe-dot-band-gap) + var(--swipe-dot-bar-height) + 14px);
+  }
+
+  .home-swipe-dots {
+    top: calc(var(--user-band-height) + var(--user-band-safe-area-top) + var(--top-nav-height) + var(--swipe-dot-band-gap));
+  }
+}
+
+@media (min-width: 1180px) {
+  .home-swipe-track {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 18px;
@@ -2047,8 +2054,7 @@ body.has-user-band .top-bar button[onclick="logout()"] {
     scroll-snap-type: none;
   }
 
-  .home-swipe-panel,
-  .section-swipe-panel {
+  .home-swipe-panel {
     flex: initial;
     width: auto;
     max-width: none;
@@ -2056,11 +2062,9 @@ body.has-user-band .top-bar button[onclick="logout()"] {
     scroll-snap-align: none;
   }
 
-  .home-swipe-dots,
-  .section-swipe-dots {
+  .home-swipe-dots {
     display: none;
   }
-
 }
 
 
