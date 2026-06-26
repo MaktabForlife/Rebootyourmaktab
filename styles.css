@@ -58,9 +58,6 @@
   --swipe-dot-band-gap: 18px;
   --swipe-dot-bar-height: 24px;
   --attendance-panel-visible-gap: 10px;
-  --attendance-top-panel-height: 230px;
-  --attendance-top-panel-height-mobile: 214px;
-  --attendance-desktop-min-width: 1180px;
   --attendance-panel-min-width: 340px;
   --icon-size: 24px;
   --icon-size-small: 20px;
@@ -1684,44 +1681,6 @@ body.has-user-band .top-bar button[onclick="logout()"] {
   transform: scale(0.92);
 }
 
-.attendance-dashboard-panel {
-  margin-top: 0;
-}
-
-.attendance-swipe-panel {
-  min-height: 180px;
-}
-
-.attendance-panel-card {
-  min-height: 180px;
-  display: grid;
-  align-content: center;
-  gap: 10px;
-  padding: 22px 18px;
-  background: var(--surface-card);
-  color: var(--primary);
-  border: 1px solid rgba(var(--primary-rgb), 0.14);
-  border-radius: 18px;
-  text-align: center;
-  box-shadow: 0 2px 5px rgba(var(--black-rgb), 0.08);
-}
-
-.attendance-panel-card__title {
-  display: block;
-  color: var(--primary);
-  font-family: var(--font-heading);
-  font-size: clamp(0.75rem, 5vw, 1.45rem);
-  font-weight: 600;
-  line-height: 1.15;
-}
-
-.attendance-panel-card__text {
-  display: block;
-  color: var(--text-muted);
-  font-size: 0.95rem;
-  font-weight: 500;
-  line-height: 1.35;
-}
 
 
 .student-home-card {
@@ -2012,11 +1971,6 @@ body.has-user-band .top-bar button[onclick="logout()"] {
   display: none;
 }
 
-#attendance-dashboard .nav-header {
-  margin-bottom: 0;
-  border-bottom: 0;
-  padding-bottom: 0;
-}
 
 #student-home.screen,
 #admin-home.screen {
@@ -2110,7 +2064,7 @@ body.has-user-band .top-bar button[onclick="logout()"] {
 }
 
 
-/* Attendance native scroll panels - V66 */
+/* Attendance native scroll panels - V66.1 */
 #attendance-screen.screen {
   background: transparent;
   box-shadow: none;
