@@ -5,7 +5,9 @@
   --primary: #A8B992;          /* Muted Sage Green - Core brand identifier */
   --primary-rgb: 168, 185, 146; /* Sage RGB for background opacity modifiers */
   --banner-color: #CDB4DB;     /* Dusty Lavender - Soft contrast for headers/banners */
-  --background-color: #F0F4EC;     /* Light pastel sage  */
+  --background-color: #F0F4EC; /* Light pastel sage */
+
+
   /* ==========================================
      SURFACES (Depth & Container Hierarchy)
      ========================================== */
@@ -71,9 +73,9 @@
   box-sizing: border-box;
 }
 body {
-  background: var(--background);
   margin: 0;
   min-height: 100vh;
+  background: var(--background-color);
   color: var(--text);
   font-family: var(--font-main);
   display: flex;
