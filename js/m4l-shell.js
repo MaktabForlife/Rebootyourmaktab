@@ -1,4 +1,4 @@
-/* M4L v54 - Shell / Navigation / User Band module.
+/* M4L v63 - Shell / Navigation / User Band module.
    Adds optional-module guards so later role-based script loading can omit unused modules safely. */
 
 function showScreen(screenId) {
@@ -56,6 +56,19 @@ function showScreen(screenId) {
 
 let sectionSwipeResizeHandlerBound = false;
 
+function shouldUseSharedHomeSwipeModule(screenId) {
+  if (typeof M4LSwipe === "undefined" || !M4LSwipe) {
+    return false;
+  }
+
+  if (typeof M4LSwipe.isHomeSwipeScreen === "function") {
+    return M4LSwipe.isHomeSwipeScreen(screenId);
+  }
+
+  const screen = document.getElementById(screenId);
+  return Boolean(screen && screen.querySelector("[data-home-swipe-track]"));
+}
+
 function getSectionSwipeElements(screenId) {
   const screen = document.getElementById(screenId);
 
@@ -82,6 +95,10 @@ function getSectionSwipeActiveIndex(track) {
 }
 
 function updateSectionSwipeDots(screenId) {
+  if (shouldUseSharedHomeSwipeModule(screenId) && typeof M4LSwipe.updateHomeSwipeDots === "function") {
+    return M4LSwipe.updateHomeSwipeDots(screenId);
+  }
+
   const { track, dots } = getSectionSwipeElements(screenId);
 
   if (!track || !dots.length) {
@@ -100,6 +117,10 @@ function updateSectionSwipeDots(screenId) {
 }
 
 function scrollSectionSwipeToPanel(screenId, panelIndex) {
+  if (shouldUseSharedHomeSwipeModule(screenId) && typeof M4LSwipe.scrollHomeSwipeToPanel === "function") {
+    return M4LSwipe.scrollHomeSwipeToPanel(screenId, panelIndex);
+  }
+
   const { track } = getSectionSwipeElements(screenId);
 
   if (!track || !track.children || !track.children[panelIndex]) {
@@ -145,6 +166,10 @@ function bindSectionSwipeResizeHandler() {
 }
 
 function bindSectionSwipeControls(screenId) {
+  if (shouldUseSharedHomeSwipeModule(screenId) && typeof M4LSwipe.bindHomeSwipeControls === "function") {
+    return M4LSwipe.bindHomeSwipeControls(screenId);
+  }
+
   const { track, dots } = getSectionSwipeElements(screenId);
 
   if (!track || !dots.length) {
@@ -184,26 +209,50 @@ function bindSectionSwipeControls(screenId) {
 }
 
 function getHomeSwipeElements(screenId) {
+  if (typeof M4LSwipe !== "undefined" && M4LSwipe && typeof M4LSwipe.getHomeSwipeElements === "function") {
+    return M4LSwipe.getHomeSwipeElements(screenId);
+  }
+
   return getSectionSwipeElements(screenId);
 }
 
 function getHomeSwipeActiveIndex(track) {
+  if (typeof M4LSwipe !== "undefined" && M4LSwipe && typeof M4LSwipe.getHomeSwipeActiveIndex === "function") {
+    return M4LSwipe.getHomeSwipeActiveIndex(track);
+  }
+
   return getSectionSwipeActiveIndex(track);
 }
 
 function updateHomeSwipeDots(screenId) {
+  if (typeof M4LSwipe !== "undefined" && M4LSwipe && typeof M4LSwipe.updateHomeSwipeDots === "function") {
+    return M4LSwipe.updateHomeSwipeDots(screenId);
+  }
+
   return updateSectionSwipeDots(screenId);
 }
 
 function scrollHomeSwipeToPanel(screenId, panelIndex) {
+  if (typeof M4LSwipe !== "undefined" && M4LSwipe && typeof M4LSwipe.scrollHomeSwipeToPanel === "function") {
+    return M4LSwipe.scrollHomeSwipeToPanel(screenId, panelIndex);
+  }
+
   return scrollSectionSwipeToPanel(screenId, panelIndex);
 }
 
 function bindHomeSwipeResizeHandler() {
+  if (typeof M4LSwipe !== "undefined" && M4LSwipe && typeof M4LSwipe.bindHomeSwipeResizeHandler === "function") {
+    return M4LSwipe.bindHomeSwipeResizeHandler();
+  }
+
   return bindSectionSwipeResizeHandler();
 }
 
 function bindHomeSwipeControls(screenId) {
+  if (typeof M4LSwipe !== "undefined" && M4LSwipe && typeof M4LSwipe.bindHomeSwipeControls === "function") {
+    return M4LSwipe.bindHomeSwipeControls(screenId);
+  }
+
   return bindSectionSwipeControls(screenId);
 }
 
