@@ -2730,7 +2730,7 @@ body.has-bottom-nav .app-shell {
 .attendance-report-row div:nth-child(2),
 .attendance-report-row div:nth-child(3) {
   text-align: center;
-  font-weight: 800;
+  font-weight: 400;
 }
 
 .attendance-student-main {
@@ -2740,7 +2740,7 @@ body.has-bottom-nav .app-shell {
   min-width: 0;
 }
 
-.attendance-student-avatar {
+/*.attendance-student-avatar {
   flex: 0 0 44px;
   width: 44px;
   height: 44px;
@@ -2753,12 +2753,13 @@ body.has-bottom-nav .app-shell {
   font-weight: 900;
   letter-spacing: 0.02em;
 }
+*/
 
 .attendance-student-name,
 #attendance-register-screen .attendance-student-name {
   color: var(--text);
-  font-size: 1.02rem;
-  font-weight: 800;
+  font-size: 1.0rem;
+  font-weight: 400;
   line-height: 1.15;
   overflow-wrap: anywhere;
 }
@@ -2779,8 +2780,8 @@ body.has-bottom-nav .app-shell {
 
 .attendance-toggle.is-present,
 #attendance-register-screen .attendance-toggle.is-present {
-  background: var(--success-bg);
-  color: var(--success);
+  background: var(--surface-chip);
+  color: var(---text-subtle);
 }
 
 .attendance-toggle.is-absent,
@@ -2923,13 +2924,13 @@ body.has-bottom-nav .app-shell {
     gap: 8px;
   }
 
-  .attendance-student-avatar {
+ /* .attendance-student-avatar {
     flex-basis: 36px;
     width: 36px;
     height: 36px;
     font-size: 0.82rem;
   }
-
+*/
   .attendance-student-name,
   #attendance-register-screen .attendance-student-name {
     font-size: 0.94rem;
