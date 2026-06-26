@@ -1,4 +1,4 @@
-/* M4L v64 - Attendance module
+/* M4L v64.3 - Attendance module
    Load after /app.js, /js/m4l-auth.js, /js/m4l-shell.js, and /js/m4l-swipe.js.
    This is a classic script, not type=module, so existing onclick/global calls remain safe.
 
@@ -715,41 +715,42 @@ function renderAttendanceRegister(dateValue) {
     html += `<p class="helper-text">No active students found.</p>`;
   }
 
-  let currentGroup = "";
-  let renderedGroupCount = 0;
+  const groups = groupAttendanceStudents(students);
+  const sortedGroups = Object.keys(groups).sort(sortGroupValues);
 
-  students.forEach(student => {
-    if (!student || student.studentid == null) return;
+  sortedGroups.forEach(group => {
+    html += `
+      <section class="attendance-group-container attendance-register-group-container" aria-label="Group ${escapeHtml(group)}">
+    `;
 
-    const studentid = String(student.studentid);
-    const group = String(student.classgroup || "Ungrouped");
-    if (group !== currentGroup) {
-      currentGroup = group;
-      if (renderedGroupCount > 0) {
-        html += `<div class="attendance-group-line" aria-label="Group ${escapeHtml(group)}"></div>`;
-      }
-      renderedGroupCount += 1;
-    }
+    groups[group].forEach(student => {
+      if (!student || student.studentid == null) return;
 
-    const status = attendanceState[studentid] || "Present";
-    const isPresent = status === "Present";
-    const displayName = student.username || studentid;
+      const studentid = String(student.studentid);
+      const status = attendanceState[studentid] || "Present";
+      const isPresent = status === "Present";
+      const displayName = student.username || studentid;
+
+      html += `
+        <div class="attendance-register-row">
+          <div class="attendance-student-main">
+            <div class="attendance-student-name">${escapeHtml(displayName)}</div>
+          </div>
+          <button
+            type="button"
+            class="attendance-toggle ${isPresent ? "is-present" : "is-absent"}"
+            data-attendance-register-action="toggle-status"
+            data-student-id="${escapeHtml(studentid)}"
+            aria-pressed="${isPresent ? "false" : "true"}"
+          >
+            ${isPresent ? "PRESENT ✔" : "ABSENT ✘"}
+          </button>
+        </div>
+      `;
+    });
 
     html += `
-      <div class="attendance-register-row">
-        <div class="attendance-student-main">
-          <div class="attendance-student-name">${escapeHtml(displayName)}</div>
-        </div>
-        <button
-          type="button"
-          class="attendance-toggle ${isPresent ? "is-present" : "is-absent"}"
-          data-attendance-register-action="toggle-status"
-          data-student-id="${escapeHtml(studentid)}"
-          aria-pressed="${isPresent ? "false" : "true"}"
-        >
-          ${isPresent ? "PRESENT ✔" : "ABSENT ✘"}
-        </button>
-      </div>
+      </section>
     `;
   });
 
@@ -937,10 +938,10 @@ async function renderViewAttendanceScreen(startDate, endDate, options = {}) {
     html += `<p class="helper-text attendance-empty-state">No attendance records found.</p>`;
   }
 
-  sortedGroups.forEach((group, groupIndex) => {
-    if (groupIndex > 0) {
-      html += `<div class="attendance-group-line" aria-label="Group ${escapeHtml(group)}"></div>`;
-    }
+  sortedGroups.forEach(group => {
+    html += `
+      <section class="attendance-group-container attendance-records-group-container" aria-label="Group ${escapeHtml(group)}">
+    `;
 
     groups[group].forEach(student => {
       const rowId = `abs-${safeDomId(student.studentid)}`;
@@ -963,6 +964,10 @@ async function renderViewAttendanceScreen(startDate, endDate, options = {}) {
         </div>
       `;
     });
+
+    html += `
+      </section>
+    `;
   });
 
   setDomHtml(container, html);
@@ -1092,18 +1097,17 @@ async function renderAttendanceStatsScreen(startDate, endDate, options = {}) {
 
     <div class="attendance-stat-grid">
       <div class="attendance-stat-card">
-        <div class="attendance-stat-label">MAKTAB DAYS</div>
+        <div class="attendance-stat-label">Maktab Days</div>
         <div class="attendance-stat-number">${result.totalMaktabDays || 0}</div>
       </div>
 
       <div class="attendance-stat-card">
-        <div class="attendance-stat-label">Class average attendance</div>
+        <div class="attendance-stat-label">Class Average</div>
         <div class="attendance-stat-number">${formatPercent(result.registerAverageAttendancePercent)}</div>
       </div>
     </div>
 
     <div class="attendance-breakdown-card">
-      <h3>Group Breakdown</h3>
   `;
 
   groupAverages.sort((a, b) => sortGroupValues(a.classgroup, b.classgroup)).forEach(group => {
@@ -1138,7 +1142,7 @@ async function renderAttendanceStatsScreen(startDate, endDate, options = {}) {
     perfectStudents
       .sort(sortAttendanceStudents)
       .forEach(student => {
-        html += `<div class="attendance-perfect-row">⭐ ${escapeHtml(student.username)} <span class="mini-text">(Grp ${escapeHtml(student.classgroup)})</span></div>`;
+        html += `<div class="attendance-perfect-row">⭐ ${escapeHtml(student.username || student.studentid)}</div>`;
       });
   }
 
