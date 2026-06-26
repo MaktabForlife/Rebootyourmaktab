@@ -5,11 +5,11 @@
   --primary: #A8B992;          /* Muted Sage Green - Core brand identifier */
   --primary-rgb: 168, 185, 146; /* Sage RGB for background opacity modifiers */
   --banner-color: #CDB4DB;     /* Dusty Lavender - Soft contrast for headers/banners */
-
+--background-color: #F0F4EC;     /* Dusty Lavender - Soft contrast for headers/banners */
   /* ==========================================
      SURFACES (Depth & Container Hierarchy)
      ========================================== */
-  --surface-app: #F0F4EC;      /* trial with light pastel sage instead of Off-white page background (prevents eye strain) */
+  --surface-app: #FBFBF9;      /* trial with light pastel sage instead of Off-white page background (prevents eye strain) */
   --surface-card: #FFFFFF;     /* Pure white for elevated content cards */
   --surface-soft: #F0F4EC;     /* Light pastel sage for section blocks */
   --surface-chip: #F4EEF6;     /* Ultra-light lavender for pill tags & badges */
