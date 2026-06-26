@@ -5,11 +5,12 @@
   --primary: #A8B992;          /* Muted Sage Green - Core brand identifier */
   --primary-rgb: 168, 185, 146; /* Sage RGB for background opacity modifiers */
   --banner-color: #CDB4DB;     /* Dusty Lavender - Soft contrast for headers/banners */
---background-color: #F0F4EC;     /* Dusty Lavender - Soft contrast for headers/banners */
+  --background-color: #F0F4EC;     /* Light pastel sage for section blocks */
+
   /* ==========================================
      SURFACES (Depth & Container Hierarchy)
      ========================================== */
-  --surface-app: #FBFBF9;      /* trial with light pastel sage instead of Off-white page background (prevents eye strain) */
+  --surface-app: #FBFBF9;      /* Off-white page background (prevents eye strain) */
   --surface-card: #FFFFFF;     /* Pure white for elevated content cards */
   --surface-soft: #F0F4EC;     /* Light pastel sage for section blocks */
   --surface-chip: #F4EEF6;     /* Ultra-light lavender for pill tags & badges */
@@ -71,6 +72,7 @@
   box-sizing: border-box;
 }
 body {
+  background: var(--background-color);
   margin: 0;
   min-height: 100vh;
   color: var(--text);
@@ -1328,56 +1330,37 @@ body.has-user-band .top-bar button[onclick="logout()"] {
 }
 
 
-/* Resources / Library ribbon */
+/* Resources / Library ribbon - V65.1 */
 .library-resource-browser {
   --library-ribbon-gap: 10px;
   --library-card-width: 148px;
-  --library-card-min-height: 168px;
+  --library-card-min-height: 150px;
   display: grid;
-  gap: 20px;
+  gap: 14px;
   width: 100%;
   min-width: 0;
   text-align: left;
 }
 
-.library-subject-section {
+.library-module-section {
   display: grid;
-  gap: 12px;
+  gap: 10px;
   min-width: 0;
   padding: 14px;
-  background: var(--surface-card);
+  background: var(--surface-soft);
   border: 1px solid rgba(var(--primary-rgb), 0.14);
   border-radius: 18px;
   box-shadow: 0 2px 5px rgba(var(--black-rgb), 0.08);
-}
-
-.library-subject-title {
-  margin: 0;
-  padding-bottom: 8px;
-  color: var(--primary);
-  border-bottom: 2px solid var(--primary);
-  line-height: 1.2;
-}
-
-.library-module-list {
-  display: grid;
-  gap: 16px;
-  min-width: 0;
-}
-
-.library-module-section {
-  display: grid;
-  gap: 8px;
-  min-width: 0;
 }
 
 .library-module-title {
   margin: 0;
   color: var(--text-strong);
   font-family: var(--font-heading);
-  font-size: 0.98rem;
+  font-size: 1rem;
   font-weight: 800;
   line-height: 1.25;
+  overflow-wrap: anywhere;
 }
 
 .library-resource-row {
@@ -1398,18 +1381,21 @@ body.has-user-band .top-bar button[onclick="logout()"] {
   flex: 0 0 var(--library-card-width);
   width: var(--library-card-width);
   min-height: var(--library-card-min-height);
-  padding: 14px 12px;
+  padding: 12px 11px;
   display: grid;
   grid-template-rows: auto 1fr;
   align-content: start;
-  gap: 12px;
+  justify-items: center;
+  gap: 10px;
   scroll-snap-align: start;
-  text-align: left;
+  text-align: center;
   color: var(--primary);
-  background: var(--surface-card);
-  border: 1px solid rgba(var(--primary-rgb), 0.18);
+  background: rgba(var(--white-rgb), 0.58);
+  border: 1px solid rgba(var(--white-rgb), 0.52);
   border-radius: 18px;
   box-shadow: 0 3px 8px rgba(var(--black-rgb), 0.10);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 
 .library-resource-card:active {
@@ -1422,30 +1408,33 @@ body.has-user-band .top-bar button[onclick="logout()"] {
 }
 
 .library-resource-icon-wrap {
-  display: grid;
-  justify-items: start;
-  gap: 7px;
+  width: 100%;
   min-width: 0;
+  display: grid;
+  justify-items: center;
+  gap: 4px;
 }
 
 .library-resource-icon {
-  width: 42px;
-  height: 42px;
+  width: 40px;
+  height: 40px;
   display: block;
+  margin-inline: auto;
   object-fit: contain;
 }
 
 .library-resource-type-label {
-  display: inline-flex;
+  display: block;
   max-width: 100%;
-  padding: 4px 8px;
   color: var(--primary);
-  background: rgba(var(--primary-rgb), 0.10);
-  border: 1px solid rgba(var(--primary-rgb), 0.14);
-  border-radius: 999px;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
   font-size: 0.68rem;
-  font-weight: 800;
+  font-weight: 400;
   line-height: 1.1;
+  text-align: center;
   white-space: nowrap;
 }
 
@@ -1453,9 +1442,10 @@ body.has-user-band .top-bar button[onclick="logout()"] {
   display: block;
   min-width: 0;
   color: var(--text-strong);
-  font-size: 0.92rem;
+  font-size: 0.88rem;
   font-weight: 800;
-  line-height: 1.25;
+  line-height: 1.22;
+  text-transform: uppercase;
   overflow-wrap: anywhere;
 }
 
@@ -1464,7 +1454,7 @@ body.has-user-band .top-bar button[onclick="logout()"] {
   min-width: 0;
   margin-top: 2px;
   padding: 12px;
-  background: var(--surface-soft);
+  background: rgba(var(--white-rgb), 0.62);
   border: 1px solid rgba(var(--primary-rgb), 0.14);
   border-radius: 14px;
 }
@@ -1514,10 +1504,16 @@ body.has-user-band .top-bar button[onclick="logout()"] {
   width: 100%;
 }
 
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .library-resource-card {
+    background: rgba(var(--white-rgb), 0.82);
+  }
+}
+
 @media (hover: hover) and (pointer: fine) {
   .library-resource-card:hover {
     transform: translateY(-1px);
-    border-color: rgba(var(--primary-rgb), 0.30);
+    border-color: rgba(var(--white-rgb), 0.74);
     box-shadow: 0 6px 12px rgba(var(--black-rgb), 0.13);
   }
 }
@@ -1525,10 +1521,10 @@ body.has-user-band .top-bar button[onclick="logout()"] {
 @media (max-width: 420px) {
   .library-resource-browser {
     --library-card-width: 142px;
-    --library-card-min-height: 162px;
+    --library-card-min-height: 146px;
   }
 
-  .library-subject-section {
+  .library-module-section {
     padding: 12px;
   }
 
@@ -1537,8 +1533,8 @@ body.has-user-band .top-bar button[onclick="logout()"] {
   }
 
   .library-resource-icon {
-    width: 38px;
-    height: 38px;
+    width: 36px;
+    height: 36px;
   }
 }
 
@@ -1677,7 +1673,7 @@ body.has-user-band .top-bar button[onclick="logout()"] {
   align-content: center;
   gap: 10px;
   padding: 22px 18px;
-  background: var(--surface-soft);
+  background: var(--surface-card);
   color: var(--primary);
   border: 1px solid rgba(var(--primary-rgb), 0.14);
   border-radius: 18px;
@@ -2046,13 +2042,37 @@ body.has-user-band .top-bar button[onclick="logout()"] {
 }
 
 @media (max-width: 767px) {
-  #student-home.screen,
-  #admin-home.screen,
+  /*
+    Root fix:
+    Home dots are fixed, so Home content must reserve the dot band inside the
+    Home swipe shell. This keeps the Zoom button and timetable below the banner
+    and dots without pushing every screen down.
+  */
+  body.has-user-band #student-home.screen,
+  body.has-user-band #admin-home.screen {
+    padding-top: 12px;
+  }
+
+  body.has-user-band #student-home .home-swipe-shell,
+  body.has-user-band #admin-home .home-swipe-shell {
+    padding-top: calc(var(--swipe-dot-band-gap) + var(--swipe-dot-bar-height) + 14px);
+  }
+
+  /*
+    Attendance keeps its own top clearance because its top controls are sticky
+    and are aligned separately by the Attendance swipe controller.
+  */
   #attendance-register-screen.screen,
   #attendance-report-screen.screen,
   #attendance-stats-screen.screen {
     padding-top: calc(var(--swipe-dot-band-gap) + var(--swipe-dot-bar-height) + 14px);
   }
+
+  .attendance-sticky-control-pane {
+    top: calc(var(--user-band-height) + var(--user-band-safe-area-top) + var(--swipe-dot-band-gap) + var(--swipe-dot-bar-height) + 8px);
+  }
+}
+
 
   .attendance-sticky-control-pane {
     top: calc(var(--user-band-height) + var(--user-band-safe-area-top) + var(--swipe-dot-band-gap) + var(--swipe-dot-bar-height) + 8px);
@@ -3946,29 +3966,3 @@ body.pdf-viewer-open #pdf-viewer-screen.screen {
   }
 }
 
-/* M4L v64.3.1 - Mobile Home top alignment
-   Keeps the Home Zoom/Timetable panel below the fixed banner and swipe dots.
-*/
-
-@media (max-width: 767px) {
-  body.has-user-band #student-home.screen,
-  body.has-user-band #admin-home.screen {
-    /*
-      The user band and swipe dots are fixed.
-      Move the Home card itself below the dots instead of relying only on
-      internal padding, which can allow the first panel to sit under the banner.
-    */
-    margin-top: calc(var(--swipe-dot-band-gap) + var(--swipe-dot-bar-height) + 8px);
-    padding-top: 12px;
-  }
-
-  body.has-user-band #student-home .home-swipe-track,
-  body.has-user-band #admin-home .home-swipe-track {
-    margin-top: 0;
-  }
-
-  body.has-user-band #student-home .home-swipe-panel,
-  body.has-user-band #admin-home .home-swipe-panel {
-    align-content: start;
-  }
-}
