@@ -5,7 +5,7 @@
   --primary: #A8B992;          /* Muted Sage Green - Core brand identifier */
   --primary-rgb: 168, 185, 146; /* Sage RGB for background opacity modifiers */
   --banner-color: #CDB4DB;     /* Dusty Lavender - Soft contrast for headers/banners */
-   --background-color: #F0F4EC;     /* Light pastel sage for section blocks */
+
   /* ==========================================
      SURFACES (Depth & Container Hierarchy)
      ========================================== */
@@ -71,7 +71,6 @@
   box-sizing: border-box;
 }
 body {
- background: var(--background-color);
   margin: 0;
   min-height: 100vh;
   color: var(--text);
@@ -1333,7 +1332,7 @@ body.has-user-band .top-bar button[onclick="logout()"] {
 }
 
 
-/* Resources / Library ribbon - V65.2 */
+/* Resources / Library ribbon - V65.3 */
 .library-resource-browser {
   --library-ribbon-gap: 10px;
   --library-card-width: 148px;
@@ -1361,7 +1360,7 @@ body.has-user-band .top-bar button[onclick="logout()"] {
 
 .library-module-title {
   margin: 0;
-  color: var(--text-strong);
+  color: var(--text-muted);
   font-family: var(--font-heading);
   font-size: 1rem;
   font-weight: 800;
@@ -1395,9 +1394,9 @@ body.has-user-band .top-bar button[onclick="logout()"] {
   gap: 10px;
   scroll-snap-align: start;
   text-align: center;
-  color: var(--primary);
-  background: var(--library-glass-card-bg);
-  border: 1px solid var(--library-glass-card-border);
+  color: var(--text-muted);
+  background: var(--surface-chip);
+  border: 1px solid rgba(var(--white-rgb), 0.62);
   border-radius: 18px;
   box-shadow: var(--library-glass-card-shadow);
   backdrop-filter: blur(var(--library-glass-card-blur));
@@ -1414,8 +1413,11 @@ body.has-user-band .top-bar button[onclick="logout()"] {
 }
 
 .library-resource-card--part-video {
-  background: var(--surface-chip);
-  background: color-mix(in srgb, var(--surface-chip) 78%, rgba(var(--white-rgb), 0.42));
+  background: var(--surface-dark);
+}
+
+.library-resource-card--part-video:focus-visible {
+  outline-color: rgba(var(--primary-rgb), 0.42);
 }
 
 .library-resource-icon-wrap {
@@ -1431,13 +1433,16 @@ body.has-user-band .top-bar button[onclick="logout()"] {
   height: 40px;
   display: block;
   margin-inline: auto;
-  object-fit: contain;
+  color: var(--text-muted);
+  background: currentColor;
+  -webkit-mask: var(--library-resource-icon-url) center / contain no-repeat;
+  mask: var(--library-resource-icon-url) center / contain no-repeat;
 }
 
 .library-resource-type-label {
   display: block;
   max-width: 100%;
-  color: var(--primary);
+  color: currentColor;
   background: transparent;
   border: 0;
   border-radius: 0;
@@ -1452,7 +1457,7 @@ body.has-user-band .top-bar button[onclick="logout()"] {
 .library-resource-title {
   display: block;
   min-width: 0;
-  color: var(--text-strong);
+  color: var(--text-muted);
   font-size: 0.88rem;
   font-weight: 800;
   line-height: 1.22;
@@ -1517,7 +1522,11 @@ body.has-user-band .top-bar button[onclick="logout()"] {
 
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   .library-resource-card {
-    background: rgba(var(--white-rgb), 0.84);
+    background: var(--surface-chip);
+  }
+
+  .library-resource-card--part-video {
+    background: var(--surface-dark);
   }
 }
 
