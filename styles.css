@@ -26,7 +26,6 @@
   --text-muted: #5E6D49;       /* Medium sage-gray for secondary label hints */
   --text-subtle: #7A8965;      /* Softer tone for captions, dates, and metadata */
   --text-inverse: #FBFBF9;     /* Off-white readable text sitting on dark backgrounds */
-}
 
   /* Status */
   --success: #32cd32;
