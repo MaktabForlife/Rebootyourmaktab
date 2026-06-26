@@ -56,6 +56,8 @@
   --swipe-dot-bar-height: 24px;
   --attendance-top-panel-height: 230px;
   --attendance-top-panel-height-mobile: 214px;
+  --attendance-desktop-min-width: 1180px;
+  --attendance-panel-min-width: 340px;
   --icon-size: 24px;
   --icon-size-small: 20px;
   --icon-size-large: 34px;
@@ -1939,8 +1941,8 @@ body.has-user-band .top-bar button[onclick="logout()"] {
 }
 
 .zoom-link-button {
-  width: 100%;
-  max-width: 100%;
+  width: 50%;
+  max-width: 300px;
   min-width: 0;
   display: flex;
   align-items: center;
@@ -1949,7 +1951,7 @@ body.has-user-band .top-bar button[onclick="logout()"] {
   min-height: 56px;
   margin-top: 12px;
   border-radius: 16px;
-  background: var(--surface-card);
+  background: var( --surface-chip);
   color: var(--primary);
   border: 1px solid rgba(var(--primary-rgb), 0.18);
   box-shadow: 0 2px 5px rgba(var(--black-rgb), 0.08);
@@ -2209,27 +2211,94 @@ body.has-user-band .top-bar button[onclick="logout()"] {
   }
 
   .home-swipe-dots,
-  .section-swipe-dots,
-  .attendance-panel-dots {
+  .section-swipe-dots {
     display: none;
   }
 
+}
+
+
+/* Attendance responsive panels:
+   small and medium screens keep swipe panels ready;
+   only large desktop has three side-by-side panels. */
+@media (max-width: 1179px) {
+  body.is-attendance-section .app-shell {
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-start;
+    gap: 16px;
+    overflow-x: auto;
+    overflow-y: visible;
+    scroll-snap-type: x mandatory;
+    scroll-behavior: smooth;
+    overscroll-behavior-inline: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  body.is-attendance-section .app-shell::-webkit-scrollbar {
+    display: none;
+  }
+
+  body.is-attendance-section #attendance-register-screen.screen,
+  body.is-attendance-section #attendance-report-screen.screen,
+  body.is-attendance-section #attendance-stats-screen.screen {
+    display: block;
+    flex: 0 0 100%;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+  }
+
+  body.is-attendance-section #attendance-register-screen:not(.active) .attendance-panel-dots,
+  body.is-attendance-section #attendance-report-screen:not(.active) .attendance-panel-dots,
+  body.is-attendance-section #attendance-stats-screen:not(.active) .attendance-panel-dots {
+    display: none;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1179px) {
+  body.is-attendance-section.has-bottom-nav .app-shell,
+  body.is-attendance-section.has-user-band.has-bottom-nav .app-shell {
+    padding-top: calc(var(--user-band-height) + var(--user-band-safe-area-top) + var(--top-nav-height) + var(--swipe-dot-bar-height) + var(--swipe-dot-band-gap) + 26px);
+  }
+
+  body.is-attendance-section .attendance-panel-dots {
+    top: calc(var(--user-band-height) + var(--user-band-safe-area-top) + var(--top-nav-height) + var(--swipe-dot-band-gap));
+  }
+
+  body.is-attendance-section .attendance-sticky-control-pane {
+    top: calc(var(--user-band-height) + var(--user-band-safe-area-top) + var(--top-nav-height) + var(--swipe-dot-band-gap) + var(--swipe-dot-bar-height) + 8px);
+  }
+}
+
+@media (min-width: 1180px) {
   body.is-attendance-section .app-shell {
     max-width: 1280px;
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(var(--attendance-panel-min-width), 1fr));
     align-items: start;
     justify-content: stretch;
     gap: 16px;
+    overflow: visible;
+    scroll-snap-type: none;
   }
 
-  body.is-attendance-section #attendance-register-screen,
-  body.is-attendance-section #attendance-report-screen,
-  body.is-attendance-section #attendance-stats-screen {
+  body.is-attendance-section #attendance-register-screen.screen,
+  body.is-attendance-section #attendance-report-screen.screen,
+  body.is-attendance-section #attendance-stats-screen.screen {
     display: block;
     width: 100%;
+    min-width: 0;
     height: auto;
     min-height: calc(100vh - var(--top-nav-height) - 36px);
+    scroll-snap-align: none;
+  }
+
+  body.is-attendance-section .attendance-panel-dots {
+    display: none;
   }
 
   body.is-attendance-section .attendance-sticky-control-pane {
@@ -2237,6 +2306,7 @@ body.has-user-band .top-bar button[onclick="logout()"] {
     top: auto;
   }
 }
+
 
 /* Reusable responsive primary navigation */
 body.has-bottom-nav .app-shell {
@@ -2727,6 +2797,16 @@ body.has-bottom-nav .app-shell {
   cursor: pointer;
 }
 
+.attendance-report-row > div,
+.attendance-summary-text,
+.attendance-student-main {
+  min-width: 0;
+}
+
+.attendance-report-row > div:first-child {
+  overflow-wrap: anywhere;
+}
+
 .attendance-report-row div:nth-child(2),
 .attendance-report-row div:nth-child(3) {
   text-align: center;
@@ -2739,21 +2819,6 @@ body.has-bottom-nav .app-shell {
   gap: 12px;
   min-width: 0;
 }
-
-/*.attendance-student-avatar {
-  flex: 0 0 44px;
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(var(--primary-rgb), 0.10);
-  color: var(--primary);
-  font-weight: 900;
-  letter-spacing: 0.02em;
-}
-*/
 
 .attendance-student-name,
 #attendance-register-screen .attendance-student-name {
@@ -2781,7 +2846,7 @@ body.has-bottom-nav .app-shell {
 .attendance-toggle.is-present,
 #attendance-register-screen .attendance-toggle.is-present {
   background: var(--surface-chip);
-  color: var(---text-subtle);
+  color: var(--text-subtle);
 }
 
 .attendance-toggle.is-absent,
@@ -2924,14 +2989,7 @@ body.has-bottom-nav .app-shell {
     gap: 8px;
   }
 
- /* .attendance-student-avatar {
-    flex-basis: 36px;
-    width: 36px;
-    height: 36px;
-    font-size: 0.82rem;
-  }
-*/
-  .attendance-student-name,
+ .attendance-student-name,
   #attendance-register-screen .attendance-student-name {
     font-size: 0.94rem;
   }
