@@ -1653,8 +1653,13 @@ body.has-user-band .top-bar button[onclick="logout()"] {
   pointer-events: none;
 }
 
+.attendance-panel-dots {
+  pointer-events: auto;
+}
+
 .home-swipe-dot,
-.section-swipe-dot {
+.section-swipe-dot,
+.attendance-panel-dot {
   width: 12px;
   min-width: 12px;
   height: 12px;
@@ -1668,12 +1673,14 @@ body.has-user-band .top-bar button[onclick="logout()"] {
 }
 
 .home-swipe-dot.is-active,
-.section-swipe-dot.is-active {
+.section-swipe-dot.is-active,
+.attendance-panel-dot.is-active {
   background: var(--primary);
 }
 
 .home-swipe-dot:active,
-.section-swipe-dot:active {
+.section-swipe-dot:active,
+.attendance-panel-dot:active {
   transform: scale(0.92);
 }
 
@@ -2062,9 +2069,7 @@ body.has-user-band .top-bar button[onclick="logout()"] {
 @media (max-width: 767px) {
   #student-home.screen,
   #admin-home.screen,
-  #attendance-register-screen.screen,
-  #attendance-report-screen.screen,
-  #attendance-stats-screen.screen {
+  #attendance-screen.screen {
     padding-top: calc(var(--swipe-dot-band-gap) + var(--swipe-dot-bar-height) + 14px);
   }
 
@@ -2088,11 +2093,6 @@ body.has-user-band .top-bar button[onclick="logout()"] {
     scroll-snap-type: none;
   }
 
-
-  .attendance-swipe-track {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
   .home-swipe-panel,
   .section-swipe-panel {
     flex: initial;
@@ -2110,41 +2110,53 @@ body.has-user-band .top-bar button[onclick="logout()"] {
 }
 
 
-/* Attendance responsive panels:
-   small and medium screens keep swipe panels ready;
-   only large desktop has three side-by-side panels. */
-@media (max-width: 1179px) {
-  body.is-attendance-section .app-shell {
-    display: flex;
-    align-items: flex-start;
-    justify-content: center;
-    gap: 0;
-    overflow: visible;
-    scroll-snap-type: none;
-  }
+/* Attendance native scroll panels - V66 */
+#attendance-screen.screen {
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
+  overflow: visible;
+  padding: 18px 14px;
+}
 
-  body.is-attendance-section #attendance-register-screen.screen,
-  body.is-attendance-section #attendance-report-screen.screen,
-  body.is-attendance-section #attendance-stats-screen.screen {
-    display: none;
-    flex: 0 0 auto;
-    width: 100%;
-    max-width: 100%;
-    min-width: 0;
-    scroll-snap-align: none;
-  }
+body.is-attendance-section .app-shell {
+  align-items: flex-start;
+  justify-content: center;
+  overflow: visible;
+}
 
-  body.is-attendance-section #attendance-register-screen.screen.active,
-  body.is-attendance-section #attendance-report-screen.screen.active,
-  body.is-attendance-section #attendance-stats-screen.screen.active {
-    display: block;
-  }
+.attendance-swipe-track {
+  display: flex;
+  gap: 0;
+  width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: visible;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  overscroll-behavior-inline: contain;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
 
-  body.is-attendance-section #attendance-register-screen:not(.active) .attendance-panel-dots,
-  body.is-attendance-section #attendance-report-screen:not(.active) .attendance-panel-dots,
-  body.is-attendance-section #attendance-stats-screen:not(.active) .attendance-panel-dots {
-    display: none;
-  }
+.attendance-swipe-track::-webkit-scrollbar {
+  display: none;
+}
+
+.attendance-swipe-panel {
+  flex: 0 0 100%;
+  width: 100%;
+  min-width: 100%;
+  max-width: 100%;
+  display: block;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+  padding: 0 2px;
+}
+
+.attendance-swipe-panel > * {
+  min-width: 0;
+  max-width: 100%;
 }
 
 @media (min-width: 768px) and (max-width: 1179px), (hover: hover) and (pointer: fine) and (max-width: 1179px) {
@@ -2165,23 +2177,26 @@ body.has-user-band .top-bar button[onclick="logout()"] {
 @media (min-width: 1180px) {
   body.is-attendance-section .app-shell {
     max-width: 1280px;
+    align-items: flex-start;
+    justify-content: center;
+    overflow: visible;
+  }
+
+  .attendance-swipe-track {
     display: grid;
     grid-template-columns: repeat(3, minmax(var(--attendance-panel-min-width), 1fr));
-    align-items: start;
-    justify-content: stretch;
     gap: 16px;
     overflow: visible;
     scroll-snap-type: none;
   }
 
-  body.is-attendance-section #attendance-register-screen.screen,
-  body.is-attendance-section #attendance-report-screen.screen,
-  body.is-attendance-section #attendance-stats-screen.screen {
-    display: block;
-    width: 100%;
+  .attendance-swipe-panel {
+    flex: initial;
+    width: auto;
     min-width: 0;
-    height: auto;
+    max-width: none;
     min-height: calc(100vh - var(--top-nav-height) - 36px);
+    padding: 0;
     scroll-snap-align: none;
   }
 
@@ -2394,7 +2409,7 @@ body.has-bottom-nav .app-shell {
 /* Top-level screen title simplification */
 #student-resources-subjects > .nav-header > h2,
 #progress-report > .nav-header > h2,
-#attendance-dashboard > .nav-header > h2 {
+#attendance-screen > .nav-header > h2 {
   display: none;
 }
 
@@ -2407,11 +2422,8 @@ body.has-bottom-nav .app-shell {
   background: var(--primary);
 }
 
-/* Attendance top alignment: when a panel is opened or the browser resizes,
-   the active panel should sit below the fixed user band/nav and swipe dots. */
-body.is-attendance-section #attendance-register-screen.screen,
-body.is-attendance-section #attendance-report-screen.screen,
-body.is-attendance-section #attendance-stats-screen.screen {
+/* Attendance top alignment: the one active screen sits below fixed user band/nav and swipe dots. */
+body.is-attendance-section #attendance-screen.screen {
   scroll-margin-top: calc(
     var(--user-band-height) +
     var(--user-band-safe-area-top) +
@@ -2423,9 +2435,7 @@ body.is-attendance-section #attendance-stats-screen.screen {
 
 @media (min-width: 768px) and (max-width: 1179px),
   (hover: hover) and (pointer: fine) and (max-width: 1179px) {
-  body.is-attendance-section #attendance-register-screen.screen,
-  body.is-attendance-section #attendance-report-screen.screen,
-  body.is-attendance-section #attendance-stats-screen.screen {
+  body.is-attendance-section #attendance-screen.screen {
     scroll-margin-top: calc(
       var(--user-band-height) +
       var(--user-band-safe-area-top) +
@@ -2438,16 +2448,12 @@ body.is-attendance-section #attendance-stats-screen.screen {
 }
 
 /* Admin Attendance */
-#attendance-register-screen,
-#attendance-report-screen,
-#attendance-stats-screen,
+#attendance-screen,
 .student-admin-screen {
   background: var(--surface-app);
 }
 
-#attendance-register-screen.screen,
-#attendance-report-screen.screen,
-#attendance-stats-screen.screen {
+#attendance-screen.screen {
   padding: 18px 14px;
   background: transparent;
   border-radius: 0;
@@ -2618,7 +2624,7 @@ body.is-attendance-section #attendance-stats-screen.screen {
   font-weight: 800;
 }
 
-.attendance-panel-dots .section-swipe-dot {
+.attendance-panel-dots .attendance-panel-dot {
   pointer-events: auto;
 }
 
@@ -2698,8 +2704,7 @@ body.is-attendance-section #attendance-stats-screen.screen {
   text-align: left;
 }
 
-.attendance-group-line,
-#attendance-register-screen .attendance-group-line {
+.attendance-group-line {
   display: none;
 }
 
@@ -2747,8 +2752,7 @@ body.is-attendance-section #attendance-stats-screen.screen {
   min-width: 0;
 }
 
-.attendance-student-name,
-#attendance-register-screen .attendance-student-name {
+.attendance-student-name {
   color: var(--text);
   font-size: 1.0rem;
   font-weight: 400;
@@ -2756,8 +2760,7 @@ body.is-attendance-section #attendance-stats-screen.screen {
   overflow-wrap: anywhere;
 }
 
-.attendance-toggle,
-#attendance-register-screen .attendance-toggle {
+.attendance-toggle {
   width: auto;
   min-width: 108px;
   min-height: 34px;
@@ -2770,14 +2773,12 @@ body.is-attendance-section #attendance-stats-screen.screen {
   box-shadow: none;
 }
 
-.attendance-toggle.is-present,
-#attendance-register-screen .attendance-toggle.is-present {
+.attendance-toggle.is-present.is-present {
   background: var(--surface-chip);
   color: var(--text-subtle);
 }
 
-.attendance-toggle.is-absent,
-#attendance-register-screen .attendance-toggle.is-absent {
+.attendance-toggle.is-absent.is-absent {
   background: var(--danger-bg);
   color: var(--danger);
 }
@@ -2870,9 +2871,7 @@ body.is-attendance-section #attendance-stats-screen.screen {
 
 
 @media (max-width: 520px) {
-  #attendance-register-screen.screen,
-  #attendance-report-screen.screen,
-  #attendance-stats-screen.screen {
+  #attendance-screen.screen {
     padding-inline: 12px;
   }
 
@@ -2924,12 +2923,12 @@ body.is-attendance-section #attendance-stats-screen.screen {
   }
 
  .attendance-student-name,
-  #attendance-register-screen .attendance-student-name {
+  #attendance-screen .attendance-student-name {
     font-size: 0.94rem;
   }
 
   .attendance-toggle,
-  #attendance-register-screen .attendance-toggle {
+  #attendance-screen .attendance-toggle {
     min-width: 96px;
     min-height: 32px;
     padding: 5px 7px;
@@ -3995,3 +3994,10 @@ body.pdf-viewer-open.has-user-band .pdf-viewer-header {
   }
 }
 
+
+/* V66 final Attendance screen spacing override: keep native-swipe dots clear of content after base screen rules. */
+@media (max-width: 767px) {
+  #attendance-screen.screen {
+    padding-top: calc(var(--swipe-dot-band-gap) + var(--swipe-dot-bar-height) + 14px);
+  }
+}
