@@ -10,7 +10,7 @@
      ========================================== */
     --primary: #A8B992;          /* SAGE DUST  - Core brand identifier */
     --primary-rgb: 168, 185, 146; /* Sage RGB for background opacity modifiers */
-    --primary-light: color-mix(in srgb, var(--primary) 80%, white 20%);
+    --primary-light: color-mix(in srgb, var(--primary) 80%, white 35%);
     --primary-lighter: color-mix(in srgb, var(--primary) 80%, white 50%);
      -primary-lightest: color-mix(in srgb, var(--primary) 80%, white 70%);
 
@@ -2260,7 +2260,7 @@ body.has-user-band #progress-subjects-screen.student-theme .nav-header {
   justify-content: center;
   padding: clamp(5px, 0.75vw, 8px) clamp(4px, 0.75vw, 9px);
   color: var(--text-strong);
-  background: var(--primary-lighter);
+  background: var(--primary-light);
   border: 0;
   border-radius: 999px;
   box-shadow: none;
@@ -2313,7 +2313,7 @@ body.has-user-band #progress-subjects-screen.student-theme .nav-header {
   grid-column: span var(--timetable-day-count, 5);
   min-height: clamp(36px, 10.8vw, 52px);
   padding: clamp(7px, 2vw, 10px) clamp(8px, 2.6vw, 14px);
-  background: var(--surface-soft);
+  background: var(--primary-lighter);
   border: 0;
   border-radius: 999px;
   box-shadow: none;
