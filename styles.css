@@ -1,4 +1,4 @@
-/* M4L v71 - Admin Progress native shelves + Student Progress V70.3 baseline. */
+/* M4L v71.1 - Admin Progress class progress header + grouped task swipe + Student Progress V70.3 baseline. */
 :root {
   /* ==========================================
      BRAND PALETTE (Sage & Lavender)
@@ -1276,20 +1276,30 @@ body.has-user-band .top-bar button[onclick="logout()"] {
 
 
 
-/* Admin Progress native snap shelves - V71 */
+/* Admin Progress native snap shelves - V71.1 */
 #progress-report.admin-progress-screen,
 #progress-task-students-screen.admin-theme {
   text-align: left;
 }
 
+.admin-progress-landing-header {
+  justify-content: center;
+  text-align: center;
+  border-bottom: 3px solid var(--primary);
+}
+
+.admin-progress-landing-header h2 {
+  flex: 0 1 auto;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: clamp(1.28rem, 5vw, 1.85rem);
+  line-height: 1.15;
+  letter-spacing: 0.08em;
+}
+
 .admin-progress-dashboard {
   display: grid;
   gap: 18px;
-}
-
-.admin-progress-dashboard-intro {
-  margin: 0;
-  padding: 0 2px;
 }
 
 .admin-progress-module-shelf {
@@ -1334,16 +1344,19 @@ body.has-user-band .top-bar button[onclick="logout()"] {
   padding: 2px 2px 8px;
 }
 
-.admin-progress-task-rail::-webkit-scrollbar {
+.admin-progress-task-rail::-webkit-scrollbar,
+.admin-progress-group-swipe-track::-webkit-scrollbar {
   height: 6px;
 }
 
-.admin-progress-task-rail::-webkit-scrollbar-track {
+.admin-progress-task-rail::-webkit-scrollbar-track,
+.admin-progress-group-swipe-track::-webkit-scrollbar-track {
   background: var(--surface-chip);
   border-radius: 999px;
 }
 
-.admin-progress-task-rail::-webkit-scrollbar-thumb {
+.admin-progress-task-rail::-webkit-scrollbar-thumb,
+.admin-progress-group-swipe-track::-webkit-scrollbar-thumb {
   background: var(--surface-track);
   border-radius: 999px;
 }
@@ -1416,26 +1429,70 @@ body.has-user-band .top-bar button[onclick="logout()"] {
   border-radius: inherit;
 }
 
-.admin-progress-task-detail-summary {
-  margin: 0 0 12px;
+.admin-progress-task-class-list {
+  display: block;
 }
 
-.admin-progress-task-class-list {
+.admin-progress-task-swipe-shell {
   display: grid;
+  gap: 10px;
+}
+
+.admin-progress-group-swipe-dots {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 24px;
+}
+
+.admin-progress-group-swipe-dot {
+  width: 9px;
+  min-width: 9px;
+  height: 9px;
+  min-height: 9px;
+  padding: 0;
+  border-radius: 999px;
+  background: var(--surface-track);
+  box-shadow: none;
+  opacity: 0.75;
+}
+
+.admin-progress-group-swipe-dot.is-active {
+  width: 22px;
+  background: var(--primary);
+  opacity: 1;
+}
+
+.admin-progress-group-swipe-track {
+  display: flex;
   gap: 14px;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scroll-snap-type: x mandatory;
+  scroll-padding-inline: 2px;
+  -webkit-overflow-scrolling: touch;
+  padding: 2px 2px 10px;
 }
 
 .admin-progress-group-container {
+  flex: 0 0 min(88vw, 430px);
+  width: min(88vw, 430px);
+  scroll-snap-align: start;
   display: grid;
-  gap: 10px;
-  padding: 12px;
-  border-radius: 18px;
-  background: var(--surface-chip);
-  border: 1px solid rgba(var(--primary-rgb), 0.12);
+  align-content: start;
+  gap: 12px;
+  min-width: 0;
+  padding: 14px;
+  border-radius: 20px;
+  background: var(--surface-card);
+  border: 1px solid rgba(var(--primary-rgb), 0.14);
+  box-shadow: 0 2px 5px rgba(var(--black-rgb), 0.08);
 }
 
 .admin-progress-group-title {
   color: var(--text-muted);
+  font-size: 1rem;
   font-weight: 800;
   text-align: left;
 }
@@ -1448,7 +1505,8 @@ body.has-user-band .top-bar button[onclick="logout()"] {
 .admin-progress-student-row,
 .admin-progress-popout-task-row {
   margin-bottom: 0;
-  background: var(--surface-card);
+  background: var(--surface-chip);
+  border-color: rgba(var(--primary-rgb), 0.12);
 }
 
 .admin-progress-student-name-button {
@@ -1469,9 +1527,29 @@ body.has-user-band .top-bar button[onclick="logout()"] {
   overflow-wrap: anywhere;
 }
 
-.admin-progress-student-row .task-status-control,
-.admin-progress-popout-task-row .task-status-control {
+.admin-progress-status-control {
   color: var(--primary);
+}
+
+.admin-progress-complete-control {
+  color: var(--disabled);
+}
+
+.admin-progress-verify-control {
+  color: var(--primary);
+}
+
+.admin-progress-status-control .task-status-icon,
+.admin-progress-status-control .status-tick {
+  color: currentColor;
+}
+
+.admin-progress-complete-control .status-tick-complete {
+  color: currentColor;
+}
+
+.admin-progress-verify-control .status-tick-verified {
+  color: currentColor;
 }
 
 .admin-progress-student-popout {
@@ -1542,7 +1620,7 @@ body.has-user-band .top-bar button[onclick="logout()"] {
   gap: 10px;
   padding: 12px;
   border-radius: 18px;
-  background: var(--surface-chip);
+  background: var(--surface-card);
   border: 1px solid rgba(var(--primary-rgb), 0.12);
 }
 
@@ -1579,10 +1657,33 @@ body.has-user-band .top-bar button[onclick="logout()"] {
     gap: 20px;
   }
 
+  .admin-progress-group-container {
+    flex-basis: min(430px, 42vw);
+  }
+
   .admin-progress-popout-panel {
     margin-left: auto;
     margin-right: 24px;
     width: min(520px, 46vw);
+  }
+}
+
+@media (min-width: 1180px) {
+  .admin-progress-group-swipe-dots {
+    display: none;
+  }
+
+  .admin-progress-group-swipe-track {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    overflow-x: visible;
+    scroll-snap-type: none;
+    padding-bottom: 2px;
+  }
+
+  .admin-progress-group-container {
+    width: auto;
+    min-width: 0;
   }
 }
 
@@ -1599,6 +1700,12 @@ body.has-user-band .top-bar button[onclick="logout()"] {
   .admin-progress-card-bar-row {
     grid-template-columns: 56px minmax(70px, 1fr) 36px;
     gap: 6px;
+  }
+
+  .admin-progress-group-container {
+    flex-basis: 88vw;
+    width: 88vw;
+    padding: 12px;
   }
 
   .admin-progress-student-name-button {
@@ -1676,6 +1783,7 @@ body.has-user-band .top-bar button[onclick="logout()"] {
     font-size: 0.78rem;
   }
 }
+
 
 
 /* Student Progress native swipe/grid - V70.3 */
