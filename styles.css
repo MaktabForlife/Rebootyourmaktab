@@ -2064,7 +2064,7 @@ body.has-user-band #progress-subjects-screen.student-theme .nav-header {
   margin: 0 0 6px;
   color: var(--text-strong);
   font-size: clamp(0.88rem, 3.6vw, 1.03rem);
-  font-weight: 650;
+  font-weight: 400;
   line-height: 1.45;
   text-align: center;
 }
@@ -2364,7 +2364,7 @@ button.m4l-timetable-subject {
   max-width: 100%;
   min-width: 0;
   overflow: hidden;
-  background: var(--surface-chip);
+  background: var(--surface-soft);
   border: 0;
   border-radius: 18px;
 }
