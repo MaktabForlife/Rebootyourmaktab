@@ -1,4 +1,4 @@
-/* M4L v67.2 - Home native scroll CSS; unchanged from v67.1 except cache version. */
+/* M4L v69 - Home timetable board and Class Duas redesign. */
 :root {
   /* ==========================================
      BRAND PALETTE (Sage & Lavender)
@@ -19,8 +19,8 @@
      ========================================== */
   --surface-chip: #F4EEF6;     /* Ultra-light lavender for surfaces */
   --surface-track: #DBBCDF;    /* Mid-lavender for pills  */
-   --banner-color: #CDB4DB     /* Dusty Lavender - Soft contrast for headers/banners */
-  --surface-banner: #BCBBC2    /* lavender banner */
+   --banner-color: #CDB4DB;     /* Dusty Lavender - Soft contrast for headers/banners */
+  --surface-banner: #BCBBC2;    /* lavender banner */
   --surface-dark: #916496;     /* Deep dusty lavender for dark modes or dark overlays */
 
   /* ==========================================
@@ -81,7 +81,7 @@
 body {
   margin: 0;
   min-height: 100vh;
-  background: var(--surface-soft;
+  background: var(--surface-soft);
   color: var(--text);
   font-family: var(--font-main);
   display: flex;
@@ -1336,6 +1336,203 @@ body.has-user-band .top-bar button[onclick="logout()"] {
 }
 
 
+/* Student Progress native swipe - V68 */
+#progress-subjects-screen.student-theme {
+  padding-inline: 12px;
+}
+
+#progress-subjects-screen.student-theme .nav-header {
+  position: sticky;
+  top: 0;
+  z-index: 72;
+  flex-wrap: wrap;
+  margin: -4px -4px 14px;
+  padding: 8px 4px 12px;
+  background: var(--surface-app);
+  border-bottom: 3px solid var(--primary);
+}
+
+body.has-user-band #progress-subjects-screen.student-theme .nav-header {
+  top: calc(var(--user-band-height) + var(--user-band-safe-area-top) + 8px);
+}
+
+#progress-subjects-screen.student-theme .nav-header h2 {
+  flex: 1 1 0;
+  min-width: 110px;
+  color: var(--primary);
+  font-size: clamp(1.05rem, 4.5vw, 1.35rem);
+  line-height: 1.15;
+}
+
+#progress-subjects-screen.student-theme .nav-header .home-icon-btn {
+  order: 2;
+}
+
+#progress-subjects-screen.student-theme .nav-header .student-progress-save-btn {
+  order: 3;
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
+.student-progress-swipe-shell {
+  width: 100%;
+  min-width: 0;
+  display: grid;
+  gap: 12px;
+  text-align: left;
+}
+
+.student-progress-swipe-dots {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  min-height: 22px;
+  padding: 2px 0 4px;
+}
+
+.student-progress-swipe-dot {
+  width: 11px;
+  min-width: 11px;
+  height: 11px;
+  min-height: 11px;
+  padding: 0;
+  border: 2px solid var(--primary);
+  border-radius: 999px;
+  background: transparent;
+  box-shadow: none;
+}
+
+.student-progress-swipe-dot.is-active {
+  background: var(--primary);
+}
+
+.student-progress-swipe-track {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  overscroll-behavior-inline: contain;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.student-progress-swipe-track::-webkit-scrollbar {
+  display: none;
+}
+
+.student-progress-module-panel {
+  flex: 0 0 100%;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  display: grid;
+  gap: 12px;
+  align-content: start;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+}
+
+.student-progress-module-card {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 14px;
+  background: var(--surface-card);
+  border: 1px solid rgba(var(--primary-rgb), 0.14);
+  border-left: 5px solid var(--primary);
+  border-radius: 16px;
+  box-shadow: 0 2px 5px rgba(var(--black-rgb), 0.08);
+}
+
+.student-progress-module-count {
+  margin: 0;
+  color: var(--text-subtle);
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  line-height: 1.15;
+  text-transform: uppercase;
+}
+
+.student-progress-module-title {
+  margin: 0;
+  color: var(--primary);
+  font-family: var(--font-heading);
+  font-size: clamp(1.05rem, 5vw, 1.42rem);
+  font-weight: 800;
+  line-height: 1.18;
+  overflow-wrap: anywhere;
+}
+
+.student-progress-task-list {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.student-progress-task-list .student-status-row {
+  margin-bottom: 0;
+}
+
+.student-progress-task-list .task-status-heading-row {
+  margin-bottom: -2px;
+}
+
+@media (max-width: 520px) {
+  #progress-subjects-screen.student-theme {
+    padding-inline: 10px;
+  }
+
+  #progress-subjects-screen.student-theme .nav-header {
+    gap: 8px;
+  }
+
+  #progress-subjects-screen.student-theme .nav-header h2 {
+    flex-basis: calc(100% - 132px);
+  }
+
+  #progress-subjects-screen.student-theme .nav-header .student-progress-save-btn {
+    min-width: 92px;
+    padding-inline: 12px;
+  }
+
+  .student-progress-module-card {
+    padding: 12px;
+  }
+}
+
+@media (min-width: 768px), (hover: hover) and (pointer: fine) {
+  body.has-user-band.has-bottom-nav #progress-subjects-screen.student-theme .nav-header {
+    top: calc(var(--user-band-height) + var(--user-band-safe-area-top) + var(--top-nav-height) + 18px);
+  }
+
+  .student-progress-swipe-dots {
+    display: none;
+  }
+
+  .student-progress-swipe-track {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 18px;
+    overflow: visible;
+    scroll-snap-type: none;
+  }
+
+  .student-progress-module-panel {
+    flex: initial;
+    width: auto;
+    max-width: none;
+    scroll-snap-align: none;
+    scroll-snap-stop: normal;
+  }
+}
+
+
 /* Resources / Library ribbon - V65.4.2 */
 .library-resource-browser {
   --library-ribbon-gap: 10px;
@@ -2079,6 +2276,241 @@ body.has-user-band .top-bar button[onclick="logout()"] {
 
   .home-swipe-dots {
     display: none;
+  }
+}
+
+
+/* Timetable board redesign - V69 */
+.m4l-timetable-scroll {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 3px;
+  border: 0;
+  border-radius: 24px;
+  background: transparent;
+  box-shadow: none;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-inline: contain;
+  touch-action: pan-x;
+}
+
+.m4l-timetable-scroll::-webkit-scrollbar {
+  height: 6px;
+}
+
+.m4l-timetable-board {
+  --m4l-timetable-time-column: 64px;
+  --m4l-timetable-day-column: minmax(72px, 1fr);
+  display: grid;
+  grid-template-columns: minmax(var(--m4l-timetable-time-column), 0.74fr) repeat(var(--timetable-day-count, 5), var(--m4l-timetable-day-column));
+  gap: 8px;
+  width: 100%;
+  min-width: max(100%, calc(var(--m4l-timetable-time-column) + (var(--timetable-day-count, 5) * 72px) + (var(--timetable-day-count, 5) * 8px)));
+  padding: 12px;
+  border: 1px solid rgba(var(--white-rgb), 0.50);
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at top left, rgba(var(--primary-rgb), 0.40), transparent 44%),
+    radial-gradient(circle at bottom right, color-mix(in srgb, var(--banner-color) 58%, transparent), transparent 52%),
+    linear-gradient(135deg, var(--surface-soft), var(--surface-track));
+  box-shadow: inset 0 1px 0 rgba(var(--white-rgb), 0.42);
+}
+
+@supports not (background: color-mix(in srgb, white 50%, transparent)) {
+  .m4l-timetable-board {
+    background:
+      radial-gradient(circle at top left, rgba(var(--primary-rgb), 0.40), transparent 44%),
+      radial-gradient(circle at bottom right, rgba(205, 180, 219, 0.58), transparent 52%),
+      linear-gradient(135deg, var(--surface-soft), var(--surface-track));
+  }
+}
+
+.m4l-timetable-pill {
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 9px;
+  color: var(--text-strong);
+  background: var(--surface-track);
+  border: 1px solid rgba(var(--white-rgb), 0.46);
+  border-radius: 999px;
+  box-shadow: 0 2px 5px rgba(var(--black-rgb), 0.06);
+  font-size: clamp(0.72rem, 2.8vw, 0.86rem);
+  font-weight: 800;
+  line-height: 1.1;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.m4l-timetable-time-heading,
+.m4l-timetable-time-pill {
+  color: var(--text-strong);
+}
+
+.m4l-timetable-subject-cell {
+  min-height: 48px;
+  display: grid;
+  place-items: center;
+  gap: 5px;
+  padding: 8px 7px;
+  color: var(--text-strong);
+  background: rgba(var(--white-rgb), 0.36);
+  border: 1px solid rgba(var(--white-rgb), 0.48);
+  border-radius: 16px;
+  box-shadow: 0 2px 5px rgba(var(--black-rgb), 0.05);
+  text-align: center;
+}
+
+.m4l-timetable-subject-cell--merged {
+  grid-column: span var(--timetable-day-count, 5);
+  min-height: 52px;
+  background: var(--surface-chip);
+  border-color: rgba(var(--white-rgb), 0.62);
+  box-shadow: 0 4px 12px rgba(var(--black-rgb), 0.07);
+}
+
+.m4l-timetable-subject-cell--empty {
+  opacity: 0.58;
+  background: rgba(var(--white-rgb), 0.18);
+  box-shadow: none;
+}
+
+.m4l-timetable-subject {
+  width: 100%;
+  min-width: 0;
+  color: var(--text-strong);
+  font-size: clamp(0.78rem, 3.3vw, 0.98rem);
+  font-weight: 800;
+  line-height: 1.15;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+button.m4l-timetable-subject {
+  min-height: 0;
+  padding: 0;
+  color: var(--primary);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.m4l-timetable-break-pill {
+  grid-column: 1 / -1;
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 12px;
+  color: var(--text-strong);
+  background: var(--surface-track);
+  border-radius: 999px;
+  font-weight: 800;
+  text-align: center;
+}
+
+#student-home .home-swipe-panel--timetable,
+#admin-home .home-swipe-panel--timetable {
+  background:
+    radial-gradient(circle at top left, rgba(var(--primary-rgb), 0.22), transparent 42%),
+    radial-gradient(circle at bottom right, color-mix(in srgb, var(--banner-color) 34%, transparent), transparent 48%),
+    linear-gradient(135deg, rgba(var(--white-rgb), 0.34), rgba(var(--white-rgb), 0.16));
+}
+
+@supports not (background: color-mix(in srgb, white 50%, transparent)) {
+  #student-home .home-swipe-panel--timetable,
+  #admin-home .home-swipe-panel--timetable {
+    background:
+      radial-gradient(circle at top left, rgba(var(--primary-rgb), 0.22), transparent 42%),
+      radial-gradient(circle at bottom right, rgba(205, 180, 219, 0.34), transparent 48%),
+      linear-gradient(135deg, rgba(var(--white-rgb), 0.34), rgba(var(--white-rgb), 0.16));
+  }
+}
+
+#student-home .timetable-card,
+#admin-home .timetable-card {
+  overflow: visible;
+  padding: 12px;
+  background: rgba(var(--white-rgb), 0.44);
+  border: 1px solid rgba(var(--white-rgb), 0.58);
+  border-left: 1px solid rgba(var(--white-rgb), 0.58);
+  border-radius: 24px;
+  box-shadow: 0 14px 30px rgba(var(--black-rgb), 0.11);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  #student-home .timetable-card,
+  #admin-home .timetable-card {
+    background: var(--surface-card);
+  }
+}
+
+#student-home .m4l-timetable-scroll,
+#admin-home .m4l-timetable-scroll {
+  background: transparent;
+}
+
+.class-duas-card {
+  background:
+    radial-gradient(circle at top left, rgba(var(--primary-rgb), 0.20), transparent 42%),
+    radial-gradient(circle at bottom right, color-mix(in srgb, var(--banner-color) 34%, transparent), transparent 48%),
+    linear-gradient(135deg, var(--surface-soft), var(--surface-track));
+  border: 1px solid rgba(205, 180, 219, 0.45);
+  border-radius: 18px;
+}
+
+@supports (border-color: color-mix(in srgb, red 50%, transparent)) {
+  .class-duas-card {
+    border-color: color-mix(in srgb, var(--surface-banner, var(--banner-color)) 45%, transparent);
+  }
+}
+
+@supports not (background: color-mix(in srgb, white 50%, transparent)) {
+  .class-duas-card {
+    background:
+      radial-gradient(circle at top left, rgba(var(--primary-rgb), 0.20), transparent 42%),
+      radial-gradient(circle at bottom right, rgba(205, 180, 219, 0.34), transparent 48%),
+      linear-gradient(135deg, var(--surface-soft), var(--surface-track));
+  }
+}
+
+@media (max-width: 520px) {
+  .m4l-timetable-board {
+    --m4l-timetable-time-column: 56px;
+    --m4l-timetable-day-column: minmax(66px, 1fr);
+    gap: 6px;
+    min-width: max(100%, calc(var(--m4l-timetable-time-column) + (var(--timetable-day-count, 5) * 66px) + (var(--timetable-day-count, 5) * 6px)));
+    padding: 9px;
+    border-radius: 20px;
+  }
+
+  .m4l-timetable-pill {
+    min-height: 30px;
+    padding: 7px 6px;
+    font-size: clamp(0.64rem, 2.9vw, 0.76rem);
+  }
+
+  .m4l-timetable-subject-cell {
+    min-height: 44px;
+    padding: 7px 5px;
+    border-radius: 14px;
+  }
+
+  .m4l-timetable-subject-cell--merged {
+    min-height: 48px;
+  }
+
+  #student-home .timetable-card,
+  #admin-home .timetable-card {
+    padding: 9px;
+    border-radius: 20px;
   }
 }
 
