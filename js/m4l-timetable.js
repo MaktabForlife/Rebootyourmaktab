@@ -1,4 +1,4 @@
-/* M4L v62 - Timetable module
+/* M4L v69 - Timetable board module
    Load after /app.js, /js/m4l-auth.js, and /js/m4l-shell.js.
    This is a classic script, not type=module, so existing global function calls remain safe
    while the app is split gradually.
@@ -249,6 +249,78 @@ function getTimetableCellEntries(model, time, day) {
   return model.cells[key] || [];
 }
 
+function getTimetableEntriesLabel(entries) {
+  return (entries || [])
+    .map(entry => normalizeTimetableText(entry && entry.subjectname))
+    .filter(Boolean)
+    .join(" / ");
+}
+
+function getTimetableEntriesKey(entries) {
+  return normalizeTimetableKey(getTimetableEntriesLabel(entries));
+}
+
+function shouldMergeTimetableRow(model, time) {
+  if (!model || !Array.isArray(model.days) || model.days.length <= 1) {
+    return false;
+  }
+
+  let sharedKey = "";
+
+  for (const day of model.days) {
+    const entries = getTimetableCellEntries(model, time, day);
+    const key = getTimetableEntriesKey(entries);
+
+    if (!key) {
+      return false;
+    }
+
+    if (!sharedKey) {
+      sharedKey = key;
+      continue;
+    }
+
+    if (key !== sharedKey) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function renderTimetableSubjectEntries(entries, options = {}) {
+  if (!Array.isArray(entries) || !entries.length) {
+    return "";
+  }
+
+  return entries.map(entry => {
+    const subjectName = normalizeTimetableText(entry && entry.subjectname);
+
+    if (!subjectName) {
+      return "";
+    }
+
+    const perSessionZoomLink = normalizeTimetableText(entry.zoomlink);
+    const canOpenSessionZoom = options.usePerSessionZoom === true && perSessionZoomLink;
+    const subjectClass = canOpenSessionZoom
+      ? "m4l-timetable-subject timetable-subject timetable-subject-link"
+      : "m4l-timetable-subject timetable-subject";
+
+    if (canOpenSessionZoom) {
+      return `
+        <button
+          type="button"
+          class="${subjectClass}"
+          data-timetable-action="open-zoom"
+          data-zoom-link="${escapeForAttribute(perSessionZoomLink)}"
+        >${escapeHtml(subjectName)}</button>
+      `;
+    }
+
+    return `<span class="${subjectClass}">${escapeHtml(subjectName)}</span>`;
+  }).join("");
+}
+
 function renderTimetable(containerOrId, timetableResult, options = {}) {
   const container = getDomElement(containerOrId);
 
@@ -270,68 +342,83 @@ function renderTimetable(containerOrId, timetableResult, options = {}) {
     return true;
   }
 
+  const dayCount = Math.max(model.days.length, 1);
+
   const headerHtml = model.days
-    .map(day => `<th scope="col">${escapeHtml(day)}</th>`)
+    .map(day => `
+      <div class="m4l-timetable-pill m4l-timetable-day-pill" role="columnheader">
+        ${escapeHtml(day)}
+      </div>
+    `)
     .join("");
 
-  const rowsHtml = model.starttimes.map(time => {
+  const bodyHtml = model.starttimes.map((time, rowIndex) => {
+    const shouldMergeRow = rowIndex === 0 && shouldMergeTimetableRow(model, time);
+
+    const timeHtml = `
+      <div class="m4l-timetable-pill m4l-timetable-time-pill" role="rowheader">
+        ${escapeHtml(time)}
+      </div>
+    `;
+
+    if (shouldMergeRow) {
+      const entries = getTimetableCellEntries(model, time, model.days[0]);
+      return `
+        ${timeHtml}
+        <div
+          class="m4l-timetable-subject-cell m4l-timetable-subject-cell--merged"
+          role="cell"
+          aria-label="${escapeForAttribute(time)} shared subject"
+        >
+          ${renderTimetableSubjectEntries(entries, options)}
+        </div>
+      `;
+    }
+
     const cellHtml = model.days.map(day => {
       const entries = getTimetableCellEntries(model, time, day);
 
       if (!entries.length) {
-        return `<td class="timetable-empty-cell" aria-label="${escapeHtml(day)} ${escapeHtml(time)}"></td>`;
+        return `
+          <div
+            class="m4l-timetable-subject-cell m4l-timetable-subject-cell--empty"
+            role="cell"
+            aria-label="${escapeForAttribute(day)} ${escapeForAttribute(time)}"
+          ></div>
+        `;
       }
 
-      const subjectsHtml = entries.map(entry => {
-        const perSessionZoomLink = normalizeTimetableText(entry.zoomlink);
-        const canOpenSessionZoom = options.usePerSessionZoom === true && perSessionZoomLink;
-        const subjectClass = canOpenSessionZoom
-          ? "timetable-subject timetable-subject-link"
-          : "timetable-subject";
-        if (canOpenSessionZoom) {
-          return `
-            <button
-              type="button"
-              class="${subjectClass}"
-              data-timetable-action="open-zoom"
-              data-zoom-link="${escapeForAttribute(perSessionZoomLink)}"
-            >${escapeHtml(entry.subjectname)}</button>
-          `;
-        }
-
-        return `<span class="${subjectClass}">${escapeHtml(entry.subjectname)}</span>`;
-      }).join("");
-
-      return `<td>${subjectsHtml}</td>`;
+      return `
+        <div
+          class="m4l-timetable-subject-cell"
+          role="cell"
+          aria-label="${escapeForAttribute(day)} ${escapeForAttribute(time)}"
+        >
+          ${renderTimetableSubjectEntries(entries, options)}
+        </div>
+      `;
     }).join("");
 
-    return `
-      <tr>
-        <th scope="row" class="timetable-time-cell">${escapeHtml(time)}</th>
-        ${cellHtml}
-      </tr>
-    `;
+    return `${timeHtml}${cellHtml}`;
   }).join("");
 
-  const dayCount = Math.max(model.days.length, 1);
-
-  const tableHtml = `
-    <div class="timetable-scroll" role="region" aria-label="Timetable" tabindex="0" style="--timetable-day-count: ${dayCount};">
-      <table class="timetable-table">
-        <thead>
-          <tr>
-            <th scope="col">Time</th>
-            ${headerHtml}
-          </tr>
-        </thead>
-        <tbody>
-          ${rowsHtml}
-        </tbody>
-      </table>
+  const timetableHtml = `
+    <div
+      class="timetable-scroll m4l-timetable-scroll"
+      role="region"
+      aria-label="Timetable"
+      tabindex="0"
+      style="--timetable-day-count: ${dayCount};"
+    >
+      <div class="m4l-timetable-board" role="table" aria-label="Timetable board">
+        <div class="m4l-timetable-pill m4l-timetable-time-heading" role="columnheader">Time</div>
+        ${headerHtml}
+        ${bodyHtml}
+      </div>
     </div>
   `;
 
-  setDomHtml(container, tableHtml);
+  setDomHtml(container, timetableHtml);
   bindTimetableUiHandlers();
   return true;
 }
