@@ -1,4 +1,4 @@
-/* M4L v71 - Admin Progress native Netflix shelves + Student Progress V70.3 baseline
+/* M4L v71.1 - Admin Progress class progress header + grouped task swipe + Student Progress V70.3 baseline
    Load after /app.js, /js/m4l-auth.js, /js/m4l-shell.js, /js/m4l-timetable.js, and /js/m4l-resources.js.
    This is a classic script, not type=module, so existing global function calls remain safe
    while the app is split gradually.
@@ -134,6 +134,12 @@ function handleProgressUiClick(event) {
       openAdminProgressStudentPopout(
         actionEl.dataset.studentid || "",
         actionEl.dataset.username || "Student"
+      );
+      break;
+
+    case "scroll-admin-progress-group":
+      scrollAdminProgressGroupToIndex(
+        Number(actionEl.dataset.progressGroupIndex || 0)
       );
       break;
 
@@ -1290,19 +1296,15 @@ function prepareAdminProgressMonitor() {
 
   screen.classList.add("progress-selector-screen", "admin-progress-screen");
 
-  const homeButton = screen.querySelector(".small-btn");
-  if (homeButton) {
-    setHomeIconButton(homeButton, "showScreen('admin-home')");
+  const header = screen.querySelector(".nav-header");
+  if (header) {
+    header.classList.add("admin-progress-landing-header");
+    header.innerHTML = `<h2>CLASS PROGRESS</h2>`;
   }
 
-  const title = screen.querySelector("h2");
-  if (title) {
-    title.innerText = "Progress";
-  }
-
-  // V71 replaces the old selector cards with the native Netflix-style
-  // module shelves. Keep the old markup harmless if an older admin index
-  // is accidentally deployed.
+  // V71.1 keeps the landing page clean: no Home icon and no instruction text.
+  // V71 replaces the old selector cards with native Netflix-style module shelves.
+  // Keep the old selector markup harmless if an older admin index is deployed.
   screen.querySelectorAll(".dashboard-section").forEach(section => {
     section.classList.add("hidden");
   });
@@ -1526,12 +1528,7 @@ function renderAdminProgressDashboard(modules) {
     return;
   }
 
-  const html = `
-    <div class="admin-progress-dashboard-intro">
-      <p class="helper-text">Swipe each module row. Tap a task card to update the class list.</p>
-    </div>
-    ${list.map(renderAdminProgressModuleShelf).join("")}
-  `;
+  const html = list.map(renderAdminProgressModuleShelf).join("");
 
   setDomHtml(dashboard, html);
   bindProgressUiHandlers(dashboard);
@@ -1983,31 +1980,220 @@ function renderProgressTaskStudents(rows) {
     return;
   }
 
-  let html = `
-    <div class="admin-progress-task-detail-summary">
-      <p class="helper-text">Tap a student name to open their full progress list.</p>
-    </div>
-  `;
-
-  groups.forEach(group => {
+  const panelsHtml = groups.map((group, index) => {
     const sortedRows = byGroup[group].sort((a, b) => {
       return String(a.username || "").localeCompare(String(b.username || ""), undefined, { numeric: true });
     });
 
-    html += `
-      <section class="admin-progress-group-container" aria-label="Group ${escapeForAttribute(group)}">
+    return `
+      <section
+        class="admin-progress-group-container"
+        data-admin-progress-group-panel
+        data-progress-group-index="${index}"
+        aria-label="Group ${escapeForAttribute(group)}"
+      >
         <div class="admin-progress-group-title">Group ${escapeHtml(group)}</div>
         <div class="admin-progress-group-list">
           ${sortedRows.map(renderAdminProgressStudentTaskRow).join("")}
         </div>
       </section>
     `;
-  });
+  }).join("");
+
+  const html = `
+    <div class="admin-progress-task-swipe-shell" data-admin-progress-group-swipe-shell>
+      ${renderAdminProgressGroupSwipeDots(groups)}
+      <div class="admin-progress-group-swipe-track" data-admin-progress-group-swipe-track aria-label="${escapeForAttribute(progressState.taskname || "Task")} class groups">
+        ${panelsHtml}
+      </div>
+    </div>
+  `;
 
   setDomHtml(container, html);
   ensureAdminProgressStudentPopout();
   bindProgressUiHandlers(container);
+  bindAdminProgressGroupSwipeControls();
 }
+
+
+function getAdminProgressGroupSwipeTrack() {
+  return document.querySelector("#progress-task-students-screen [data-admin-progress-group-swipe-track]");
+}
+
+function getAdminProgressGroupSwipePanels(track) {
+  const targetTrack = track || getAdminProgressGroupSwipeTrack();
+
+  if (!targetTrack || !targetTrack.children) {
+    return [];
+  }
+
+  return Array.from(targetTrack.children).filter(child => {
+    return child &&
+      child.matches &&
+      child.matches("[data-admin-progress-group-panel], .admin-progress-group-container");
+  });
+}
+
+function getAdminProgressGroupActiveIndex(track) {
+  const targetTrack = track || getAdminProgressGroupSwipeTrack();
+
+  if (!targetTrack) {
+    return 0;
+  }
+
+  const panels = getAdminProgressGroupSwipePanels(targetTrack);
+
+  if (panels.length <= 1) {
+    return 0;
+  }
+
+  if ((targetTrack.scrollWidth || 0) <= (targetTrack.clientWidth || 0) + 2) {
+    return 0;
+  }
+
+  const firstPanel = panels[0];
+  const secondPanel = panels[1];
+  let step = targetTrack.clientWidth || 1;
+
+  if (firstPanel && secondPanel) {
+    const firstRect = firstPanel.getBoundingClientRect();
+    const secondRect = secondPanel.getBoundingClientRect();
+    const measuredStep = Math.abs(secondRect.left - firstRect.left);
+
+    if (measuredStep > 1) {
+      step = measuredStep;
+    }
+  }
+
+  const index = Math.round((targetTrack.scrollLeft || 0) / step);
+  return Math.max(0, Math.min(panels.length - 1, index));
+}
+
+function updateAdminProgressGroupSwipeDots() {
+  const screen = document.getElementById("progress-task-students-screen");
+  const track = getAdminProgressGroupSwipeTrack();
+
+  if (!screen || !track) {
+    return false;
+  }
+
+  const dots = Array.from(screen.querySelectorAll("[data-admin-progress-group-swipe-dots] [data-progress-group-index]"));
+
+  if (!dots.length) {
+    return false;
+  }
+
+  const activeIndex = getAdminProgressGroupActiveIndex(track);
+
+  dots.forEach((dot, fallbackIndex) => {
+    const dotIndex = Number(dot.dataset.progressGroupIndex || fallbackIndex || 0);
+    const isActive = dotIndex === activeIndex;
+    dot.classList.toggle("is-active", isActive);
+    dot.setAttribute("aria-current", isActive ? "true" : "false");
+  });
+
+  return true;
+}
+
+function scrollAdminProgressGroupToIndex(groupIndex, options = {}) {
+  const track = getAdminProgressGroupSwipeTrack();
+  const panels = getAdminProgressGroupSwipePanels(track);
+  const index = Number(groupIndex || 0);
+
+  if (!track || !panels[index]) {
+    return false;
+  }
+
+  panels[index].scrollIntoView({
+    behavior: options.behavior || "smooth",
+    block: "nearest",
+    inline: "start"
+  });
+
+  updateAdminProgressGroupSwipeDots();
+
+  if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
+    window.requestAnimationFrame(updateAdminProgressGroupSwipeDots);
+  } else {
+    window.setTimeout(updateAdminProgressGroupSwipeDots, 0);
+  }
+
+  return true;
+}
+
+function renderAdminProgressGroupSwipeDots(groups) {
+  const list = Array.isArray(groups) ? groups : [];
+
+  if (list.length <= 1) {
+    return "";
+  }
+
+  return `
+    <div class="admin-progress-group-swipe-dots" data-admin-progress-group-swipe-dots aria-label="Class groups">
+      ${list.map((group, index) => `
+        <button
+          type="button"
+          class="admin-progress-group-swipe-dot${index === 0 ? " is-active" : ""}"
+          data-progress-action="scroll-admin-progress-group"
+          data-progress-group-index="${index}"
+          aria-label="Show Group ${escapeForAttribute(group)}"
+          aria-current="${index === 0 ? "true" : "false"}"
+        ></button>
+      `).join("")}
+    </div>
+  `;
+}
+
+function bindAdminProgressGroupSwipeControls() {
+  const track = getAdminProgressGroupSwipeTrack();
+
+  if (!track) {
+    return false;
+  }
+
+  if (track.dataset.adminProgressGroupSwipeBound !== "true") {
+    track.dataset.adminProgressGroupSwipeBound = "true";
+    let pendingFrame = 0;
+
+    track.addEventListener("scroll", () => {
+      if (pendingFrame) return;
+
+      pendingFrame = window.requestAnimationFrame(() => {
+        pendingFrame = 0;
+        updateAdminProgressGroupSwipeDots();
+      });
+    }, { passive: true });
+  }
+
+  window.setTimeout(updateAdminProgressGroupSwipeDots, 0);
+  return true;
+}
+
+function updateAdminProgressStatusControls(studenttaskid, field, value, actionName) {
+  const type = field === "verifyStatus" ? "verify" : "complete";
+  const controls = Array.from(document.querySelectorAll(`[data-progress-action="${actionName}"][data-field="${field}"]`))
+    .filter(control => String(control.dataset.studenttaskid || "") === String(studenttaskid || ""));
+
+  controls.forEach(control => {
+    const currentLabel = control.getAttribute("aria-label") || "";
+    const labelSuffix = currentLabel.includes(":")
+      ? `: ${currentLabel.split(":").slice(1).join(":").trim()}`
+      : "";
+
+    control.dataset.value = value ? "false" : "true";
+    control.classList.toggle("is-on", !!value);
+    control.innerHTML = renderTaskStatusIndicator(type, !!value);
+
+    if (field === "verifyStatus") {
+      control.setAttribute("aria-label", `${value ? "Mark unverified" : "Mark verified"}${labelSuffix}`);
+    } else {
+      control.setAttribute("aria-label", `${value ? "Mark incomplete" : "Mark complete"}${labelSuffix}`);
+    }
+  });
+
+  return controls.length > 0;
+}
+
 
 function renderAdminProgressStudentTaskRow(row) {
   const pending = progressPendingUpdates[row.studenttaskid] || {};
@@ -2035,7 +2221,7 @@ function renderAdminProgressStudentTaskRow(row) {
       </button>
 
       <div
-        class="status-action task-status-control"
+        class="status-action task-status-control admin-progress-status-control admin-progress-complete-control${isComplete ? " is-on" : ""}"
         role="button"
         tabindex="0"
         data-progress-action="toggle-progress-pending"
@@ -2047,7 +2233,7 @@ function renderAdminProgressStudentTaskRow(row) {
       </div>
 
       <div
-        class="status-action task-status-control"
+        class="status-action task-status-control admin-progress-status-control admin-progress-verify-control${isVerified ? " is-on" : ""}"
         role="button"
         tabindex="0"
         data-progress-action="toggle-progress-pending"
@@ -2203,7 +2389,7 @@ function renderAdminStudentProgressPopoutRow(row) {
       <div class="student-status-name admin-progress-popout-task-name">${escapeHtml(row.taskname || "Untitled Task")}</div>
 
       <div
-        class="status-action task-status-control"
+        class="status-action task-status-control admin-progress-status-control admin-progress-complete-control${isComplete ? " is-on" : ""}"
         role="button"
         tabindex="0"
         data-progress-action="toggle-progress-pending-popout"
@@ -2215,7 +2401,7 @@ function renderAdminStudentProgressPopoutRow(row) {
       </div>
 
       <div
-        class="status-action task-status-control"
+        class="status-action task-status-control admin-progress-status-control admin-progress-verify-control${isVerified ? " is-on" : ""}"
         role="button"
         tabindex="0"
         data-progress-action="toggle-progress-pending-popout"
@@ -2237,7 +2423,17 @@ function toggleProgressPendingForAdminPopout(studenttaskid, field, value) {
   }
 
   progressPendingUpdates[studenttaskid][field] = value ? "YES" : "";
-  renderAdminStudentProgressPopout(adminProgressPopoutRows, progressState.activePopoutStudentName);
+
+  const updatedInPlace = updateAdminProgressStatusControls(
+    studenttaskid,
+    field,
+    value,
+    "toggle-progress-pending-popout"
+  );
+
+  if (!updatedInPlace) {
+    renderAdminStudentProgressPopout(adminProgressPopoutRows, progressState.activePopoutStudentName);
+  }
 }
 
 function closeAdminProgressStudentPopout(options = {}) {
@@ -2464,7 +2660,17 @@ function toggleProgressPending(studenttaskid, field, value) {
 
   if (progressState.contextType === "student") {
     renderIndividualStudentTaskList(currentProgressRows);
-  } else {
+    return;
+  }
+
+  const updatedInPlace = updateAdminProgressStatusControls(
+    studenttaskid,
+    field,
+    value,
+    "toggle-progress-pending"
+  );
+
+  if (!updatedInPlace) {
     renderProgressTaskStudents(currentProgressRows);
   }
 }
