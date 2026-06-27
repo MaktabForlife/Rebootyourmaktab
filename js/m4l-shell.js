@@ -1,4 +1,4 @@
-/* M4L v67.2 - Shell / Navigation / User Band module.
+/* M4L v69 - Shell / Navigation / User Band module.
    Owns Home native scroll dot binding; /js/m4l-swipe.js is no longer required. */
 
 function showScreen(screenId) {
