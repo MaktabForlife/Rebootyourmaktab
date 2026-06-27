@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <!-- PWA: Student install settings -->
-  <link rel="stylesheet" href="/styles.css?v=67.2" />
+  <link rel="stylesheet" href="/styles.css?v=69" />
   <link rel="manifest" href="/student-manifest.json" />
   <link rel="apple-touch-icon" sizes="180x180" href="/student-apple-touch-icon.png" />
   <link rel="icon" type="image/png" sizes="32x32" href="/student-favicon-32x32.png" />
@@ -155,11 +155,11 @@
 <!-- STUDENT PROGRESS -->
 <section id="progress-subjects-screen" class="screen student-theme">
   <div class="nav-header">
-    <h2 id="progress-subjects-title">My Tasks</h2>
+    <h2 id="progress-subjects-title">My Progress</h2>
     <button class="small-btn" onclick="showScreen('student-home')">Back</button>
   </div>
 
-  <div id="progress-subjects-list" class="list-stack">
+  <div id="progress-subjects-list" class="student-progress-root" aria-live="polite">
     <p class="helper-text">Loading tasks...</p>
   </div>
 </section>
@@ -207,12 +207,12 @@
 
   </main>
 <script src="/js/m4l-dom.js?v=11"></script>
-<script src="/app.js?v=58"></script>
+<script src="/app.js?v=69"></script>
 <script src="/js/m4l-auth.js?v=56"></script>
-<script src="/js/m4l-shell.js?v=67.2"></script>
-<script src="/js/m4l-timetable.js?v=62"></script>
-<script src="/js/m4l-resources.js?v=65.4.2"></script>
-<script src="/js/m4l-progress.js?v=56"></script>
+<script src="/js/m4l-shell.js?v=69"></script>
+<script src="/js/m4l-timetable.js?v=69"></script>
+<script src="/js/m4l-resources.js?v=69"></script>
+<script src="/js/m4l-progress.js?v=69"></script>
 </body>
 </html>
 
