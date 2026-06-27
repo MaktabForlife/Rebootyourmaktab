@@ -1,4 +1,4 @@
-/* M4L v71.1b - Admin Progress individual module swipe + class progress grouped task swipe + Student Progress V70.3 baseline
+/* M4L v71.3 - Admin Progress rigid swipe panels + close guard + Student Progress V70.3 baseline
    Load after /app.js, /js/m4l-auth.js, /js/m4l-shell.js, /js/m4l-timetable.js, and /js/m4l-resources.js.
    This is a classic script, not type=module, so existing global function calls remain safe
    while the app is split gradually.
@@ -149,6 +149,10 @@ function handleProgressUiClick(event) {
       );
       break;
 
+    case "close-admin-progress-task-screen":
+      requestCloseAdminProgressTaskScreen();
+      break;
+
     case "save-admin-progress-task":
       saveAdminProgressTaskChanges(actionEl);
       break;
@@ -162,7 +166,7 @@ function handleProgressUiClick(event) {
       break;
 
     case "close-admin-progress-student-popout":
-      closeAdminProgressStudentPopout();
+      requestCloseAdminProgressStudentPopout();
       break;
 
     case "save-admin-progress-popout":
@@ -274,19 +278,68 @@ function setProgressScreensForAdmin() {
   });
 
   const subjectBackButton = document.querySelector("#progress-subjects-screen .small-btn");
-  setBackIconButton(subjectBackButton, "showScreen('progress-report')");
+  setAdminProgressCloseButton(subjectBackButton, "showScreen('progress-report')");
 
   const taskBackButton = document.querySelector("#progress-tasks-screen .small-btn");
-  if (taskBackButton) {
-    taskBackButton.classList.remove("save-return-btn");
-    setBackIconButton(taskBackButton, "showScreen('progress-subjects-screen')");
+  setAdminProgressCloseButton(taskBackButton, "showScreen('progress-subjects-screen')");
+
+  prepareAdminProgressTaskHeader();
+}
+
+function setAdminProgressCloseButton(button, fallbackOnclick) {
+  if (!button) return false;
+  button.classList.remove("home-icon-btn", "back-icon-btn", "icon-action-btn", "icon-action-btn-large", "save-return-btn", "student-progress-save-btn", "admin-progress-save-button");
+  button.classList.add("admin-progress-close-btn");
+  button.type = "button";
+  button.textContent = "×";
+  button.setAttribute("aria-label", "Close");
+  button.setAttribute("title", "Close");
+  button.removeAttribute("data-header-action");
+  button.removeAttribute("data-header-target");
+  if (fallbackOnclick) {
+    button.setAttribute("onclick", fallbackOnclick);
+  }
+  return true;
+}
+
+function prepareAdminProgressTaskHeader() {
+  const header = document.querySelector("#progress-task-students-screen .nav-header");
+  if (!header) return false;
+
+  header.classList.add("admin-progress-detail-header");
+
+  const title = header.querySelector("#progress-task-students-title");
+  if (!title) return false;
+
+  header.querySelectorAll("button").forEach(button => {
+    if (button.dataset.progressAction !== "close-admin-progress-task-screen") {
+      button.remove();
+    }
+  });
+
+  let closeButton = header.querySelector('[data-progress-action="close-admin-progress-task-screen"]');
+  if (!closeButton) {
+    closeButton = document.createElement("button");
+    closeButton.type = "button";
+    closeButton.dataset.progressAction = "close-admin-progress-task-screen";
+    header.insertBefore(closeButton, title);
   }
 
-  const taskStudentsBackButton = document.querySelector("#progress-task-students-screen .small-btn");
-  if (taskStudentsBackButton) {
-    taskStudentsBackButton.classList.remove("save-return-btn", "student-progress-save-btn", "admin-progress-save-button");
-    setBackIconButton(taskStudentsBackButton, "showScreen('progress-report')");
+  closeButton.className = "small-btn admin-progress-close-btn";
+  closeButton.textContent = "×";
+  closeButton.setAttribute("aria-label", "Close progress detail");
+  closeButton.setAttribute("title", "Close");
+  closeButton.removeAttribute("onclick");
+
+  if (header.firstElementChild !== closeButton) {
+    header.insertBefore(closeButton, header.firstElementChild);
   }
+  if (closeButton.nextElementSibling !== title) {
+    header.insertBefore(title, closeButton.nextSibling);
+  }
+
+  bindAdminProgressSwipeUpClose(header, requestCloseAdminProgressTaskScreen);
+  return true;
 }
 
 function getStudentTaskField(task, names, fallback = "") {
@@ -1298,7 +1351,7 @@ let adminProgressDashboardRows = [];
 let adminProgressActiveTaskRows = [];
 let adminProgressPopoutRows = [];
 
-const ADMIN_PROGRESS_DASHBOARD_CACHE_KEY = "m4l_admin_progress_dashboard_v71_2";
+const ADMIN_PROGRESS_DASHBOARD_CACHE_KEY = "m4l_admin_progress_dashboard_v71_3";
 let adminProgressLeaveGuardBound = false;
 
 function hasProgressPendingUpdates() {
@@ -1360,6 +1413,93 @@ function clearAdminProgressDashboardCache() {
   } catch (err) {
     return false;
   }
+}
+
+function bindAdminProgressSwipeUpClose(element, closeHandler) {
+  if (!element || element.dataset.adminProgressSwipeUpCloseBound === "true") {
+    return false;
+  }
+  if (typeof closeHandler !== "function") {
+    return false;
+  }
+
+  element.dataset.adminProgressSwipeUpCloseBound = "true";
+  let startX = 0;
+  let startY = 0;
+
+  element.addEventListener("touchstart", event => {
+    const touch = event.touches && event.touches[0];
+    if (!touch) return;
+    startX = touch.clientX;
+    startY = touch.clientY;
+  }, { passive: true });
+
+  element.addEventListener("touchend", event => {
+    const touch = event.changedTouches && event.changedTouches[0];
+    if (!touch) return;
+
+    const deltaX = touch.clientX - startX;
+    const deltaY = touch.clientY - startY;
+
+    if (deltaY < -85 && Math.abs(deltaY) > Math.abs(deltaX) * 1.6) {
+      closeHandler();
+    }
+  }, { passive: true });
+
+  return true;
+}
+
+async function saveAdminProgressPendingForClose() {
+  if (!hasProgressPendingUpdates()) {
+    return true;
+  }
+
+  const shouldSave = window.confirm(
+    "You have unsaved progress changes. Press OK to save and exit, or Cancel to stay."
+  );
+
+  if (!shouldSave) {
+    return false;
+  }
+
+  try {
+    const saved = await saveProgressPendingChanges({ reload: false, alert: false });
+    if (saved || !hasProgressPendingUpdates()) {
+      clearAdminProgressDashboardCache();
+      refreshAdminProgressDashboardCacheInBackground({ render: false });
+      return true;
+    }
+  } catch (err) {
+    console.error("Could not save progress before closing:", err);
+  }
+
+  alert("Could not save progress changes.");
+  return false;
+}
+
+async function requestCloseAdminProgressTaskScreen() {
+  const canClose = await saveAdminProgressPendingForClose();
+  if (!canClose) return false;
+
+  closeAdminProgressStudentPopout({ silent: true });
+  await showProgressReport();
+  return true;
+}
+
+async function requestCloseAdminProgressStudentPopout() {
+  const hadPending = hasProgressPendingUpdates();
+  const canClose = await saveAdminProgressPendingForClose();
+  if (!canClose) return false;
+
+  closeAdminProgressStudentPopout({ silent: true });
+
+  if (hadPending && Array.isArray(currentProgressRows) && currentProgressRows.length > 0) {
+    await loadProgressTaskStudents();
+  } else if (Array.isArray(currentProgressRows) && currentProgressRows.length > 0) {
+    renderProgressTaskStudents(currentProgressRows);
+  }
+
+  return true;
 }
 
 function bindAdminProgressLeaveGuard() {
@@ -2322,15 +2462,6 @@ function renderProgressTaskStudents(rows) {
   }).join("");
 
   const html = `
-    <div class="admin-progress-task-work-header">
-      <h3 class="admin-progress-task-work-title">${escapeHtml(progressState.taskname || "Task")}</h3>
-      <button
-        type="button"
-        class="admin-progress-save-button admin-progress-task-save"
-        data-progress-action="save-admin-progress-task"
-        aria-label="Save class progress changes"
-      >Save</button>
-    </div>
     <div class="admin-progress-task-swipe-shell" data-admin-progress-group-swipe-shell>
       ${renderAdminProgressGroupSwipeDots(groups)}
       <div class="admin-progress-group-swipe-track" data-admin-progress-group-swipe-track aria-label="${escapeForAttribute(progressState.taskname || "Task")} class groups">
@@ -2623,6 +2754,8 @@ function ensureAdminProgressStudentPopout() {
   let popout = document.getElementById("admin-progress-student-popout");
   if (popout) {
     bindProgressUiHandlers(popout);
+    const panel = popout.querySelector(".admin-progress-popout-panel");
+    bindAdminProgressSwipeUpClose(panel, requestCloseAdminProgressStudentPopout);
     return popout;
   }
 
@@ -2632,11 +2765,8 @@ function ensureAdminProgressStudentPopout() {
       <div class="admin-progress-popout-backdrop" data-progress-action="close-admin-progress-student-popout" aria-hidden="true"></div>
       <section class="admin-progress-popout-panel" role="dialog" aria-modal="true" aria-labelledby="admin-progress-popout-title">
         <div class="admin-progress-popout-header">
+          <button type="button" class="small-btn admin-progress-close-btn admin-progress-popout-close" data-progress-action="close-admin-progress-student-popout" aria-label="Close student progress" title="Close">×</button>
           <h3 id="admin-progress-popout-title">Student Progress</h3>
-          <div class="admin-progress-popout-header-actions">
-            <button type="button" class="admin-progress-save-button admin-progress-popout-save" data-progress-action="save-admin-progress-popout">Save</button>
-            <button type="button" class="back-icon-btn admin-progress-popout-close" data-progress-action="close-admin-progress-student-popout" aria-label="Close student progress"><span class="back-icon-btn__icon" aria-hidden="true"></span><span class="header-icon-label">Back</span></button>
-          </div>
         </div>
         <div id="admin-progress-popout-content" class="admin-progress-popout-content">
           <p class="helper-text">Loading student progress...</p>
@@ -2647,6 +2777,8 @@ function ensureAdminProgressStudentPopout() {
 
   popout = document.getElementById("admin-progress-student-popout");
   bindProgressUiHandlers(popout);
+  const panel = popout ? popout.querySelector(".admin-progress-popout-panel") : null;
+  bindAdminProgressSwipeUpClose(panel, requestCloseAdminProgressStudentPopout);
   return popout;
 }
 
@@ -2665,6 +2797,7 @@ async function openAdminProgressStudentPopout(studentid, username) {
   popout.classList.remove("hidden");
   popout.setAttribute("aria-hidden", "false");
   document.body.classList.add("admin-progress-popout-open");
+  bindAdminProgressSwipeUpClose(popout.querySelector(".admin-progress-popout-panel"), requestCloseAdminProgressStudentPopout);
   setDomText("admin-progress-popout-title", progressState.activePopoutStudentName);
   setDomHtml("admin-progress-popout-content", `<p class="helper-text">Loading student progress...</p>`);
 
