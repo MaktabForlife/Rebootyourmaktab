@@ -10,7 +10,9 @@
      ========================================== */
     --primary: #A8B992;          /* SAGE DUST  - Core brand identifier */
     --primary-rgb: 168, 185, 146; /* Sage RGB for background opacity modifiers */
-    --color-primary-light-20: color-mix(in srgb, var(--primary) 80%, white 20%);
+    --primary-light: color-mix(in srgb, var(--primary) 80%, white 20%);
+    --primary-lighter: color-mix(in srgb, var(--primary) 80%, white 50%);
+     -primary-lightest: color-mix(in srgb, var(--primary) 80%, white 70%);
 
     --surface-soft: #F0F4EC;     /* Light pastel sage for backgrounds */
     --surface-tint: #DFE7D7;     /* Mid-tone sage tint for disabled fields/borders */
@@ -2186,7 +2188,7 @@ body.has-user-band #progress-subjects-screen.student-theme .nav-header {
   padding: clamp(8px, 2.2vw, 12px);
   border: 0;
   border-radius: 18px;
-  background: var(--surface-chip);
+  background: var(--surface-soft);
   box-shadow: none;
 }
 
@@ -2258,7 +2260,7 @@ body.has-user-band #progress-subjects-screen.student-theme .nav-header {
   justify-content: center;
   padding: clamp(5px, 0.75vw, 8px) clamp(4px, 0.75vw, 9px);
   color: var(--text-strong);
-  background: var(--primary);
+  background: var(--primary-lighter);
   border: 0;
   border-radius: 999px;
   box-shadow: none;
