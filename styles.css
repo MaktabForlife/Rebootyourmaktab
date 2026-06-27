@@ -10,7 +10,7 @@
      ========================================== */
     --primary: #A8B992;          /* SAGE DUST  - Core brand identifier */
     --primary-rgb: 168, 185, 146; /* Sage RGB for background opacity modifiers */
-   --color-primary-light-20: color-mix(in srgb, var(--primary-rgb);
+    --color-primary-light-20: color-mix(in srgb, var(--primary) 80%, white 20%);
 
     --surface-soft: #F0F4EC;     /* Light pastel sage for backgrounds */
     --surface-tint: #DFE7D7;     /* Mid-tone sage tint for disabled fields/borders */
