@@ -1,4 +1,4 @@
-/* M4L v68 - Student Progress native swipe module
+/* M4L v70 - Student Progress frozen header and table layout module
    Load after /app.js, /js/m4l-auth.js, /js/m4l-shell.js, /js/m4l-timetable.js, and /js/m4l-resources.js.
    This is a classic script, not type=module, so existing global function calls remain safe
    while the app is split gradually.
@@ -80,6 +80,10 @@ function handleProgressUiClick(event) {
       );
       break;
 
+    case "save-student-progress":
+      saveStudentProgressSwipeChanges(actionEl);
+      break;
+
     case "toggle-student-subject-task":
       toggleStudentSubjectTask(
         actionEl.dataset.studenttaskid || "",
@@ -141,7 +145,7 @@ async function showStudentTasks() {
     return;
   }
 
-  setDomText("progress-subjects-title", "My Progress");
+  setDomText("progress-subjects-title", "Progress");
 
   if (!setDomHtml("progress-subjects-list", `<p class="helper-text">Loading tasks...</p>`)) {
     console.warn("Missing progress-subjects-list container.");
@@ -181,7 +185,15 @@ function setProgressScreensForStudent() {
   });
 
   const subjectBackButton = document.querySelector("#progress-subjects-screen .nav-header .small-btn:not(.student-progress-save-btn)");
-  setHomeIconButton(subjectBackButton, "showScreen('student-home')");
+  if (subjectBackButton) {
+    // The V70 student progress landing page has its own frozen module header.
+    // The legacy app-screen header is kept in the HTML for compatibility but hidden by CSS.
+    subjectBackButton.classList.remove("home-icon-btn", "back-icon-btn", "icon-action-btn", "icon-action-btn-large", "save-return-btn", "student-progress-save-btn");
+    subjectBackButton.removeAttribute("data-header-action");
+    subjectBackButton.removeAttribute("data-header-target");
+    subjectBackButton.setAttribute("onclick", "showScreen('student-home')");
+    subjectBackButton.textContent = "Back";
+  }
 
   const taskBackButton = document.querySelector("#progress-tasks-screen .small-btn:not(.student-progress-save-btn)");
   if (taskBackButton) {
@@ -194,30 +206,9 @@ function setProgressScreensForStudent() {
 
 
 function ensureStudentProgressSaveButton() {
-  const header = document.querySelector("#progress-subjects-screen .nav-header");
-  if (!header) return;
-
-  let saveButton = header.querySelector(".student-progress-save-btn");
-
-  if (!saveButton) {
-    saveButton = document.createElement("button");
-    saveButton.type = "button";
-    header.appendChild(saveButton);
-  }
-
-  saveButton.className = "small-btn save-return-btn student-progress-save-btn";
-  saveButton.textContent = "Save";
-  saveButton.removeAttribute("onclick");
-  saveButton.setAttribute("aria-label", "Save student progress changes");
-
-  if (saveButton.dataset.m4lStudentProgressSaveBound !== "true") {
-    saveButton.dataset.m4lStudentProgressSaveBound = "true";
-    saveButton.addEventListener("click", () => {
-      if (typeof saveStudentProgressSwipeChanges === "function") {
-        saveStudentProgressSwipeChanges(saveButton);
-      }
-    });
-  }
+  // V70 renders the student Progress Save button inside the frozen module header.
+  // Remove any legacy save button that may have been injected into the old nav-header.
+  document.querySelectorAll("#progress-subjects-screen .nav-header .student-progress-save-btn").forEach(button => button.remove());
 }
 
 
@@ -414,6 +405,9 @@ function updateStudentProgressSwipeDots() {
     dot.setAttribute("aria-current", isActive ? "true" : "false");
   });
 
+  updateStudentProgressFrozenHeader();
+  updateStudentProgressTaskScrollState();
+
   return true;
 }
 
@@ -474,7 +468,10 @@ function bindStudentProgressSwipeResizeHandler() {
   }
 
   studentProgressSwipeResizeHandlerBound = true;
-  window.addEventListener("resize", updateStudentProgressSwipeDots, { passive: true });
+  window.addEventListener("resize", () => {
+    updateStudentProgressSwipeDots();
+    updateStudentProgressTaskScrollState();
+  }, { passive: true });
   return true;
 }
 
@@ -502,6 +499,110 @@ function bindStudentProgressSwipeControls() {
   }
 
   window.setTimeout(updateStudentProgressSwipeDots, 0);
+  return true;
+}
+
+function getStudentModuleProgressSummary(module) {
+  const tasks = module && Array.isArray(module.tasks) ? module.tasks : [];
+  const total = tasks.length;
+  const completed = tasks.filter(task => isStatusOn(task.completestatus)).length;
+  const percentComplete = total === 0 ? 0 : Math.round((completed / total) * 100);
+
+  return {
+    total,
+    completed,
+    percentComplete: Math.max(0, Math.min(100, percentComplete))
+  };
+}
+
+function getStudentProgressModuleByKey(modules, moduleKey) {
+  const list = Array.isArray(modules) ? modules : getStudentProgressModules();
+  const key = String(moduleKey || "");
+
+  if (!list.length) {
+    return null;
+  }
+
+  return list.find(module => String(module.subjectid || "") === key) || list[0];
+}
+
+function renderStudentProgressHeaderBar(percentComplete) {
+  const width = Math.max(0, Math.min(100, Number(percentComplete) || 0));
+
+  return `
+    <div class="student-progress-status-bar" aria-label="Module progress">
+      <span class="student-progress-status-track">
+        <span class="student-progress-status-fill" data-progress-active-fill style="width:${width}%"></span>
+      </span>
+    </div>
+  `;
+}
+
+function renderStudentProgressFrozenHeader(modules, activeModuleKey) {
+  const activeModule = getStudentProgressModuleByKey(modules, activeModuleKey);
+  const title = activeModule ? activeModule.subjectname || "Module" : "Module";
+  const summary = getStudentModuleProgressSummary(activeModule);
+
+  return `
+    <div class="student-progress-sticky-card" data-progress-sticky-header>
+      <div class="student-progress-header-row">
+        <h2 class="student-progress-active-module-title" data-progress-active-title>${escapeHtml(title)}</h2>
+        <button
+          type="button"
+          class="student-progress-save-btn"
+          data-progress-action="save-student-progress"
+          aria-label="Save student progress changes"
+        >Save</button>
+      </div>
+      ${renderStudentProgressHeaderBar(summary.percentComplete)}
+      ${renderStudentProgressSwipeDots(modules, activeModuleKey)}
+    </div>
+  `;
+}
+
+function updateStudentProgressFrozenHeader() {
+  const screen = document.getElementById("progress-subjects-screen");
+  const track = getStudentProgressSwipeTrack();
+  const modules = getStudentProgressModules();
+
+  if (!screen || !track || !modules.length) {
+    return false;
+  }
+
+  const activeIndex = getStudentProgressSwipeActiveIndex(track);
+  const panels = getStudentProgressSwipePanels(track);
+  const activePanel = panels[activeIndex];
+  const activeModuleKey = activePanel ? String(activePanel.dataset.progressModuleKey || "") : String(modules[0].subjectid || "");
+  const activeModule = getStudentProgressModuleByKey(modules, activeModuleKey);
+
+  if (!activeModule) {
+    return false;
+  }
+
+  currentStudentSubjectKey = String(activeModule.subjectid || activeModuleKey || currentStudentSubjectKey || "");
+
+  const title = screen.querySelector("[data-progress-active-title]");
+  if (title) {
+    title.textContent = activeModule.subjectname || "Module";
+  }
+
+  setDomText("progress-subjects-title", activeModule.subjectname || "Progress");
+
+  const summary = getStudentModuleProgressSummary(activeModule);
+  const fill = screen.querySelector("[data-progress-active-fill]");
+  if (fill) {
+    fill.style.width = `${summary.percentComplete}%`;
+  }
+
+  return true;
+}
+
+function updateStudentProgressTaskScrollState() {
+  document.querySelectorAll("#progress-subjects-screen .student-progress-task-scroll").forEach(container => {
+    const hasVerticalScroll = (container.scrollHeight || 0) > (container.clientHeight || 0) + 3;
+    container.classList.toggle("has-vertical-scroll", hasVerticalScroll);
+  });
+
   return true;
 }
 
@@ -533,15 +634,86 @@ function renderStudentProgressSwipeDots(modules, activeModuleKey) {
   `;
 }
 
-function renderStudentProgressModulePanel(module, index, moduleCount) {
-  const total = module.tasks.length;
-  const completed = module.tasks.filter(task => isStatusOn(task.completestatus)).length;
-  const percentComplete = total === 0 ? 0 : Math.round((completed / total) * 100);
-  const moduleKey = String(module.subjectid || "");
+function renderStudentProgressTaskTableHeader() {
+  return `
+    <div class="student-progress-task-row student-progress-task-heading-row" role="row">
+      <div class="student-progress-task-cell student-progress-task-name-heading" role="columnheader" aria-label="Task"></div>
+      <div class="student-progress-task-cell student-progress-status-heading" role="columnheader">Me</div>
+      <div class="student-progress-task-cell student-progress-status-heading student-progress-status-heading--muted" role="columnheader">Muallimah</div>
+    </div>
+  `;
+}
+
+function renderStudentProgressTaskTableRow(task) {
+  const pending = progressPendingUpdates[task.studenttaskid] || {};
+
+  const completeStatus = pending.completeStatus !== undefined
+    ? pending.completeStatus
+    : task.completestatus;
+
+  const isComplete = isStatusOn(completeStatus);
+  const isVerified = isStatusOn(task.verifystatus);
+
+  let fullAudioPlayerHtml = "";
+  if (task.audiolink) {
+    fullAudioPlayerHtml = `
+      <div class="student-progress-task-media-block">
+        <audio class="resource-audio-control" controls controlsList="nodownload" preload="none">
+          <source src="${escapeForAttribute(task.audiolink)}" />
+          Your browser cannot play this audio file.
+        </audio>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="student-progress-task-row" role="row">
+      <div class="student-progress-task-cell student-progress-task-name" role="cell">
+        <div>${escapeHtml(task.taskname)}</div>
+        ${fullAudioPlayerHtml}
+        ${renderStudentTaskLinkButtons(task)}
+      </div>
+
+      <div class="student-progress-task-cell student-progress-status-cell" role="cell">
+        <button
+          type="button"
+          class="student-progress-status-control student-progress-status-control--complete${isComplete ? " is-on" : ""}"
+          data-progress-action="toggle-student-subject-task"
+          data-studenttaskid="${escapeForAttribute(task.studenttaskid)}"
+          data-complete="${isComplete ? "false" : "true"}"
+          aria-label="${isComplete ? "Mark incomplete" : "Mark complete"}: ${escapeForAttribute(task.taskname)}"
+        >
+          ${renderTaskStatusIndicator("complete", isComplete)}
+        </button>
+      </div>
+
+      <div class="student-progress-task-cell student-progress-status-cell" role="cell">
+        <span class="student-progress-status-control student-progress-status-control--verify${isVerified ? " is-on" : ""}" aria-label="${isVerified ? "Verified by Muallimah" : "To be verified by Muallimah"}">
+          ${renderTaskStatusIndicator("verify", isVerified, { muted: true })}
+        </span>
+      </div>
+    </div>
+  `;
+}
+
+function renderStudentProgressTaskTable(module) {
   const taskRowsHtml = [...module.tasks]
     .sort(sortByModuleThenTask)
-    .map(task => renderStudentTaskStatusRow(task))
+    .map(task => renderStudentProgressTaskTableRow(task))
     .join("");
+
+  return `
+    <div class="student-progress-task-scroll" data-progress-task-scroll>
+      <div class="student-progress-task-table" role="table" aria-label="${escapeForAttribute(module.subjectname || "Module")} progress tasks">
+        ${renderStudentProgressTaskTableHeader()}
+        ${taskRowsHtml}
+      </div>
+    </div>
+  `;
+}
+
+function renderStudentProgressModulePanel(module, index, moduleCount) {
+  const moduleKey = String(module.subjectid || "");
 
   return `
     <section
@@ -551,16 +723,7 @@ function renderStudentProgressModulePanel(module, index, moduleCount) {
       data-progress-module-key="${escapeForAttribute(moduleKey)}"
       aria-label="${escapeForAttribute(module.subjectname || `Module ${index + 1}`)}"
     >
-      <div class="student-progress-module-card">
-        <p class="student-progress-module-count">Module ${index + 1} of ${moduleCount}</p>
-        <h3 class="student-progress-module-title">${escapeHtml(module.subjectname || "Module")}</h3>
-        ${renderCompleteProgressBar(percentComplete)}
-      </div>
-
-      <div class="student-progress-task-list">
-        ${renderTaskStatusHeader("Me", "Muallimah", { secondMuted: true })}
-        ${taskRowsHtml}
-      </div>
+      ${renderStudentProgressTaskTable(module)}
     </section>
   `;
 }
@@ -593,7 +756,7 @@ function renderStudentSubjectProgress(options = {}) {
 
   setDomHtml(container, `
     <div class="student-progress-swipe-shell" data-progress-swipe="progress-subjects-screen">
-      ${renderStudentProgressSwipeDots(modules, preferredModuleKey)}
+      ${renderStudentProgressFrozenHeader(modules, preferredModuleKey)}
       <div
         id="student-progress-swipe-track"
         class="student-progress-swipe-track"
@@ -607,6 +770,8 @@ function renderStudentSubjectProgress(options = {}) {
 
   bindProgressUiHandlers(container);
   bindStudentProgressSwipeControls();
+  updateStudentProgressFrozenHeader();
+  window.setTimeout(updateStudentProgressTaskScrollState, 0);
 
   if (preferredModuleKey) {
     scrollStudentProgressSwipeToModule(preferredModuleKey, {
