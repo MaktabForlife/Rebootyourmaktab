@@ -1,4 +1,4 @@
-/* M4L v71.1a - Admin Progress class progress header + grouped task swipe + Student Progress V70.3 baseline
+/* M4L v71.1 - Admin Progress class progress header + grouped task swipe + Student Progress V70.3 baseline
    Load after /app.js, /js/m4l-auth.js, /js/m4l-shell.js, /js/m4l-timetable.js, and /js/m4l-resources.js.
    This is a classic script, not type=module, so existing global function calls remain safe
    while the app is split gradually.
