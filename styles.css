@@ -1,4 +1,4 @@
-/* M4L v72 - Shared Progress/Library ribbon models + V71.6 Home/Attendance baseline. */
+/* M4L v72.1 - Progress All/Individual/Groups fixes + Progress-matched Library dots. */
 :root {
   /* ==========================================
      BRAND PALETTE (Sage & Lavender)
@@ -1428,6 +1428,7 @@ body.has-user-band .top-bar button[onclick="logout()"] {
   overflow-wrap: anywhere;
 }
 
+.m4l-close-btn,
 .admin-progress-close-btn {
   width: 16px;
   min-width: 16px;
@@ -2632,6 +2633,38 @@ body.has-user-band #progress-subjects-screen.student-theme .student-progress-glo
   .student-progress-task-scroll {
     max-height: none;
   }
+}
+
+
+
+/* V72.1: Library/resource ribbons use the exact Progress ribbon dot model. */
+.library-resource-dots.m4l-ribbon-dots,
+.admin-progress-task-dots.m4l-ribbon-dots {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 22px;
+}
+
+.library-resource-dot.m4l-ribbon-dot,
+.admin-progress-task-dot.m4l-ribbon-dot {
+  width: 8px;
+  min-width: 8px;
+  height: 8px;
+  min-height: 8px;
+  padding: 0;
+  border-radius: 999px;
+  background: var(--surface-track);
+  box-shadow: none;
+  opacity: 0.75;
+}
+
+.library-resource-dot.m4l-ribbon-dot.is-active,
+.admin-progress-task-dot.m4l-ribbon-dot.is-active {
+  width: 22px;
+  background: var(--primary);
+  opacity: 1;
 }
 
 /* Resources / Library ribbon - V65.4.2 */
@@ -5431,3 +5464,207 @@ body.pdf-viewer-open.has-user-band .pdf-viewer-header {
     padding-top: calc(var(--swipe-dot-band-gap) + var(--swipe-dot-bar-height) + 14px);
   }
 }
+
+
+
+/* Progress V72.1: All / Individual / Groups refinements */
+.admin-progress-view-selector {
+  width: min(100%, 460px);
+}
+
+.admin-progress-group-picker-sheet {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 10px 0;
+}
+
+.admin-progress-group-picker-panel {
+  width: min(100%, 420px);
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 22px;
+  background: var(--surface-card);
+  border: 1px solid rgba(var(--primary-rgb), 0.14);
+  box-shadow: 0 8px 22px rgba(var(--black-rgb), 0.10);
+  text-align: center;
+}
+
+.admin-progress-group-picker-panel h3 {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.admin-progress-group-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(104px, 1fr));
+  gap: 10px;
+}
+
+.admin-progress-group-picker-option {
+  min-height: 44px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: var(--surface-chip);
+  color: var(--text-muted);
+  box-shadow: 0 2px 5px rgba(var(--black-rgb), 0.08);
+}
+
+.admin-progress-group-view-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  padding: 10px 12px;
+  border-radius: 16px;
+  background: var(--surface-card);
+  border: 1px solid rgba(var(--primary-rgb), 0.14);
+  color: var(--text-muted);
+  font-weight: 800;
+}
+
+.admin-progress-group-change-btn {
+  flex: 0 0 auto;
+  min-height: 36px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: var(--surface-chip);
+  color: var(--text-muted);
+  box-shadow: none;
+}
+
+.admin-progress-task-detail-shell {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  max-height: calc(100dvh - var(--user-band-height) - var(--user-band-safe-area-top) - var(--bottom-nav-height) - var(--bottom-nav-safe-area) - 170px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 2px 8px 12px 0;
+  scrollbar-width: thin;
+  scrollbar-color: var(--primary) transparent;
+  -webkit-overflow-scrolling: touch;
+}
+
+.admin-progress-task-detail-shell::-webkit-scrollbar {
+  width: 5px;
+}
+
+.admin-progress-task-detail-shell::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.admin-progress-task-detail-shell::-webkit-scrollbar-thumb {
+  background: var(--primary);
+  border-radius: 999px;
+}
+
+.admin-progress-scroll-indicator {
+  background:
+    linear-gradient(var(--surface-app), var(--surface-app)) padding-box,
+    linear-gradient(to bottom, transparent, rgba(var(--primary-rgb), 0.26), transparent) border-box;
+  border-right: 3px solid rgba(var(--primary-rgb), 0.28);
+}
+
+.admin-progress-group-container--stacked {
+  flex: initial;
+  width: 100%;
+  max-width: 100%;
+  min-height: auto;
+  scroll-snap-align: none;
+  padding: 12px;
+}
+
+.admin-progress-group-list--stacked {
+  overflow: visible;
+  padding-right: 6px;
+}
+
+.admin-progress-individual-module-track {
+  gap: 10px;
+}
+
+.admin-progress-individual-module-panel {
+  background: var(--surface-chip);
+  gap: 8px;
+  padding: 8px;
+}
+
+.admin-progress-individual-module-header-card,
+.admin-progress-individual-task-card {
+  min-width: 0;
+  display: grid;
+  gap: 7px;
+  padding: 8px;
+  border-radius: 14px;
+  background: var(--surface-card);
+  border: 1px solid rgba(var(--primary-rgb), 0.12);
+}
+
+.admin-progress-individual-module-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.9rem;
+  line-height: 1.15;
+  font-weight: 600;
+}
+
+.admin-progress-individual-module-summary {
+  flex: 0 0 auto;
+  color: var(--text-subtle);
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.admin-progress-individual-task-card .task-status-heading-row,
+.admin-progress-individual-task-card .admin-progress-popout-task-row {
+  grid-template-columns: minmax(0, 1fr) 34px 34px;
+  column-gap: 6px;
+  padding-block: 6px;
+}
+
+.admin-progress-individual-task-card .admin-progress-status-control {
+  width: 34px;
+  min-width: 34px;
+  height: 34px;
+  min-height: 34px;
+}
+
+.admin-progress-individual-task-card .admin-progress-popout-task-list {
+  overflow-y: visible;
+  padding-right: 0;
+}
+
+#progress-task-students-title {
+  font-size: clamp(1rem, 5.2vw, 1.38rem);
+  font-weight: 500;
+  letter-spacing: 0.03em;
+}
+
+@media (max-width: 520px) {
+  .admin-progress-task-detail-shell {
+    max-height: calc(100dvh - var(--user-band-height) - var(--user-band-safe-area-top) - var(--bottom-nav-height) - var(--bottom-nav-safe-area) - 156px);
+    padding-right: 6px;
+  }
+
+  .admin-progress-individual-module-panel {
+    flex-basis: 100%;
+    width: 100%;
+    padding: 7px;
+  }
+
+  .admin-progress-individual-task-card .admin-progress-popout-task-name {
+    font-size: 0.86rem;
+    line-height: 1.12;
+  }
+
+  .admin-progress-individual-task-card .task-status-icon {
+    width: 24px;
+    height: 24px;
+  }
+}
+
