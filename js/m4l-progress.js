@@ -1,4 +1,4 @@
-/* M4L v73.1.1 - Admin Progress AIG selector fixes + task detail status list + Student Progress V70.3 baseline
+/* M4L v73.1.2 - Admin Progress AIG selector fixes + task detail status list + Student Progress V70.3 baseline
    Load after /app.js, /js/m4l-auth.js, /js/m4l-shell.js, /js/m4l-timetable.js, and /js/m4l-resources.js.
    This is a classic script, not type=module, so existing global function calls remain safe
    while the app is split gradually.
@@ -1365,7 +1365,7 @@ let adminProgressActiveTaskRows = [];
 let adminProgressPopoutRows = [];
 let adminProgressActiveView = "all";
 
-const ADMIN_PROGRESS_DASHBOARD_CACHE_KEY = "m4l_admin_progress_dashboard_v73_1_1";
+const ADMIN_PROGRESS_DASHBOARD_CACHE_KEY = "m4l_admin_progress_dashboard_v73_1_2";
 let adminProgressLeaveGuardBound = false;
 
 function hasProgressPendingUpdates() {
@@ -1379,6 +1379,19 @@ function isAdminProgressScreenId(screenId) {
     "progress-tasks-screen",
     "progress-task-students-screen"
   ].includes(String(screenId || ""));
+}
+
+function setAdminProgressSectionBodyState(screenIdOrActive) {
+  if (typeof document === "undefined" || !document.body) {
+    return false;
+  }
+
+  const isActive = typeof screenIdOrActive === "boolean"
+    ? screenIdOrActive
+    : isAdminProgressScreenId(screenIdOrActive);
+
+  document.body.classList.toggle("is-admin-progress-section", isActive);
+  return isActive;
 }
 
 function readAdminProgressDashboardCache() {
@@ -1430,7 +1443,7 @@ function clearAdminProgressDashboardCache() {
 }
 
 function bindAdminProgressSwipeUpClose(element, closeHandler) {
-  // V73.1.1: Progress screens close only through their visible X buttons.
+  // V73.1.2: Progress screens close only through their visible X buttons.
   // Do not attach swipe-up-to-close to headers, panels, backdrops, or scrollable lists.
   return false;
 }
@@ -1637,7 +1650,9 @@ function bindAdminProgressLeaveGuard() {
       hasProgressPendingUpdates();
 
     if (!leavingProgress) {
-      return originalShowScreen.call(this, screenId, ...args);
+      const screenChanged = originalShowScreen.call(this, screenId, ...args);
+      setAdminProgressSectionBodyState(targetScreenId);
+      return screenChanged;
     }
 
     const shouldSave = window.confirm(
@@ -1652,6 +1667,7 @@ function bindAdminProgressLeaveGuard() {
       .then(saved => {
         if (saved || !hasProgressPendingUpdates()) {
           originalShowScreen.call(this, screenId, ...args);
+          setAdminProgressSectionBodyState(targetScreenId);
         }
       })
       .catch(err => {
@@ -1668,6 +1684,7 @@ function bindAdminProgressLeaveGuard() {
 }
 
 async function showProgressReport() {
+  setAdminProgressSectionBodyState("progress-report");
   setProgressScreensForAdmin();
   adminProgressActiveView = "all";
   prepareAdminProgressMonitor();
@@ -2455,6 +2472,7 @@ async function openProgressContext(type, value) {
 }
 
 async function loadProgressSubjects() {
+  setAdminProgressSectionBodyState("progress-subjects-screen");
   setManualRefreshButton("progress-subjects-screen", "refreshProgressSubjects(this)");
 
   if (!showScreen("progress-subjects-screen")) {
@@ -2524,6 +2542,7 @@ async function openProgressSubject(subjectid, subjectname) {
 }
 
 async function loadProgressTasks() {
+  setAdminProgressSectionBodyState("progress-tasks-screen");
   setManualRefreshButton("progress-tasks-screen", "refreshProgressTasks(this)");
 
   if (!showScreen("progress-tasks-screen")) {
@@ -2590,6 +2609,7 @@ async function openProgressTask(taskid, taskname) {
 }
 
 async function loadProgressTaskStudents() {
+  setAdminProgressSectionBodyState("progress-task-students-screen");
   setManualRefreshButton("progress-task-students-screen", "refreshProgressTaskStudents(this)");
 
   if (!showScreen("progress-task-students-screen")) {
