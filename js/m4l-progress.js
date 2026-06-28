@@ -1,4 +1,4 @@
-/* M4L v72.3 - Progress sticky selector, fixed task details, focused carousels, and background save
+/* M4L v72.4 - Global AIG selector, normal All/Groups rows, and Individual focused task grid
    Load after /app.js, /js/m4l-auth.js, /js/m4l-shell.js, /js/m4l-timetable.js, and /js/m4l-resources.js.
    This is a classic script, not type=module, so existing global function calls remain safe
    while the app is split gradually.
@@ -39,7 +39,7 @@ function getProgressActionElement(event) {
   if (!actionEl) return null;
 
   const progressScope = actionEl.closest(
-    "#progress-report, #admin-progress-dashboard, #admin-progress-student-popout, " +
+    "#admin-progress-global-selector, #progress-report, #admin-progress-dashboard, #admin-progress-student-popout, " +
     "#progress-subjects-screen, #progress-tasks-screen, #progress-task-students-screen, " +
     "#progress-subjects-list, #progress-tasks-list, #progress-task-students-list"
   );
@@ -1384,7 +1384,7 @@ let adminProgressDashboardRows = [];
 let adminProgressActiveTaskRows = [];
 let adminProgressPopoutRows = [];
 
-const ADMIN_PROGRESS_DASHBOARD_CACHE_KEY = "m4l_admin_progress_dashboard_v72_3";
+const ADMIN_PROGRESS_DASHBOARD_CACHE_KEY = "m4l_admin_progress_dashboard_v72_4";
 let adminProgressLeaveGuardBound = false;
 
 function hasProgressPendingUpdates() {
@@ -1638,70 +1638,133 @@ async function showProgressReport() {
   adminProgressActiveTaskRows = [];
   adminProgressPopoutRows = [];
 
+  setAdminProgressGlobalSelectorState({ visible: true, loading: true });
   showScreen("progress-report");
   await loadAdminProgressDashboard();
 }
+
+
+function getAdminProgressGlobalSelectorHost() {
+  return document.getElementById("admin-progress-global-selector");
+}
+
+function renderAdminProgressGlobalSelectorHtml() {
+  return `
+    <div id="admin-progress-global-selector" class="admin-progress-global-selector hidden" data-admin-progress-global-selector>
+      <div class="admin-progress-global-loading hidden" data-admin-progress-global-loading role="status" aria-live="polite" aria-label="Loading progress">
+        <span class="admin-progress-loading-spinner" aria-hidden="true"></span>
+        <span class="visually-hidden">Loading progress</span>
+      </div>
+      <div class="admin-progress-global-selector-controls" data-admin-progress-global-selector-controls>
+        <div class="m4l-segmented-control admin-progress-view-selector" data-admin-progress-view-selector role="tablist" aria-label="Progress view">
+          <button type="button" class="m4l-segmented-option is-active" data-progress-action="set-admin-progress-view" data-progress-view="all" role="tab" aria-selected="true">All</button>
+          <button type="button" class="m4l-segmented-option" data-progress-action="set-admin-progress-view" data-progress-view="individual" role="tab" aria-selected="false">Individual</button>
+          <button type="button" class="m4l-segmented-option" data-progress-action="set-admin-progress-view" data-progress-view="groups" role="tab" aria-selected="false">Groups</button>
+        </div>
+        <div class="admin-progress-group-dot-slot" data-admin-progress-group-dot-slot aria-live="polite"></div>
+      </div>
+    </div>
+  `;
+}
+
+function removeInlineAdminProgressSelectors() {
+  document.querySelectorAll(".screen > [data-admin-progress-sticky-controls], .screen > .admin-progress-sticky-controls").forEach(element => {
+    element.remove();
+  });
+  return true;
+}
+
+function ensureAdminProgressGlobalSelector() {
+  let host = getAdminProgressGlobalSelectorHost();
+
+  if (!host) {
+    document.body.insertAdjacentHTML("beforeend", renderAdminProgressGlobalSelectorHtml());
+    host = getAdminProgressGlobalSelectorHost();
+  }
+
+  bindProgressUiHandlers(host || document.body);
+  return host;
+}
+
+function isAdminProgressScreenActive() {
+  return ["progress-report", "progress-subjects-screen", "progress-tasks-screen", "progress-task-students-screen"].some(id => {
+    const screen = document.getElementById(id);
+    return !!(screen && screen.classList.contains("active"));
+  });
+}
+
+function setAdminProgressGlobalSelectorState(options = {}) {
+  const host = ensureAdminProgressGlobalSelector();
+  if (!host) return false;
+
+  const isVisible = options.visible !== false;
+  const isLoading = options.loading === true;
+  const loading = host.querySelector("[data-admin-progress-global-loading]");
+  const controls = host.querySelector("[data-admin-progress-global-selector-controls]");
+
+  host.classList.toggle("hidden", !isVisible);
+  host.classList.toggle("is-loading", isVisible && isLoading);
+  document.body.classList.toggle("admin-progress-active", isVisible);
+  document.body.classList.toggle("admin-progress-loading", isVisible && isLoading);
+
+  if (loading) loading.classList.toggle("hidden", !(isVisible && isLoading));
+  if (controls) controls.classList.toggle("hidden", !isVisible || isLoading);
+
+  if (isVisible && !isLoading) {
+    updateAdminProgressViewSelector();
+  }
+
+  return true;
+}
+
+function syncAdminProgressGlobalSelectorFromActiveScreen() {
+  const isActive = isAdminProgressScreenActive();
+  setAdminProgressGlobalSelectorState({
+    visible: isActive,
+    loading: isActive && document.body.classList.contains("admin-progress-loading")
+  });
+  return isActive;
+}
+
+let adminProgressGlobalSelectorObserverBound = false;
+
+function bindAdminProgressGlobalSelectorObserver() {
+  if (adminProgressGlobalSelectorObserverBound === true) {
+    return true;
+  }
+
+  if (typeof MutationObserver !== "function") {
+    return false;
+  }
+
+  adminProgressGlobalSelectorObserverBound = true;
+  const observer = new MutationObserver(() => {
+    window.setTimeout(syncAdminProgressGlobalSelectorFromActiveScreen, 0);
+  });
+
+  document.querySelectorAll(".screen").forEach(screen => {
+    observer.observe(screen, { attributes: true, attributeFilter: ["class"] });
+  });
+
+  return true;
+}
+
 
 function prepareAdminProgressMonitor() {
   const screen = document.getElementById("progress-report");
   if (!screen) return;
 
   bindAdminProgressLeaveGuard();
+  bindAdminProgressGlobalSelectorObserver();
+  ensureAdminProgressGlobalSelector();
+  removeInlineAdminProgressSelectors();
+
   screen.classList.add("progress-selector-screen", "admin-progress-screen");
 
   const header = screen.querySelector(".nav-header");
   if (header) {
     header.classList.add("admin-progress-landing-header");
     header.innerHTML = `<h2 id="admin-progress-landing-title">ALL PROGRESS</h2>`;
-  }
-
-  let selector = screen.querySelector("[data-admin-progress-view-selector]");
-  const selectorHtml = `
-    <div class="admin-progress-sticky-controls" data-admin-progress-sticky-controls>
-      <div class="m4l-segmented-control admin-progress-view-selector" data-admin-progress-view-selector role="tablist" aria-label="Progress view">
-        <button
-          type="button"
-          class="m4l-segmented-option is-active"
-          data-progress-action="set-admin-progress-view"
-          data-progress-view="all"
-          role="tab"
-          aria-selected="true"
-        >All</button>
-        <button
-          type="button"
-          class="m4l-segmented-option"
-          data-progress-action="set-admin-progress-view"
-          data-progress-view="individual"
-          role="tab"
-          aria-selected="false"
-        >Individual</button>
-        <button
-          type="button"
-          class="m4l-segmented-option"
-          data-progress-action="set-admin-progress-view"
-          data-progress-view="groups"
-          role="tab"
-          aria-selected="false"
-        >Groups</button>
-      </div>
-      <div class="admin-progress-group-dot-slot" data-admin-progress-group-dot-slot aria-live="polite"></div>
-    </div>
-  `;
-
-  if (selector) {
-    const existingShell = selector.closest("[data-admin-progress-sticky-controls]");
-    if (existingShell) {
-      existingShell.outerHTML = selectorHtml;
-    } else {
-      selector.outerHTML = selectorHtml;
-    }
-  } else {
-    const reference = header || screen.querySelector("#admin-progress-dashboard");
-    if (reference && typeof reference.insertAdjacentHTML === "function") {
-      reference.insertAdjacentHTML("afterend", selectorHtml);
-    } else {
-      screen.insertAdjacentHTML("afterbegin", selectorHtml);
-    }
   }
 
   if (!document.getElementById("admin-progress-dashboard")) {
@@ -1745,6 +1808,9 @@ async function setAdminProgressDashboardView(view) {
   const reportScreen = document.getElementById("progress-report");
   const isOnReport = !!(reportScreen && reportScreen.classList.contains("active"));
 
+  prepareAdminProgressMonitor();
+  setAdminProgressGlobalSelectorState({ visible: true, loading: false });
+
   if (!isOnReport) {
     closeAdminProgressStudentPopout({ silent: true });
     showScreen("progress-report");
@@ -1785,6 +1851,7 @@ async function setAdminProgressDashboardView(view) {
 }
 
 function renderAdminProgressDashboardView() {
+  setAdminProgressGlobalSelectorState({ visible: true, loading: false });
   updateAdminProgressViewSelector();
 
   if (progressState.adminProgressView === "individual") {
@@ -1874,6 +1941,7 @@ async function loadAdminProgressDashboard() {
     return;
   }
 
+  setAdminProgressGlobalSelectorState({ visible: true, loading: true });
   const cached = readAdminProgressDashboardCache();
 
   if (cached && Array.isArray(cached.modules) && cached.modules.length > 0) {
@@ -1884,7 +1952,12 @@ async function loadAdminProgressDashboard() {
     return;
   }
 
-  setDomHtml(dashboard, `<p class="helper-text">Loading class progress...</p>`);
+  setDomHtml(dashboard, `
+    <div class="admin-progress-loading-panel" role="status" aria-live="polite">
+      <span class="admin-progress-loading-spinner" aria-hidden="true"></span>
+      <span class="visually-hidden">Loading progress</span>
+    </div>
+  `);
 
   try {
     const fresh = await fetchAdminProgressDashboardData();
@@ -1894,6 +1967,7 @@ async function loadAdminProgressDashboard() {
     renderAdminProgressDashboardView();
   } catch (err) {
     console.error("Could not load admin progress dashboard:", err);
+    setAdminProgressGlobalSelectorState({ visible: true, loading: false });
     setDomHtml(dashboard, `<p class="error-message">${escapeHtml(err.message || "Could not load class progress.")}</p>`);
   }
 }
@@ -2118,7 +2192,6 @@ function renderAdminProgressDashboard(modules) {
 
   setDomHtml(dashboard, list.map(renderAdminProgressModuleShelf).join(""));
   bindProgressUiHandlers(dashboard);
-  bindAdminProgressDashboardRailControls(dashboard);
 }
 
 function buildAdminClassProgressTaskRows(rows) {
@@ -2191,8 +2264,7 @@ function renderAdminClassProgressTaskRow(task, taskIndex = 0) {
 
   return `
     <section
-      class="admin-progress-module-shelf admin-progress-class-task-row m4l-ribbon-section"
-      data-admin-progress-dashboard-shelf
+      class="admin-progress-module-shelf admin-progress-class-task-row admin-progress-summary-row m4l-ribbon-section"
       data-progress-task-row-index="${taskIndex}"
       aria-label="${escapeForAttribute(task.taskname || "Task")}"
     >
@@ -2203,10 +2275,8 @@ function renderAdminClassProgressTaskRow(task, taskIndex = 0) {
         </div>
         <span class="admin-progress-module-count">${groups.length} ${groups.length === 1 ? "group" : "groups"}</span>
       </div>
-      ${renderAdminProgressDashboardTaskDots(groups, task.taskname || "Task")}
       <div
-        class="admin-progress-task-rail admin-progress-class-group-rail m4l-ribbon-track"
-        data-admin-progress-dashboard-rail
+        class="admin-progress-task-rail admin-progress-summary-rail admin-progress-class-group-rail m4l-ribbon-track"
         aria-label="${escapeForAttribute(task.taskname || "Task")} groups"
       >
         ${groups.map(renderAdminClassProgressGroupSummaryCard).join("")}
@@ -2324,7 +2394,6 @@ function renderAdminProgressGroupsDashboard(rows) {
     ${modules.map(renderAdminGroupProgressModuleShelf).join("")}
   `);
   bindProgressUiHandlers(dashboard);
-  bindAdminProgressDashboardRailControls(dashboard);
   updateAdminProgressGroupStepper();
 }
 
@@ -2488,8 +2557,7 @@ function renderAdminGroupProgressModuleShelf(module, moduleIndex = 0) {
 
   return `
     <section
-      class="admin-progress-module-shelf admin-progress-group-module-shelf m4l-ribbon-section"
-      data-admin-progress-dashboard-shelf
+      class="admin-progress-module-shelf admin-progress-group-module-shelf admin-progress-summary-row m4l-ribbon-section"
       data-progress-module-index="${moduleIndex}"
       aria-label="${escapeForAttribute(moduleName)}"
     >
@@ -2497,10 +2565,8 @@ function renderAdminGroupProgressModuleShelf(module, moduleIndex = 0) {
         <h3 class="m4l-ribbon-title">${escapeHtml(moduleName)}</h3>
         <span class="admin-progress-module-count">${tasks.length} ${tasks.length === 1 ? "task" : "tasks"}</span>
       </div>
-      ${renderAdminProgressDashboardTaskDots(tasks, moduleName)}
       <div
-        class="admin-progress-task-rail m4l-ribbon-track"
-        data-admin-progress-dashboard-rail
+        class="admin-progress-task-rail admin-progress-summary-rail m4l-ribbon-track"
         aria-label="${escapeForAttribute(moduleName)} group tasks"
       >
         ${tasks.map(renderAdminGroupProgressTaskCard).join("")}
@@ -2556,40 +2622,33 @@ function renderAdminGroupFocusedStudentRow(row) {
 }
 
 function renderAdminGroupProgressTaskCard(task) {
-  const allRows = Array.isArray(task.rows)
+  const rows = Array.isArray(task.rows)
     ? [...task.rows].sort((a, b) => String(a.username || "").localeCompare(String(b.username || ""), undefined, { numeric: true }))
     : [];
-  const previewRows = allRows.slice(0, 2);
-  const moreCount = Math.max(0, allRows.length - previewRows.length);
+  const previewRows = rows.slice(0, 2);
+  const moreCount = Math.max(0, rows.length - previewRows.length);
   const classgroup = task.classgroup || progressState.groupViewClassgroup || "";
 
   return `
-    <article
-      class="admin-progress-task-card admin-progress-group-summary-card admin-progress-focused-group-card m4l-ribbon-card m4l-ribbon-card--summary"
-      role="button"
-      tabindex="0"
+    <button
+      type="button"
+      class="admin-progress-task-card admin-progress-group-summary-card m4l-ribbon-card m4l-ribbon-card--summary"
       data-progress-action="open-admin-class-group-summary"
       data-classgroup="${escapeForAttribute(classgroup)}"
       data-subjectid="${escapeForAttribute(task.subjectid || "ALL")}"
       data-subjectname="${escapeForAttribute(task.subjectname || task.modulename || "Module")}"
       data-taskid="${escapeForAttribute(task.taskid || "")}"
       data-taskname="${escapeForAttribute(task.taskname || "Task")}"
-      aria-expanded="false"
       aria-label="Open ${escapeForAttribute(task.taskname || "Task")} for Group ${escapeForAttribute(classgroup)}"
     >
       <span class="admin-progress-task-card-title">${escapeHtml(task.taskname || "Task")}</span>
       <span class="admin-progress-task-card-label">Group ${escapeHtml(classgroup)}</span>
-      <div class="admin-progress-group-card-summary">
-        ${renderAdminProgressCardBars(task.completedPercent, task.verifiedPercent)}
-        <span class="admin-progress-summary-preview" aria-label="Student preview">
-          ${previewRows.map(row => `<span>${escapeHtml(row.username || "Student")}</span>`).join("")}
-          ${moreCount > 0 ? `<span class="admin-progress-summary-more">… ${moreCount} more</span>` : ""}
-        </span>
-      </div>
-      <div class="admin-progress-group-focus-list" aria-label="Group ${escapeForAttribute(classgroup)} update list">
-        ${allRows.map(renderAdminGroupFocusedStudentRow).join("")}
-      </div>
-    </article>
+      ${renderAdminProgressCardBars(task.completedPercent, task.verifiedPercent)}
+      <span class="admin-progress-summary-preview" aria-label="Student preview">
+        ${previewRows.map(row => `<span>${escapeHtml(row.username || "Student")}</span>`).join("")}
+        ${moreCount > 0 ? `<span class="admin-progress-summary-more">… ${moreCount} more</span>` : ""}
+      </span>
+    </button>
   `;
 }
 
@@ -2599,8 +2658,7 @@ function renderAdminProgressModuleShelf(module, moduleIndex = 0) {
 
   return `
     <section
-      class="admin-progress-module-shelf m4l-ribbon-section"
-      data-admin-progress-dashboard-shelf
+      class="admin-progress-module-shelf admin-progress-class-task-row admin-progress-summary-row m4l-ribbon-section"
       data-progress-module-index="${moduleIndex}"
       aria-label="${escapeForAttribute(moduleName)}"
     >
@@ -2608,10 +2666,8 @@ function renderAdminProgressModuleShelf(module, moduleIndex = 0) {
         <h3 class="m4l-ribbon-title">${escapeHtml(moduleName)}</h3>
         <span class="admin-progress-module-count">${tasks.length} ${tasks.length === 1 ? "task" : "tasks"}</span>
       </div>
-      ${renderAdminProgressDashboardTaskDots(tasks, moduleName)}
       <div
-        class="admin-progress-task-rail m4l-ribbon-track"
-        data-admin-progress-dashboard-rail
+        class="admin-progress-task-rail admin-progress-summary-rail m4l-ribbon-track"
         aria-label="${escapeForAttribute(moduleName)} tasks"
       >
         ${tasks.map(renderAdminProgressTaskCard).join("")}
@@ -2711,7 +2767,6 @@ function renderAdminProgressIndividualDashboard(rows) {
 
   setDomHtml(dashboard, groups.map(renderAdminIndividualProgressGroupRow).join(""));
   bindProgressUiHandlers(dashboard);
-  bindAdminProgressDashboardRailControls(dashboard);
 }
 
 function renderAdminIndividualProgressGroupRow(group, groupIndex = 0) {
@@ -2719,8 +2774,7 @@ function renderAdminIndividualProgressGroupRow(group, groupIndex = 0) {
 
   return `
     <section
-      class="admin-progress-module-shelf admin-progress-individual-group-row m4l-ribbon-section"
-      data-admin-progress-dashboard-shelf
+      class="admin-progress-module-shelf admin-progress-individual-group-row admin-progress-summary-row m4l-ribbon-section"
       data-progress-group-row-index="${groupIndex}"
       aria-label="Group ${escapeForAttribute(group.classgroup)} students"
     >
@@ -2728,10 +2782,8 @@ function renderAdminIndividualProgressGroupRow(group, groupIndex = 0) {
         <h3 class="m4l-ribbon-title">Group ${escapeHtml(group.classgroup || "")}</h3>
         <span class="admin-progress-module-count">${students.length} ${students.length === 1 ? "student" : "students"}</span>
       </div>
-      ${renderAdminProgressDashboardTaskDots(students, `Group ${group.classgroup}`)}
       <div
-        class="admin-progress-task-rail admin-progress-individual-student-rail m4l-ribbon-track"
-        data-admin-progress-dashboard-rail
+        class="admin-progress-task-rail admin-progress-summary-rail admin-progress-individual-student-rail m4l-ribbon-track"
         aria-label="Group ${escapeForAttribute(group.classgroup)} students"
       >
         ${students.map(renderAdminIndividualStudentSummaryCard).join("")}
@@ -2744,19 +2796,14 @@ function renderAdminIndividualStudentSummaryCard(student) {
   return `
     <button
       type="button"
-      class="admin-progress-task-card admin-progress-student-summary-card m4l-ribbon-card m4l-ribbon-card--summary"
+      class="admin-progress-student-name-card admin-progress-task-card admin-progress-student-summary-card m4l-ribbon-card m4l-ribbon-card--summary"
       data-progress-action="open-admin-individual-student"
       data-studentid="${escapeForAttribute(student.studentid)}"
       data-username="${escapeForAttribute(student.username || "Student")}"
       aria-label="Open progress for ${escapeForAttribute(student.username || "Student")}"
     >
-      <span class="admin-progress-task-card-title">${escapeHtml(student.username || "Student")}</span>
-      <span class="admin-progress-task-card-label">Group ${escapeHtml(student.classgroup || "")}</span>
+      <span class="admin-progress-student-name-card-title">${escapeHtml(student.username || "Student")}</span>
       ${renderAdminProgressCardBars(student.completedPercent, student.verifiedPercent)}
-      <span class="admin-progress-summary-preview admin-progress-student-summary-meta">
-        <span>${student.moduleCount || 0} ${student.moduleCount === 1 ? "module" : "modules"}</span>
-        <span>${student.pendingTasks || 0} pending ${student.pendingTasks === 1 ? "item" : "items"}</span>
-      </span>
     </button>
   `;
 }
@@ -2828,46 +2875,108 @@ function getAdminProgressDashboardRailActiveIndex(rail) {
 }
 
 
-function updateAdminProgressFocusedRailCards(rail) {
-  const targetRail = rail || null;
-  const cards = getAdminProgressDashboardRailCards(targetRail);
 
-  if (!targetRail || cards.length === 0) {
-    return false;
-  }
+function getAdminIndividualTaskCards(shell) {
+  const host = shell || document;
+  return Array.from(host.querySelectorAll("[data-admin-individual-task-card]"));
+}
 
-  const railRect = targetRail.getBoundingClientRect();
-  const viewportWidth = window.innerWidth || railRect.width || 0;
-  let focalX = railRect.left + (railRect.width / 2);
+function setAdminIndividualActiveTaskCard(activeCard) {
+  const shell = activeCard ? activeCard.closest("[data-admin-individual-focus-shell]") : document;
+  const cards = getAdminIndividualTaskCards(shell);
 
-  if (viewportWidth >= 760 && viewportWidth < 1180) {
-    focalX = railRect.left + (railRect.width * 0.75);
-  } else if (viewportWidth >= 1180) {
-    focalX = railRect.left + (railRect.width / 2);
-  }
+  cards.forEach(card => {
+    const isActive = card === activeCard;
+    card.classList.toggle("is-focus", isActive);
+    card.classList.toggle("is-expanded", isActive);
+    card.classList.toggle("is-active-card", isActive);
+    card.setAttribute("aria-expanded", isActive ? "true" : "false");
+
+    card.querySelectorAll("[data-progress-action='toggle-progress-pending']").forEach(control => {
+      control.setAttribute("aria-disabled", isActive ? "false" : "true");
+    });
+  });
+
+  return !!activeCard;
+}
+
+function updateAdminIndividualTaskFocus(shell) {
+  const targetShell = shell || document.querySelector("[data-admin-individual-focus-shell]");
+  if (!targetShell) return false;
+
+  const cards = getAdminIndividualTaskCards(targetShell).filter(card => {
+    const rect = card.getBoundingClientRect();
+    return rect.width > 0 && rect.height > 0;
+  });
+
+  if (!cards.length) return false;
+
+  const shellRect = targetShell.getBoundingClientRect();
+  const focalX = shellRect.left + (shellRect.width / 2);
+  const focalY = shellRect.top + (shellRect.height / 2);
 
   let activeCard = cards[0];
-  let activeDistance = Number.POSITIVE_INFINITY;
+  let activeScore = Number.POSITIVE_INFINITY;
 
   cards.forEach(card => {
     const rect = card.getBoundingClientRect();
-    const cardCenter = rect.left + (rect.width / 2);
-    const distance = Math.abs(cardCenter - focalX);
+    const cardX = rect.left + (rect.width / 2);
+    const cardY = rect.top + (rect.height / 2);
+    const dx = (cardX - focalX) / Math.max(1, rect.width);
+    const dy = (cardY - focalY) / Math.max(1, rect.height);
+    const score = (dx * dx) + (dy * dy);
 
-    if (distance < activeDistance) {
-      activeDistance = distance;
+    if (score < activeScore) {
+      activeScore = score;
       activeCard = card;
     }
   });
 
-  cards.forEach(card => {
-    const isFocus = card === activeCard;
-    card.classList.toggle("is-focus", isFocus);
-    card.classList.toggle("is-expanded", isFocus && card.hasAttribute("data-admin-individual-task-card"));
-    card.setAttribute("aria-expanded", isFocus ? "true" : "false");
-  });
+  return setAdminIndividualActiveTaskCard(activeCard);
+}
 
+function bindAdminProgressIndividualTaskFocusControls(container) {
+  const host = getDomElement(container) || document;
+  const shell = host.querySelector("[data-admin-individual-focus-shell]") || (host.matches && host.matches("[data-admin-individual-focus-shell]") ? host : null);
+
+  if (!shell) {
+    return false;
+  }
+
+  if (shell.dataset.adminIndividualFocusBound !== "true") {
+    shell.dataset.adminIndividualFocusBound = "true";
+    let pendingFrame = 0;
+    const queueFocusUpdate = () => {
+      if (pendingFrame) return;
+      pendingFrame = window.requestAnimationFrame(() => {
+        pendingFrame = 0;
+        updateAdminIndividualTaskFocus(shell);
+      });
+    };
+
+    shell.addEventListener("scroll", queueFocusUpdate, { passive: true });
+    shell.querySelectorAll("[data-admin-individual-task-rail]").forEach(rail => {
+      rail.addEventListener("scroll", queueFocusUpdate, { passive: true });
+    });
+
+    if (typeof window !== "undefined" && typeof window.addEventListener === "function") {
+      window.addEventListener("resize", queueFocusUpdate, { passive: true });
+    }
+  }
+
+  window.setTimeout(() => updateAdminIndividualTaskFocus(shell), 0);
+  window.setTimeout(() => updateAdminIndividualTaskFocus(shell), 160);
   return true;
+}
+
+
+function updateAdminProgressFocusedRailCards(rail) {
+  const shell = rail ? rail.closest("[data-admin-individual-focus-shell]") : null;
+  if (!shell) {
+    return false;
+  }
+
+  return updateAdminIndividualTaskFocus(shell);
 }
 
 function updateAdminProgressDashboardRailDots(rail) {
@@ -2922,6 +3031,13 @@ function bindAdminProgressDashboardRailControls(container) {
   const rails = Array.from(host.querySelectorAll("[data-admin-progress-dashboard-rail], .admin-progress-task-rail"));
 
   rails.forEach(rail => {
+    const isIndividualFocusRail = !!rail.closest("[data-admin-individual-focus-shell]");
+
+    if (!isIndividualFocusRail) {
+      updateAdminProgressDashboardRailDots(rail);
+      return;
+    }
+
     if (rail.dataset.adminProgressDashboardRailBound === "true") {
       updateAdminProgressDashboardRailDots(rail);
       return;
@@ -4177,14 +4293,14 @@ function renderIndividualStudentTaskList(rows) {
   }
 
   const html = `
-    <div class="admin-progress-individual-netflix-shell" aria-label="${escapeForAttribute(progressState.studentName || "Student")} progress task cards">
+    <div class="admin-progress-individual-netflix-shell" data-admin-individual-focus-shell aria-label="${escapeForAttribute(progressState.studentName || "Student")} progress task cards">
       ${modules.map(renderAdminIndividualTaskModuleRow).join("")}
     </div>
   `;
 
   setDomHtml(container, html);
   bindProgressUiHandlers(container);
-  bindAdminProgressDashboardRailControls(container);
+  bindAdminProgressIndividualTaskFocusControls(container);
 }
 
 function buildAdminIndividualStudentModules(rows) {
@@ -4220,13 +4336,11 @@ function buildAdminIndividualStudentModules(rows) {
 
 function renderAdminIndividualTaskModuleRow(module, index = 0) {
   const rows = Array.isArray(module.rows) ? module.rows : [];
-  const summary = module.summary || getAdminProgressSummaryFromRows(rows);
   const moduleName = module.modulename || "Module";
 
   return `
     <section
       class="admin-progress-module-shelf admin-progress-individual-task-module-row m4l-ribbon-section"
-      data-admin-progress-dashboard-shelf
       data-progress-module-index="${index}"
       aria-label="${escapeForAttribute(moduleName)} tasks"
     >
@@ -4234,10 +4348,9 @@ function renderAdminIndividualTaskModuleRow(module, index = 0) {
         <h3 class="m4l-ribbon-title">${escapeHtml(moduleName)}</h3>
         <span class="admin-progress-module-count">${rows.length} ${rows.length === 1 ? "task" : "tasks"}</span>
       </div>
-      ${renderAdminProgressDashboardTaskDots(rows, moduleName)}
       <div
         class="admin-progress-task-rail admin-progress-individual-task-card-rail m4l-ribbon-track"
-        data-admin-progress-dashboard-rail
+        data-admin-individual-task-rail
         aria-label="${escapeForAttribute(moduleName)} task cards"
       >
         ${rows.map(renderAdminIndividualTaskUpdateCard).join("")}
@@ -4308,17 +4421,17 @@ function toggleAdminIndividualTaskCardExpanded(studenttaskid) {
   });
   if (!card) return false;
 
-  const rail = card.closest("[data-admin-progress-dashboard-rail]");
+  const rail = card.closest("[data-admin-individual-task-rail]");
+  const shell = card.closest("[data-admin-individual-focus-shell]");
+
   if (rail) {
-    rail.querySelectorAll("[data-admin-individual-task-card]").forEach(item => {
-      const isTarget = item === card;
-      item.classList.toggle("is-focus", isTarget);
-      item.classList.toggle("is-expanded", isTarget);
-      item.setAttribute("aria-expanded", isTarget ? "true" : "false");
-    });
-  } else {
-    card.classList.add("is-focus", "is-expanded");
-    card.setAttribute("aria-expanded", "true");
+    card.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+  }
+
+  setAdminIndividualActiveTaskCard(card);
+
+  if (shell) {
+    window.setTimeout(() => updateAdminIndividualTaskFocus(shell), 180);
   }
 
   return true;
@@ -4551,6 +4664,17 @@ function renderAdminIndividualStudentTaskRow(row) {
 
 function toggleProgressPending(studenttaskid, field, value) {
   if (!studenttaskid) return;
+
+  if (progressState.contextType === "student") {
+    const activeCard = Array.from(document.querySelectorAll("[data-admin-individual-task-card]")).find(card => {
+      return String(card.dataset.studenttaskid || "") === String(studenttaskid || "");
+    });
+
+    if (activeCard && !activeCard.classList.contains("is-focus")) {
+      setAdminIndividualActiveTaskCard(activeCard);
+      return;
+    }
+  }
 
   if (!progressPendingUpdates[studenttaskid]) {
     progressPendingUpdates[studenttaskid] = {
