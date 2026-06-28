@@ -1,4 +1,4 @@
-/* M4L v71.4 - Admin Progress centred group sheet + dashboard dots + Student Progress V70.3 baseline. */
+/* M4L v71.5 - Attendance desktop nav/dots alignment fix + V71.4 Admin Progress baseline. */
 :root {
   /* ==========================================
      BRAND PALETTE (Sage & Lavender)
@@ -12,7 +12,7 @@
     --primary-rgb: 168, 185, 146; /* Sage RGB for background opacity modifiers */
     --primary-light: color-mix(in srgb, var(--primary) 80%, white 35%);
     --primary-lighter: color-mix(in srgb, var(--primary) 80%, white 50%);
-     -primary-lightest: color-mix(in srgb, var(--primary) 80%, white 70%);
+     --primary-lightest: color-mix(in srgb, var(--primary) 80%, white 70%);
 
     --surface-soft: #F0F4EC;     /* Light pastel sage for backgrounds */
     --surface-tint: #DFE7D7;     /* Mid-tone sage tint for disabled fields/borders */
@@ -3617,6 +3617,31 @@ body.is-attendance-section #attendance-screen.screen {
       var(--swipe-dot-bar-height) +
       var(--attendance-panel-visible-gap)
     );
+  }
+}
+
+/* Attendance desktop/reduced-desktop nav fix - V71.5
+   Keep dots in swipe mode, but place them below the desktop top nav.
+   Hide dots only when Attendance switches to the large side-by-side layout. */
+@media (min-width: 768px), (hover: hover) and (pointer: fine) {
+  body.is-attendance-section .bottom-nav {
+    z-index: 120;
+  }
+
+  body.is-attendance-section .attendance-panel-dots {
+    top: calc(
+      var(--user-band-height) +
+      var(--user-band-safe-area-top) +
+      var(--top-nav-height) +
+      var(--swipe-dot-band-gap)
+    );
+    z-index: 82;
+  }
+}
+
+@media (min-width: 1180px) {
+  body.is-attendance-section .attendance-panel-dots {
+    display: none;
   }
 }
 
