@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <!-- PWA: Admin install settings -->
-  <link rel="stylesheet" href="/styles.css?v=72.4" />
+  <link rel="stylesheet" href="/styles.css?v=71.4a" />
   <link rel="manifest" href="/admin-manifest.json" />
   <link rel="apple-touch-icon" sizes="180x180" href="/admin-apple-touch-icon.png" />
   <link rel="icon" type="image/png" sizes="32x32" href="/admin-favicon-32x32.png" />
@@ -16,22 +16,6 @@
 
 <body>
   <main class="app-shell">
-    <div id="admin-progress-global-selector" class="admin-progress-global-selector hidden" data-admin-progress-global-selector>
-      <div class="admin-progress-global-loading hidden" data-admin-progress-global-loading role="status" aria-live="polite" aria-label="Loading progress">
-        <span class="admin-progress-loading-spinner" aria-hidden="true"></span>
-        <span class="visually-hidden">Loading progress</span>
-      </div>
-      <div class="admin-progress-global-selector-controls" data-admin-progress-global-selector-controls>
-        <div class="m4l-segmented-control admin-progress-view-selector" data-admin-progress-view-selector role="tablist" aria-label="Progress view">
-          <button type="button" class="m4l-segmented-option is-active" data-progress-action="set-admin-progress-view" data-progress-view="all" role="tab" aria-selected="true">All</button>
-          <button type="button" class="m4l-segmented-option" data-progress-action="set-admin-progress-view" data-progress-view="individual" role="tab" aria-selected="false">Individual</button>
-          <button type="button" class="m4l-segmented-option" data-progress-action="set-admin-progress-view" data-progress-view="groups" role="tab" aria-selected="false">Groups</button>
-        </div>
-        <div class="admin-progress-group-dot-slot" data-admin-progress-group-dot-slot aria-live="polite"></div>
-      </div>
-    </div>
-
-
 
     <!-- LOGIN / PIN SCREEN -->
     <section id="auth-screen" class="screen active">
@@ -166,7 +150,7 @@
     <!-- PROGRESS REPORT -->
 <section id="progress-report" class="screen admin-theme admin-progress-screen">
   <div class="nav-header admin-progress-landing-header">
-    <h2 id="admin-progress-landing-title">ALL PROGRESS</h2>
+    <h2>CLASS PROGRESS</h2>
   </div>
 
   <div id="admin-progress-dashboard" class="admin-progress-dashboard">
@@ -196,7 +180,7 @@
   <div class="nav-header admin-progress-detail-header">
     <button
       type="button"
-      class="small-btn admin-progress-close-btn m4l-close-btn"
+      class="small-btn admin-progress-close-btn"
       data-progress-action="close-admin-progress-task-screen"
       aria-label="Close progress detail"
       title="Close"
@@ -444,11 +428,11 @@
 <script src="/app.js?v=69"></script>
 <script src="/js/m4l-auth.js?v=55"></script>
 <script src="/js/m4l-shell.js?v=69"></script>
-<script src="/js/m4l-attendance.js?v=71.6"></script>
+<script src="/js/m4l-attendance.js?v=69"></script>
 <script src="/js/m4l-admin-academics.js?v=55"></script>
 <script src="/js/m4l-timetable.js?v=69.1"></script>
-<script src="/js/m4l-resources.js?v=72.2"></script>
-<script src="/js/m4l-progress.js?v=72.4"></script>
+<script src="/js/m4l-resources.js?v=69"></script>
+<script src="/js/m4l-progress.js?v=71.4a"></script>
 <script src="/js/m4l-manage-students.js?v=55"></script>
 </body>
 </html>
