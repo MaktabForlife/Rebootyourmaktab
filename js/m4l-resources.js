@@ -1,4 +1,4 @@
-/* M4L v65.4.4 - Library / Resources ribbon module
+/* M4L v72 - Library / Resources ribbon module with shared ribbon dots
    Load after /app.js, /js/m4l-auth.js, /js/m4l-shell.js, and /js/m4l-timetable.js.
    This is a classic script, not type=module, so existing global function calls remain safe.
    Owns the Library resource ribbons plus PDF/audio/video resource viewing.
@@ -624,6 +624,8 @@ function renderStudentResourceSubjects() {
       }).join("")}
     </div>
   `);
+
+  bindLibraryResourceRibbonScrollHandlers(container);
 }
 
 function renderLibraryModuleSection(subject, module) {
@@ -631,14 +633,152 @@ function renderLibraryModuleSection(subject, module) {
   const resources = Array.isArray(module.resources) ? module.resources : [];
 
   return `
-    <section class="library-module-section" aria-labelledby="${escapeForAttribute(module.headingId)}">
-      <h3 id="${escapeForAttribute(module.headingId)}" class="library-module-title">${escapeHtml(rowTitle)}</h3>
-      <div class="library-resource-row" role="list" aria-label="${escapeForAttribute(`${rowTitle} resources`)}">
-        ${resources.map(resource => renderLibraryResourceCard(resource)).join("")}
+    <section class="library-module-section m4l-ribbon-section" aria-labelledby="${escapeForAttribute(module.headingId)}" data-library-ribbon-section>
+      <div class="library-module-header m4l-ribbon-header">
+        <h3 id="${escapeForAttribute(module.headingId)}" class="library-module-title m4l-ribbon-title">${escapeHtml(rowTitle)}</h3>
+        ${renderLibraryResourceDots(resources, rowTitle)}
+      </div>
+      <div class="library-resource-row m4l-ribbon-track" role="list" aria-label="${escapeForAttribute(`${rowTitle} resources`)}" data-library-resource-row>
+        ${resources.map(renderLibraryResourceCard).join("")}
       </div>
       <div id="${escapeForAttribute(module.previewId)}" class="library-inline-preview hidden" aria-live="polite"></div>
     </section>
   `;
+}
+
+function renderLibraryResourceDots(resources, rowTitle) {
+  const list = Array.isArray(resources) ? resources : [];
+
+  if (list.length <= 1) {
+    return "";
+  }
+
+  return `
+    <div class="library-resource-dots m4l-ribbon-dots" data-library-resource-dots aria-label="${escapeForAttribute(rowTitle || "Resource")} cards">
+      ${list.map((resource, index) => `
+        <button
+          type="button"
+          class="library-resource-dot m4l-ribbon-dot${index === 0 ? " is-active" : ""}"
+          data-library-ribbon-index="${index}"
+          aria-label="Show ${escapeForAttribute(resource.title || `resource ${index + 1}`)}"
+          aria-current="${index === 0 ? "true" : "false"}"
+        ></button>
+      `).join("")}
+    </div>
+  `;
+}
+
+function getLibraryRibbonSectionFromElement(element) {
+  return element && typeof element.closest === "function"
+    ? element.closest("[data-library-ribbon-section], .library-module-section")
+    : null;
+}
+
+function getLibraryResourceRowFromSection(section) {
+  return section ? section.querySelector("[data-library-resource-row], .library-resource-row") : null;
+}
+
+function getLibraryResourceCards(row) {
+  if (!row || !row.children) return [];
+
+  return Array.from(row.children).filter(child => {
+    return child && child.matches && child.matches(".library-resource-card");
+  });
+}
+
+function getLibraryResourceRowActiveIndex(row) {
+  if (!row) return 0;
+
+  const cards = getLibraryResourceCards(row);
+  if (cards.length <= 1) return 0;
+
+  const firstCard = cards[0];
+  const secondCard = cards[1];
+  let step = firstCard ? firstCard.getBoundingClientRect().width : (row.clientWidth || 1);
+
+  if (firstCard && secondCard) {
+    const firstRect = firstCard.getBoundingClientRect();
+    const secondRect = secondCard.getBoundingClientRect();
+    const measuredStep = Math.abs(secondRect.left - firstRect.left);
+
+    if (measuredStep > 1) {
+      step = measuredStep;
+    }
+  }
+
+  const index = Math.round((row.scrollLeft || 0) / Math.max(1, step));
+  return Math.max(0, Math.min(cards.length - 1, index));
+}
+
+function updateLibraryResourceRibbonDots(row) {
+  const targetRow = row || null;
+  const section = targetRow ? getLibraryRibbonSectionFromElement(targetRow) : null;
+
+  if (!section || !targetRow) return false;
+
+  const dots = Array.from(section.querySelectorAll("[data-library-resource-dots] [data-library-ribbon-index]"));
+  if (!dots.length) return false;
+
+  const activeIndex = getLibraryResourceRowActiveIndex(targetRow);
+
+  dots.forEach((dot, fallbackIndex) => {
+    const dotIndex = Number(dot.dataset.libraryRibbonIndex || fallbackIndex || 0);
+    const isActive = dotIndex === activeIndex;
+    dot.classList.toggle("is-active", isActive);
+    dot.setAttribute("aria-current", isActive ? "true" : "false");
+  });
+
+  return true;
+}
+
+function scrollLibraryResourceRibbonToIndex(dot, index, options = {}) {
+  const section = getLibraryRibbonSectionFromElement(dot);
+  const row = getLibraryResourceRowFromSection(section);
+  const cards = getLibraryResourceCards(row);
+  const targetIndex = Number(index || 0);
+
+  if (!row || !cards[targetIndex]) {
+    return false;
+  }
+
+  cards[targetIndex].scrollIntoView({
+    behavior: options.behavior || "smooth",
+    block: "nearest",
+    inline: "start"
+  });
+
+  updateLibraryResourceRibbonDots(row);
+
+  if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
+    window.requestAnimationFrame(() => updateLibraryResourceRibbonDots(row));
+  } else {
+    window.setTimeout(() => updateLibraryResourceRibbonDots(row), 0);
+  }
+
+  return true;
+}
+
+function bindLibraryResourceRibbonScrollHandlers(container) {
+  const root = getDomElement(container) || document;
+  const rows = root.querySelectorAll ? root.querySelectorAll("[data-library-resource-row], .library-resource-row") : [];
+
+  rows.forEach(row => {
+    if (!row || row.dataset.libraryRibbonScrollBound === "true") return;
+
+    row.dataset.libraryRibbonScrollBound = "true";
+    let pendingFrame = 0;
+
+    row.addEventListener("scroll", () => {
+      if (pendingFrame) return;
+
+      pendingFrame = window.requestAnimationFrame(() => {
+        pendingFrame = 0;
+        updateLibraryResourceRibbonDots(row);
+      });
+    }, { passive: true });
+
+    window.setTimeout(() => updateLibraryResourceRibbonDots(row), 0);
+  });
 }
 
 function renderLibraryResourceCard(resource) {
@@ -697,6 +837,19 @@ function bindResourceUiHandlers() {
   }
 
   document.addEventListener("click", event => {
+    const ribbonDot = event.target && event.target.closest
+      ? event.target.closest("[data-library-ribbon-index]")
+      : null;
+
+    if (ribbonDot) {
+      event.preventDefault();
+      scrollLibraryResourceRibbonToIndex(
+        ribbonDot,
+        Number(ribbonDot.dataset.libraryRibbonIndex || 0)
+      );
+      return;
+    }
+
     const card = event.target && event.target.closest
       ? event.target.closest(".library-resource-card")
       : null;
