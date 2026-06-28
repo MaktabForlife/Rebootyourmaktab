@@ -1,4 +1,4 @@
-/* M4L v71.6 - Shared Home/Attendance swipe dots + Attendance sticky pane alignment + V71.4 baseline. */
+/* M4L v72 - Shared Progress/Library ribbon models + V71.6 Home/Attendance baseline. */
 :root {
   /* ==========================================
      BRAND PALETTE (Sage & Lavender)
@@ -1276,6 +1276,101 @@ body.has-user-band .top-bar button[onclick="logout()"] {
 
 
 
+
+/* Shared segmented selector + ribbon model - V72 */
+.m4l-segmented-control {
+  display: inline-grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 4px;
+  width: min(100%, 420px);
+  margin: 0 auto 16px;
+  padding: 4px;
+  border-radius: 999px;
+  background: var(--surface-chip);
+  border: 1px solid rgba(var(--primary-rgb), 0.18);
+  box-shadow: 0 2px 5px rgba(var(--black-rgb), 0.08);
+}
+
+.m4l-segmented-option {
+  width: 100%;
+  min-width: 0;
+  min-height: 40px;
+  padding: 9px 12px;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-muted);
+  box-shadow: none;
+  font-size: 0.82rem;
+  font-weight: 800;
+  line-height: 1.1;
+  text-align: center;
+}
+
+.m4l-segmented-option.is-active {
+  background: var(--primary);
+  color: var(--text-inverse);
+}
+
+.m4l-ribbon-section {
+  min-width: 0;
+}
+
+.m4l-ribbon-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+.m4l-ribbon-title {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.m4l-ribbon-track {
+  min-width: 0;
+}
+
+.m4l-ribbon-card {
+  scroll-snap-align: start;
+}
+
+.m4l-ribbon-dots {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 22px;
+}
+
+.m4l-ribbon-dot {
+  width: 8px;
+  min-width: 8px;
+  height: 8px;
+  min-height: 8px;
+  padding: 0;
+  border-radius: 999px;
+  background: var(--surface-track);
+  box-shadow: none;
+  opacity: 0.75;
+}
+
+.m4l-ribbon-dot.is-active {
+  width: 22px;
+  background: var(--primary);
+  opacity: 1;
+}
+
+@media (max-width: 420px) {
+  .m4l-segmented-option {
+    padding-inline: 8px;
+    font-size: 0.76rem;
+  }
+}
+
+
 /* Admin Progress native snap shelves - V71.4 */
 #progress-report.admin-progress-screen,
 #progress-task-students-screen.admin-theme {
@@ -1922,6 +2017,132 @@ body.has-user-band .top-bar button[onclick="logout()"] {
   }
 }
 
+
+/* V72 Progress landing selector and class/individual ribbon cards */
+.admin-progress-view-selector {
+  display: grid;
+}
+
+.admin-progress-class-task-row,
+.admin-progress-individual-group-row {
+  overflow: hidden;
+}
+
+.admin-progress-class-group-rail,
+.admin-progress-individual-student-rail {
+  padding-bottom: 10px;
+}
+
+.admin-progress-group-summary-card,
+.admin-progress-student-summary-card {
+  min-height: 218px;
+}
+
+.admin-progress-summary-preview {
+  position: relative;
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+  margin-top: 2px;
+  padding: 9px 10px 14px;
+  border-radius: 14px;
+  color: var(--text-subtle);
+  background: color-mix(in srgb, var(--surface-card) 58%, transparent);
+  font-size: 0.76rem;
+  font-weight: 650;
+  line-height: 1.15;
+  overflow: hidden;
+}
+
+.admin-progress-summary-preview::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 20px;
+  background: linear-gradient(to bottom, transparent, rgba(var(--white-rgb), 0.72));
+  pointer-events: none;
+}
+
+.admin-progress-summary-more {
+  position: relative;
+  z-index: 1;
+  color: var(--text-muted);
+  font-weight: 800;
+}
+
+.admin-progress-student-summary-meta::after {
+  display: none;
+}
+
+.admin-progress-individual-module-shell {
+  width: min(100%, 560px);
+  max-width: 100%;
+  min-width: 0;
+  min-height: 0;
+  margin-inline: auto;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 10px;
+  overflow: hidden;
+}
+
+.admin-progress-individual-module-track {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  gap: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-inline: contain;
+  scroll-snap-type: x mandatory;
+  scroll-padding-inline: 0;
+  -webkit-overflow-scrolling: touch;
+  padding: 0;
+  scrollbar-width: none;
+}
+
+.admin-progress-individual-module-track::-webkit-scrollbar {
+  display: none;
+}
+
+.admin-progress-individual-module-panel {
+  flex: 0 0 100%;
+  width: 100%;
+}
+
+.admin-progress-individual-module-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.admin-progress-individual-module-summary {
+  flex: 0 0 auto;
+  color: var(--text-subtle);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.admin-progress-individual-task-list {
+  padding-right: 18px;
+}
+
+.is-admin-complete-override {
+  color: var(--disabled);
+}
+
+@media (min-width: 760px) {
+  .admin-progress-individual-module-shell {
+    width: min(100%, 620px);
+  }
+}
+
+
 #progress-task-students-list {
   min-height: 0;
   overflow: hidden;
@@ -2451,6 +2672,44 @@ body.has-user-band #progress-subjects-screen.student-theme .student-progress-glo
   line-height: 1.25;
   overflow-wrap: anywhere;
 }
+
+
+.library-module-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+}
+
+.library-module-header .library-module-title {
+  grid-column: 1 / 2;
+}
+
+.library-module-header .library-resource-dots {
+  grid-column: 2 / 3;
+}
+
+.library-resource-dots {
+  justify-self: center;
+}
+
+.library-resource-dot {
+  color: transparent;
+}
+
+@media (max-width: 420px) {
+  .library-module-header {
+    grid-template-columns: 1fr;
+    justify-items: start;
+  }
+
+  .library-module-header .library-resource-dots {
+    grid-column: 1;
+    justify-self: center;
+    width: 100%;
+  }
+}
+
 
 .library-resource-row {
   display: flex;
