@@ -1,4 +1,4 @@
-/* M4L v72.1 - Progress All/Individual/Groups fixes + Progress-matched Library dots. */
+/* M4L v72.2 - Progress All/Individual/Groups sticky selector + group dots + individual task-card rows. */
 :root {
   /* ==========================================
      BRAND PALETTE (Sage & Lavender)
@@ -5665,6 +5665,259 @@ body.pdf-viewer-open.has-user-band .pdf-viewer-header {
   .admin-progress-individual-task-card .task-status-icon {
     width: 24px;
     height: 24px;
+  }
+}
+
+/* Progress V72.2: sticky selector, group number dots, no swipe-to-close interaction, and Individual task-card rows */
+.admin-progress-sticky-controls {
+  position: sticky;
+  top: 0;
+  z-index: 35;
+  display: grid;
+  gap: 6px;
+  justify-items: center;
+  padding: 6px 0 10px;
+  margin: -4px 0 10px;
+  background: var(--surface-app);
+  border-bottom: 1px solid rgba(var(--primary-rgb), 0.10);
+}
+
+.admin-progress-sticky-controls .admin-progress-view-selector {
+  width: min(100%, 460px);
+}
+
+.admin-progress-group-dot-slot {
+  display: none;
+  width: min(100%, 460px);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  min-height: 34px;
+  align-items: center;
+}
+
+.admin-progress-group-dot-slot.is-visible {
+  display: grid;
+}
+
+.admin-progress-group-stepper {
+  grid-column: 3;
+  justify-self: stretch;
+  position: relative;
+  min-height: 32px;
+  padding: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 3px;
+  border: 2px solid rgba(var(--black-rgb), 0.28);
+  border-radius: 999px;
+  background: var(--surface-card);
+  box-shadow: inset 0 0 0 1px rgba(var(--white-rgb), 0.55);
+}
+
+.admin-progress-group-stepper::before {
+  content: "";
+  position: absolute;
+  right: 12px;
+  left: 12px;
+  top: 50%;
+  height: 3px;
+  transform: translateY(-50%);
+  background: rgba(var(--black-rgb), 0.24);
+  border-radius: 999px;
+}
+
+.admin-progress-group-step {
+  position: relative;
+  z-index: 1;
+  width: 26px;
+  min-width: 26px;
+  height: 26px;
+  min-height: 26px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--surface-track);
+  color: var(--text-muted);
+  box-shadow: none;
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.admin-progress-group-step.is-active {
+  width: auto;
+  min-width: 46px;
+  padding-inline: 12px;
+  background: var(--primary);
+  color: var(--text-inverse);
+}
+
+.admin-progress-group-view-bar {
+  justify-content: center;
+  min-height: 38px;
+}
+
+.admin-progress-task-detail-shell .admin-progress-student-row,
+.admin-progress-task-detail-shell .admin-progress-popout-task-row {
+  grid-template-columns: minmax(0, 1fr) 44px 44px;
+  column-gap: 16px;
+  padding-right: 24px;
+}
+
+.admin-progress-task-detail-shell .admin-progress-status-control {
+  justify-self: center;
+}
+
+.admin-progress-individual-netflix-shell {
+  width: min(100%, 640px);
+  max-width: 100%;
+  min-width: 0;
+  min-height: 0;
+  margin-inline: auto;
+  display: grid;
+  gap: 14px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  max-height: calc(100dvh - var(--user-band-height) - var(--user-band-safe-area-top) - var(--bottom-nav-height) - var(--bottom-nav-safe-area) - 150px);
+  padding: 2px 4px 14px 0;
+  scrollbar-width: thin;
+  scrollbar-color: var(--primary) transparent;
+  -webkit-overflow-scrolling: touch;
+}
+
+.admin-progress-individual-netflix-shell::-webkit-scrollbar {
+  width: 5px;
+}
+
+.admin-progress-individual-netflix-shell::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.admin-progress-individual-netflix-shell::-webkit-scrollbar-thumb {
+  background: var(--primary);
+  border-radius: 999px;
+}
+
+.admin-progress-individual-task-module-row {
+  overflow: hidden;
+  background: var(--surface-card);
+}
+
+.admin-progress-individual-task-card-rail {
+  gap: 12px;
+  scroll-snap-type: none;
+  padding: 2px 8px 10px 2px;
+}
+
+.admin-progress-individual-task-update-card {
+  flex: 0 0 min(72vw, 240px);
+  width: min(72vw, 240px);
+  min-height: 124px;
+  gap: 12px;
+  cursor: pointer;
+  transition: flex-basis 160ms ease, width 160ms ease, min-height 160ms ease;
+}
+
+.admin-progress-individual-task-update-card.is-expanded {
+  flex-basis: min(88vw, 340px);
+  width: min(88vw, 340px);
+  min-height: 150px;
+  border-color: rgba(var(--primary-rgb), 0.42);
+  box-shadow: 0 8px 18px rgba(var(--black-rgb), 0.12);
+}
+
+.admin-progress-individual-task-update-icons {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 18px;
+  padding-right: 10px;
+  margin-top: auto;
+}
+
+.admin-progress-individual-task-update-card .admin-progress-status-control {
+  justify-self: auto;
+  width: 40px;
+  min-width: 40px;
+  height: 40px;
+  min-height: 40px;
+  background: transparent;
+}
+
+.admin-progress-individual-task-update-card .task-status-icon {
+  width: 30px;
+  height: 30px;
+}
+
+@media (min-width: 760px) {
+  .admin-progress-individual-netflix-shell {
+    width: min(100%, 720px);
+    max-height: calc(100dvh - var(--user-band-height) - var(--user-band-safe-area-top) - var(--top-nav-height) - 130px);
+  }
+
+  .admin-progress-individual-task-update-card {
+    flex-basis: 250px;
+    width: 250px;
+  }
+
+  .admin-progress-individual-task-update-card.is-expanded {
+    flex-basis: 360px;
+    width: 360px;
+  }
+}
+
+@media (max-width: 520px) {
+  .admin-progress-sticky-controls {
+    margin-top: -2px;
+    padding-bottom: 8px;
+  }
+
+  .admin-progress-group-dot-slot {
+    min-height: 32px;
+  }
+
+  .admin-progress-group-stepper {
+    min-height: 30px;
+  }
+
+  .admin-progress-group-step {
+    width: 24px;
+    min-width: 24px;
+    height: 24px;
+    min-height: 24px;
+    font-size: 0.68rem;
+  }
+
+  .admin-progress-group-step.is-active {
+    min-width: 42px;
+  }
+
+  .admin-progress-task-detail-shell .admin-progress-student-row,
+  .admin-progress-task-detail-shell .admin-progress-popout-task-row {
+    grid-template-columns: minmax(0, 1fr) 40px 40px;
+    column-gap: 12px;
+    padding-right: 18px;
+  }
+
+  .admin-progress-individual-netflix-shell {
+    max-height: calc(100dvh - var(--user-band-height) - var(--user-band-safe-area-top) - var(--bottom-nav-height) - var(--bottom-nav-safe-area) - 140px);
+  }
+
+  .admin-progress-individual-task-update-card {
+    flex-basis: 74vw;
+    width: 74vw;
+  }
+
+  .admin-progress-individual-task-update-card.is-expanded {
+    flex-basis: 88vw;
+    width: 88vw;
+  }
+
+  .admin-progress-individual-task-update-icons {
+    gap: 16px;
+    padding-right: 8px;
   }
 }
 
