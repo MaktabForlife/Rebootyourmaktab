@@ -1,4 +1,4 @@
-/* M4L v72.3 - Progress sticky selector, fixed detail lists, focused carousels, and background save. */
+/* M4L v72.4 - Global AIG selector, normal All/Groups rows, and Individual focused task grid. */
 :root {
   /* ==========================================
      BRAND PALETTE (Sage & Lavender)
@@ -5669,95 +5669,112 @@ body.pdf-viewer-open.has-user-band .pdf-viewer-header {
 }
 
 
-/* Progress V72.3: sticky selector, fixed update panels, focused carousels, and immediate background save */
-.admin-progress-sticky-controls {
-  position: sticky;
-  top: 0;
-  z-index: 55;
+
+/* Progress V72.4: one global AIG selector; no focal carousel except Individual selected-student task cards */
+:root {
+  --admin-progress-aig-height: 66px;
+  --admin-progress-aig-gap: 8px;
+}
+
+/* One global AIG pill pinned below the app banner, like Home/Attendance dots */
+.admin-progress-global-selector {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: calc(var(--user-band-height) + var(--user-band-safe-area-top) + var(--admin-progress-aig-gap));
+  z-index: 109;
+  min-height: var(--admin-progress-aig-height);
+  display: grid;
+  place-items: center;
+  padding: 6px max(14px, env(safe-area-inset-left, 0px)) 8px max(14px, env(safe-area-inset-right, 0px));
+  background: var(--surface-app);
+  border: 0;
+  box-shadow: 0 1px 0 rgba(var(--primary-rgb), 0.10);
+}
+
+.admin-progress-global-selector.hidden {
+  display: none;
+}
+
+.admin-progress-global-selector-controls {
   display: grid;
   gap: 5px;
   justify-items: center;
-  padding: 4px 0 8px;
-  margin: 0 0 10px;
-  background: var(--surface-app);
-  border-bottom: 1px solid rgba(var(--primary-rgb), 0.10);
+  width: min(100%, 520px);
 }
 
-.admin-progress-sticky-controls .admin-progress-view-selector {
+.admin-progress-global-selector .admin-progress-view-selector {
   width: min(100%, 460px);
-  margin-bottom: 0;
+  margin: 0;
 }
 
-.admin-progress-group-dot-slot {
-  display: none;
-  width: min(100%, 460px);
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  min-height: 34px;
-  align-items: center;
-}
-
-.admin-progress-group-dot-slot.is-visible {
-  display: grid;
-}
-
-.admin-progress-group-stepper {
-  grid-column: 3;
-  justify-self: stretch;
-  position: relative;
-  min-height: 32px;
-  padding: 3px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 3px;
-  border: 2px solid rgba(var(--black-rgb), 0.28);
-  border-radius: 999px;
-  background: var(--surface-card);
-  box-shadow: inset 0 0 0 1px rgba(var(--white-rgb), 0.55);
-}
-
-.admin-progress-group-stepper::before {
-  content: "";
-  position: absolute;
-  right: 12px;
-  left: 12px;
-  top: 50%;
-  height: 3px;
-  transform: translateY(-50%);
-  background: rgba(var(--black-rgb), 0.24);
-  border-radius: 999px;
-}
-
-.admin-progress-group-step {
-  position: relative;
-  z-index: 1;
-  width: 26px;
-  min-width: 26px;
-  height: 26px;
-  min-height: 26px;
-  padding: 0;
+.admin-progress-global-loading {
+  min-height: 48px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+}
+
+.admin-progress-global-loading.hidden,
+.admin-progress-global-selector-controls.hidden {
+  display: none;
+}
+
+.admin-progress-loading-spinner {
+  width: 30px;
+  min-width: 30px;
+  height: 30px;
+  min-height: 30px;
+  display: inline-block;
+  border: 4px solid rgba(var(--primary-rgb), 0.20);
+  border-top-color: var(--primary);
   border-radius: 999px;
-  background: var(--surface-track);
-  color: var(--text-muted);
-  box-shadow: none;
-  font-size: 0.72rem;
-  font-weight: 800;
-  line-height: 1;
+  animation: admin-progress-spin 780ms linear infinite;
 }
 
-.admin-progress-group-step.is-active {
-  width: auto;
-  min-width: 46px;
-  padding-inline: 12px;
-  background: var(--primary);
-  color: var(--text-inverse);
+@keyframes admin-progress-spin {
+  to { transform: rotate(360deg); }
 }
 
+.admin-progress-loading-panel {
+  min-height: 160px;
+  display: grid;
+  place-items: center;
+}
+
+/* Old inline AIG hosts are intentionally inactive in V72.4. */
+.screen > .admin-progress-sticky-controls,
+.screen > [data-admin-progress-sticky-controls] {
+  display: none;
+}
+
+/* Progress content gets top clearance for the fixed global AIG. */
+body.has-user-band.admin-progress-active .app-shell {
+  padding-top: calc(var(--user-band-height) + var(--user-band-safe-area-top) + var(--admin-progress-aig-height) + 18px);
+}
+
+body.admin-progress-loading #admin-progress-dashboard {
+  display: grid;
+  place-items: center;
+  min-height: 180px;
+}
+
+/* Remove obsolete green/header separator above the global AIG pill. */
 .admin-progress-landing-header {
-  margin-bottom: 8px;
+  display: none;
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+
+#progress-report.admin-progress-screen,
+#progress-task-students-screen.admin-theme {
+  text-align: left;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
 }
 
 #progress-report.admin-progress-screen {
@@ -5766,16 +5783,17 @@ body.pdf-viewer-open.has-user-band .pdf-viewer-header {
 
 #progress-report.admin-progress-screen.active {
   display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
   gap: 10px;
   overflow: hidden;
+  max-height: calc(100dvh - var(--user-band-height) - var(--user-band-safe-area-top) - var(--admin-progress-aig-height) - var(--bottom-nav-height) - var(--bottom-nav-safe-area) - 30px);
 }
 
 #progress-report.admin-progress-screen.active .admin-progress-dashboard {
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
-  padding-right: 6px;
+  padding: 2px 6px 18px 0;
   scrollbar-width: thin;
   scrollbar-color: var(--primary) transparent;
   -webkit-overflow-scrolling: touch;
@@ -5784,58 +5802,153 @@ body.pdf-viewer-open.has-user-band .pdf-viewer-header {
 #progress-report.admin-progress-screen.active .admin-progress-dashboard::-webkit-scrollbar,
 #progress-task-students-list::-webkit-scrollbar,
 .admin-progress-task-detail-shell::-webkit-scrollbar,
-.admin-progress-individual-netflix-shell::-webkit-scrollbar,
-.admin-progress-group-focus-list::-webkit-scrollbar {
+.admin-progress-individual-netflix-shell::-webkit-scrollbar {
   width: 5px;
 }
 
 #progress-report.admin-progress-screen.active .admin-progress-dashboard::-webkit-scrollbar-track,
 #progress-task-students-list::-webkit-scrollbar-track,
 .admin-progress-task-detail-shell::-webkit-scrollbar-track,
-.admin-progress-individual-netflix-shell::-webkit-scrollbar-track,
-.admin-progress-group-focus-list::-webkit-scrollbar-track {
+.admin-progress-individual-netflix-shell::-webkit-scrollbar-track {
   background: transparent;
 }
 
 #progress-report.admin-progress-screen.active .admin-progress-dashboard::-webkit-scrollbar-thumb,
 #progress-task-students-list::-webkit-scrollbar-thumb,
 .admin-progress-task-detail-shell::-webkit-scrollbar-thumb,
-.admin-progress-individual-netflix-shell::-webkit-scrollbar-thumb,
-.admin-progress-group-focus-list::-webkit-scrollbar-thumb {
+.admin-progress-individual-netflix-shell::-webkit-scrollbar-thumb {
   background: var(--primary);
   border-radius: 999px;
 }
 
+/* All/Class and Groups landing rows are normal rows/cards, not focal carousels. */
+.admin-progress-summary-row,
+.admin-progress-class-task-row,
+.admin-progress-group-module-shelf,
+.admin-progress-individual-group-row {
+  overflow: hidden;
+}
+
+.admin-progress-summary-rail,
+.admin-progress-class-group-rail,
+.admin-progress-individual-student-rail {
+  display: flex;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 12px;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: none;
+  scroll-behavior: auto;
+  scroll-padding-inline: 0;
+  padding: 2px 2px 10px;
+  scrollbar-width: none;
+}
+
+.admin-progress-summary-rail::-webkit-scrollbar,
+.admin-progress-class-group-rail::-webkit-scrollbar,
+.admin-progress-individual-student-rail::-webkit-scrollbar,
+.admin-progress-individual-task-card-rail::-webkit-scrollbar {
+  display: none;
+}
+
+.admin-progress-summary-rail .admin-progress-task-card,
+.admin-progress-class-group-rail .admin-progress-task-card,
+.admin-progress-group-module-shelf .admin-progress-task-card {
+  flex: 0 0 min(82vw, 300px);
+  width: min(82vw, 300px);
+  min-height: 154px;
+  opacity: 1;
+  transform: none;
+  scroll-snap-align: none;
+}
+
+.admin-progress-summary-rail .admin-progress-task-card.is-focus,
+.admin-progress-summary-rail .admin-progress-task-card.is-expanded,
+.admin-progress-focused-group-card,
+.admin-progress-focused-group-card.is-focus {
+  opacity: 1;
+  transform: none;
+  border-color: rgba(var(--primary-rgb), 0.16);
+  box-shadow: 0 2px 5px rgba(var(--black-rgb), 0.08);
+}
+
+.admin-progress-group-focus-list {
+  display: none;
+}
+
+/* Individual landing: Netflix-style group rows with low, wide student cards. */
+.admin-progress-individual-student-rail .admin-progress-student-name-card {
+  flex: 0 0 min(78vw, 360px);
+  width: min(78vw, 360px);
+  min-height: 122px;
+  padding: 14px;
+  gap: 9px;
+}
+
+.admin-progress-student-name-card-title {
+  color: var(--text-muted);
+  font-size: 1rem;
+  font-weight: 650;
+  line-height: 1.18;
+  overflow-wrap: anywhere;
+}
+
+.admin-progress-student-name-card .admin-progress-card-bars {
+  gap: 7px;
+}
+
+.admin-progress-student-name-card .admin-progress-card-bar-row {
+  grid-template-columns: 58px minmax(95px, 1fr);
+}
+
+/* Progress detail/update screen: stable header plus inner list scroll. */
 #progress-task-students-screen.admin-theme {
   display: none;
   overflow: hidden;
+  width: min(100%, 760px);
+  margin-inline: auto;
+  border-radius: 24px;
 }
 
 #progress-task-students-screen.admin-theme.active {
   display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
   gap: 8px;
-  max-height: calc(100dvh - var(--user-band-height) - var(--user-band-safe-area-top) - var(--bottom-nav-height) - var(--bottom-nav-safe-area) - 18px);
-}
-
-#progress-task-students-screen.admin-theme .admin-progress-sticky-controls {
-  align-self: start;
-  margin-bottom: 4px;
+  max-height: calc(100dvh - var(--user-band-height) - var(--user-band-safe-area-top) - var(--admin-progress-aig-height) - var(--bottom-nav-height) - var(--bottom-nav-safe-area) - 30px);
 }
 
 #progress-task-students-screen.admin-theme .nav-header {
   position: sticky;
   top: 0;
   z-index: 45;
-  margin-bottom: 2px;
+  margin-bottom: 0;
   padding-bottom: 8px;
   background: var(--surface-app);
 }
 
+.admin-progress-detail-header {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  justify-content: stretch;
+  border-bottom: 3px solid var(--primary);
+}
+
+.admin-progress-detail-header h2 {
+  margin: 0;
+  min-width: 0;
+  color: var(--text-muted);
+  font-size: clamp(1.15rem, 5vw, 1.8rem);
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+}
+
 #progress-task-students-list {
   min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow: hidden;
   padding-right: 5px;
   scrollbar-width: thin;
   scrollbar-color: var(--primary) transparent;
@@ -5843,11 +5956,12 @@ body.pdf-viewer-open.has-user-band .pdf-viewer-header {
 }
 
 .admin-progress-task-detail-shell {
+  height: 100%;
   display: grid;
   gap: 12px;
   min-width: 0;
-  max-height: none;
-  overflow: visible;
+  overflow-y: auto;
+  overflow-x: hidden;
   padding: 2px 8px 14px 0;
   scrollbar-width: thin;
   scrollbar-color: var(--primary) transparent;
@@ -5885,23 +5999,21 @@ body.pdf-viewer-open.has-user-band .pdf-viewer-header {
   justify-self: center;
 }
 
-.admin-progress-group-view-bar {
-  justify-content: center;
-  min-height: 38px;
-}
-
+/* Individual selected-student task screen: only defined focused carousel behaviour. */
 .admin-progress-individual-netflix-shell {
-  width: min(100%, 760px);
+  width: min(100%, 920px);
   max-width: 100%;
   min-width: 0;
+  height: 100%;
   min-height: 0;
   margin-inline: auto;
   display: grid;
   gap: 10px;
   overflow-y: auto;
   overflow-x: hidden;
-  max-height: none;
-  padding: 2px 4px 14px 0;
+  scroll-snap-type: y mandatory;
+  scroll-padding-block: 36%;
+  padding: 4px 4px 18px 0;
   scrollbar-width: thin;
   scrollbar-color: var(--primary) transparent;
   -webkit-overflow-scrolling: touch;
@@ -5910,8 +6022,10 @@ body.pdf-viewer-open.has-user-band .pdf-viewer-header {
 .admin-progress-individual-task-module-row {
   overflow: hidden;
   background: var(--surface-card);
-  padding: 10px;
+  padding: 9px;
   gap: 7px;
+  scroll-snap-align: center;
+  min-height: 146px;
 }
 
 .admin-progress-individual-task-module-row .admin-progress-module-heading {
@@ -5919,43 +6033,63 @@ body.pdf-viewer-open.has-user-band .pdf-viewer-header {
 }
 
 .admin-progress-individual-task-module-row .admin-progress-module-heading h3 {
-  font-size: 0.95rem;
+  font-size: 0.94rem;
+}
+
+.admin-progress-individual-task-module-row .admin-progress-module-count {
+  font-size: 0.72rem;
 }
 
 .admin-progress-individual-task-card-rail {
-  gap: 10px;
+  display: flex;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 8px;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-inline: contain;
   scroll-snap-type: x mandatory;
-  scroll-padding-inline: 50%;
-  padding: 2px 50% 8px;
+  scroll-padding-inline: 33%;
+  -webkit-overflow-scrolling: touch;
+  padding: 2px 0 6px;
+  scrollbar-width: none;
 }
 
 .admin-progress-individual-task-update-card {
-  flex: 0 0 min(56vw, 190px);
-  width: min(56vw, 190px);
-  min-height: 92px;
-  gap: 8px;
-  padding: 11px;
+  flex: 0 0 calc((100% - 16px) / 3);
+  width: calc((100% - 16px) / 3);
+  min-width: 0;
+  min-height: 94px;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  align-content: stretch;
+  gap: 7px;
+  padding: 9px;
   cursor: pointer;
-  opacity: 0.64;
-  transform: scale(0.88);
-  transform-origin: center center;
-  transition: flex-basis 160ms ease, width 160ms ease, min-height 160ms ease, opacity 160ms ease, transform 160ms ease, box-shadow 160ms ease;
+  opacity: 0.78;
+  transform: none;
+  border: 2px solid rgba(var(--primary-rgb), 0.12);
+  scroll-snap-align: center;
+  box-shadow: 0 2px 5px rgba(var(--black-rgb), 0.08);
+  transition: border-color 140ms ease, box-shadow 140ms ease, opacity 140ms ease, transform 140ms ease;
 }
 
 .admin-progress-individual-task-update-card.is-focus,
-.admin-progress-individual-task-update-card.is-expanded {
-  flex-basis: min(82vw, 300px);
-  width: min(82vw, 300px);
-  min-height: 120px;
+.admin-progress-individual-task-update-card.is-expanded,
+.admin-progress-individual-task-update-card.is-active-card {
   opacity: 1;
-  transform: scale(1);
-  border-color: rgba(var(--primary-rgb), 0.42);
-  box-shadow: 0 8px 18px rgba(var(--black-rgb), 0.12);
+  transform: translateY(-1px);
+  border: 5px solid var(--primary);
+  box-shadow: 0 10px 22px rgba(var(--black-rgb), 0.16);
 }
 
 .admin-progress-individual-task-update-card .admin-progress-task-card-title {
-  font-size: 0.95rem;
-  line-height: 1.15;
+  color: var(--text-muted);
+  font-size: clamp(0.76rem, 2.4vw, 0.98rem);
+  line-height: 1.12;
+  font-weight: 800;
+  overflow-wrap: anywhere;
 }
 
 .admin-progress-individual-task-update-card .admin-progress-task-card-label {
@@ -5966,72 +6100,29 @@ body.pdf-viewer-open.has-user-band .pdf-viewer-header {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 18px;
+  gap: 12px;
   padding-right: 0;
   margin-top: auto;
 }
 
 .admin-progress-individual-task-update-card .admin-progress-status-control {
   justify-self: auto;
-  width: 38px;
-  min-width: 38px;
-  height: 38px;
-  min-height: 38px;
+  width: 34px;
+  min-width: 34px;
+  height: 34px;
+  min-height: 34px;
   background: transparent;
 }
 
 .admin-progress-individual-task-update-card .task-status-icon {
-  width: 28px;
-  height: 28px;
+  width: 25px;
+  height: 25px;
 }
 
-.admin-progress-focused-group-card {
-  opacity: 0.68;
-  transform: scale(0.9);
-  transform-origin: center center;
-  transition: flex-basis 160ms ease, width 160ms ease, min-height 160ms ease, opacity 160ms ease, transform 160ms ease, box-shadow 160ms ease;
-}
-
-.admin-progress-focused-group-card.is-focus {
-  flex-basis: min(92vw, 420px);
-  width: min(92vw, 420px);
-  min-height: 320px;
-  opacity: 1;
-  transform: scale(1);
-  border-color: rgba(var(--primary-rgb), 0.42);
-  box-shadow: 0 8px 18px rgba(var(--black-rgb), 0.12);
-}
-
-.admin-progress-group-focus-list {
-  display: none;
-  gap: 7px;
-  min-height: 0;
-  max-height: 210px;
-  overflow-y: auto;
-  padding-right: 5px;
-  scrollbar-width: thin;
-  scrollbar-color: var(--primary) transparent;
-}
-
-.admin-progress-focused-group-card.is-focus .admin-progress-group-card-summary {
-  display: none;
-}
-
-.admin-progress-focused-group-card.is-focus .admin-progress-group-focus-list {
-  display: grid;
-}
-
-.admin-progress-group-focus-row {
-  grid-template-columns: minmax(0, 1fr) 40px 40px;
-  column-gap: 12px;
-  min-height: 46px;
-  padding: 7px 8px;
-  margin-bottom: 0;
-  box-shadow: none;
-}
-
-.admin-progress-group-focus-name {
-  font-size: 0.9rem;
+.admin-progress-individual-task-update-card:not(.is-focus) .admin-progress-status-control {
+  pointer-events: none;
+  cursor: default;
+  opacity: 0.72;
 }
 
 .admin-progress-save-status {
@@ -6064,82 +6155,95 @@ body.pdf-viewer-open.has-user-band .pdf-viewer-header {
 }
 
 @media (min-width: 760px) {
-  #progress-task-students-screen.admin-theme.active {
-    max-height: calc(100dvh - var(--user-band-height) - var(--user-band-safe-area-top) - var(--top-nav-height) - 18px);
+  #progress-report.admin-progress-screen.active {
+    max-height: calc(100dvh - var(--user-band-height) - var(--user-band-safe-area-top) - var(--admin-progress-aig-height) - var(--top-nav-height) - 30px);
   }
 
-  .admin-progress-individual-netflix-shell {
-    width: min(100%, 860px);
+  #progress-task-students-screen.admin-theme.active {
+    max-height: calc(100dvh - var(--user-band-height) - var(--user-band-safe-area-top) - var(--admin-progress-aig-height) - var(--top-nav-height) - 30px);
+  }
+
+  #progress-task-students-screen.admin-theme {
+    width: min(100%, 980px);
+  }
+
+  .admin-progress-summary-rail,
+  .admin-progress-class-group-rail,
+  .admin-progress-individual-student-rail {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    overflow: visible;
+    padding: 2px 0 8px;
+  }
+
+  .admin-progress-summary-rail .admin-progress-task-card,
+  .admin-progress-class-group-rail .admin-progress-task-card,
+  .admin-progress-group-module-shelf .admin-progress-task-card,
+  .admin-progress-individual-student-rail .admin-progress-student-name-card {
+    flex: initial;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .admin-progress-individual-student-rail .admin-progress-student-name-card {
+    min-height: 118px;
+  }
+
+  .admin-progress-individual-task-module-row {
+    min-height: 154px;
   }
 
   .admin-progress-individual-task-update-card {
-    flex-basis: 190px;
-    width: 190px;
+    min-height: 104px;
   }
 
-  .admin-progress-individual-task-update-card.is-focus,
-  .admin-progress-individual-task-update-card.is-expanded {
-    flex-basis: 300px;
-    width: 300px;
+  .admin-progress-individual-task-update-card .admin-progress-status-control {
+    width: 38px;
+    min-width: 38px;
+    height: 38px;
+    min-height: 38px;
   }
 
-  .admin-progress-group-summary-card {
-    flex-basis: min(42vw, 300px);
-    width: min(42vw, 300px);
-  }
-
-  .admin-progress-focused-group-card.is-focus {
-    flex-basis: min(48vw, 430px);
-    width: min(48vw, 430px);
+  .admin-progress-individual-task-update-card .task-status-icon {
+    width: 28px;
+    height: 28px;
   }
 }
 
 @media (min-width: 1180px) {
-  .admin-progress-individual-task-card-rail,
-  .admin-progress-task-rail {
-    scroll-padding-inline: 33%;
-    padding-inline: 33%;
+  body.has-user-band.admin-progress-active .app-shell {
+    padding-top: calc(var(--user-band-height) + var(--user-band-safe-area-top) + var(--admin-progress-aig-height) + var(--top-nav-height) + 18px);
   }
 
-  .admin-progress-group-summary-card {
-    flex-basis: min(27vw, 300px);
-    width: min(27vw, 300px);
+  #progress-report.admin-progress-screen.active {
+    max-height: calc(100dvh - var(--user-band-height) - var(--user-band-safe-area-top) - var(--admin-progress-aig-height) - var(--top-nav-height) - 34px);
   }
 
-  .admin-progress-focused-group-card.is-focus {
-    flex-basis: min(34vw, 460px);
-    width: min(34vw, 460px);
+  .admin-progress-individual-netflix-shell {
+    width: min(100%, 980px);
+  }
+
+  .admin-progress-individual-task-module-row {
+    min-height: 164px;
+  }
+
+  .admin-progress-individual-task-update-card {
+    min-height: 112px;
   }
 }
 
 @media (max-width: 520px) {
-  .admin-progress-sticky-controls {
-    padding: 3px 0 7px;
-    margin-bottom: 8px;
+  :root {
+    --admin-progress-aig-height: 60px;
+    --admin-progress-aig-gap: 6px;
   }
 
-  .admin-progress-landing-header {
-    display: none;
+  .admin-progress-global-selector {
+    padding-block: 5px 7px;
   }
 
-  .admin-progress-group-dot-slot {
-    min-height: 32px;
-  }
-
-  .admin-progress-group-stepper {
-    min-height: 30px;
-  }
-
-  .admin-progress-group-step {
-    width: 24px;
-    min-width: 24px;
-    height: 24px;
-    min-height: 24px;
-    font-size: 0.68rem;
-  }
-
-  .admin-progress-group-step.is-active {
-    min-width: 42px;
+  .admin-progress-global-selector .admin-progress-view-selector {
+    width: min(100%, 360px);
   }
 
   .admin-progress-task-detail-shell .admin-progress-student-row,
@@ -6150,33 +6254,28 @@ body.pdf-viewer-open.has-user-band .pdf-viewer-header {
   }
 
   .admin-progress-individual-task-module-row {
+    min-height: 136px;
     padding: 8px;
   }
 
-  .admin-progress-individual-task-card-rail {
-    padding-inline: 50%;
-  }
-
   .admin-progress-individual-task-update-card {
-    flex-basis: 54vw;
-    width: 54vw;
-    min-height: 84px;
-    padding: 10px;
-  }
-
-  .admin-progress-individual-task-update-card.is-focus,
-  .admin-progress-individual-task-update-card.is-expanded {
-    flex-basis: 82vw;
-    width: 82vw;
-    min-height: 112px;
+    min-height: 86px;
+    padding: 8px;
   }
 
   .admin-progress-individual-task-update-icons {
-    gap: 16px;
+    gap: 8px;
   }
 
-  .admin-progress-focused-group-card.is-focus {
-    flex-basis: 92vw;
-    width: 92vw;
+  .admin-progress-individual-task-update-card .admin-progress-status-control {
+    width: 30px;
+    min-width: 30px;
+    height: 30px;
+    min-height: 30px;
+  }
+
+  .admin-progress-individual-task-update-card .task-status-icon {
+    width: 23px;
+    height: 23px;
   }
 }
