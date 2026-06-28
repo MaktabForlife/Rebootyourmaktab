@@ -1,4 +1,4 @@
-/* M4L v73.1 - Admin Progress AIG selector + task detail status list + Student Progress V70.3 baseline
+/* M4L v73.1.1 - Admin Progress AIG selector fixes + task detail status list + Student Progress V70.3 baseline
    Load after /app.js, /js/m4l-auth.js, /js/m4l-shell.js, /js/m4l-timetable.js, and /js/m4l-resources.js.
    This is a classic script, not type=module, so existing global function calls remain safe
    while the app is split gradually.
@@ -352,8 +352,6 @@ function prepareAdminProgressTaskHeader() {
     header.insertBefore(title, closeButton.nextSibling);
   }
 
-  bindAdminProgressSwipeUpClose(header, requestCloseAdminProgressTaskScreen);
-  bindAdminProgressSwipeUpClose(document.getElementById("progress-task-students-screen"), requestCloseAdminProgressTaskScreen);
   return true;
 }
 
@@ -1367,7 +1365,7 @@ let adminProgressActiveTaskRows = [];
 let adminProgressPopoutRows = [];
 let adminProgressActiveView = "all";
 
-const ADMIN_PROGRESS_DASHBOARD_CACHE_KEY = "m4l_admin_progress_dashboard_v73_1";
+const ADMIN_PROGRESS_DASHBOARD_CACHE_KEY = "m4l_admin_progress_dashboard_v73_1_1";
 let adminProgressLeaveGuardBound = false;
 
 function hasProgressPendingUpdates() {
@@ -1432,37 +1430,9 @@ function clearAdminProgressDashboardCache() {
 }
 
 function bindAdminProgressSwipeUpClose(element, closeHandler) {
-  if (!element || element.dataset.adminProgressSwipeUpCloseBound === "true") {
-    return false;
-  }
-  if (typeof closeHandler !== "function") {
-    return false;
-  }
-
-  element.dataset.adminProgressSwipeUpCloseBound = "true";
-  let startX = 0;
-  let startY = 0;
-
-  element.addEventListener("touchstart", event => {
-    const touch = event.touches && event.touches[0];
-    if (!touch) return;
-    startX = touch.clientX;
-    startY = touch.clientY;
-  }, { passive: true });
-
-  element.addEventListener("touchend", event => {
-    const touch = event.changedTouches && event.changedTouches[0];
-    if (!touch) return;
-
-    const deltaX = touch.clientX - startX;
-    const deltaY = touch.clientY - startY;
-
-    if (deltaY < -85 && Math.abs(deltaY) > Math.abs(deltaX) * 1.6) {
-      closeHandler();
-    }
-  }, { passive: true });
-
-  return true;
+  // V73.1.1: Progress screens close only through their visible X buttons.
+  // Do not attach swipe-up-to-close to headers, panels, backdrops, or scrollable lists.
+  return false;
 }
 
 
@@ -1548,6 +1518,15 @@ function renderAdminProgressPlaceholderView(view) {
     </section>
   `);
   return true;
+}
+
+function renderAdminProgressLoadingState(message = "Loading class progress...") {
+  return `
+    <section class="admin-progress-loading-card" role="status" aria-live="polite">
+      <span class="admin-progress-loading-spinner" aria-hidden="true"></span>
+      <span class="admin-progress-loading-text">${escapeHtml(message)}</span>
+    </section>
+  `;
 }
 
 function startAdminProgressBackgroundSave(options = {}) {
@@ -1712,6 +1691,7 @@ async function showProgressReport() {
   adminProgressActiveTaskRows = [];
   adminProgressPopoutRows = [];
 
+  setDomHtml("admin-progress-dashboard", renderAdminProgressLoadingState("Loading class progress..."));
   showScreen("progress-report");
   await loadAdminProgressDashboard();
 }
@@ -1742,7 +1722,7 @@ function prepareAdminProgressMonitor() {
   if (!document.getElementById("admin-progress-dashboard")) {
     screen.insertAdjacentHTML("beforeend", `
       <div id="admin-progress-dashboard" class="admin-progress-dashboard">
-        <p class="helper-text">Loading progress...</p>
+        ${renderAdminProgressLoadingState("Loading progress...")}
       </div>
     `);
   }
@@ -1832,7 +1812,7 @@ async function loadAdminProgressDashboard() {
     return;
   }
 
-  setDomHtml(dashboard, `<p class="helper-text">Loading class progress...</p>`);
+  setDomHtml(dashboard, renderAdminProgressLoadingState("Loading class progress..."));
 
   try {
     const fresh = await fetchAdminProgressDashboardData();
@@ -2619,7 +2599,7 @@ async function loadProgressTaskStudents() {
 
   progressPendingUpdates = {};
 
-  if (!setDomHtml("progress-task-students-list", `<p class="helper-text">Loading students...</p>`)) {
+  if (!setDomHtml("progress-task-students-list", renderAdminProgressLoadingState("Loading students..."))) {
     console.warn("Missing progress-task-students-list container.");
     return;
   }
@@ -2778,11 +2758,6 @@ function renderProgressTaskStudents(rows) {
     return `
       <section class="admin-progress-task-detail-group" aria-label="Group ${escapeForAttribute(group)}">
         <div class="admin-progress-task-detail-group-title">Group ${escapeHtml(group)}</div>
-        <div class="admin-progress-task-detail-heading" role="row">
-          <div aria-hidden="true"></div>
-          <div class="admin-progress-task-detail-heading-cell admin-progress-task-detail-heading-cell--complete">Complete</div>
-          <div class="admin-progress-task-detail-heading-cell">Verify</div>
-        </div>
         <div class="admin-progress-task-detail-rows" role="table" aria-label="Group ${escapeForAttribute(group)} student task status">
           ${sortedRows.map(renderAdminProgressTaskDetailStudentRow).join("")}
         </div>
@@ -3097,14 +3072,13 @@ function ensureAdminProgressStudentPopout() {
   if (popout) {
     bindProgressUiHandlers(popout);
     const panel = popout.querySelector(".admin-progress-popout-panel");
-    bindAdminProgressSwipeUpClose(panel, requestCloseAdminProgressStudentPopout);
     return popout;
   }
 
   const host = document.getElementById("progress-task-students-screen") || document.body;
   host.insertAdjacentHTML("beforeend", `
     <div id="admin-progress-student-popout" class="admin-progress-student-popout hidden" aria-hidden="true">
-      <div class="admin-progress-popout-backdrop" data-progress-action="close-admin-progress-student-popout" aria-hidden="true"></div>
+      <div class="admin-progress-popout-backdrop" aria-hidden="true"></div>
       <section class="admin-progress-popout-panel" role="dialog" aria-modal="true" aria-labelledby="admin-progress-popout-title">
         <div class="admin-progress-popout-header">
           <button type="button" class="small-btn admin-progress-close-btn admin-progress-popout-close" data-progress-action="close-admin-progress-student-popout" aria-label="Close student progress" title="Close">×</button>
@@ -3120,7 +3094,6 @@ function ensureAdminProgressStudentPopout() {
   popout = document.getElementById("admin-progress-student-popout");
   bindProgressUiHandlers(popout);
   const panel = popout ? popout.querySelector(".admin-progress-popout-panel") : null;
-  bindAdminProgressSwipeUpClose(panel, requestCloseAdminProgressStudentPopout);
   return popout;
 }
 
@@ -3139,7 +3112,6 @@ async function openAdminProgressStudentPopout(studentid, username) {
   popout.classList.remove("hidden");
   popout.setAttribute("aria-hidden", "false");
   document.body.classList.add("admin-progress-popout-open");
-  bindAdminProgressSwipeUpClose(popout.querySelector(".admin-progress-popout-panel"), requestCloseAdminProgressStudentPopout);
   setDomText("admin-progress-popout-title", progressState.activePopoutStudentName);
   setDomHtml("admin-progress-popout-content", `<p class="helper-text">Loading student progress...</p>`);
 
