@@ -1,4 +1,4 @@
-/* M4L v72 - Library / Resources ribbon module with shared ribbon dots
+/* M4L v72.1 - Library / Resources ribbon module with Progress-matched shared ribbon dots
    Load after /app.js, /js/m4l-auth.js, /js/m4l-shell.js, and /js/m4l-timetable.js.
    This is a classic script, not type=module, so existing global function calls remain safe.
    Owns the Library resource ribbons plus PDF/audio/video resource viewing.
@@ -658,7 +658,7 @@ function renderLibraryResourceDots(resources, rowTitle) {
       ${list.map((resource, index) => `
         <button
           type="button"
-          class="library-resource-dot m4l-ribbon-dot${index === 0 ? " is-active" : ""}"
+          class="admin-progress-task-dot library-resource-dot m4l-ribbon-dot${index === 0 ? " is-active" : ""}"
           data-library-ribbon-index="${index}"
           aria-label="Show ${escapeForAttribute(resource.title || `resource ${index + 1}`)}"
           aria-current="${index === 0 ? "true" : "false"}"
