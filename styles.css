@@ -1,4 +1,4 @@
-/* M4L v73.2 - Admin Progress Individual landing + isolated mobile matrix + V73.1.2 Class Progress baseline. */
+/* M4L v73.3 - Admin Progress AIG selector fixes + task detail status list + Student Progress V70.3 baseline. */
 :root {
   /* ==========================================
      BRAND PALETTE (Sage & Lavender)
@@ -1276,7 +1276,7 @@ body.has-user-band .top-bar button[onclick="logout()"] {
 
 
 
-/* Admin Progress native shelves, AIG selector and Individual Progress - V73.2 */
+/* Admin Progress native shelves and AIG selector - V73.3 */
 #progress-report.admin-progress-screen,
 #progress-task-students-screen.admin-theme {
   align-self: flex-start;
@@ -1591,7 +1591,7 @@ body.is-admin-progress-section.has-user-band .app-shell {
   display: grid;
   align-content: start;
   gap: 10px;
-  min-height: 166px;
+  min-height: 116px;
   padding: 15px;
   border-radius: 18px;
   border: 1px solid rgba(var(--primary-rgb), 0.16);
@@ -1607,12 +1607,6 @@ body.is-admin-progress-section.has-user-band .app-shell {
   font-weight: 800;
   line-height: 1.25;
   overflow-wrap: anywhere;
-}
-
-.admin-progress-task-card-label {
-  color: var(--text-subtle);
-  font-size: 0.78rem;
-  font-weight: 700;
 }
 
 .admin-progress-card-bars {
@@ -2197,309 +2191,6 @@ body.is-admin-progress-section.has-user-band .app-shell {
     width: 100%;
     max-width: 100%;
     border-radius: 18px;
-  }
-}
-
-
-/* Admin Individual Progress - V73.2 isolated component */
-.admin-progress-individual-landing {
-  display: grid;
-  gap: 18px;
-  min-width: 0;
-}
-
-.admin-progress-individual-group-shelf {
-  min-width: 0;
-}
-
-.admin-progress-individual-student-rail {
-  padding-bottom: 10px;
-}
-
-
-.admin-progress-individual-selected-list {
-  min-width: 0;
-  overflow: visible;
-}
-
-.admin-progress-individual-selected {
-  display: grid;
-  gap: 14px;
-  min-width: 0;
-}
-
-.admin-progress-individual-mobile-matrix {
-  position: relative;
-  display: grid;
-  gap: 4px;
-  min-width: 0;
-  padding: 2px 10px 8px 0;
-  touch-action: pan-x pan-y;
-}
-
-.admin-progress-individual-matrix-vertical-indicator {
-  position: absolute;
-  top: clamp(6px, var(--individual-matrix-vertical-position, 0%), calc(100% - 46px));
-  right: 1px;
-  width: 3px;
-  height: 42px;
-  border-radius: 999px;
-  background: var(--primary);
-  opacity: 0.52;
-  pointer-events: none;
-}
-
-.admin-progress-individual-matrix-row-wrap {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
-}
-
-.admin-progress-individual-matrix-horizontal-indicator {
-  position: relative;
-  display: block;
-  width: calc(100% - 32px);
-  height: 3px;
-  margin-left: 32px;
-  border-radius: 999px;
-  background: rgba(var(--primary-rgb), 0.16);
-  overflow: hidden;
-}
-
-.admin-progress-individual-matrix-horizontal-indicator::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: clamp(0%, var(--individual-matrix-horizontal-position, 0%), calc(100% - 42px));
-  width: 42px;
-  height: 100%;
-  border-radius: inherit;
-  background: var(--primary);
-  opacity: 0.62;
-}
-
-.admin-progress-individual-matrix-row {
-  display: grid;
-  grid-template-columns: 26px minmax(0, 1fr);
-  gap: 6px;
-  align-items: stretch;
-  min-width: 0;
-}
-
-.admin-progress-individual-matrix-module-label {
-  min-width: 0;
-  min-height: 0;
-  display: grid;
-  place-items: center;
-  color: var(--text-muted);
-  font-size: 0.68rem;
-  font-weight: 850;
-  line-height: 1;
-  letter-spacing: 0.03em;
-  writing-mode: vertical-rl;
-  transform: rotate(180deg);
-  text-align: center;
-  overflow: hidden;
-}
-
-.admin-progress-individual-matrix-cards {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 6px;
-  min-width: 0;
-}
-
-.admin-progress-individual-matrix-card {
-  width: 100%;
-  min-width: 0;
-  min-height: 78px;
-  padding: 8px 6px;
-  display: grid;
-  align-content: center;
-  justify-items: center;
-  gap: 5px;
-  border: 1px solid rgba(var(--primary-rgb), 0.12);
-  border-radius: 14px;
-  background: var(--surface-chip);
-  color: var(--text-muted);
-  box-shadow: 0 2px 5px rgba(var(--black-rgb), 0.06);
-  text-align: center;
-  white-space: normal;
-}
-
-button.admin-progress-individual-matrix-card {
-  min-height: 78px;
-}
-
-.admin-progress-individual-matrix-card.is-preview {
-  opacity: 0.78;
-  transform: scale(0.94);
-  box-shadow: none;
-}
-
-.admin-progress-individual-matrix-card.is-active {
-  min-height: 104px;
-  padding: 10px 7px;
-  background: var(--surface-card);
-  border-color: rgba(var(--primary-rgb), 0.36);
-  box-shadow: 0 8px 18px rgba(var(--black-rgb), 0.12);
-  transform: none;
-  opacity: 1;
-}
-
-.admin-progress-individual-matrix-card.is-empty {
-  visibility: hidden;
-}
-
-.admin-progress-individual-matrix-task-name {
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  max-width: 100%;
-  overflow: hidden;
-  color: var(--text-muted);
-  font-size: 0.72rem;
-  font-weight: 750;
-  line-height: 1.12;
-  overflow-wrap: anywhere;
-}
-
-.admin-progress-individual-matrix-card.is-active .admin-progress-individual-matrix-task-name {
-  font-size: 0.82rem;
-  font-weight: 850;
-  -webkit-line-clamp: 4;
-}
-
-.admin-progress-individual-matrix-status-row,
-.admin-progress-individual-matrix-controls,
-.admin-progress-individual-task-controls {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  min-width: 0;
-}
-
-.admin-progress-individual-matrix-status-row .task-status-icon,
-.admin-progress-individual-matrix-status-row .status-tick {
-  width: 18px;
-  height: 18px;
-  font-size: 1rem;
-  line-height: 1;
-}
-
-.admin-progress-individual-matrix-controls .admin-progress-status-control {
-  width: 30px;
-  min-width: 30px;
-  height: 30px;
-  min-height: 30px;
-  background: transparent;
-}
-
-.admin-progress-individual-matrix-controls .task-status-icon {
-  width: 24px;
-  height: 24px;
-}
-
-.admin-progress-individual-matrix-controls .status-tick {
-  font-size: 1.3rem;
-}
-
-.admin-progress-individual-desktop-detail {
-  display: none;
-}
-
-.admin-progress-individual-desktop-module {
-  display: grid;
-  gap: 12px;
-  padding: 14px;
-  border: 1px solid rgba(var(--primary-rgb), 0.14);
-  border-radius: 20px;
-  background: var(--surface-card);
-  box-shadow: 0 2px 5px rgba(var(--black-rgb), 0.08);
-}
-
-.admin-progress-individual-desktop-module-title {
-  color: var(--text-muted);
-  font-size: 1rem;
-  font-weight: 850;
-  line-height: 1.2;
-}
-
-.admin-progress-individual-desktop-task-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-  gap: 12px;
-  min-width: 0;
-}
-
-.admin-progress-individual-desktop-task-card {
-  display: grid;
-  align-content: start;
-  gap: 12px;
-  min-width: 0;
-  min-height: 128px;
-  padding: 14px;
-  border: 1px solid rgba(var(--primary-rgb), 0.16);
-  border-radius: 18px;
-  background: var(--surface-chip);
-  color: var(--text-muted);
-  box-shadow: 0 2px 5px rgba(var(--black-rgb), 0.08);
-}
-
-.admin-progress-individual-desktop-task-name {
-  color: var(--text-muted);
-  font-weight: 800;
-  line-height: 1.25;
-  overflow-wrap: anywhere;
-}
-
-.admin-progress-individual-task-controls {
-  justify-content: flex-start;
-  gap: 12px;
-}
-
-.admin-progress-individual-task-controls .admin-progress-status-control {
-  justify-self: start;
-  background: transparent;
-}
-
-@media (min-width: 760px) {
-
-  .admin-progress-individual-mobile-matrix {
-    display: none;
-  }
-
-  .admin-progress-individual-desktop-detail {
-    display: grid;
-    gap: 16px;
-    width: min(100%, 1040px);
-    margin-inline: auto;
-  }
-}
-
-@media (max-width: 520px) {
-
-  .admin-progress-individual-mobile-matrix {
-    gap: 3px;
-  }
-
-  .admin-progress-individual-matrix-cards {
-    gap: 5px;
-  }
-
-  .admin-progress-individual-matrix-card {
-    min-height: 74px;
-    padding: 7px 5px;
-    border-radius: 13px;
-  }
-
-  button.admin-progress-individual-matrix-card {
-    min-height: 74px;
-  }
-
-  .admin-progress-individual-matrix-card.is-active {
-    min-height: 100px;
   }
 }
 
