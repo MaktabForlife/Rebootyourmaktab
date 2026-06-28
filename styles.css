@@ -1,4 +1,4 @@
-/* M4L v71.5 - Attendance desktop nav/dots alignment fix + V71.4 Admin Progress baseline. */
+/* M4L v71.6 - Shared Home/Attendance swipe dots + Attendance sticky pane alignment + V71.4 baseline. */
 :root {
   /* ==========================================
      BRAND PALETTE (Sage & Lavender)
@@ -3017,16 +3017,18 @@ body.has-user-band #progress-subjects-screen.student-theme .student-progress-glo
   }
 }
 
-/* Home stays native-scroll/swipe on mobile and tablet.
-   It only becomes side-by-side on large desktop, matching the Attendance model. */
-@media (min-width: 768px) and (max-width: 1179px),
-  (hover: hover) and (pointer: fine) and (max-width: 1179px) {
+/* Shared Home/Attendance responsive swipe state.
+   Mobile and medium widths use swipe panels with dots.
+   Large desktop shows all panels and hides dots. */
+@media (min-width: 768px) and (max-width: 1179px) {
   #student-home.screen,
-  #admin-home.screen {
+  #admin-home.screen,
+  #attendance-screen.screen {
     padding-top: calc(var(--swipe-dot-band-gap) + var(--swipe-dot-bar-height) + 14px);
   }
 
-  .home-swipe-dots {
+  .home-swipe-dots,
+  .attendance-panel-dots {
     top: calc(var(--user-band-height) + var(--user-band-safe-area-top) + var(--top-nav-height) + var(--swipe-dot-band-gap));
   }
 }
@@ -3049,7 +3051,8 @@ body.has-user-band #progress-subjects-screen.student-theme .student-progress-glo
     scroll-snap-align: none;
   }
 
-  .home-swipe-dots {
+  .home-swipe-dots,
+  .attendance-panel-dots {
     display: none;
   }
 }
@@ -3332,14 +3335,10 @@ body.is-attendance-section .app-shell {
   max-width: 100%;
 }
 
-@media (min-width: 768px) and (max-width: 1179px), (hover: hover) and (pointer: fine) and (max-width: 1179px) {
+@media (min-width: 768px) and (max-width: 1179px) {
   body.is-attendance-section.has-bottom-nav .app-shell,
   body.is-attendance-section.has-user-band.has-bottom-nav .app-shell {
     padding-top: calc(var(--user-band-height) + var(--user-band-safe-area-top) + var(--top-nav-height) + var(--swipe-dot-bar-height) + var(--swipe-dot-band-gap) + 26px);
-  }
-
-  body.is-attendance-section .attendance-panel-dots {
-    top: calc(var(--user-band-height) + var(--user-band-safe-area-top) + var(--top-nav-height) + var(--swipe-dot-band-gap));
   }
 
   body.is-attendance-section .attendance-sticky-control-pane {
@@ -3373,7 +3372,7 @@ body.is-attendance-section .app-shell {
     scroll-snap-align: none;
   }
 
-  body.is-attendance-section .attendance-panel-dots {
+  .attendance-panel-dots {
     display: none;
   }
 
@@ -3606,8 +3605,7 @@ body.is-attendance-section #attendance-screen.screen {
   );
 }
 
-@media (min-width: 768px) and (max-width: 1179px),
-  (hover: hover) and (pointer: fine) and (max-width: 1179px) {
+@media (min-width: 768px) and (max-width: 1179px) {
   body.is-attendance-section #attendance-screen.screen {
     scroll-margin-top: calc(
       var(--user-band-height) +
@@ -3617,31 +3615,6 @@ body.is-attendance-section #attendance-screen.screen {
       var(--swipe-dot-bar-height) +
       var(--attendance-panel-visible-gap)
     );
-  }
-}
-
-/* Attendance desktop/reduced-desktop nav fix - V71.5
-   Keep dots in swipe mode, but place them below the desktop top nav.
-   Hide dots only when Attendance switches to the large side-by-side layout. */
-@media (min-width: 768px), (hover: hover) and (pointer: fine) {
-  body.is-attendance-section .bottom-nav {
-    z-index: 120;
-  }
-
-  body.is-attendance-section .attendance-panel-dots {
-    top: calc(
-      var(--user-band-height) +
-      var(--user-band-safe-area-top) +
-      var(--top-nav-height) +
-      var(--swipe-dot-band-gap)
-    );
-    z-index: 82;
-  }
-}
-
-@media (min-width: 1180px) {
-  body.is-attendance-section .attendance-panel-dots {
-    display: none;
   }
 }
 
