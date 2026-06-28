@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <!-- PWA: Admin install settings -->
-  <link rel="stylesheet" href="/styles.css?v=71.6" />
+  <link rel="stylesheet" href="/styles.css?v=72" />
   <link rel="manifest" href="/admin-manifest.json" />
   <link rel="apple-touch-icon" sizes="180x180" href="/admin-apple-touch-icon.png" />
   <link rel="icon" type="image/png" sizes="32x32" href="/admin-favicon-32x32.png" />
@@ -150,7 +150,12 @@
     <!-- PROGRESS REPORT -->
 <section id="progress-report" class="screen admin-theme admin-progress-screen">
   <div class="nav-header admin-progress-landing-header">
-    <h2>CLASS PROGRESS</h2>
+    <h2 id="admin-progress-landing-title">CLASS PROGRESS</h2>
+  </div>
+
+  <div class="m4l-segmented-control admin-progress-view-selector" data-admin-progress-view-selector role="tablist" aria-label="Progress view">
+    <button type="button" class="m4l-segmented-option is-active" data-progress-action="set-admin-progress-view" data-progress-view="class" role="tab" aria-selected="true">Class Progress</button>
+    <button type="button" class="m4l-segmented-option" data-progress-action="set-admin-progress-view" data-progress-view="individual" role="tab" aria-selected="false">Individual Progress</button>
   </div>
 
   <div id="admin-progress-dashboard" class="admin-progress-dashboard">
@@ -431,8 +436,8 @@
 <script src="/js/m4l-attendance.js?v=71.6"></script>
 <script src="/js/m4l-admin-academics.js?v=55"></script>
 <script src="/js/m4l-timetable.js?v=69.1"></script>
-<script src="/js/m4l-resources.js?v=69"></script>
-<script src="/js/m4l-progress.js?v=71.4"></script>
+<script src="/js/m4l-resources.js?v=72"></script>
+<script src="/js/m4l-progress.js?v=72"></script>
 <script src="/js/m4l-manage-students.js?v=55"></script>
 </body>
 </html>
