@@ -1,4 +1,4 @@
-/* M4L v77.2 - Admin Progress All task matrix grid + V76.7.4 bounded top-stack baseline. */
+/* M4L v77.2 - Admin Progress matrix refinements + V76.7.4 bounded top-stack baseline. */
 :root {
   /* ==========================================
      BRAND PALETTE (Sage & Lavender)
@@ -6529,6 +6529,8 @@ body.pdf-viewer-open.has-user-band .pdf-viewer-header {
     min-height: 22px;
     font-size: 0.88rem;
   }
+}
+
 /* M4L v77.2 - Admin Progress task matrix refinements
    Append this block to the end of M4L_v77_1_styles_admin_progress_all_task_matrix.css,
    then deploy as /styles.css?v=77.2.
@@ -6719,5 +6721,3 @@ body.pdf-viewer-open.has-user-band .pdf-viewer-header {
 
 
   
-}
-
