@@ -6261,7 +6261,7 @@ body.pdf-viewer-open.has-user-band .pdf-viewer-header {
   --admin-progress-class-task-col-width: 50px;
   --admin-progress-class-row-height: 40px;
   --admin-progress-class-grid-shade-app: var(--surface-app);
-  --admin-progress-class-grid-shade-disabled: color-mix(in srgb, var(--surface-chip) 78%, var(--surface-chip) 22%);
+  --admin-progress-class-grid-shade-disabled: color-mix(in srgb, var(--surface-app) 78%, var(--surface-card) 22%);
   width: 100%;
   max-width: 100%;
   min-width: 0;
