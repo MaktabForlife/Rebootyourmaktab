@@ -18,6 +18,24 @@ let studentProgressAutoSaveTimer = 0;
 let studentProgressAutoSaveInFlight = null;
 let studentProgressSectionStateGuardBound = false;
 
+function resetStudentProgressViewportScroll() {
+  const reset = () => {
+    if (typeof window !== "undefined" && typeof window.scrollTo === "function" && ((window.scrollX || 0) !== 0 || (window.scrollY || 0) !== 0)) {
+      window.scrollTo(0, 0);
+    }
+  };
+
+  if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
+    window.requestAnimationFrame(reset);
+  } else if (typeof window !== "undefined" && typeof window.setTimeout === "function") {
+    window.setTimeout(reset, 0);
+  } else {
+    reset();
+  }
+
+  return true;
+}
+
 function isStudentProgressScreenId(screenId) {
   return [
     "progress-subjects-screen",
@@ -35,6 +53,11 @@ function setStudentProgressSectionBodyState(screenIdOrActive) {
     : isStudentProgressScreenId(screenIdOrActive);
 
   document.body.classList.toggle("is-student-progress-section", isActive);
+
+  if (isActive) {
+    resetStudentProgressViewportScroll();
+  }
+
   return isActive;
 }
 
@@ -314,6 +337,7 @@ async function showStudentTasks(options = {}) {
     return;
   }
 
+  resetStudentProgressViewportScroll();
   setDomText("progress-subjects-title", "Progress");
 
   if (!setDomHtml("progress-subjects-list", `<p class="helper-text">Loading tasks...</p>`)) {
@@ -712,9 +736,7 @@ function scrollStudentProgressSwipeToIndex(panelIndex, options = {}) {
 
   // Keep the app/page itself anchored at the left edge. The nested rail owns
   // horizontal movement; the document should never remain horizontally panned.
-  if (typeof window !== "undefined" && typeof window.scrollTo === "function" && (window.scrollX || 0) !== 0) {
-    window.scrollTo(0, window.scrollY || 0);
-  }
+  resetStudentProgressViewportScroll();
 
   updateStudentProgressSwipeDots();
 
