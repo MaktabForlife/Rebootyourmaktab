@@ -1,4 +1,4 @@
-/* M4L v69.1 - Timetable board module
+/* M4L v73.3.1 - Timetable board + Home sticky Zoom action module
    Load after /app.js, /js/m4l-auth.js, and /js/m4l-shell.js.
    This is a classic script, not type=module, so existing global function calls remain safe
    while the app is split gradually.
@@ -512,6 +512,75 @@ function handleTimetableUiClick(event) {
   }
 }
 
+function createHomeStickyZoomButton(buttonId) {
+  const button = document.createElement("button");
+  button.id = buttonId;
+  button.type = "button";
+  button.className = "zoom-link-button home-sticky-zoom-button is-disabled";
+  button.dataset.timetableAction = "open-zoom";
+  button.disabled = true;
+  button.setAttribute("aria-disabled", "true");
+  button.title = "Zoom link has not been added yet";
+  button.innerHTML = `
+    <img src="/icons/zoom.svg" alt="" class="zoom-link-button__icon" aria-hidden="true" />
+    <span>Join Zoom Class</span>
+  `;
+  button.dataset.zoomDecorated = "true";
+  return button;
+}
+
+function ensureHomeStickyZoomAction(screenId, buttonId, options = {}) {
+  const screen = document.getElementById(screenId);
+
+  if (!screen || !buttonId) {
+    return null;
+  }
+
+  let button = document.getElementById(buttonId);
+
+  if (!button && options.createIfMissing === true) {
+    button = createHomeStickyZoomButton(buttonId);
+  }
+
+  if (!button) {
+    return null;
+  }
+
+  button.classList.add("zoom-link-button", "home-sticky-zoom-button");
+  button.removeAttribute("onclick");
+  button.dataset.timetableAction = "open-zoom";
+
+  let actionBar = screen.querySelector(".home-sticky-action-bar");
+
+  if (!actionBar) {
+    actionBar = document.createElement("div");
+    actionBar.className = "home-sticky-action-bar";
+    actionBar.dataset.homeStickyAction = "zoom";
+    actionBar.setAttribute("aria-label", "Home Zoom action");
+  }
+
+  if (button.parentNode !== actionBar) {
+    actionBar.appendChild(button);
+  }
+
+  const shell = screen.querySelector("[data-home-swipe]") || screen.querySelector(".home-swipe-shell") || screen;
+  const track = screen.querySelector("[data-home-swipe-track]") || screen.querySelector(".home-swipe-track");
+  const dots = screen.querySelector("[data-home-swipe-dots]") || screen.querySelector(".home-swipe-dots");
+
+  if (shell && track && track.parentNode === shell) {
+    if (dots && dots.parentNode === shell) {
+      shell.insertBefore(dots, track);
+    }
+    shell.insertBefore(actionBar, track);
+  } else if (track && track.parentNode) {
+    track.parentNode.insertBefore(actionBar, track);
+  } else if (!actionBar.parentNode) {
+    screen.prepend(actionBar);
+  }
+
+  return actionBar;
+}
+
 function setTimetableZoomButtonState(buttonId, zoomLink) {
   const button = document.getElementById(buttonId);
 
@@ -601,17 +670,7 @@ function ensureAdminHomePanel() {
     panel.dataset.homeSwipeTrack = "";
     panel.setAttribute("aria-label", "Admin Home panels");
     panel.innerHTML = `
-      <section class="home-swipe-panel home-swipe-panel--timetable" aria-label="Zoom and timetable">
-        <button
-          id="admin-home-zoom-link-btn"
-          type="button"
-          class="zoom-link-button"
-          data-timetable-action="open-zoom"
-        >
-          <span class="zoom-link-button__icon" aria-hidden="true"></span>
-          <span class="zoom-link-button__text">Join Zoom Class</span>
-        </button>
-
+      <section class="home-swipe-panel home-swipe-panel--timetable" aria-label="Timetable">
         <section class="timetable-card">
           <div class="timetable-card-header">
             <h3>Timetable</h3>
@@ -640,8 +699,8 @@ function ensureAdminHomePanel() {
       <button type="button" class="home-swipe-dot" data-home-panel-index="1" aria-label="Show class duas panel" aria-current="false"></button>
     `;
 
-    swipeShell.appendChild(panel);
     swipeShell.appendChild(dots);
+    swipeShell.appendChild(panel);
   }
 
   if (swipeShell) {
@@ -649,6 +708,8 @@ function ensureAdminHomePanel() {
   } else if (!panel.parentNode) {
     screen.prepend(panel);
   }
+
+  ensureHomeStickyZoomAction("admin-home", "admin-home-zoom-link-btn", { createIfMissing: true });
 
   if (typeof bindHomeSwipePanels === "function") {
     bindHomeSwipePanels();
@@ -689,6 +750,7 @@ async function refreshAdminHomeTimetable(button) {
 
 
 async function loadStudentHomeTimetable(force = false) {
+  ensureHomeStickyZoomAction("student-home", "student-zoom-link-btn", { createIfMissing: true });
   const container = document.getElementById("student-timetable-content");
 
   if (!container || !state.token || getBottomNavRole() !== "student") {
