@@ -1,4 +1,4 @@
-/* M4L v73.5.2 - Admin Progress dynamic group picker + Individual selected-student exit + V73.4 baseline
+/* M4L v73.5.3 - Admin Progress review fixes + Individual selected-student exit + V73.4 baseline
    Load after /app.js, /js/m4l-auth.js, /js/m4l-shell.js, /js/m4l-timetable.js, and /js/m4l-resources.js.
    This is a classic script, not type=module, so existing global function calls remain safe
    while the app is split gradually.
@@ -13,6 +13,7 @@ let studentSubjectTaskGroups = {};
 let currentStudentSubjectKey = "";
 
 let progressUiGlobalHandlersBound = false;
+const M4L_PROGRESS_TICK = "\u2713";
 
 function bindProgressUiHandlers(containerOrId) {
   // Progress actions use one delegated handler so dynamically-rendered
@@ -690,7 +691,7 @@ function renderStudentProgressHeaderBar(percentComplete, options = {}) {
   if (width >= 100) {
     return `
       <div class="student-progress-status-bar" aria-label="Module progress complete">
-        <span class="student-progress-status-complete-tick"${moduleKey} aria-hidden="true">✔</span>
+        <span class="student-progress-status-complete-tick"${moduleKey} aria-hidden="true">${M4L_PROGRESS_TICK}</span>
         <span class="visually-hidden">Module progress 100 percent</span>
       </div>
     `;
@@ -1011,7 +1012,7 @@ function renderTaskStatusIndicator(type, isOn, options = {}) {
 
   if (isOn) {
     return `
-      <span class="status-tick ${onClass}" aria-hidden="true">✔</span>
+      <span class="status-tick ${onClass}" aria-hidden="true">${M4L_PROGRESS_TICK}</span>
       <span class="visually-hidden">${onLabel}</span>
     `;
   }
@@ -1424,7 +1425,7 @@ let adminProgressPopoutRows = [];
 let adminProgressActiveView = "all";
 let adminProgressSelectedGroup = "ALL";
 
-const ADMIN_PROGRESS_DASHBOARD_CACHE_KEY = "m4l_admin_progress_dashboard_v73_5_2";
+const ADMIN_PROGRESS_DASHBOARD_CACHE_KEY = "m4l_admin_progress_dashboard_v73_5_3";
 let adminProgressLeaveGuardBound = false;
 
 function hasProgressPendingUpdates() {
@@ -1502,7 +1503,7 @@ function clearAdminProgressDashboardCache() {
 }
 
 function bindAdminProgressSwipeUpClose(element, closeHandler) {
-  // V73.5.2: Progress screens close only through their visible X buttons.
+  // V73.5.3: Progress screens close only through their visible X buttons.
   // Do not attach swipe-up-to-close to headers, panels, backdrops, or scrollable lists.
   return false;
 }
@@ -2357,7 +2358,12 @@ function renderAdminProgressModuleBars(module) {
 
   return `
     <div class="admin-progress-module-bars" aria-label="Module progress">
-      ${renderAdminProgressCardBars(completedPercent, verifiedPercent)}
+      <span class="admin-progress-module-bar-row">
+        ${renderAdminProgressBarOrTick(completedPercent, "complete", "Module complete progress")}
+      </span>
+      <span class="admin-progress-module-bar-row">
+        ${renderAdminProgressBarOrTick(verifiedPercent, "verify", "Module verify progress")}
+      </span>
     </div>
   `;
 }
@@ -2544,7 +2550,7 @@ function renderAdminProgressBarOrTick(percent, type, label) {
   if (width >= 100) {
     return `
       <span class="admin-progress-card-tick admin-progress-card-tick--${normalizedType}" aria-label="${escapeForAttribute(label)} 100 percent">
-        <span aria-hidden="true">✔</span>
+        <span aria-hidden="true">${M4L_PROGRESS_TICK}</span>
         <span class="visually-hidden">${escapeHtml(label)} 100 percent</span>
       </span>
     `;
@@ -2676,9 +2682,8 @@ function renderAdminIndividualProgressDashboard(rows) {
         data-progress-group-index="${groupIndex}"
         aria-label="${escapeForAttribute(groupLabel)}"
       >
-        <div class="admin-progress-module-heading">
+        <div class="admin-progress-module-heading admin-progress-individual-group-heading">
           <h3>${escapeHtml(groupLabel)}</h3>
-          <span class="admin-progress-module-count">${groupStudents.length} ${groupStudents.length === 1 ? "student" : "students"}</span>
         </div>
         ${renderAdminIndividualStudentDots(groupStudents, groupLabel)}
         <div
@@ -4878,9 +4883,40 @@ async function refreshStudentModuleTaskList(button) {
 async function refreshAdminProgressDashboard(button) {
   if (!confirmRefreshIfUnsaved()) return;
 
+  const preservedView = normalizeAdminProgressView(adminProgressActiveView || "all");
+  const preservedGroup = isAdminProgressGroupView(preservedView)
+    ? getAdminProgressGroupFromView(preservedView)
+    : String(adminProgressSelectedGroup || "ALL");
+  const preserveSelectedStudent = preservedView === "individual" &&
+    progressState.contextType === "student" &&
+    String(progressState.studentid || "").trim() &&
+    String(progressState.studentid || "") !== "ALL";
+  const preservedStudentId = preserveSelectedStudent ? progressState.studentid : "";
+  const preservedStudentName = preserveSelectedStudent ? progressState.studentName : "";
+
   await runManualRefresh(button, async () => {
     progressPendingUpdates = {};
-    await loadAdminProgressDashboard();
+    clearAdminProgressDashboardCache();
+
+    if (preserveSelectedStudent) {
+      await openAdminIndividualStudentCard(preservedStudentId, preservedStudentName || "Student");
+      return;
+    }
+
+    if (preservedView === "individual") {
+      await showAdminIndividualProgressLanding();
+      return;
+    }
+
+    if (isAdminProgressGroupView(preservedView)) {
+      const targetView = preservedGroup && preservedGroup !== "ALL"
+        ? `group-${preservedGroup}`
+        : preservedView;
+      await showAdminScopedGroupProgress(targetView);
+      return;
+    }
+
+    await showProgressReport();
   });
 }
 
