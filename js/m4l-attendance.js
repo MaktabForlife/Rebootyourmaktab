@@ -1,4 +1,4 @@
-/* M4L v66 - Attendance module
+/* M4L v76.7.3 - Attendance module + rail-only panel scroll
    Load after /app.js, /js/m4l-auth.js, /js/m4l-shell.js, and /js/m4l-swipe.js.
    This is a classic script, not type=module, so existing onclick/global calls remain safe.
 
@@ -190,20 +190,33 @@ function scrollAttendancePanelIntoView(panelKey) {
   const index = getAttendancePanelIndex(panelKey);
   const panel = track && track.children ? track.children[index] : null;
 
-  if (!track || !panel || typeof panel.scrollIntoView !== "function") {
+  if (!track || !panel) {
     updateAttendanceDots(index);
     return false;
   }
 
   const runScroll = () => {
-    try {
-      panel.scrollIntoView({
-        behavior: isAttendanceDesktopLayout() ? "auto" : "smooth",
-        block: "nearest",
-        inline: "start"
+    const behavior = isAttendanceDesktopLayout() ? "auto" : "smooth";
+    const trackRect = track.getBoundingClientRect ? track.getBoundingClientRect() : null;
+    const panelRect = panel.getBoundingClientRect ? panel.getBoundingClientRect() : null;
+    const rawLeft = trackRect && panelRect
+      ? (panelRect.left - trackRect.left + (track.scrollLeft || 0))
+      : (panel.offsetLeft - track.offsetLeft);
+    const maxLeft = Math.max(0, (track.scrollWidth || 0) - (track.clientWidth || 0));
+    const targetLeft = Math.max(0, Math.min(maxLeft, rawLeft || 0));
+
+    if (typeof track.scrollTo === "function") {
+      track.scrollTo({
+        left: targetLeft,
+        top: 0,
+        behavior
       });
-    } catch (error) {
-      panel.scrollIntoView();
+    } else {
+      track.scrollLeft = targetLeft;
+    }
+
+    if (typeof window !== "undefined" && window.scrollX) {
+      window.scrollTo(0, window.scrollY || 0);
     }
 
     updateAttendanceDots(index);
