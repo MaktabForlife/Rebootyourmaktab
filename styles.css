@@ -1279,7 +1279,7 @@ body.has-user-band .top-bar button[onclick="logout()"] {
 
 
 
-/* Admin/Student Progress native shelves, dynamic group picker and Individual Progress - V76.6.2 */
+/* Admin/Student Progress native shelves, dynamic group picker and Individual Progress - V76.6.3 */
 #progress-report.admin-progress-screen,
 #progress-task-students-screen.admin-theme {
   align-self: flex-start;
@@ -1555,7 +1555,7 @@ body.is-admin-progress-section.has-user-band .app-shell {
 }
 
 
-/* Shared Progress swipe primitives - V76.6.2
+/* Shared Progress swipe primitives - V76.6.3
    Used only by Progress screens. Home and Attendance keep their existing swipe model. */
 .m4l-progress-swipe-shell {
   width: 100%;
@@ -2610,7 +2610,7 @@ body.is-admin-progress-section.has-user-band .app-shell {
 
 
 
-/* Student Progress admin-style sticky controls + responsive grid - V76.6.2; legacy V70 styles retained where safe */
+/* Student Progress admin-style sticky controls + responsive swiping columns - V76.6.3; legacy V70 styles retained where safe */
 #progress-subjects-screen.student-theme {
   padding-inline: 12px;
   padding-top: calc(var(--swipe-dot-band-gap) + var(--swipe-dot-bar-height) + 12px);
@@ -2626,7 +2626,8 @@ body.is-student-progress-section .app-shell {
   overflow: visible;
 }
 
-.student-progress-root {
+.student-progress-root,
+.student-progress-swipe-shell {
   width: 100%;
   min-width: 0;
 }
@@ -2635,7 +2636,7 @@ body.is-student-progress-section .app-shell {
   --m4l-progress-swipe-shell-gap: 12px;
 }
 
-/* V76.6.2: first standalone sticky component - Progress swipe dots. */
+/* V76.6.3: first standalone sticky component - Progress swipe dots. */
 .student-progress-global-actions {
   position: fixed;
   left: 0;
@@ -2668,9 +2669,7 @@ body.is-student-progress-section .app-shell {
   display: none;
 }
 
-/* V76.6.2: second standalone sticky component - active module header.
-   The shell mirrors the Class Progress detail sticky header, with module bars
-   alongside the active module name. */
+/* V76.6.3: second standalone sticky component for mobile/small screens. */
 .student-progress-active-module-header {
   position: sticky;
   top: calc(
@@ -2713,9 +2712,15 @@ body.is-student-progress-section .app-shell {
   overflow-wrap: anywhere;
 }
 
-.student-progress-active-module-header .admin-progress-module-bars {
+.student-progress-active-module-header .admin-progress-module-bars,
+.student-progress-panel-module-header .admin-progress-module-bars {
   width: min(100%, 128px);
   justify-self: end;
+}
+
+/* Per-column module headers are hidden on mobile because the active module header is sticky. */
+.student-progress-panel-module-header {
+  display: none;
 }
 
 .student-progress-swipe-dots {
@@ -2730,6 +2735,9 @@ body.is-student-progress-section .app-shell {
 }
 
 .student-progress-module-panel {
+  flex: 0 0 100%;
+  width: 100%;
+  max-width: 100%;
   display: grid;
   gap: 12px;
   align-content: start;
@@ -2741,9 +2749,10 @@ body.is-student-progress-section .app-shell {
 }
 
 .student-progress-module-task-card {
-  flex: 0 0 min(88vw, 430px);
-  width: min(88vw, 430px);
-  margin-inline: auto;
+  flex: 0 0 100%;
+  width: 100%;
+  max-width: 100%;
+  margin-inline: 0;
   background: var(--surface-chip);
 }
 
@@ -2837,9 +2846,18 @@ body.is-student-progress-section .app-shell {
     justify-self: end;
   }
 
+  .student-progress-module-panel,
+  .m4l-progress-swipe-panel--full.student-progress-module-panel {
+    flex-basis: 100%;
+    width: 100%;
+    max-width: 100%;
+    padding: 0;
+  }
+
   .student-progress-module-task-card {
-    flex-basis: 88vw;
-    width: 88vw;
+    flex-basis: 100%;
+    width: 100%;
+    max-width: 100%;
     padding: 13px;
   }
 
@@ -2848,13 +2866,9 @@ body.is-student-progress-section .app-shell {
     column-gap: 16px;
     padding-right: 8px;
   }
-
-  .student-progress-module-panel {
-    padding: 0;
-  }
 }
 
-@media (min-width: 768px), (hover: hover) and (pointer: fine) {
+@media (min-width: 768px) {
   body.is-student-progress-section.has-user-band.has-bottom-nav .app-shell {
     padding-top: calc(
       var(--user-band-height) +
@@ -2875,17 +2889,6 @@ body.is-student-progress-section .app-shell {
     );
   }
 
-  body.is-student-progress-section.has-user-band.has-bottom-nav .student-progress-active-module-header {
-    top: calc(
-      var(--user-band-height) +
-      var(--user-band-safe-area-top) +
-      var(--top-nav-height) +
-      var(--swipe-dot-band-gap) +
-      var(--swipe-dot-bar-height) +
-      8px
-    );
-  }
-
   body.is-student-progress-section .app-shell {
     max-width: 980px;
   }
@@ -2902,27 +2905,50 @@ body.is-student-progress-section .app-shell {
     text-align: left;
   }
 
-  .student-progress-swipe-track {
+  .student-progress-active-module-header {
+    display: none;
+  }
+
+  .student-progress-panel-module-header {
+    position: relative;
+    top: auto;
+    z-index: auto;
+    width: 100%;
+    min-width: 0;
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 1fr) minmax(86px, 128px);
+    align-items: center;
+    gap: 10px;
+    justify-content: stretch;
+    padding: 20px 12px 12px;
+    border: 1px solid rgba(var(--primary-rgb), 0.14);
+    border-radius: 18px;
+    background: var(--surface-card);
+    box-shadow: 0 4px 12px rgba(var(--black-rgb), 0.08);
+    text-align: center;
+  }
+
+  .student-progress-swipe-track {
+    display: flex;
     gap: 14px;
-    overflow: visible;
-    scroll-snap-type: none;
-    scroll-behavior: auto;
+    overflow-x: auto;
+    overflow-y: visible;
+    scroll-snap-type: x mandatory;
+    scroll-behavior: smooth;
     padding: 0 0 16px;
   }
 
   .student-progress-module-panel,
   .m4l-progress-swipe-panel--full.student-progress-module-panel {
-    flex: initial;
-    width: auto;
-    max-width: none;
-    scroll-snap-align: none;
+    flex: 0 0 calc((100% - 14px) / 2);
+    width: calc((100% - 14px) / 2);
+    max-width: calc((100% - 14px) / 2);
+    scroll-snap-align: start;
     scroll-snap-stop: normal;
   }
 
   .student-progress-module-task-card {
-    flex: initial;
+    flex: 0 0 100%;
     width: 100%;
     max-width: 100%;
     margin-inline: 0;
@@ -2931,22 +2957,18 @@ body.is-student-progress-section .app-shell {
 
 @media (min-width: 1180px) {
   body.is-student-progress-section .app-shell {
-    max-width: 1320px;
-  }
-
-  .student-progress-swipe-track {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 16px;
-  }
-}
-
-@media (min-width: 1540px) {
-  body.is-student-progress-section .app-shell {
     max-width: 1560px;
   }
 
   .student-progress-swipe-track {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 16px;
+  }
+
+  .student-progress-module-panel,
+  .m4l-progress-swipe-panel--full.student-progress-module-panel {
+    flex-basis: clamp(310px, 24vw, 360px);
+    width: clamp(310px, 24vw, 360px);
+    max-width: clamp(310px, 24vw, 360px);
   }
 }
 
