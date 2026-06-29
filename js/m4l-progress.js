@@ -1,4 +1,4 @@
-/* M4L v77 - Admin Progress All class overview grid + Student Progress bounded header baseline
+/* M4L v77.1 - Admin Progress All task matrix grid + Student Progress bounded header baseline
    Load after /app.js, /js/m4l-auth.js, /js/m4l-shell.js, /js/m4l-timetable.js, and /js/m4l-resources.js.
    This is a classic script, not type=module, so existing global function calls remain safe
    while the app is split gradually.
@@ -2629,19 +2629,28 @@ function buildAdminProgressClassOverviewModel(modules, rows) {
     const moduleKey = getAdminModuleKey(module);
     if (!moduleKey) return;
 
-    if (!moduleMap[moduleKey]) {
-      moduleMap[moduleKey] = {
-        moduleid: module.moduleid || module.subjectid || moduleKey,
-        modulename: module.modulename || module.subjectname || getAdminModuleName(module),
-        subjectid: module.subjectid || module.moduleid || moduleKey,
-        subjectname: module.subjectname || module.modulename || getAdminModuleName(module),
-        tasks: Array.isArray(module.tasks) ? module.tasks : []
-      };
-    }
+    const tasksByKey = {};
+    (Array.isArray(module.tasks) ? module.tasks : []).forEach(task => {
+      const normalizedTask = normalizeProgressTask(task);
+      const taskKey = getAdminTaskKey(normalizedTask);
+      if (!taskKey || tasksByKey[taskKey]) return;
+      tasksByKey[taskKey] = normalizedTask;
+    });
+
+    moduleMap[moduleKey] = {
+      moduleid: module.moduleid || module.subjectid || moduleKey,
+      modulename: module.modulename || module.subjectname || getAdminModuleName(module),
+      subjectid: module.subjectid || module.moduleid || moduleKey,
+      subjectname: module.subjectname || module.modulename || getAdminModuleName(module),
+      moduleCompletedPercent: getProgressPercentValue(module.moduleCompletedPercent),
+      moduleVerifiedPercent: getProgressPercentValue(module.moduleVerifiedPercent),
+      tasksByKey
+    };
   });
 
   activeRows.forEach(row => {
     const moduleKey = getAdminModuleKey(row);
+    const taskKey = getAdminTaskKey(row);
     if (!moduleKey) return;
 
     if (!moduleMap[moduleKey]) {
@@ -2650,12 +2659,37 @@ function buildAdminProgressClassOverviewModel(modules, rows) {
         modulename: row.modulename || row.subjectname || getAdminModuleName(row),
         subjectid: row.subjectid || row.moduleid || moduleKey,
         subjectname: row.subjectname || row.modulename || getAdminModuleName(row),
-        tasks: []
+        moduleCompletedPercent: 0,
+        moduleVerifiedPercent: 0,
+        tasksByKey: {}
       };
+    }
+
+    if (taskKey && !moduleMap[moduleKey].tasksByKey[taskKey]) {
+      moduleMap[moduleKey].tasksByKey[taskKey] = normalizeProgressTask({
+        ...row,
+        rows: activeRows.filter(sourceRow => getAdminTaskKey(sourceRow) === taskKey)
+      });
     }
   });
 
-  const moduleList = Object.values(moduleMap).sort(sortModuleGroupsByModuleId);
+  const moduleList = Object.values(moduleMap)
+    .map(module => {
+      const moduleRows = activeRows.filter(row => getAdminModuleKey(row) === getAdminModuleKey(module));
+      const summary = getAdminProgressSummaryFromRows(moduleRows);
+      const tasks = Object.values(module.tasksByKey || {}).sort(sortProgressTasks);
+
+      return {
+        ...module,
+        moduleCompletedPercent: module.moduleCompletedPercent || summary.completedPercent,
+        moduleVerifiedPercent: module.moduleVerifiedPercent || summary.verifiedPercent,
+        moduleStudentTaskCount: summary.total,
+        tasks
+      };
+    })
+    .filter(module => Array.isArray(module.tasks) && module.tasks.length > 0)
+    .sort(sortModuleGroupsByModuleId);
+
   const studentMap = {};
 
   activeRows.forEach(row => {
@@ -2685,20 +2719,10 @@ function buildAdminProgressClassOverviewModel(modules, rows) {
     return naturalCompare(a.username, b.username);
   });
 
-  const taskKeys = new Set();
-  activeRows.forEach(row => {
-    const taskKey = getAdminTaskKey(row);
-    if (taskKey) taskKeys.add(taskKey);
-  });
-
-  const classSummary = getAdminProgressSummaryFromRows(activeRows);
-
   return {
     rows: activeRows,
     modules: moduleList,
-    students,
-    totalTasks: taskKeys.size || moduleList.reduce((total, module) => total + (Array.isArray(module.tasks) ? module.tasks.length : 0), 0),
-    summary: classSummary
+    students
   };
 }
 
@@ -2709,22 +2733,30 @@ function renderAdminProgressClassOverview(modules) {
     return `<p class="helper-text">No class progress grid data found.</p>`;
   }
 
+  const taskColumns = model.modules.flatMap(module => {
+    return (Array.isArray(module.tasks) ? module.tasks : []).map(task => ({ module, task }));
+  });
+
   return `
     <section class="admin-progress-class-overview" aria-label="Class progress overview">
-      <div class="admin-progress-class-overview__summary" aria-label="Class progress summary">
-        ${renderAdminProgressClassStat("Students", model.students.length)}
-        ${renderAdminProgressClassStat("Modules", model.modules.length)}
-        ${renderAdminProgressClassStat("Tasks", model.totalTasks)}
-        ${renderAdminProgressClassStat("Verified", `${model.summary.verifiedPercent}%`)}
-      </div>
-
-      <section class="admin-progress-class-grid-card" aria-label="All students by module">
-        <div class="admin-progress-class-grid-scroll" tabindex="0" role="region" aria-label="Scrollable class progress grid">
-          <table class="admin-progress-class-grid">
+      <section class="admin-progress-class-grid-card" aria-label="All students by task">
+        <div class="admin-progress-class-grid-scroll" tabindex="0" role="region" aria-label="Scrollable class progress task grid">
+          <table class="admin-progress-class-grid admin-progress-class-grid--task-matrix">
+            <colgroup>
+              <col class="admin-progress-class-grid-student-col" />
+              ${taskColumns.map(() => `<col class="admin-progress-class-grid-task-col" />`).join("")}
+            </colgroup>
             <thead>
-              <tr>
-                <th class="admin-progress-class-grid-student-header" scope="col">Student</th>
+              <tr class="admin-progress-class-grid-module-row">
+                <th class="admin-progress-class-grid-student-header" scope="col" rowspan="2">Student</th>
                 ${model.modules.map(renderAdminProgressClassGridModuleHeader).join("")}
+              </tr>
+              <tr class="admin-progress-class-grid-task-row">
+                ${model.modules.map(module => {
+                  return (Array.isArray(module.tasks) ? module.tasks : []).map(task => {
+                    return renderAdminProgressClassGridTaskHeader(task, module);
+                  }).join("");
+                }).join("")}
               </tr>
             </thead>
             <tbody>
@@ -2732,36 +2764,46 @@ function renderAdminProgressClassOverview(modules) {
             </tbody>
           </table>
         </div>
-        <p class="admin-progress-class-grid-caption">Tap a student name to open Individual Progress. Swipe sideways to see more modules.</p>
+        <p class="admin-progress-class-grid-caption">Tap a student name to open Individual Progress. Swipe sideways to see more tasks.</p>
       </section>
     </section>
   `;
 }
 
-function renderAdminProgressClassStat(label, value) {
-  return `
-    <div class="admin-progress-class-stat">
-      <span class="admin-progress-class-stat__label">${escapeHtml(label)}</span>
-      <strong class="admin-progress-class-stat__value">${escapeHtml(String(value))}</strong>
-    </div>
-  `;
-}
-
 function renderAdminProgressClassGridModuleHeader(module) {
   const moduleName = module.modulename || module.subjectname || "Module";
-  const taskCount = Array.isArray(module.tasks) ? module.tasks.length : 0;
+  const tasks = Array.isArray(module.tasks) ? module.tasks : [];
+  const span = Math.max(1, tasks.length);
 
   return `
-    <th scope="col">
+    <th class="admin-progress-class-grid-module-header" scope="colgroup" colspan="${span}">
       <span class="admin-progress-class-grid-module-title">${escapeHtml(moduleName)}</span>
-      <span class="admin-progress-class-grid-module-count">${taskCount} ${taskCount === 1 ? "task" : "tasks"}</span>
+      ${renderAdminProgressModuleBars(module)}
     </th>
   `;
 }
 
+function renderAdminProgressClassGridTaskHeader(task, module) {
+  const taskName = task.taskname || "Untitled Task";
+  const moduleName = module.modulename || module.subjectname || "Module";
+
+  return `
+    <th class="admin-progress-class-grid-task-header" scope="col" aria-label="${escapeForAttribute(moduleName)}: ${escapeForAttribute(taskName)}">
+      <span class="admin-progress-class-grid-task-title">${escapeHtml(taskName)}</span>
+    </th>
+  `;
+}
+
+function getAdminProgressClassGroupPrefix(classgroup) {
+  const raw = String(classgroup || "").trim();
+  if (!raw || raw.toUpperCase() === "ALL") return "";
+  return raw.replace(/^group\s*/i, "").trim();
+}
+
 function renderAdminProgressClassGridStudentRow(student, modules) {
   const name = student.username || "Student";
-  const groupLabel = student.classgroup ? `Group ${student.classgroup}` : "Group";
+  const groupPrefix = getAdminProgressClassGroupPrefix(student.classgroup);
+  const accessibleName = groupPrefix ? `${groupPrefix} ${name}` : name;
 
   return `
     <tr>
@@ -2772,52 +2814,63 @@ function renderAdminProgressClassGridStudentRow(student, modules) {
           data-progress-action="open-admin-individual-student-card"
           data-studentid="${escapeForAttribute(student.studentid || "")}" 
           data-username="${escapeForAttribute(name)}"
-          aria-label="Open Individual Progress for ${escapeForAttribute(name)}"
+          aria-label="Open Individual Progress for ${escapeForAttribute(accessibleName)}"
         >
+          ${groupPrefix ? `<span class="admin-progress-class-grid-student-prefix" aria-hidden="true">${escapeHtml(groupPrefix)}</span>` : ""}
           <span class="admin-progress-class-grid-student-name">${escapeHtml(name)}</span>
-          <span class="admin-progress-class-grid-student-group">${escapeHtml(groupLabel)}</span>
         </button>
       </th>
       ${modules.map(module => {
-        const moduleKey = getAdminModuleKey(module);
-        const rows = student.rowsByModule[moduleKey] || [];
-        return renderAdminProgressClassGridCell(rows, name, module.modulename || module.subjectname || "Module");
+        const tasks = Array.isArray(module.tasks) ? module.tasks : [];
+        return tasks.map(task => renderAdminProgressClassGridTaskCell(student, module, task)).join("");
       }).join("")}
     </tr>
   `;
 }
 
-function renderAdminProgressClassGridCell(rows, studentName, moduleName) {
-  const summary = getAdminProgressSummaryFromRows(rows);
+function findAdminProgressClassGridTaskRow(student, module, task) {
+  const moduleKey = getAdminModuleKey(module);
+  const taskKey = getAdminTaskKey(task);
+  const rows = student && student.rowsByModule ? (student.rowsByModule[moduleKey] || []) : [];
 
-  if (summary.total === 0) {
-    return `<td><div class="admin-progress-class-grid-empty-cell" aria-label="No tasks for ${escapeForAttribute(studentName)} in ${escapeForAttribute(moduleName)}">–</div></td>`;
-  }
+  return rows.find(row => getAdminTaskKey(row) === taskKey) || null;
+}
+
+function renderAdminProgressClassGridTaskCell(student, module, task) {
+  const row = findAdminProgressClassGridTaskRow(student, module, task);
+  const studentName = student.username || "Student";
+  const moduleName = module.modulename || module.subjectname || "Module";
+  const taskName = task.taskname || "Untitled Task";
+  const isComplete = row ? isStatusOn(row.completestatus) : false;
+  const isVerified = row ? isStatusOn(row.verifystatus) : false;
+  const label = `${studentName} ${moduleName} ${taskName}`;
 
   return `
-    <td>
-      <div class="admin-progress-class-grid-progress" aria-label="${escapeForAttribute(studentName)} ${escapeForAttribute(moduleName)} progress">
-        ${renderAdminProgressClassGridProgressRow("C", summary.completedPercent, "complete")}
-        ${renderAdminProgressClassGridProgressRow("V", summary.verifiedPercent, "verify")}
+    <td class="admin-progress-class-grid-task-cell">
+      <div class="admin-progress-class-grid-task-status" aria-label="${escapeForAttribute(label)} status">
+        ${renderAdminProgressClassGridStatusSlot("complete", isComplete)}
+        ${renderAdminProgressClassGridStatusSlot("verify", isVerified)}
       </div>
     </td>
   `;
 }
 
-function renderAdminProgressClassGridProgressRow(label, percent, type) {
-  const safePercent = getProgressPercentValue(percent);
-  const fillClass = type === "verify"
-    ? "admin-progress-class-grid-progress-fill--verify"
-    : "admin-progress-class-grid-progress-fill--complete";
+function renderAdminProgressClassGridStatusSlot(type, isOn) {
+  const normalizedType = type === "verify" ? "verify" : "complete";
+  const label = normalizedType === "verify" ? "Verified" : "Completed";
+  const className = normalizedType === "verify"
+    ? "admin-progress-class-grid-status-slot admin-progress-class-grid-status-slot--verify"
+    : "admin-progress-class-grid-status-slot admin-progress-class-grid-status-slot--complete";
+
+  if (!isOn) {
+    return `<span class="${className}" aria-hidden="true"></span>`;
+  }
 
   return `
-    <div class="admin-progress-class-grid-progress-row">
-      <span class="admin-progress-class-grid-progress-label">${escapeHtml(label)}</span>
-      <span class="admin-progress-class-grid-progress-track" aria-hidden="true">
-        <span class="admin-progress-class-grid-progress-fill ${fillClass}" style="width:${safePercent}%"></span>
-      </span>
-      <span class="admin-progress-class-grid-progress-value">${safePercent}%</span>
-    </div>
+    <span class="${className} is-on">
+      <span class="status-tick ${normalizedType === "verify" ? "status-tick-verified" : "status-tick-complete"}" aria-hidden="true">${M4L_PROGRESS_TICK}</span>
+      <span class="visually-hidden">${label}</span>
+    </span>
   `;
 }
 
