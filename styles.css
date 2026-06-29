@@ -1,5 +1,4 @@
-/* M4L v77.5 - self color change
-Admin Progress compact sticky matrix header + light shading + V76.7.4 bounded top-stack baseline. */
+/* M4L v77.5a - reverse colours Admin Progress compact sticky matrix header + light shading + V76.7.4 bounded top-stack baseline. */
 :root {
   /* ==========================================
      BRAND PALETTE (Sage & Lavender)
@@ -6315,12 +6314,12 @@ body.pdf-viewer-open.has-user-band .pdf-viewer-header {
 
 .admin-progress-class-grid-module-theme--app,
 .admin-progress-class-grid-name-theme--app {
-  --admin-progress-class-grid-current-shade: var(--surface-chip);
+  --admin-progress-class-grid-current-shade: var(--surface-app);
 }
 
 .admin-progress-class-grid-module-theme--disabled,
 .admin-progress-class-grid-name-theme--disabled {
-  --admin-progress-class-grid-current-shade: var(---surface-chip);
+  --admin-progress-class-grid-current-shade: var(---surface-card);
 }
 
 .admin-progress-class-grid th,
@@ -6332,7 +6331,7 @@ body.pdf-viewer-open.has-user-band .pdf-viewer-header {
 
 .admin-progress-class-grid th {
   position: sticky;
-  background: var(--surface-card), var(--surface-app);
+  background: var(--surface-chip), var(--surface-chip);
   color: var(--text-muted);
   font-size: 0.72rem;
   font-weight: 760;
