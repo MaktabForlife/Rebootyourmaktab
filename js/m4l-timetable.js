@@ -1,4 +1,4 @@
-/* M4L v73.3.1 - Timetable board + Home sticky Zoom action module
+/* M4L v76.7.3 - Timetable board + measured Home sticky Zoom top stack
    Load after /app.js, /js/m4l-auth.js, and /js/m4l-shell.js.
    This is a classic script, not type=module, so existing global function calls remain safe
    while the app is split gradually.
@@ -578,7 +578,65 @@ function ensureHomeStickyZoomAction(screenId, buttonId, options = {}) {
     screen.prepend(actionBar);
   }
 
+  bindHomeTopStackMetricsResizeHandler();
+  scheduleHomeTopStackMetricsUpdate(screen);
+
   return actionBar;
+}
+
+let homeTopStackResizeHandlerBound = false;
+
+function updateHomeTopStackMetrics(screenOrId) {
+  const screen = typeof screenOrId === "string"
+    ? document.getElementById(screenOrId)
+    : screenOrId;
+
+  if (!screen || typeof screen.querySelector !== "function") {
+    return false;
+  }
+
+  const actionBar = screen.querySelector(".home-sticky-action-bar");
+  if (!actionBar || typeof actionBar.getBoundingClientRect !== "function") {
+    return false;
+  }
+
+  const height = Math.ceil(actionBar.getBoundingClientRect().height || 0);
+  if (height > 0) {
+    screen.style.setProperty("--home-sticky-action-height", `${height}px`);
+  }
+
+  return height > 0;
+}
+
+function scheduleHomeTopStackMetricsUpdate(screenOrId) {
+  const runUpdate = () => updateHomeTopStackMetrics(screenOrId);
+
+  if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
+    window.requestAnimationFrame(runUpdate);
+  } else if (typeof window !== "undefined" && typeof window.setTimeout === "function") {
+    window.setTimeout(runUpdate, 0);
+  } else {
+    runUpdate();
+  }
+
+  return true;
+}
+
+function bindHomeTopStackMetricsResizeHandler() {
+  if (homeTopStackResizeHandlerBound === true) {
+    return true;
+  }
+
+  if (typeof window === "undefined" || typeof window.addEventListener !== "function") {
+    return false;
+  }
+
+  homeTopStackResizeHandlerBound = true;
+  window.addEventListener("resize", () => {
+    scheduleHomeTopStackMetricsUpdate("student-home");
+    scheduleHomeTopStackMetricsUpdate("admin-home");
+  }, { passive: true });
+  return true;
 }
 
 function setTimetableZoomButtonState(buttonId, zoomLink) {
@@ -612,6 +670,11 @@ function setTimetableZoomButtonState(buttonId, zoomLink) {
   button.classList.toggle("is-disabled", !hasLink);
   button.setAttribute("aria-disabled", hasLink ? "false" : "true");
   button.title = hasLink ? "Open Zoom link" : "Zoom link has not been added yet";
+
+  const homeScreen = button.closest ? button.closest("#student-home, #admin-home") : null;
+  if (homeScreen) {
+    scheduleHomeTopStackMetricsUpdate(homeScreen);
+  }
 }
 
 /* Class duas home-card helpers remain in app.js; timetable module only calls the duas placement helper after rendering. */
@@ -736,6 +799,7 @@ async function loadAdminHomeTimetable(force = false) {
     renderTimetable(container, result, { showContentPanel: true });
     setTimetableZoomButtonState("admin-home-zoom-link-btn", globalTimetableZoomLink);
     ensureClassDuasCardAfterTimetable("admin-home-timetable-content", "admin-home-class-duas-card", []);
+    scheduleHomeTopStackMetricsUpdate("admin-home");
   } catch (err) {
     setDomHtml(container, `<p class="error-message">${escapeHtml(err.message || "Unable to load timetable.")}</p>`);
     setTimetableZoomButtonState("admin-home-zoom-link-btn", "");
@@ -766,6 +830,7 @@ async function loadStudentHomeTimetable(force = false) {
     renderTimetable(container, result, { showContentPanel: true });
     setTimetableZoomButtonState("student-zoom-link-btn", globalTimetableZoomLink);
     ensureClassDuasCardAfterTimetable("student-timetable-content", "student-home-class-duas-card", []);
+    scheduleHomeTopStackMetricsUpdate("student-home");
   } catch (err) {
     setDomHtml(container, `<p class="error-message">${escapeHtml(err.message || "Unable to load timetable.")}</p>`);
     setTimetableZoomButtonState("student-zoom-link-btn", "");
