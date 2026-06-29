@@ -2610,7 +2610,7 @@ body.is-admin-progress-section.has-user-band .app-shell {
 
 
 
-/* Student Progress admin-style sticky controls + responsive swiping columns - V76.6.3; legacy V70 styles retained where safe */
+/* Student Progress admin-style sticky controls + mobile shared swipe correction - V76.6.4; legacy V70 styles retained where safe */
 #progress-subjects-screen.student-theme {
   padding-inline: 12px;
   padding-top: calc(var(--swipe-dot-band-gap) + var(--swipe-dot-bar-height) + 12px);
@@ -2636,7 +2636,7 @@ body.is-student-progress-section .app-shell {
   --m4l-progress-swipe-shell-gap: 12px;
 }
 
-/* V76.6.3: first standalone sticky component - Progress swipe dots. */
+/* V76.6.4: first standalone sticky component - Progress swipe dots. */
 .student-progress-global-actions {
   position: fixed;
   left: 0;
@@ -2669,7 +2669,7 @@ body.is-student-progress-section .app-shell {
   display: none;
 }
 
-/* V76.6.3: second standalone sticky component for mobile/small screens. */
+/* V76.6.4: second standalone sticky component for mobile/small screens. */
 .student-progress-active-module-header {
   position: sticky;
   top: calc(
@@ -2729,14 +2729,33 @@ body.is-student-progress-section .app-shell {
   --m4l-progress-swipe-dot-size: 8px;
 }
 
+/* Mobile/small Student Progress shares the proven Home swipe screen pattern. */
 .student-progress-swipe-track {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+  margin-top: 0;
+  text-align: left;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  overscroll-behavior-inline: contain;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
   align-items: flex-start;
-  --m4l-progress-swipe-track-overflow-y: visible;
+  padding: 0;
+}
+
+.student-progress-swipe-track::-webkit-scrollbar {
+  display: none;
 }
 
 .student-progress-module-panel {
   flex: 0 0 100%;
   width: 100%;
+  min-width: 0;
   max-width: 100%;
   display: grid;
   gap: 12px;
@@ -2746,12 +2765,16 @@ body.is-student-progress-section .app-shell {
   border: 0;
   border-radius: 0;
   box-shadow: none;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
 }
 
 .student-progress-module-task-card {
   flex: 0 0 100%;
   width: 100%;
+  min-width: 0;
   max-width: 100%;
+  justify-self: stretch;
   margin-inline: 0;
   background: var(--surface-chip);
 }
@@ -2771,6 +2794,12 @@ body.is-student-progress-section .app-shell {
 .student-progress-verify-control:active {
   transform: none;
 }
+
+.student-progress-close-btn:disabled {
+  opacity: 0.72;
+  cursor: wait;
+}
+
 
 .student-progress-status-control .status-tick-complete,
 .student-progress-complete-control .status-tick-complete {
@@ -2848,16 +2877,19 @@ body.is-student-progress-section .app-shell {
 
   .student-progress-module-panel,
   .m4l-progress-swipe-panel--full.student-progress-module-panel {
-    flex-basis: 100%;
+    flex: 0 0 100%;
     width: 100%;
+    min-width: 0;
     max-width: 100%;
     padding: 0;
   }
 
   .student-progress-module-task-card {
-    flex-basis: 100%;
+    flex: 0 0 100%;
     width: 100%;
+    min-width: 0;
     max-width: 100%;
+    justify-self: stretch;
     padding: 13px;
   }
 
@@ -2868,7 +2900,7 @@ body.is-student-progress-section .app-shell {
   }
 }
 
-@media (min-width: 768px) {
+@media (min-width: 768px) and (hover: hover) and (pointer: fine) {
   body.is-student-progress-section.has-user-band.has-bottom-nav .app-shell {
     padding-top: calc(
       var(--user-band-height) +
@@ -2955,7 +2987,7 @@ body.is-student-progress-section .app-shell {
   }
 }
 
-@media (min-width: 1180px) {
+@media (min-width: 1180px) and (hover: hover) and (pointer: fine) {
   body.is-student-progress-section .app-shell {
     max-width: 1560px;
   }
