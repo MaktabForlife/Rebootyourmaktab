@@ -1,4 +1,4 @@
-/* M4L v76.7.3 - Attendance module + rail-only panel scroll
+/* M4L v76.7.4 - Attendance module + bounded sticky top panel scroll
    Load after /app.js, /js/m4l-auth.js, /js/m4l-shell.js, and /js/m4l-swipe.js.
    This is a classic script, not type=module, so existing onclick/global calls remain safe.
 
@@ -64,6 +64,103 @@ const ATTENDANCE_PANEL_SEQUENCE = [
 ];
 let attendanceQuietHydrationStarted = false;
 let attendanceNativeScrollBound = false;
+let attendanceSectionStateGuardBound = false;
+
+function isAttendanceScreenId(screenId) {
+  return String(screenId || "") === ATTENDANCE_SCREEN_ID;
+}
+
+function setAttendanceSectionBodyState(screenIdOrActive) {
+  if (typeof document === "undefined" || !document.body) {
+    return false;
+  }
+
+  const isActive = typeof screenIdOrActive === "boolean"
+    ? screenIdOrActive
+    : isAttendanceScreenId(screenIdOrActive);
+
+  document.body.classList.toggle("is-attendance-section", isActive);
+  return isActive;
+}
+
+function bindAttendanceSectionStateGuard() {
+  if (attendanceSectionStateGuardBound === true) return true;
+  if (typeof window === "undefined" || typeof window.showScreen !== "function") return false;
+
+  attendanceSectionStateGuardBound = true;
+
+  if (window.showScreen.__m4lAttendanceSectionGuard === true) {
+    return true;
+  }
+
+  const originalShowScreen = window.showScreen;
+
+  const guardedShowScreen = function guardedAttendanceShowScreen(screenId, ...args) {
+    const result = originalShowScreen.call(this, screenId, ...args);
+
+    if (result !== false) {
+      setAttendanceSectionBodyState(screenId);
+      if (isAttendanceScreenId(screenId)) {
+        resetAttendanceViewportScroll();
+      }
+    }
+
+    return result;
+  };
+
+  guardedShowScreen.__m4lAttendanceSectionGuard = true;
+  window.showScreen = guardedShowScreen;
+  return true;
+}
+
+function resetAttendanceViewportScroll() {
+  const reset = () => {
+    if (typeof window !== "undefined" && typeof window.scrollTo === "function" && (window.scrollY || window.scrollX)) {
+      window.scrollTo(0, 0);
+    }
+  };
+
+  if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
+    window.requestAnimationFrame(reset);
+  } else if (typeof window !== "undefined" && typeof window.setTimeout === "function") {
+    window.setTimeout(reset, 0);
+  } else {
+    reset();
+  }
+
+  return true;
+}
+
+function normalizeAttendancePanelLayout(containerOrId) {
+  const container = getDomElement(containerOrId);
+  if (!container || !container.childNodes) return false;
+
+  const topPanel = Array.from(container.children || []).find(child => {
+    return child && child.classList && child.classList.contains("attendance-sticky-control-pane");
+  });
+
+  if (!topPanel) return false;
+
+  let scrollBody = Array.from(container.children || []).find(child => {
+    return child && child.classList && child.classList.contains("attendance-panel-scroll-body");
+  });
+
+  if (!scrollBody) {
+    scrollBody = document.createElement("div");
+    scrollBody.className = "attendance-panel-scroll-body";
+    topPanel.insertAdjacentElement("afterend", scrollBody);
+  } else if (topPanel.nextElementSibling !== scrollBody) {
+    topPanel.insertAdjacentElement("afterend", scrollBody);
+  }
+
+  Array.from(container.childNodes).forEach(node => {
+    if (node === topPanel || node === scrollBody) return;
+    scrollBody.appendChild(node);
+  });
+
+  return true;
+}
+
 
 function isAttendanceDesktopLayout() {
   return Boolean(window.matchMedia && window.matchMedia(ATTENDANCE_DESKTOP_MEDIA_QUERY).matches);
@@ -178,9 +275,13 @@ function bindAttendanceNativeScroll() {
 }
 
 function showAttendanceScreen() {
+  bindAttendanceSectionStateGuard();
+  setAttendanceSectionBodyState(true);
+
   const didShow = showScreen(ATTENDANCE_SCREEN_ID);
   if (didShow) {
     bindAttendanceNativeScroll();
+    resetAttendanceViewportScroll();
   }
   return didShow;
 }
@@ -557,6 +658,8 @@ function renderAttendanceDateControl(mode, startDate, endDate) {
 function bindAttendancePanelSwipe(containerOrId, activePanel) {
   const container = getDomElement(containerOrId);
   if (!container) return false;
+
+  normalizeAttendancePanelLayout(container);
 
   bindAttendanceNativeScroll();
   updateAttendanceDots(activePanel || getAttendanceActivePanelKey());
