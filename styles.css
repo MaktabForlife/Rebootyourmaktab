@@ -1,4 +1,4 @@
-/* M4L v77.2 - Admin Progress matrix refinements + V76.7.4 bounded top-stack baseline. */
+/* M4L v77.3 - Admin Progress matrix alternating module shading + V76.7.4 bounded top-stack baseline. */
 :root {
   /* ==========================================
      BRAND PALETTE (Sage & Lavender)
@@ -6531,9 +6531,8 @@ body.pdf-viewer-open.has-user-band .pdf-viewer-header {
   }
 }
 
-/* M4L v77.2 - Admin Progress task matrix refinements
-   Append this block to the end of M4L_v77_1_styles_admin_progress_all_task_matrix.css,
-   then deploy as /styles.css?v=77.2.
+/* M4L v77.3 - Admin Progress task matrix refinements
+   Integrated into the Progress Matrix section and deployed as /styles.css?v=77.3.
 
    Changes:
    - Keeps matrix/card full-width on mobile while grid scrolls internally.
@@ -6541,6 +6540,7 @@ body.pdf-viewer-open.has-user-band .pdf-viewer-header {
    - Makes student names normal font weight.
    - Displays one state per cell: blank, complete, or verified.
    - Adds live editable cell button styling.
+   - Alternates module shading with surface-app and surface-chip.
 */
 
 .admin-progress-class-grid-card,
@@ -6559,6 +6559,38 @@ body.pdf-viewer-open.has-user-band .pdf-viewer-header {
 .admin-progress-class-grid--task-matrix {
   width: max-content;
   min-width: max-content;
+}
+
+.admin-progress-class-grid-module-theme--app {
+  --admin-progress-class-grid-module-surface: var(--surface-app);
+}
+
+.admin-progress-class-grid-module-theme--chip {
+  --admin-progress-class-grid-module-surface: var(--surface-chip);
+}
+
+.admin-progress-class-grid-module-header.admin-progress-class-grid-module-theme--app,
+.admin-progress-class-grid-module-header.admin-progress-class-grid-module-theme--chip,
+.admin-progress-class-grid-task-header.admin-progress-class-grid-module-theme--app,
+.admin-progress-class-grid-task-header.admin-progress-class-grid-module-theme--chip,
+.admin-progress-class-grid-task-cell.admin-progress-class-grid-module-theme--app,
+.admin-progress-class-grid-task-cell.admin-progress-class-grid-module-theme--chip {
+  background: var(--admin-progress-class-grid-module-surface);
+}
+
+.admin-progress-class-grid-module-header.admin-progress-class-grid-module-theme--app,
+.admin-progress-class-grid-task-header.admin-progress-class-grid-module-theme--app {
+  box-shadow: inset 0 -1px 0 rgba(var(--primary-rgb), 0.12);
+}
+
+.admin-progress-class-grid-module-header.admin-progress-class-grid-module-theme--chip,
+.admin-progress-class-grid-task-header.admin-progress-class-grid-module-theme--chip {
+  box-shadow: inset 0 -1px 0 rgba(var(--primary-rgb), 0.16);
+}
+
+.admin-progress-class-grid-task-cell.admin-progress-class-grid-module-theme--app,
+.admin-progress-class-grid-task-cell.admin-progress-class-grid-module-theme--chip {
+  background-clip: padding-box;
 }
 
 .admin-progress-class-grid-task-header {
