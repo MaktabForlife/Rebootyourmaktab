@@ -1,4 +1,4 @@
-/* M4L v76.6.2 - Student Progress sticky module header + responsive Progress grid correction
+/* M4L v76.6.3 - Student Progress responsive swiping columns correction
    Load after /app.js, /js/m4l-auth.js, /js/m4l-shell.js, /js/m4l-timetable.js, and /js/m4l-resources.js.
    This is a classic script, not type=module, so existing global function calls remain safe
    while the app is split gradually.
@@ -758,7 +758,7 @@ function getStudentProgressModuleByKey(modules, moduleKey) {
 }
 
 function renderStudentProgressHeaderBar(percentComplete, options = {}) {
-  // Legacy single-bar renderer retained for older calls. V76.6.2 uses
+  // Legacy single-bar renderer retained for older calls. V76.6.3 uses
   // renderStudentProgressModuleBars() for the active module header.
   const width = Math.max(0, Math.min(100, Number(percentComplete) || 0));
   const moduleKey = options.moduleKey !== undefined
@@ -821,6 +821,23 @@ function renderStudentProgressActiveModuleHeader(modules, activeModuleKey) {
   `;
 }
 
+function renderStudentProgressPanelModuleHeader(module) {
+  if (!module) return "";
+
+  const moduleKey = String(module.subjectid || "");
+  const title = module.subjectname || module.modulename || "Progress";
+
+  return `
+    <div
+      class="student-progress-panel-module-header admin-progress-detail-header"
+      data-student-progress-panel-module-header="${escapeForAttribute(moduleKey)}"
+      aria-label="${escapeForAttribute(title)} module progress"
+    >
+      ${renderStudentProgressActiveModuleHeaderContent(module)}
+    </div>
+  `;
+}
+
 function renderStudentProgressGlobalActions(modules, activeModuleKey) {
   return `
     <div class="student-progress-global-actions" data-progress-global-actions>
@@ -851,6 +868,19 @@ function updateStudentProgressModuleIndicators(moduleKey) {
   if (header && activeModule) {
     header.innerHTML = renderStudentProgressActiveModuleHeaderContent(activeModule);
   }
+
+  document
+    .querySelectorAll("#progress-subjects-screen [data-student-progress-panel-module-header]")
+    .forEach(panelHeader => {
+      const panelModule = getStudentProgressModuleByKey(
+        modules,
+        panelHeader.dataset.studentProgressPanelModuleHeader || ""
+      );
+
+      if (panelModule) {
+        panelHeader.innerHTML = renderStudentProgressActiveModuleHeaderContent(panelModule);
+      }
+    });
 
   return true;
 }
@@ -993,6 +1023,7 @@ function renderStudentProgressModulePanel(module, index, moduleCount) {
       data-progress-module-key="${escapeForAttribute(moduleKey)}"
       aria-label="${escapeForAttribute(title)}"
     >
+      ${renderStudentProgressPanelModuleHeader(module)}
       ${renderStudentProgressTaskTable(module)}
     </section>
   `;
@@ -1555,7 +1586,7 @@ let adminProgressPopoutRows = [];
 let adminProgressActiveView = "all";
 let adminProgressSelectedGroup = "ALL";
 
-const ADMIN_PROGRESS_DASHBOARD_CACHE_KEY = "m4l_admin_progress_dashboard_v76_6_2";
+const ADMIN_PROGRESS_DASHBOARD_CACHE_KEY = "m4l_admin_progress_dashboard_v76_6_3";
 let adminProgressLeaveGuardBound = false;
 
 function hasProgressPendingUpdates() {
@@ -1633,7 +1664,7 @@ function clearAdminProgressDashboardCache() {
 }
 
 function bindAdminProgressSwipeUpClose(element, closeHandler) {
-  // V76.6.2: Progress screens close only through their visible X buttons.
+  // V76.6.3: Progress screens close only through their visible X buttons.
   // Do not attach swipe-up-to-close to headers, panels, backdrops, or scrollable lists.
   return false;
 }
