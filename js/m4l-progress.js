@@ -1,4 +1,4 @@
-/* M4L v73.5 - Admin Progress All/group selector + Individual selected-student exit + V73.4 baseline
+/* M4L v73.5.1 - Admin Progress runtime fix for All/group selector + Individual selected-student exit + V73.4 baseline
    Load after /app.js, /js/m4l-auth.js, /js/m4l-shell.js, /js/m4l-timetable.js, and /js/m4l-resources.js.
    This is a classic script, not type=module, so existing global function calls remain safe
    while the app is split gradually.
@@ -1379,7 +1379,7 @@ let adminProgressPopoutRows = [];
 let adminProgressActiveView = "all";
 let adminProgressSelectedGroup = "ALL";
 
-const ADMIN_PROGRESS_DASHBOARD_CACHE_KEY = "m4l_admin_progress_dashboard_v73_5";
+const ADMIN_PROGRESS_DASHBOARD_CACHE_KEY = "m4l_admin_progress_dashboard_v73_5_1";
 let adminProgressLeaveGuardBound = false;
 
 function hasProgressPendingUpdates() {
@@ -1741,7 +1741,7 @@ async function showProgressReport() {
   ensureAdminProgressAigSelector("progress-report", "all");
   updateAdminProgressAigSelectorState("all");
 
-  const selectedClassGroup = String(classgroup || adminProgressSelectedGroup || "ALL");
+  const selectedClassGroup = "ALL";
 
   progressState.contextType = selectedClassGroup === "ALL" ? "class" : "group";
   progressState.classgroup = selectedClassGroup;
