@@ -1,5 +1,4 @@
-/* M4L v73.5.2 - Dynamic group picker + module progress + progress ticks + Individual selected-student exit + home sticky Zoom baseline. */
-/* M4L v73.5.3 - Attendance sticky panels restored under swipe dots + dynamic group picker baseline. */
+
 :root {
   /* ==========================================
      BRAND PALETTE (Sage & Lavender)
@@ -1280,7 +1279,7 @@ body.has-user-band .top-bar button[onclick="logout()"] {
 
 
 
-/* Admin Progress native shelves, dynamic group picker and Individual Progress - V73.5.2 */
+/* Admin Progress native shelves, dynamic group picker and Individual Progress - V73.5.3 */
 #progress-report.admin-progress-screen,
 #progress-task-students-screen.admin-theme {
   align-self: flex-start;
@@ -1352,9 +1351,12 @@ body.is-admin-progress-section.has-user-band .app-shell {
 .admin-progress-detail-header h2 {
   margin: 0;
   min-width: 0;
+  padding-inline: 28px;
   color: var(--text-muted);
-  font-size: clamp(1.35rem, 7vw, 2.4rem);
-  line-height: 1.1;
+  font-size: clamp(0.98rem, 4.2vw, 1.28rem);
+  font-weight: 500;
+  line-height: 1.15;
+  text-align: center;
   overflow-wrap: anywhere;
 }
 
@@ -1368,11 +1370,11 @@ body.is-admin-progress-section.has-user-band .app-shell {
   align-items: center;
   justify-content: center;
   border: 0;
-  border-radius: 0;
-  background: transparent;
-  color: #000000;
+  border-radius: 999px;
+  background: var(--disabled);
+  color: var(--text-strong);
   box-shadow: none;
-  font-size: 0.9rem;
+  font-size: 0.78rem;
   font-weight: 850;
   line-height: 1;
   letter-spacing: 0;
@@ -1596,9 +1598,9 @@ body.is-admin-progress-section.has-user-band .app-shell {
 
 .admin-progress-module-heading {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(132px, 40%);
+  grid-template-columns: minmax(0, 1fr) minmax(86px, 38%);
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
 .admin-progress-module-title-block {
@@ -1622,17 +1624,24 @@ body.is-admin-progress-section.has-user-band .app-shell {
 }
 
 .admin-progress-module-bars {
-  width: 100%;
+  width: min(100%, 128px);
   min-width: 0;
+  display: grid;
+  gap: 6px;
   justify-self: end;
 }
 
-.admin-progress-module-bars .admin-progress-card-bars {
-  gap: 6px;
+.admin-progress-module-bar-row {
+  display: block;
+  min-width: 0;
 }
 
-.admin-progress-module-bars .admin-progress-card-bar-row {
-  grid-template-columns: 54px minmax(62px, 1fr);
+.admin-progress-module-bars .admin-progress-card-track {
+  width: 100%;
+}
+
+.admin-progress-module-bars .admin-progress-card-tick {
+  min-height: 14px;
 }
 
 
@@ -1733,6 +1742,23 @@ body.is-admin-progress-section.has-user-band .app-shell {
 .admin-progress-individual-group-shelf .admin-progress-module-heading h3,
 .admin-progress-individual-selected-modules .admin-progress-module-heading h3 {
   color: var(--text-muted);
+}
+
+.admin-progress-individual-group-shelf {
+  gap: 6px;
+}
+
+.admin-progress-individual-group-heading {
+  display: block;
+}
+
+.admin-progress-individual-group-shelf .admin-progress-task-dots {
+  min-height: 16px;
+  margin: -2px 0 0;
+}
+
+.admin-progress-individual-student-rail {
+  padding-top: 0;
 }
 
 .admin-progress-individual-student-card {
@@ -2319,13 +2345,14 @@ body.is-admin-progress-section.has-user-band .app-shell {
   }
 
   .admin-progress-module-heading {
-    grid-template-columns: minmax(0, 1fr);
-    align-items: start;
+    grid-template-columns: minmax(0, 1fr) minmax(72px, 34%);
+    align-items: center;
+    gap: 8px;
   }
 
   .admin-progress-module-bars {
-    width: min(100%, 260px);
-    justify-self: start;
+    width: min(100%, 108px);
+    justify-self: end;
   }
 
   .admin-progress-task-card {
@@ -3561,6 +3588,9 @@ body.has-user-band #progress-subjects-screen.student-theme .student-progress-glo
     padding-top: calc(var(--swipe-dot-band-gap) + var(--swipe-dot-bar-height) + 14px);
   }
 
+  .attendance-sticky-control-pane {
+    top: calc(var(--user-band-height) + var(--user-band-safe-area-top) + var(--swipe-dot-band-gap) + var(--swipe-dot-bar-height) + 8px);
+  }
 }
 
 @media (min-width: 768px) {
@@ -4208,45 +4238,13 @@ body.is-attendance-section #attendance-screen.screen {
 
 .attendance-sticky-control-pane {
   position: sticky;
-  top: calc(
-    var(--user-band-height) +
-    var(--user-band-safe-area-top) +
-    var(--swipe-dot-band-gap) +
-    var(--swipe-dot-bar-height) +
-    var(--attendance-panel-visible-gap)
-  );
-  z-index: 94;
+  top: 0;
+  z-index: 55;
   display: grid;
   gap: 8px;
   padding: 0 0 10px;
   margin-bottom: 10px;
   background: transparent;
-}
-
-@media (max-width: 767px) {
-  #attendance-screen.screen {
-    padding-top: calc(var(--swipe-dot-band-gap) + var(--swipe-dot-bar-height) + 14px);
-  }
-}
-
-@media (min-width: 768px) and (max-width: 1179px) {
-  #attendance-screen .attendance-sticky-control-pane {
-    top: calc(
-      var(--user-band-height) +
-      var(--user-band-safe-area-top) +
-      var(--top-nav-height) +
-      var(--swipe-dot-band-gap) +
-      var(--swipe-dot-bar-height) +
-      var(--attendance-panel-visible-gap)
-    );
-  }
-}
-
-@media (min-width: 1180px) {
-  #attendance-screen .attendance-sticky-control-pane {
-    position: static;
-    top: auto;
-  }
 }
 
 .attendance-top-panel {
