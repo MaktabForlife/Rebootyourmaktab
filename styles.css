@@ -6339,6 +6339,46 @@ body.pdf-viewer-open.has-user-band .pdf-viewer-header {
   text-align: center;
 }
 
+/* V77.4 table colour refinement
+   Header rows + name column = surface-chip.
+   Body cells alternate by module: surface-app / white. */
+
+.admin-progress-class-grid-module-theme--app {
+  --admin-progress-class-grid-body-surface: var(--surface-app);
+}
+
+.admin-progress-class-grid-module-theme--chip {
+  --admin-progress-class-grid-body-surface: var(--surface-card); /* white */
+}
+
+/* Both header rows */
+.admin-progress-class-grid-corner-top,
+.admin-progress-class-grid-student-header,
+.admin-progress-class-grid-module-header,
+.admin-progress-class-grid-task-header {
+  background: var(--surface-chip);
+}
+
+/* Sticky name column */
+.admin-progress-class-grid-student-cell,
+.admin-progress-class-grid-student-button {
+  background: var(--surface-chip);
+}
+
+/* Body task cells alternate by module */
+.admin-progress-class-grid-task-cell.admin-progress-class-grid-module-theme--app,
+.admin-progress-class-grid-task-cell.admin-progress-class-grid-module-theme--chip {
+  background: var(--admin-progress-class-grid-body-surface);
+  background-clip: padding-box;
+}
+
+/* Keep editable cell button transparent so the td colour shows through */
+.admin-progress-class-grid-task-status,
+.admin-progress-class-grid-task-status-btn,
+.admin-progress-class-grid-cell-button {
+  background: transparent;
+}
+
 .admin-progress-class-grid-corner-top,
 .admin-progress-class-grid-student-header,
 .admin-progress-class-grid-student-cell {
