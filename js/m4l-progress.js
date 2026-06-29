@@ -1,4 +1,4 @@
-/* M4L v76.6.4 - Student Progress mobile swipe and close correction
+/* M4L v76.7.2 - Student Progress rail-only scrollTo correction
    Load after /app.js, /js/m4l-auth.js, /js/m4l-shell.js, /js/m4l-timetable.js, and /js/m4l-resources.js.
    This is a classic script, not type=module, so existing global function calls remain safe
    while the app is split gradually.
@@ -643,22 +643,45 @@ function updateStudentProgressSwipeDots() {
 function scrollStudentProgressSwipeToIndex(panelIndex, options = {}) {
   const track = getStudentProgressSwipeTrack();
   const panels = getStudentProgressSwipePanels(track);
-  const index = Number(panelIndex || 0);
+  const requestedIndex = Number(panelIndex || 0);
+  const index = Math.max(0, Math.min(panels.length - 1, Number.isFinite(requestedIndex) ? requestedIndex : 0));
 
   if (!track || !panels[index]) {
     return false;
   }
 
   const behavior = options.behavior || "smooth";
+  const panel = panels[index];
 
-  currentStudentSubjectKey = String(panels[index].dataset.progressModuleKey || currentStudentSubjectKey || "");
+  currentStudentSubjectKey = String(panel.dataset.progressModuleKey || currentStudentSubjectKey || "");
   track.dataset.progressActiveModuleKey = currentStudentSubjectKey;
 
-  panels[index].scrollIntoView({
-    behavior,
-    block: "nearest",
-    inline: "start"
-  });
+  // V76.7.2: scroll only the Student Progress rail.
+  // Avoid panel.scrollIntoView(), because iOS Safari can satisfy it by
+  // horizontally scrolling the page/body instead of only the nested rail.
+  const trackRect = track.getBoundingClientRect ? track.getBoundingClientRect() : null;
+  const panelRect = panel.getBoundingClientRect ? panel.getBoundingClientRect() : null;
+  const rawLeft = trackRect && panelRect
+    ? (panelRect.left - trackRect.left + (track.scrollLeft || 0))
+    : (panel.offsetLeft - track.offsetLeft);
+  const maxLeft = Math.max(0, (track.scrollWidth || 0) - (track.clientWidth || 0));
+  const targetLeft = Math.max(0, Math.min(maxLeft, rawLeft || 0));
+
+  if (typeof track.scrollTo === "function") {
+    track.scrollTo({
+      left: targetLeft,
+      top: 0,
+      behavior
+    });
+  } else {
+    track.scrollLeft = targetLeft;
+  }
+
+  // Keep the app/page itself anchored at the left edge. The nested rail owns
+  // horizontal movement; the document should never remain horizontally panned.
+  if (typeof window !== "undefined" && typeof window.scrollTo === "function" && (window.scrollX || 0) !== 0) {
+    window.scrollTo(0, window.scrollY || 0);
+  }
 
   updateStudentProgressSwipeDots();
 
