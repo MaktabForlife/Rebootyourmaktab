@@ -1,4 +1,4 @@
-/* M4L v73.5.1 - Admin Progress runtime fix for All/group selector + Individual selected-student exit + V73.4 baseline
+/* M4L v73.5.2 - Admin Progress dynamic group picker + Individual selected-student exit + V73.4 baseline
    Load after /app.js, /js/m4l-auth.js, /js/m4l-shell.js, /js/m4l-timetable.js, and /js/m4l-resources.js.
    This is a classic script, not type=module, so existing global function calls remain safe
    while the app is split gradually.
@@ -28,6 +28,7 @@ function bindProgressUiHandlers(containerOrId) {
   progressUiGlobalHandlersBound = true;
   document.addEventListener("click", handleProgressUiClick);
   document.addEventListener("keydown", handleProgressUiKeydown);
+  document.addEventListener("change", handleProgressUiChange);
   return !!getDomElement(containerOrId);
 }
 
@@ -47,8 +48,43 @@ function getProgressActionElement(event) {
   return progressScope ? actionEl : null;
 }
 
+function getProgressChangeElement(event) {
+  const target = event && event.target;
+  if (!target || typeof target.closest !== "function") return null;
+
+  const actionEl = target.closest("[data-progress-change-action]");
+  if (!actionEl) return null;
+
+  const progressScope = actionEl.closest(
+    "#progress-report, #admin-progress-dashboard, #admin-progress-student-popout, " +
+    "#progress-subjects-screen, #progress-tasks-screen, #progress-task-students-screen, " +
+    "#progress-subjects-list, #progress-tasks-list, #progress-task-students-list"
+  );
+
+  return progressScope ? actionEl : null;
+}
+
 function getProgressBoolean(value) {
   return String(value || "").toLowerCase() === "true";
+}
+
+function handleProgressUiChange(event) {
+  const actionEl = getProgressChangeElement(event);
+  if (!actionEl || actionEl.disabled) return;
+
+  const action = actionEl.dataset.progressChangeAction || "";
+
+  switch (action) {
+    case "set-admin-progress-group": {
+      const groupValue = String(actionEl.value || "").trim();
+      setAdminProgressAigView(groupValue ? `group-${groupValue}` : "all");
+      break;
+    }
+
+    default:
+      console.warn("Unknown progress change action:", action);
+      break;
+  }
 }
 
 function handleProgressUiKeydown(event) {
@@ -314,7 +350,7 @@ function setAdminProgressCloseButton(button, fallbackOnclick) {
   button.classList.remove("home-icon-btn", "back-icon-btn", "icon-action-btn", "icon-action-btn-large", "save-return-btn", "student-progress-save-btn", "admin-progress-save-button");
   button.classList.add("admin-progress-close-btn");
   button.type = "button";
-  button.textContent = "×";
+  button.textContent = "X";
   button.setAttribute("aria-label", "Close");
   button.setAttribute("title", "Close");
   button.removeAttribute("data-header-action");
@@ -352,7 +388,7 @@ function prepareAdminProgressTaskHeader() {
   }
 
   closeButton.className = "small-btn admin-progress-close-btn";
-  closeButton.textContent = "×";
+  closeButton.textContent = "X";
   closeButton.setAttribute("aria-label", "Close progress detail");
   closeButton.setAttribute("title", "Close");
   closeButton.removeAttribute("onclick");
@@ -650,6 +686,15 @@ function renderStudentProgressHeaderBar(percentComplete, options = {}) {
   const moduleKey = options.moduleKey !== undefined
     ? ` data-progress-module-fill="${escapeForAttribute(options.moduleKey)}"`
     : "";
+
+  if (width >= 100) {
+    return `
+      <div class="student-progress-status-bar" aria-label="Module progress complete">
+        <span class="student-progress-status-complete-tick"${moduleKey} aria-hidden="true">✔</span>
+        <span class="visually-hidden">Module progress 100 percent</span>
+      </div>
+    `;
+  }
 
   return `
     <div class="student-progress-status-bar" aria-label="Module progress">
@@ -966,7 +1011,7 @@ function renderTaskStatusIndicator(type, isOn, options = {}) {
 
   if (isOn) {
     return `
-      <span class="status-tick ${onClass}" aria-hidden="true">✓</span>
+      <span class="status-tick ${onClass}" aria-hidden="true">✔</span>
       <span class="visually-hidden">${onLabel}</span>
     `;
   }
@@ -1379,7 +1424,7 @@ let adminProgressPopoutRows = [];
 let adminProgressActiveView = "all";
 let adminProgressSelectedGroup = "ALL";
 
-const ADMIN_PROGRESS_DASHBOARD_CACHE_KEY = "m4l_admin_progress_dashboard_v73_5_1";
+const ADMIN_PROGRESS_DASHBOARD_CACHE_KEY = "m4l_admin_progress_dashboard_v73_5_2";
 let adminProgressLeaveGuardBound = false;
 
 function hasProgressPendingUpdates() {
@@ -1457,7 +1502,7 @@ function clearAdminProgressDashboardCache() {
 }
 
 function bindAdminProgressSwipeUpClose(element, closeHandler) {
-  // V73.5: Progress screens close only through their visible X buttons.
+  // V73.5.2: Progress screens close only through their visible X buttons.
   // Do not attach swipe-up-to-close to headers, panels, backdrops, or scrollable lists.
   return false;
 }
@@ -1469,8 +1514,8 @@ function normalizeAdminProgressView(view) {
   if (raw === "individual") return "individual";
   if (raw === "all" || raw === "class") return "all";
 
-  const groupMatch = raw.match(/^group[-_:\s]?([1-3])$/) || raw.match(/^([1-3])$/);
-  if (groupMatch) {
+  const groupMatch = raw.match(/^group[-_:\s]?([0-9]+)$/) || raw.match(/^([0-9]+)$/);
+  if (groupMatch && String(groupMatch[1] || "").trim() !== "0") {
     return `group-${groupMatch[1]}`;
   }
 
@@ -1478,13 +1523,27 @@ function normalizeAdminProgressView(view) {
 }
 
 function isAdminProgressGroupView(view) {
-  return /^group-[1-3]$/.test(normalizeAdminProgressView(view));
+  return /^group-[0-9]+$/.test(normalizeAdminProgressView(view));
 }
 
 function getAdminProgressGroupFromView(view) {
   const normalized = normalizeAdminProgressView(view);
-  const match = normalized.match(/^group-([1-3])$/);
+  const match = normalized.match(/^group-([0-9]+)$/);
   return match ? match[1] : "ALL";
+}
+
+function getAdminProgressAvailableGroups(rows = adminProgressDashboardRows) {
+  const groups = new Set();
+
+  (Array.isArray(rows) ? rows : [])
+    .map(normalizeProgressStudentRow)
+    .forEach(row => {
+      const group = String(row.classgroup || "").trim();
+      if (!group || group === "0" || group.toUpperCase() === "ALL") return;
+      groups.add(group);
+    });
+
+  return Array.from(groups).sort(naturalCompare);
 }
 
 function getAdminProgressAigLabel(view) {
@@ -1496,31 +1555,47 @@ function getAdminProgressAigLabel(view) {
 
 function renderAdminProgressAigSelector(activeView = "all") {
   const currentView = normalizeAdminProgressView(activeView);
-
-  const options = [
-    { key: "all", label: "All" },
-    { key: "group-1", label: "1" },
-    { key: "group-2", label: "2" },
-    { key: "group-3", label: "3" },
-    { key: "individual", label: "Individual" }
-  ];
+  const isGroupView = isAdminProgressGroupView(currentView);
+  const selectedGroup = isGroupView ? getAdminProgressGroupFromView(currentView) : "";
+  const dataGroups = getAdminProgressAvailableGroups();
+  const groupOptions = selectedGroup && !dataGroups.includes(selectedGroup)
+    ? [...dataGroups, selectedGroup].sort(naturalCompare)
+    : dataGroups;
+  const hasGroups = groupOptions.length > 0;
 
   return `
     <div class="admin-progress-aig-shell" data-admin-progress-aig-shell>
-      <div class="m4l-segmented-control admin-progress-aig-selector" role="tablist" aria-label="Progress view">
-        ${options.map(option => {
-          const isActive = option.key === currentView;
-          return `
-            <button
-              type="button"
-              class="m4l-segmented-option${isActive ? " is-active" : ""}"
-              role="tab"
-              data-progress-action="set-admin-progress-view"
-              data-progress-view="${option.key}"
-              aria-selected="${isActive ? "true" : "false"}"
-            >${option.label}</button>
-          `;
-        }).join("")}
+      <div class="m4l-segmented-control m4l-segmented-control--group-picker admin-progress-aig-selector" role="group" aria-label="Progress view">
+        <button
+          type="button"
+          class="m4l-segmented-option${currentView === "all" ? " is-active" : ""}"
+          data-progress-action="set-admin-progress-view"
+          data-progress-view="all"
+          aria-pressed="${currentView === "all" ? "true" : "false"}"
+        >All</button>
+
+        <label class="m4l-segmented-option m4l-segmented-option--select${isGroupView ? " is-active" : ""}">
+          <span class="visually-hidden">Select group progress</span>
+          <select
+            class="admin-progress-group-picker"
+            data-progress-change-action="set-admin-progress-group"
+            aria-label="Select group progress"
+            ${hasGroups ? "" : "disabled"}
+          >
+            <option value="">Group</option>
+            ${groupOptions.map(group => `
+              <option value="${escapeForAttribute(group)}"${String(group) === String(selectedGroup) ? " selected" : ""}>Group ${escapeHtml(group)}</option>
+            `).join("")}
+          </select>
+        </label>
+
+        <button
+          type="button"
+          class="m4l-segmented-option${currentView === "individual" ? " is-active" : ""}"
+          data-progress-action="set-admin-progress-view"
+          data-progress-view="individual"
+          aria-pressed="${currentView === "individual" ? "true" : "false"}"
+        >Individual</button>
       </div>
     </div>
   `;
@@ -1545,13 +1620,24 @@ function ensureAdminProgressAigSelector(screenOrId, activeView = adminProgressAc
 
 function updateAdminProgressAigSelectorState(activeView = adminProgressActiveView || "all") {
   const currentView = normalizeAdminProgressView(activeView);
+  const isGroupView = isAdminProgressGroupView(currentView);
+  const selectedGroup = isGroupView ? getAdminProgressGroupFromView(currentView) : "";
 
   document.querySelectorAll("[data-admin-progress-aig-shell]").forEach(shell => {
     shell.querySelectorAll("[data-progress-view]").forEach(button => {
       const isActive = normalizeAdminProgressView(button.dataset.progressView || "") === currentView;
       button.classList.toggle("is-active", isActive);
-      button.setAttribute("aria-selected", isActive ? "true" : "false");
+      button.setAttribute("aria-pressed", isActive ? "true" : "false");
     });
+
+    const groupPicker = shell.querySelector("[data-progress-change-action='set-admin-progress-group']");
+    if (groupPicker) {
+      groupPicker.value = selectedGroup;
+      const pickerShell = groupPicker.closest(".m4l-segmented-option--select");
+      if (pickerShell) {
+        pickerShell.classList.toggle("is-active", isGroupView);
+      }
+    }
   });
 }
 
@@ -1898,14 +1984,17 @@ function buildAdminProgressModulesForScope(group, rows = adminProgressDashboardR
 
 function renderAdminProgressDashboardForScope(group) {
   const groupKey = String(group || "ALL");
-  const modules = groupKey === "ALL" && adminProgressDashboardModules.length
-    ? adminProgressDashboardModules.map(module => ({
+  const activeView = groupKey === "ALL" ? "all" : `group-${groupKey}`;
+  const modules = adminProgressDashboardRows.length > 0
+    ? buildAdminProgressModulesForScope(groupKey, adminProgressDashboardRows)
+    : (groupKey === "ALL" ? adminProgressDashboardModules.map(module => ({
         ...module,
         tasks: (module.tasks || []).map(task => ({ ...task, classgroup: "ALL" }))
-      }))
-    : buildAdminProgressModulesForScope(groupKey, adminProgressDashboardRows);
+      })) : []);
 
   adminProgressDashboardModules = modules;
+  ensureAdminProgressAigSelector("progress-report", activeView);
+  updateAdminProgressAigSelectorState(activeView);
   renderAdminProgressDashboard(modules);
   return modules.length > 0;
 }
@@ -2196,10 +2285,21 @@ function buildAdminProgressModules(tasks, rows) {
     });
 
   return Object.values(moduleMap)
-    .map(module => ({
-      ...module,
-      tasks: module.tasks.sort(sortProgressTasks)
-    }))
+    .map(module => {
+      const moduleKey = getAdminModuleKey(module);
+      const moduleRows = (Array.isArray(rows) ? rows : [])
+        .map(normalizeProgressStudentRow)
+        .filter(row => getAdminModuleKey(row) === moduleKey && String(row.classgroup || "").trim() !== "0");
+      const moduleSummary = getAdminProgressSummaryFromRows(moduleRows);
+
+      return {
+        ...module,
+        moduleCompletedPercent: moduleSummary.completedPercent,
+        moduleVerifiedPercent: moduleSummary.verifiedPercent,
+        moduleStudentTaskCount: moduleSummary.total,
+        tasks: module.tasks.sort(sortProgressTasks)
+      };
+    })
     .sort(sortModuleGroupsByModuleId);
 }
 
@@ -2233,8 +2333,11 @@ function renderAdminProgressModuleShelf(module, moduleIndex = 0) {
       aria-label="${escapeForAttribute(moduleName)}"
     >
       <div class="admin-progress-module-heading">
-        <h3>${escapeHtml(moduleName)}</h3>
-        <span class="admin-progress-module-count">${tasks.length} ${tasks.length === 1 ? "task" : "tasks"}</span>
+        <div class="admin-progress-module-title-block">
+          <h3>${escapeHtml(moduleName)}</h3>
+          <span class="admin-progress-module-count">${tasks.length} ${tasks.length === 1 ? "task" : "tasks"}</span>
+        </div>
+        ${renderAdminProgressModuleBars(module)}
       </div>
       ${renderAdminProgressDashboardTaskDots(tasks, moduleName)}
       <div
@@ -2245,6 +2348,17 @@ function renderAdminProgressModuleShelf(module, moduleIndex = 0) {
         ${tasks.map(renderAdminProgressTaskCard).join("")}
       </div>
     </section>
+  `;
+}
+
+function renderAdminProgressModuleBars(module) {
+  const completedPercent = getProgressPercentValue(module.moduleCompletedPercent);
+  const verifiedPercent = getProgressPercentValue(module.moduleVerifiedPercent);
+
+  return `
+    <div class="admin-progress-module-bars" aria-label="Module progress">
+      ${renderAdminProgressCardBars(completedPercent, verifiedPercent)}
+    </div>
   `;
 }
 
@@ -2409,23 +2523,36 @@ function renderAdminProgressTaskCard(task) {
 }
 
 function renderAdminProgressCardBars(completedPercent, verifiedPercent) {
-  const completeWidth = getProgressPercentValue(completedPercent);
-  const verifiedWidth = getProgressPercentValue(verifiedPercent);
-
   return `
     <span class="admin-progress-card-bars">
       <span class="admin-progress-card-bar-row">
         <span class="admin-progress-card-bar-label">Complete</span>
-        <span class="admin-progress-card-track" aria-label="Complete progress">
-          <span class="admin-progress-card-fill progress-fill-complete" style="width:${completeWidth}%"></span>
-        </span>
+        ${renderAdminProgressBarOrTick(completedPercent, "complete", "Complete progress")}
       </span>
       <span class="admin-progress-card-bar-row">
         <span class="admin-progress-card-bar-label">Verify</span>
-        <span class="admin-progress-card-track" aria-label="Verify progress">
-          <span class="admin-progress-card-fill progress-fill-verified" style="width:${verifiedWidth}%"></span>
-        </span>
+        ${renderAdminProgressBarOrTick(verifiedPercent, "verify", "Verify progress")}
       </span>
+    </span>
+  `;
+}
+
+function renderAdminProgressBarOrTick(percent, type, label) {
+  const width = getProgressPercentValue(percent);
+  const normalizedType = type === "verify" ? "verify" : "complete";
+
+  if (width >= 100) {
+    return `
+      <span class="admin-progress-card-tick admin-progress-card-tick--${normalizedType}" aria-label="${escapeForAttribute(label)} 100 percent">
+        <span aria-hidden="true">✔</span>
+        <span class="visually-hidden">${escapeHtml(label)} 100 percent</span>
+      </span>
+    `;
+  }
+
+  return `
+    <span class="admin-progress-card-track" aria-label="${escapeForAttribute(label)}">
+      <span class="admin-progress-card-fill progress-fill-${normalizedType === "verify" ? "verified" : "complete"}" style="width:${width}%"></span>
     </span>
   `;
 }
@@ -2765,7 +2892,7 @@ function renderAdminIndividualStudentSticky(studentName) {
         data-progress-action="close-admin-individual-student-view"
         aria-label="Save and exit ${escapeForAttribute(safeStudentName)} progress"
         title="Save and exit"
-      >×</button>
+      >X</button>
       <span class="admin-progress-individual-student-name">${escapeHtml(safeStudentName)}</span>
       <span aria-hidden="true"></span>
     </div>
@@ -3765,7 +3892,7 @@ function ensureAdminProgressStudentPopout() {
       <div class="admin-progress-popout-backdrop" aria-hidden="true"></div>
       <section class="admin-progress-popout-panel" role="dialog" aria-modal="true" aria-labelledby="admin-progress-popout-title">
         <div class="admin-progress-popout-header">
-          <button type="button" class="small-btn admin-progress-close-btn admin-progress-popout-close" data-progress-action="close-admin-progress-student-popout" aria-label="Close student progress" title="Close">×</button>
+          <button type="button" class="small-btn admin-progress-close-btn admin-progress-popout-close" data-progress-action="close-admin-progress-student-popout" aria-label="Close student progress" title="Close">X</button>
           <h3 id="admin-progress-popout-title">Student Progress</h3>
         </div>
         <div id="admin-progress-popout-content" class="admin-progress-popout-content">
