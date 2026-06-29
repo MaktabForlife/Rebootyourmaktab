@@ -6529,5 +6529,195 @@ body.pdf-viewer-open.has-user-band .pdf-viewer-header {
     min-height: 22px;
     font-size: 0.88rem;
   }
+/* M4L v77.2 - Admin Progress task matrix refinements
+   Append this block to the end of M4L_v77_1_styles_admin_progress_all_task_matrix.css,
+   then deploy as /styles.css?v=77.2.
+
+   Changes:
+   - Keeps matrix/card full-width on mobile while grid scrolls internally.
+   - Bottom-justifies vertical task names.
+   - Makes student names normal font weight.
+   - Displays one state per cell: blank, complete, or verified.
+   - Adds live editable cell button styling.
+*/
+
+.admin-progress-class-grid-card,
+.admin-progress-class-grid-scroll {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.admin-progress-class-grid-scroll {
+  overflow: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.admin-progress-class-grid--task-matrix {
+  width: max-content;
+  min-width: max-content;
+}
+
+.admin-progress-class-grid-task-header {
+  vertical-align: bottom;
+  padding: 6px 4px 8px;
+}
+
+.admin-progress-class-grid-task-title-wrap {
+  width: 100%;
+  height: calc(var(--admin-progress-class-task-header-height) - 12px);
+  min-height: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.admin-progress-class-grid-task-title {
+  display: inline-block;
+  max-height: calc(var(--admin-progress-class-task-header-height) - 16px);
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  transform-origin: center;
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.admin-progress-class-grid-student-name {
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+.admin-progress-class-grid-student-prefix {
+  font-weight: 650;
+}
+
+.admin-progress-class-grid-task-cell {
+  padding: 0;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.admin-progress-class-grid-task-status {
+  min-width: 0;
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.admin-progress-class-grid-status-button {
+  width: 100%;
+  min-width: 0;
+  min-height: 34px;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.admin-progress-class-grid-status-button:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.admin-progress-class-grid-status-button.is-saving {
+  opacity: 0.62;
+}
+
+.admin-progress-class-grid-status-button--blank .admin-progress-class-grid-status-symbol {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: transparent;
+}
+
+.admin-progress-class-grid-status-button--complete .admin-progress-class-grid-status-symbol {
+  color: var(--complete);
+}
+
+.admin-progress-class-grid-status-button--verified .admin-progress-class-grid-status-symbol {
+  color: var(--verified);
+}
+
+.admin-progress-class-grid-status-symbol {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  min-height: 24px;
+  font-size: 1rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.admin-progress-class-grid-status-button:focus-visible {
+  outline: 2px solid rgba(var(--primary-rgb), 0.38);
+  outline-offset: -2px;
+}
+
+.admin-progress-class-grid-status-button:not(:disabled):active {
+  transform: scale(0.94);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .admin-progress-class-grid-status-button:not(:disabled):hover {
+    background: rgba(var(--primary-rgb), 0.08);
+  }
+}
+
+@media (max-width: 767px), (max-device-width: 767px) {
+  .admin-progress-class-overview,
+  .admin-progress-class-grid-card,
+  .admin-progress-class-grid-scroll {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .admin-progress-class-grid-card {
+    align-self: stretch;
+  }
+
+  .admin-progress-class-grid-scroll {
+    max-height: calc(
+      100dvh -
+      var(--user-band-height) -
+      var(--user-band-safe-area-top) -
+      var(--bottom-nav-height) -
+      var(--bottom-nav-safe-area) -
+      116px
+    );
+  }
+
+  .admin-progress-class-grid--task-matrix {
+    width: max-content;
+    min-width: max-content;
+  }
+
+  .admin-progress-class-grid-task-header {
+    padding-bottom: 7px;
+  }
+
+  .admin-progress-class-grid-task-title-wrap {
+    height: calc(var(--admin-progress-class-task-header-height) - 10px);
+  }
+
+  .admin-progress-class-grid-student-name {
+    font-weight: 400;
+  }
+}
+
+
+  
 }
 
