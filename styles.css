@@ -1,4 +1,4 @@
-/* M4L v76.7.1 - Student Progress strict mobile no-gap swipe lock + V76.7 responsive baseline. */
+/* M4L v76.7.3 - Shared top-stack visibility fix for Home, Attendance and Student Progress. */
 :root {
   /* ==========================================
      BRAND PALETTE (Sage & Lavender)
@@ -71,6 +71,10 @@
   --swipe-dot-bar-height: 24px;
   --home-sticky-action-gap: 8px;
   --home-sticky-action-height: 56px;
+  --home-top-stack-extra-gap: 14px;
+  --student-progress-active-header-height: 86px;
+  --student-progress-top-stack-extra-gap: 14px;
+  --attendance-control-sticky-gap: 8px;
   --attendance-panel-visible-gap: 10px;
   --attendance-panel-min-width: 340px;
   --icon-size: 24px;
@@ -5876,3 +5880,164 @@ body.pdf-viewer-open.has-user-band .pdf-viewer-header {
     padding-top: calc(var(--swipe-dot-band-gap) + var(--swipe-dot-bar-height) + 14px);
   }
 }
+
+/* Shared top-stack visibility correction - V76.7.3
+   Screens with fixed dots/top controls must reserve matching space so short
+   content cannot slide underneath the auth banner, dots, or sticky/fixed bars. */
+@media (max-width: 767px), (max-device-width: 767px) {
+  #student-home.screen,
+  #admin-home.screen {
+    --home-visible-top-stack-height: calc(
+      var(--swipe-dot-band-gap) +
+      var(--swipe-dot-bar-height) +
+      var(--home-sticky-action-gap) +
+      var(--home-sticky-action-height) +
+      var(--home-top-stack-extra-gap)
+    );
+    padding-top: var(--home-visible-top-stack-height);
+  }
+
+  #student-home .home-sticky-action-bar,
+  #admin-home .home-sticky-action-bar {
+    position: fixed;
+    top: calc(
+      var(--user-band-height) +
+      var(--user-band-safe-area-top) +
+      var(--swipe-dot-band-gap) +
+      var(--swipe-dot-bar-height) +
+      var(--home-sticky-action-gap)
+    );
+    left: 50%;
+    z-index: 107;
+    width: min(calc(100dvw - 20px), 500px);
+    max-width: calc(100dvw - 20px);
+    transform: translateX(-50%);
+    margin: 0;
+    padding: 0 0 8px;
+  }
+
+  #student-home .home-swipe-track,
+  #admin-home .home-swipe-track,
+  #student-home .home-swipe-panel,
+  #admin-home .home-swipe-panel {
+    align-items: flex-start;
+    align-content: start;
+  }
+
+  #attendance-screen.screen {
+    padding-top: calc(var(--swipe-dot-band-gap) + var(--swipe-dot-bar-height) + 14px);
+  }
+
+  #attendance-screen .attendance-sticky-control-pane {
+    position: sticky;
+    top: calc(
+      var(--user-band-height) +
+      var(--user-band-safe-area-top) +
+      var(--swipe-dot-band-gap) +
+      var(--swipe-dot-bar-height) +
+      var(--attendance-control-sticky-gap)
+    );
+    z-index: 94;
+  }
+
+  #progress-subjects-screen.student-theme {
+    --student-progress-visible-top-stack-height: calc(
+      var(--swipe-dot-band-gap) +
+      var(--swipe-dot-bar-height) +
+      8px +
+      var(--student-progress-active-header-height) +
+      var(--student-progress-top-stack-extra-gap)
+    );
+    padding-top: var(--student-progress-visible-top-stack-height);
+  }
+
+  #progress-subjects-screen.student-theme .student-progress-active-module-header {
+    position: fixed;
+    top: calc(
+      var(--user-band-height) +
+      var(--user-band-safe-area-top) +
+      var(--swipe-dot-band-gap) +
+      var(--swipe-dot-bar-height) +
+      8px
+    );
+    left: 50%;
+    z-index: 107;
+    width: min(calc(100dvw - 20px), 500px);
+    max-width: calc(100dvw - 20px);
+    transform: translateX(-50%);
+  }
+
+  #progress-subjects-screen.student-theme .student-progress-swipe-track,
+  #progress-subjects-screen.student-theme .student-progress-module-panel {
+    align-items: flex-start;
+    align-content: start;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1179px) {
+  #student-home.screen,
+  #admin-home.screen {
+    --home-visible-top-stack-height: calc(
+      var(--swipe-dot-band-gap) +
+      var(--swipe-dot-bar-height) +
+      var(--home-sticky-action-gap) +
+      var(--home-sticky-action-height) +
+      var(--home-top-stack-extra-gap)
+    );
+    padding-top: var(--home-visible-top-stack-height);
+  }
+
+  #student-home .home-sticky-action-bar,
+  #admin-home .home-sticky-action-bar {
+    position: fixed;
+    top: calc(
+      var(--user-band-height) +
+      var(--user-band-safe-area-top) +
+      var(--top-nav-height) +
+      var(--swipe-dot-band-gap) +
+      var(--swipe-dot-bar-height) +
+      var(--home-sticky-action-gap)
+    );
+    left: 50%;
+    z-index: 107;
+    width: min(calc(100dvw - 28px), 860px);
+    max-width: calc(100dvw - 28px);
+    transform: translateX(-50%);
+    margin: 0;
+    padding: 0 0 8px;
+  }
+
+  #attendance-screen.screen {
+    padding-top: calc(var(--swipe-dot-band-gap) + var(--swipe-dot-bar-height) + 14px);
+  }
+
+  #attendance-screen .attendance-sticky-control-pane {
+    position: sticky;
+    top: calc(
+      var(--user-band-height) +
+      var(--user-band-safe-area-top) +
+      var(--top-nav-height) +
+      var(--swipe-dot-band-gap) +
+      var(--swipe-dot-bar-height) +
+      var(--attendance-control-sticky-gap)
+    );
+    z-index: 94;
+  }
+}
+
+@media (min-width: 1180px) {
+  #student-home .home-sticky-action-bar,
+  #admin-home .home-sticky-action-bar {
+    position: sticky;
+    left: auto;
+    width: 100%;
+    max-width: 100%;
+    transform: none;
+  }
+
+  #attendance-screen .attendance-sticky-control-pane {
+    position: static;
+    top: auto;
+  }
+}
+
