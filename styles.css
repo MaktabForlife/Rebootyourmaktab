@@ -1,4 +1,4 @@
-/* M4L v73.4 - Individual Progress group rows + selected-student module cards + home sticky Zoom baseline. */
+/* M4L v73.5 - Progress All/group selector + Individual selected-student exit + home sticky Zoom baseline. */
 :root {
   /* ==========================================
      BRAND PALETTE (Sage & Lavender)
@@ -1278,7 +1278,7 @@ body.has-user-band .top-bar button[onclick="logout()"] {
 
 
 
-/* Admin Progress native shelves, AIG selector and Individual Progress - V73.4 */
+/* Admin Progress native shelves, All/group selector and Individual Progress - V73.5 */
 #progress-report.admin-progress-screen,
 #progress-task-students-screen.admin-theme {
   align-self: flex-start;
@@ -1391,10 +1391,10 @@ body.is-admin-progress-section.has-user-band .app-shell {
 }
 
 .m4l-segmented-control {
-  width: min(100%, 430px);
+  width: min(100%, 540px);
   min-height: 52px;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: 0.95fr 0.65fr 0.65fr 0.65fr 1.45fr;
   align-items: stretch;
   overflow: hidden;
   border-radius: 999px;
@@ -1675,7 +1675,20 @@ body.is-admin-progress-section.has-user-band .app-shell {
   font-size: clamp(1.05rem, 4.4vw, 1.35rem);
   font-weight: 850;
   line-height: 1.18;
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) 20px;
+  align-items: center;
+  gap: 10px;
   text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.admin-progress-individual-student-close {
+  justify-self: start;
+}
+
+.admin-progress-individual-student-name {
+  min-width: 0;
   overflow-wrap: anywhere;
 }
 
@@ -2267,7 +2280,8 @@ body.is-admin-progress-section.has-user-band .app-shell {
 
   .m4l-segmented-option {
     min-height: 48px;
-    font-size: 0.86rem;
+    padding-inline: 6px;
+    font-size: 0.78rem;
   }
 
   .admin-progress-detail-header {
