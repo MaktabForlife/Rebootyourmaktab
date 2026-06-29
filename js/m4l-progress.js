@@ -1,4 +1,4 @@
-/* M4L v76.6.3 - Student Progress responsive swiping columns correction
+/* M4L v76.6.4 - Student Progress mobile swipe and close correction
    Load after /app.js, /js/m4l-auth.js, /js/m4l-shell.js, /js/m4l-timetable.js, and /js/m4l-resources.js.
    This is a classic script, not type=module, so existing global function calls remain safe
    while the app is split gradually.
@@ -170,6 +170,10 @@ function handleProgressUiClick(event) {
 
     case "save-student-progress":
       saveStudentProgressSwipeChanges(actionEl);
+      break;
+
+    case "close-student-progress":
+      closeStudentProgressAndReturnHome(actionEl);
       break;
 
     case "toggle-student-subject-task":
@@ -798,6 +802,18 @@ function renderStudentProgressModuleBars(module) {
   `;
 }
 
+function renderStudentProgressCloseButton() {
+  return `
+    <button
+      type="button"
+      class="small-btn admin-progress-close-btn student-progress-close-btn"
+      data-progress-action="close-student-progress"
+      aria-label="Save and close Student Progress"
+      title="Save and close"
+    >X</button>
+  `;
+}
+
 function renderStudentProgressActiveModuleHeaderContent(module) {
   if (!module) return "";
 
@@ -816,6 +832,7 @@ function renderStudentProgressActiveModuleHeader(modules, activeModuleKey) {
 
   return `
     <div class="student-progress-active-module-header admin-progress-detail-header" data-student-progress-active-module-header>
+      ${renderStudentProgressCloseButton()}
       ${renderStudentProgressActiveModuleHeaderContent(module)}
     </div>
   `;
@@ -866,7 +883,7 @@ function updateStudentProgressModuleIndicators(moduleKey) {
   const header = document.querySelector("#progress-subjects-screen [data-student-progress-active-module-header]");
 
   if (header && activeModule) {
-    header.innerHTML = renderStudentProgressActiveModuleHeaderContent(activeModule);
+    header.innerHTML = `${renderStudentProgressCloseButton()}${renderStudentProgressActiveModuleHeaderContent(activeModule)}`;
   }
 
   document
@@ -1428,6 +1445,37 @@ async function flushStudentProgressAutoSave() {
   return studentProgressAutoSaveInFlight;
 }
 
+async function closeStudentProgressAndReturnHome(actionEl) {
+  const closeButton = actionEl && actionEl.closest
+    ? actionEl.closest("[data-progress-action='close-student-progress']")
+    : actionEl;
+
+  if (closeButton) {
+    closeButton.disabled = true;
+  }
+
+  try {
+    const saved = await flushStudentProgressAutoSave();
+
+    if (saved === false && hasProgressPendingUpdates()) {
+      alert("Some progress changes may not have saved yet. Please check your connection and try again.");
+      return false;
+    }
+
+    setStudentProgressSectionBodyState(false);
+    showScreen("student-home");
+    return true;
+  } catch (err) {
+    console.error("Could not close Student Progress cleanly:", err);
+    alert(err.message || "Could not save progress before closing.");
+    return false;
+  } finally {
+    if (closeButton) {
+      closeButton.disabled = false;
+    }
+  }
+}
+
 function scheduleStudentProgressAutoSave(delay = 650) {
   if (typeof window === "undefined") {
     return false;
@@ -1586,7 +1634,7 @@ let adminProgressPopoutRows = [];
 let adminProgressActiveView = "all";
 let adminProgressSelectedGroup = "ALL";
 
-const ADMIN_PROGRESS_DASHBOARD_CACHE_KEY = "m4l_admin_progress_dashboard_v76_6_3";
+const ADMIN_PROGRESS_DASHBOARD_CACHE_KEY = "m4l_admin_progress_dashboard_v76_6_4";
 let adminProgressLeaveGuardBound = false;
 
 function hasProgressPendingUpdates() {
