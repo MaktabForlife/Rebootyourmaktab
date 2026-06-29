@@ -1,4 +1,4 @@
-/* M4L v76.7 - Student Progress strict scoped mobile-first responsive swipe CSS. */
+/* M4L v76.7.1 - Student Progress strict mobile no-gap swipe lock + V76.7 responsive baseline. */
 :root {
   /* ==========================================
      BRAND PALETTE (Sage & Lavender)
@@ -2610,8 +2610,9 @@ body.is-admin-progress-section.has-user-band .app-shell {
 
 
 
-/* Student Progress mobile-first responsive swipe layout - V76.7
+/* Student Progress mobile-first responsive swipe layout - V76.7.1
    Mobile is the locked base state: one full-width module per swipe panel.
+   Mobile rail spacing is zero-gap; spacing lives inside the panel/card.
    Medium/large screens add width-only column-swipe rules on top. */
 #progress-subjects-screen.student-theme {
   width: 100%;
@@ -2738,7 +2739,7 @@ body.is-student-progress-section .app-shell {
 
 #progress-subjects-screen.student-theme .student-progress-swipe-track {
   display: flex;
-  gap: 12px;
+  gap: 0;
   width: 100%;
   max-width: 100%;
   min-width: 0;
@@ -2747,6 +2748,7 @@ body.is-student-progress-section .app-shell {
   overflow-x: auto;
   overflow-y: hidden;
   scroll-snap-type: x mandatory;
+  scroll-padding-inline: 0;
   scroll-behavior: smooth;
   overscroll-behavior-inline: contain;
   scrollbar-width: none;
@@ -3001,8 +3003,9 @@ body.is-student-progress-section .app-shell {
   }
 }
 
-/* Final mobile lock: placed after medium/large rules so phones cannot inherit column widths. */
+/* Final mobile no-gap lock: placed after medium/large rules so phones cannot inherit column widths or column gaps. */
 @media (max-width: 767px), (max-device-width: 767px) {
+  body.is-student-progress-section,
   body.is-student-progress-section .app-shell {
     max-width: 100%;
     overflow-x: hidden;
@@ -3026,14 +3029,16 @@ body.is-student-progress-section .app-shell {
 
   #progress-subjects-screen.student-theme .student-progress-swipe-track {
     display: flex;
-    gap: 12px;
+    gap: 0;
     width: 100%;
     max-width: 100%;
     min-width: 0;
     overflow-x: auto;
     overflow-y: hidden;
     scroll-snap-type: x mandatory;
+    scroll-padding-inline: 0;
     padding: 0;
+    touch-action: pan-x pan-y;
   }
 
   #progress-subjects-screen.student-theme .student-progress-module-panel,
@@ -3042,6 +3047,7 @@ body.is-student-progress-section .app-shell {
     width: 100%;
     min-width: 100%;
     max-width: 100%;
+    padding-inline: 0;
     scroll-snap-align: start;
     scroll-snap-stop: always;
   }
