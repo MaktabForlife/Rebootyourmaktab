@@ -1,4 +1,5 @@
-/* M4L v73.5.1 - Progress All/group selector runtime fix + Individual selected-student exit + home sticky Zoom baseline. */
+/* M4L v73.5.2 - Dynamic group picker + module progress + progress ticks + Individual selected-student exit + home sticky Zoom baseline. */
+/* M4L v73.5.3 - Attendance sticky panels restored under swipe dots + dynamic group picker baseline. */
 :root {
   /* ==========================================
      BRAND PALETTE (Sage & Lavender)
@@ -943,8 +944,9 @@ body.has-user-band .top-bar button[onclick="logout()"] {
 
 
 .status-tick {
-  font-size: 1.4rem;
-  font-weight: bold;
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1;
 }
 
 .status-tick-complete {
@@ -1072,7 +1074,7 @@ body.has-user-band .top-bar button[onclick="logout()"] {
   }
 
   .status-tick {
-    font-size: 1.6rem;
+    font-size: 1rem;
   }
 
   .task-status-icon {
@@ -1278,7 +1280,7 @@ body.has-user-band .top-bar button[onclick="logout()"] {
 
 
 
-/* Admin Progress native shelves, All/group selector and Individual Progress - V73.5 */
+/* Admin Progress native shelves, dynamic group picker and Individual Progress - V73.5.2 */
 #progress-report.admin-progress-screen,
 #progress-task-students-screen.admin-theme {
   align-self: flex-start;
@@ -1336,11 +1338,11 @@ body.is-admin-progress-section.has-user-band .app-shell {
   top: 72px;
   z-index: 75;
   display: grid;
-  grid-template-columns: 20px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   justify-content: stretch;
-  padding: 12px;
+  padding: 20px 12px 12px;
   border: 1px solid rgba(var(--primary-rgb), 0.14);
   border-radius: 18px;
   background: var(--surface-card);
@@ -1357,22 +1359,32 @@ body.is-admin-progress-section.has-user-band .app-shell {
 }
 
 .admin-progress-close-btn {
-  width: 16px;
-  min-width: 16px;
-  height: 16px;
-  min-height: 16px;
+  width: 24px;
+  min-width: 24px;
+  height: 24px;
+  min-height: 24px;
   padding: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   border: 0;
-  border-radius: 999px;
-  background: var(--danger);
-  color: var(--text-inverse);
+  border-radius: 0;
+  background: transparent;
+  color: #000000;
   box-shadow: none;
-  font-size: 0.82rem;
-  font-weight: 800;
+  font-size: 0.9rem;
+  font-weight: 850;
   line-height: 1;
+  letter-spacing: 0;
+}
+
+.admin-progress-detail-header .admin-progress-close-btn,
+.admin-progress-individual-student-sticky .admin-progress-close-btn,
+.admin-progress-popout-header .admin-progress-close-btn {
+  position: absolute;
+  top: 3px;
+  left: 7px;
+  z-index: 2;
 }
 
 
@@ -1391,10 +1403,10 @@ body.is-admin-progress-section.has-user-band .app-shell {
 }
 
 .m4l-segmented-control {
-  width: min(100%, 540px);
+  width: min(100%, 430px);
   min-height: 52px;
   display: grid;
-  grid-template-columns: 0.95fr 0.65fr 0.65fr 0.65fr 1.45fr;
+  grid-template-columns: 0.9fr 1.35fr 1.15fr;
   align-items: stretch;
   overflow: hidden;
   border-radius: 999px;
@@ -1439,6 +1451,43 @@ body.is-admin-progress-section.has-user-band .app-shell {
 .m4l-segmented-option.is-active::before,
 .m4l-segmented-option.is-active + .m4l-segmented-option::before {
   display: none;
+}
+
+.m4l-segmented-option--select {
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  padding: 0;
+  cursor: default;
+}
+
+.admin-progress-group-picker {
+  width: 100%;
+  height: 100%;
+  min-height: 52px;
+  margin: 0;
+  padding: 8px 28px 8px 12px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: currentColor;
+  box-shadow: none;
+  font: inherit;
+  font-size: 0.92rem;
+  font-weight: 850;
+  line-height: 1;
+  text-align: center;
+  text-align-last: center;
+  cursor: pointer;
+}
+
+.admin-progress-group-picker:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.m4l-segmented-option--select.is-active .admin-progress-group-picker {
+  color: var(--text-inverse);
 }
 
 .admin-progress-placeholder-card {
@@ -1546,10 +1595,16 @@ body.is-admin-progress-section.has-user-band .app-shell {
 }
 
 .admin-progress-module-heading {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(132px, 40%);
+  align-items: center;
   gap: 12px;
+}
+
+.admin-progress-module-title-block {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
 }
 
 .admin-progress-module-heading h3 {
@@ -1557,14 +1612,29 @@ body.is-admin-progress-section.has-user-band .app-shell {
   color: var(--text-muted);
   font-size: 1.02rem;
   line-height: 1.2;
+  overflow-wrap: anywhere;
 }
 
 .admin-progress-module-count {
-  flex: 0 0 auto;
   color: var(--text-subtle);
   font-size: 0.78rem;
   font-weight: 700;
 }
+
+.admin-progress-module-bars {
+  width: 100%;
+  min-width: 0;
+  justify-self: end;
+}
+
+.admin-progress-module-bars .admin-progress-card-bars {
+  gap: 6px;
+}
+
+.admin-progress-module-bars .admin-progress-card-bar-row {
+  grid-template-columns: 54px minmax(62px, 1fr);
+}
+
 
 .admin-progress-task-rail {
   display: flex;
@@ -1643,6 +1713,22 @@ body.is-admin-progress-section.has-user-band .app-shell {
   border-radius: inherit;
 }
 
+.admin-progress-card-tick {
+  min-height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--complete);
+  font-size: 1rem;
+  font-weight: 750;
+  line-height: 1;
+  text-align: center;
+}
+
+.admin-progress-card-tick--verify {
+  color: var(--verified);
+}
+
 
 .admin-progress-individual-group-shelf .admin-progress-module-heading h3,
 .admin-progress-individual-selected-modules .admin-progress-module-heading h3 {
@@ -1665,7 +1751,7 @@ body.is-admin-progress-section.has-user-band .app-shell {
   z-index: 85;
   width: 100%;
   min-width: 0;
-  padding: 12px 14px;
+  padding: 20px 14px 12px;
   border: 1px solid rgba(var(--primary-rgb), 0.14);
   border-radius: 16px;
   background: var(--surface-card);
@@ -1676,9 +1762,9 @@ body.is-admin-progress-section.has-user-band .app-shell {
   font-weight: 850;
   line-height: 1.18;
   display: grid;
-  grid-template-columns: 20px minmax(0, 1fr) 20px;
+  grid-template-columns: minmax(0, 1fr);
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   text-align: center;
   overflow-wrap: anywhere;
 }
@@ -2057,8 +2143,9 @@ body.is-admin-progress-section.has-user-band .app-shell {
 }
 
 .admin-progress-popout-header {
+  position: relative;
   display: grid;
-  grid-template-columns: 20px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   align-items: center;
   gap: 12px;
   border-bottom: 3px solid var(--primary);
@@ -2066,6 +2153,7 @@ body.is-admin-progress-section.has-user-band .app-shell {
 }
 
 .admin-progress-popout-header h3 {
+  padding-left: 18px;
   min-width: 0;
   margin: 0;
   color: var(--text-muted);
@@ -2230,6 +2318,16 @@ body.is-admin-progress-section.has-user-band .app-shell {
     padding: 12px;
   }
 
+  .admin-progress-module-heading {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .admin-progress-module-bars {
+    width: min(100%, 260px);
+    justify-self: start;
+  }
+
   .admin-progress-task-card {
     flex-basis: 82vw;
     width: 82vw;
@@ -2281,6 +2379,12 @@ body.is-admin-progress-section.has-user-band .app-shell {
   .m4l-segmented-option {
     min-height: 48px;
     padding-inline: 6px;
+    font-size: 0.78rem;
+  }
+
+  .admin-progress-group-picker {
+    min-height: 48px;
+    padding-inline: 8px 22px;
     font-size: 0.78rem;
   }
 
@@ -2575,6 +2679,16 @@ body.has-user-band #progress-subjects-screen.student-theme .student-progress-glo
   background: var(--complete);
 }
 
+.student-progress-status-complete-tick {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--complete);
+  font-size: 1rem;
+  font-weight: 750;
+  line-height: 1;
+}
+
 .student-progress-task-scroll {
   position: relative;
   width: 100%;
@@ -2699,7 +2813,7 @@ body.has-user-band #progress-subjects-screen.student-theme .student-progress-glo
 }
 
 .student-progress-status-control .status-tick {
-  font-size: 1.6rem;
+  font-size: 1rem;
   line-height: 1;
 }
 
@@ -3447,9 +3561,6 @@ body.has-user-band #progress-subjects-screen.student-theme .student-progress-glo
     padding-top: calc(var(--swipe-dot-band-gap) + var(--swipe-dot-bar-height) + 14px);
   }
 
-  .attendance-sticky-control-pane {
-    top: calc(var(--user-band-height) + var(--user-band-safe-area-top) + var(--swipe-dot-band-gap) + var(--swipe-dot-bar-height) + 8px);
-  }
 }
 
 @media (min-width: 768px) {
@@ -4097,13 +4208,45 @@ body.is-attendance-section #attendance-screen.screen {
 
 .attendance-sticky-control-pane {
   position: sticky;
-  top: 0;
-  z-index: 55;
+  top: calc(
+    var(--user-band-height) +
+    var(--user-band-safe-area-top) +
+    var(--swipe-dot-band-gap) +
+    var(--swipe-dot-bar-height) +
+    var(--attendance-panel-visible-gap)
+  );
+  z-index: 94;
   display: grid;
   gap: 8px;
   padding: 0 0 10px;
   margin-bottom: 10px;
   background: transparent;
+}
+
+@media (max-width: 767px) {
+  #attendance-screen.screen {
+    padding-top: calc(var(--swipe-dot-band-gap) + var(--swipe-dot-bar-height) + 14px);
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1179px) {
+  #attendance-screen .attendance-sticky-control-pane {
+    top: calc(
+      var(--user-band-height) +
+      var(--user-band-safe-area-top) +
+      var(--top-nav-height) +
+      var(--swipe-dot-band-gap) +
+      var(--swipe-dot-bar-height) +
+      var(--attendance-panel-visible-gap)
+    );
+  }
+}
+
+@media (min-width: 1180px) {
+  #attendance-screen .attendance-sticky-control-pane {
+    position: static;
+    top: auto;
+  }
 }
 
 .attendance-top-panel {
