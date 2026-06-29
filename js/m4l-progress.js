@@ -1,4 +1,4 @@
-/* M4L v77.1 - Admin Progress All task matrix grid + Student Progress bounded header baseline
+/* M4L v77.3 - Admin Progress matrix alternating module shading + Student Progress bounded header baseline
    Load after /app.js, /js/m4l-auth.js, /js/m4l-shell.js, /js/m4l-timetable.js, and /js/m4l-resources.js.
    This is a classic script, not type=module, so existing global function calls remain safe
    while the app is split gradually.
@@ -5545,9 +5545,8 @@ async function refreshIndividualStudentTaskList(button) {
   });
 }
 
-/* M4L v77.2 - Admin Progress task matrix live cell patch
-   Append this block to the end of M4L_v77_1_m4l_progress_admin_all_task_matrix.js,
-   then deploy as /js/m4l-progress.js?v=77.2.
+/* M4L v77.3 - Admin Progress task matrix live cell patch
+   Integrated into /js/m4l-progress.js and deployed as /js/m4l-progress.js?v=77.3.
 
    Changes:
    - Matrix cells render as one state: blank, complete, or verified.
@@ -5555,6 +5554,7 @@ async function refreshIndividualStudentTaskList(button) {
    - Verified implies complete.
    - Changes save automatically with a short debounce.
    - Task headers use a wrapper so CSS can bottom-justify vertical task text.
+   - Adds alternating module theme classes for surface-app/surface-chip shading.
 */
 
 let adminProgressClassMatrixSaveTimer = 0;
@@ -5611,6 +5611,15 @@ function getAdminProgressClassMatrixStateLabel(state) {
   }
 }
 
+function getAdminProgressClassMatrixModuleTheme(moduleIndex) {
+  const index = Number(moduleIndex || 0);
+  return index % 2 === 0 ? "app" : "chip";
+}
+
+function getAdminProgressClassMatrixModuleThemeClass(moduleIndex) {
+  return `admin-progress-class-grid-module-theme--${getAdminProgressClassMatrixModuleTheme(moduleIndex)}`;
+}
+
 function findAdminProgressDashboardRowByStudentTaskId(studenttaskid) {
   const targetId = String(studenttaskid || "");
   if (!targetId) return null;
@@ -5642,12 +5651,99 @@ function applyAdminProgressClassMatrixStateToRow(studenttaskid, nextState) {
   return row;
 }
 
-function renderAdminProgressClassGridTaskHeader(task, module) {
-  const taskName = task.taskname || "Untitled Task";
-  const moduleName = module.modulename || module.subjectname || "Module";
+function renderAdminProgressClassOverview(modules) {
+  const model = buildAdminProgressClassOverviewModel(modules, adminProgressDashboardRows);
+
+  if (!model.students.length || !model.modules.length) {
+    return `<p class="helper-text">No class progress grid data found.</p>`;
+  }
+
+  const taskColumns = model.modules.flatMap((module, moduleIndex) => {
+    return (Array.isArray(module.tasks) ? module.tasks : []).map(task => ({ module, task, moduleIndex }));
+  });
 
   return `
-    <th class="admin-progress-class-grid-task-header" scope="col" aria-label="${escapeForAttribute(moduleName)}: ${escapeForAttribute(taskName)}">
+    <section class="admin-progress-class-overview" aria-label="Class progress overview">
+      <section class="admin-progress-class-grid-card" aria-label="All students by task">
+        <div class="admin-progress-class-grid-scroll" tabindex="0" role="region" aria-label="Scrollable class progress task grid">
+          <table class="admin-progress-class-grid admin-progress-class-grid--task-matrix">
+            <colgroup>
+              <col class="admin-progress-class-grid-student-col" />
+              ${taskColumns.map(column => `<col class="admin-progress-class-grid-task-col ${getAdminProgressClassMatrixModuleThemeClass(column.moduleIndex)}" />`).join("")}
+            </colgroup>
+            <thead>
+              <tr class="admin-progress-class-grid-module-row">
+                <th class="admin-progress-class-grid-student-header" scope="col" rowspan="2">Student</th>
+                ${model.modules.map((module, moduleIndex) => renderAdminProgressClassGridModuleHeader(module, moduleIndex)).join("")}
+              </tr>
+              <tr class="admin-progress-class-grid-task-row">
+                ${model.modules.map((module, moduleIndex) => {
+                  return (Array.isArray(module.tasks) ? module.tasks : []).map(task => {
+                    return renderAdminProgressClassGridTaskHeader(task, module, moduleIndex);
+                  }).join("");
+                }).join("")}
+              </tr>
+            </thead>
+            <tbody>
+              ${model.students.map(student => renderAdminProgressClassGridStudentRow(student, model.modules)).join("")}
+            </tbody>
+          </table>
+        </div>
+        <p class="admin-progress-class-grid-caption">Tap a student name to open Individual Progress. Swipe sideways to see more tasks.</p>
+      </section>
+    </section>
+  `;
+}
+
+function renderAdminProgressClassGridModuleHeader(module, moduleIndex = 0) {
+  const moduleName = module.modulename || module.subjectname || "Module";
+  const tasks = Array.isArray(module.tasks) ? module.tasks : [];
+  const span = Math.max(1, tasks.length);
+  const themeClass = getAdminProgressClassMatrixModuleThemeClass(moduleIndex);
+
+  return `
+    <th class="admin-progress-class-grid-module-header ${themeClass}" scope="colgroup" colspan="${span}">
+      <span class="admin-progress-class-grid-module-title">${escapeHtml(moduleName)}</span>
+      ${renderAdminProgressModuleBars(module)}
+    </th>
+  `;
+}
+
+function renderAdminProgressClassGridStudentRow(student, modules) {
+  const name = student.username || "Student";
+  const groupPrefix = getAdminProgressClassGroupPrefix(student.classgroup);
+  const accessibleName = groupPrefix ? `${groupPrefix} ${name}` : name;
+
+  return `
+    <tr>
+      <th class="admin-progress-class-grid-student-cell" scope="row">
+        <button
+          type="button"
+          class="admin-progress-class-grid-student-button"
+          data-progress-action="open-admin-individual-student-card"
+          data-studentid="${escapeForAttribute(student.studentid || "")}" 
+          data-username="${escapeForAttribute(name)}"
+          aria-label="Open Individual Progress for ${escapeForAttribute(accessibleName)}"
+        >
+          ${groupPrefix ? `<span class="admin-progress-class-grid-student-prefix" aria-hidden="true">${escapeHtml(groupPrefix)}</span>` : ""}
+          <span class="admin-progress-class-grid-student-name">${escapeHtml(name)}</span>
+        </button>
+      </th>
+      ${modules.map((module, moduleIndex) => {
+        const tasks = Array.isArray(module.tasks) ? module.tasks : [];
+        return tasks.map(task => renderAdminProgressClassGridTaskCell(student, module, task, moduleIndex)).join("");
+      }).join("")}
+    </tr>
+  `;
+}
+
+function renderAdminProgressClassGridTaskHeader(task, module, moduleIndex = 0) {
+  const taskName = task.taskname || "Untitled Task";
+  const moduleName = module.modulename || module.subjectname || "Module";
+  const themeClass = getAdminProgressClassMatrixModuleThemeClass(moduleIndex);
+
+  return `
+    <th class="admin-progress-class-grid-task-header ${themeClass}" scope="col" aria-label="${escapeForAttribute(moduleName)}: ${escapeForAttribute(taskName)}">
       <span class="admin-progress-class-grid-task-title-wrap">
         <span class="admin-progress-class-grid-task-title">${escapeHtml(taskName)}</span>
       </span>
@@ -5655,7 +5751,7 @@ function renderAdminProgressClassGridTaskHeader(task, module) {
   `;
 }
 
-function renderAdminProgressClassGridTaskCell(student, module, task) {
+function renderAdminProgressClassGridTaskCell(student, module, task, moduleIndex = 0) {
   const row = findAdminProgressClassGridTaskRow(student, module, task);
   const studentName = student.username || "Student";
   const moduleName = module.modulename || module.subjectname || "Module";
@@ -5664,9 +5760,10 @@ function renderAdminProgressClassGridTaskCell(student, module, task) {
   const stateLabel = getAdminProgressClassMatrixStateLabel(state);
   const label = `${studentName}, ${moduleName}, ${taskName}: ${stateLabel}`;
   const studentTaskId = row ? String(row.studenttaskid || "") : "";
+  const themeClass = getAdminProgressClassMatrixModuleThemeClass(moduleIndex);
 
   return `
-    <td class="admin-progress-class-grid-task-cell">
+    <td class="admin-progress-class-grid-task-cell ${themeClass}">
       <div class="admin-progress-class-grid-task-status">
         <button
           type="button"
