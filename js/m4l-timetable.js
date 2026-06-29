@@ -1,4 +1,4 @@
-/* M4L v76.7.3 - Timetable board + measured Home sticky Zoom top stack
+/* M4L v76.7.4 - Timetable board + bounded Home top stack
    Load after /app.js, /js/m4l-auth.js, and /js/m4l-shell.js.
    This is a classic script, not type=module, so existing global function calls remain safe
    while the app is split gradually.
@@ -18,8 +18,91 @@ let timetableCacheKey = "";
 let timetableLoadPromise = null;
 let timetableLoadPromiseKey = "";
 let globalTimetableZoomLink = "";
+let homeSectionStateGuardBound = false;
+
+function isHomeScreenId(screenId) {
+  return ["student-home", "admin-home"].includes(String(screenId || ""));
+}
+
+function setHomeSectionBodyState(screenIdOrActive) {
+  if (typeof document === "undefined" || !document.body) {
+    return false;
+  }
+
+  const isActive = typeof screenIdOrActive === "boolean"
+    ? screenIdOrActive
+    : isHomeScreenId(screenIdOrActive);
+
+  document.body.classList.toggle("is-home-section", isActive);
+  return isActive;
+}
+
+function bindHomeSectionStateGuard() {
+  if (homeSectionStateGuardBound === true) return true;
+  if (typeof window === "undefined" || typeof window.showScreen !== "function") return false;
+
+  homeSectionStateGuardBound = true;
+
+  if (window.showScreen.__m4lHomeSectionGuard === true) {
+    return true;
+  }
+
+  const originalShowScreen = window.showScreen;
+
+  const guardedShowScreen = function guardedHomeSectionShowScreen(screenId, ...args) {
+    const result = originalShowScreen.call(this, screenId, ...args);
+
+    if (result !== false) {
+      setHomeSectionBodyState(screenId);
+
+      if (isHomeScreenId(screenId)) {
+        resetHomeTopStackScroll(screenId);
+        scheduleHomeTopStackMetricsUpdate(screenId);
+      }
+    }
+
+    return result;
+  };
+
+  guardedShowScreen.__m4lHomeSectionGuard = true;
+  window.showScreen = guardedShowScreen;
+  return true;
+}
+
+function resetHomeTopStackScroll(screenOrId) {
+  const screen = typeof screenOrId === "string"
+    ? document.getElementById(screenOrId)
+    : screenOrId;
+
+  if (!screen) return false;
+
+  const reset = () => {
+    if (typeof window !== "undefined" && typeof window.scrollTo === "function" && (window.scrollY || window.scrollX)) {
+      window.scrollTo(0, 0);
+    }
+
+    screen.querySelectorAll(".home-swipe-panel").forEach(panel => {
+      if (panel && typeof panel.scrollTop === "number") {
+        panel.scrollTop = 0;
+      }
+    });
+  };
+
+  if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
+    window.requestAnimationFrame(reset);
+  } else if (typeof window !== "undefined" && typeof window.setTimeout === "function") {
+    window.setTimeout(reset, 0);
+  } else {
+    reset();
+  }
+
+  return true;
+}
+
 
 function scheduleStudentHomeTimetableLoad() {
+  bindHomeSectionStateGuard();
+
   if (!state.token || getBottomNavRole() !== "student") {
     return;
   }
@@ -634,7 +717,9 @@ function bindHomeTopStackMetricsResizeHandler() {
   homeTopStackResizeHandlerBound = true;
   window.addEventListener("resize", () => {
     scheduleHomeTopStackMetricsUpdate("student-home");
+    resetHomeTopStackScroll("student-home");
     scheduleHomeTopStackMetricsUpdate("admin-home");
+    resetHomeTopStackScroll("admin-home");
   }, { passive: true });
   return true;
 }
@@ -680,6 +765,8 @@ function setTimetableZoomButtonState(buttonId, zoomLink) {
 /* Class duas home-card helpers remain in app.js; timetable module only calls the duas placement helper after rendering. */
 
 function scheduleAdminHomeTimetableLoad() {
+  bindHomeSectionStateGuard();
+
   if (!state.token || getBottomNavRole() !== "admin") {
     return;
   }
@@ -783,6 +870,10 @@ function ensureAdminHomePanel() {
 }
 
 async function loadAdminHomeTimetable(force = false) {
+  setHomeSectionBodyState("admin-home");
+  bindHomeSectionStateGuard();
+  resetHomeTopStackScroll("admin-home");
+
   const panel = ensureAdminHomePanel();
   const container = document.getElementById("admin-home-timetable-content");
 
@@ -814,6 +905,9 @@ async function refreshAdminHomeTimetable(button) {
 
 
 async function loadStudentHomeTimetable(force = false) {
+  setHomeSectionBodyState("student-home");
+  bindHomeSectionStateGuard();
+  resetHomeTopStackScroll("student-home");
   ensureHomeStickyZoomAction("student-home", "student-zoom-link-btn", { createIfMissing: true });
   const container = document.getElementById("student-timetable-content");
 
