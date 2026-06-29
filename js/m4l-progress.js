@@ -5543,6 +5543,8 @@ async function refreshIndividualStudentTaskList(button) {
     progressPendingUpdates = {};
     await loadIndividualStudentTaskList();
   });
+}
+
 /* M4L v77.2 - Admin Progress task matrix live cell patch
    Append this block to the end of M4L_v77_1_m4l_progress_admin_all_task_matrix.js,
    then deploy as /js/m4l-progress.js?v=77.2.
@@ -5835,8 +5837,6 @@ function bindAdminProgressClassMatrixLiveCells() {
 bindAdminProgressClassMatrixLiveCells();
 
 
-
-}
 
 window.M4LProgress = {
   bindProgressUiHandlers: typeof bindProgressUiHandlers === "function" ? bindProgressUiHandlers : undefined,
