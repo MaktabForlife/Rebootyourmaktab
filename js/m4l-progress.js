@@ -1,4 +1,4 @@
-/* M4L v76.7.2 - Student Progress rail-only scrollTo correction
+/* M4L v76.7.3 - Student Progress rail scroll + measured fixed header top stack
    Load after /app.js, /js/m4l-auth.js, /js/m4l-shell.js, /js/m4l-timetable.js, and /js/m4l-resources.js.
    This is a classic script, not type=module, so existing global function calls remain safe
    while the app is split gradually.
@@ -605,6 +605,38 @@ function getStudentProgressSwipeActiveModuleKey() {
   return activePanel ? String(activePanel.dataset.progressModuleKey || "") : "";
 }
 
+function updateStudentProgressHeaderMetrics() {
+  const screen = document.getElementById("progress-subjects-screen");
+  const header = screen && screen.querySelector
+    ? screen.querySelector("[data-student-progress-active-module-header]")
+    : null;
+
+  if (!screen || !header || typeof header.getBoundingClientRect !== "function") {
+    return false;
+  }
+
+  const height = Math.ceil(header.getBoundingClientRect().height || 0);
+  if (height > 0) {
+    screen.style.setProperty("--student-progress-active-header-height", `${height}px`);
+  }
+
+  return height > 0;
+}
+
+function scheduleStudentProgressHeaderMetricsUpdate() {
+  const runUpdate = () => updateStudentProgressHeaderMetrics();
+
+  if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
+    window.requestAnimationFrame(runUpdate);
+  } else if (typeof window !== "undefined" && typeof window.setTimeout === "function") {
+    window.setTimeout(runUpdate, 0);
+  } else {
+    runUpdate();
+  }
+
+  return true;
+}
+
 function updateStudentProgressSwipeDots() {
   const screen = document.getElementById("progress-subjects-screen");
   const track = getStudentProgressSwipeTrack();
@@ -635,6 +667,7 @@ function updateStudentProgressSwipeDots() {
   });
 
   updateStudentProgressFrozenHeader();
+  scheduleStudentProgressHeaderMetricsUpdate();
   updateStudentProgressTaskScrollState();
 
   return true;
@@ -724,6 +757,7 @@ function bindStudentProgressSwipeResizeHandler() {
   studentProgressSwipeResizeHandlerBound = true;
   window.addEventListener("resize", () => {
     updateStudentProgressSwipeDots();
+    scheduleStudentProgressHeaderMetricsUpdate();
     updateStudentProgressTaskScrollState();
   }, { passive: true });
   return true;
@@ -922,6 +956,7 @@ function updateStudentProgressModuleIndicators(moduleKey) {
       }
     });
 
+  scheduleStudentProgressHeaderMetricsUpdate();
   return true;
 }
 
@@ -1113,7 +1148,11 @@ function renderStudentSubjectProgress(options = {}) {
   bindProgressUiHandlers(container);
   bindStudentProgressSwipeControls();
   updateStudentProgressFrozenHeader();
-  window.setTimeout(updateStudentProgressTaskScrollState, 0);
+  scheduleStudentProgressHeaderMetricsUpdate();
+  window.setTimeout(() => {
+    updateStudentProgressHeaderMetrics();
+    updateStudentProgressTaskScrollState();
+  }, 0);
 
   if (preferredModuleKey && preferredModuleKey !== String(modules[0].subjectid || "")) {
     scrollStudentProgressSwipeToModule(preferredModuleKey, {
