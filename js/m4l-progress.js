@@ -5543,6 +5543,299 @@ async function refreshIndividualStudentTaskList(button) {
     progressPendingUpdates = {};
     await loadIndividualStudentTaskList();
   });
+/* M4L v77.2 - Admin Progress task matrix live cell patch
+   Append this block to the end of M4L_v77_1_m4l_progress_admin_all_task_matrix.js,
+   then deploy as /js/m4l-progress.js?v=77.2.
+
+   Changes:
+   - Matrix cells render as one state: blank, complete, or verified.
+   - Clicking a cell cycles Blank -> Complete -> Verified -> Blank.
+   - Verified implies complete.
+   - Changes save automatically with a short debounce.
+   - Task headers use a wrapper so CSS can bottom-justify vertical task text.
+*/
+
+let adminProgressClassMatrixSaveTimer = 0;
+let adminProgressClassMatrixSaveInFlight = null;
+
+function getAdminProgressClassMatrixCellState(row) {
+  if (!row) return "blank";
+
+  const pending = progressPendingUpdates[row.studenttaskid] || {};
+  const completeStatus = pending.completeStatus !== undefined
+    ? pending.completeStatus
+    : row.completestatus;
+  const verifyStatus = pending.verifyStatus !== undefined
+    ? pending.verifyStatus
+    : row.verifystatus;
+
+  if (isStatusOn(verifyStatus)) return "verified";
+  if (isStatusOn(completeStatus)) return "complete";
+  return "blank";
+}
+
+function getNextAdminProgressClassMatrixCellState(currentState) {
+  switch (String(currentState || "blank")) {
+    case "blank":
+      return "complete";
+    case "complete":
+      return "verified";
+    case "verified":
+    default:
+      return "blank";
+  }
+}
+
+function getAdminProgressClassMatrixStateUpdate(nextState) {
+  if (nextState === "verified") {
+    return { completeStatus: "YES", verifyStatus: "YES" };
+  }
+
+  if (nextState === "complete") {
+    return { completeStatus: "YES", verifyStatus: "" };
+  }
+
+  return { completeStatus: "", verifyStatus: "" };
+}
+
+function getAdminProgressClassMatrixStateLabel(state) {
+  switch (String(state || "blank")) {
+    case "verified":
+      return "Verified";
+    case "complete":
+      return "Complete";
+    default:
+      return "Blank";
+  }
+}
+
+function findAdminProgressDashboardRowByStudentTaskId(studenttaskid) {
+  const targetId = String(studenttaskid || "");
+  if (!targetId) return null;
+
+  return (Array.isArray(adminProgressDashboardRows) ? adminProgressDashboardRows : [])
+    .find(row => String(row.studenttaskid || row.StudentTaskID || row.StudentTaskId || "") === targetId) || null;
+}
+
+function applyAdminProgressClassMatrixStateToRow(studenttaskid, nextState) {
+  const update = getAdminProgressClassMatrixStateUpdate(nextState);
+  const row = findAdminProgressDashboardRowByStudentTaskId(studenttaskid);
+
+  if (row) {
+    row.completestatus = update.completeStatus;
+    row.completeStatus = update.completeStatus;
+    row.CompleteStatus = update.completeStatus;
+    row.verifystatus = update.verifyStatus;
+    row.verifyStatus = update.verifyStatus;
+    row.VerifyStatus = update.verifyStatus;
+  }
+
+  if (!progressPendingUpdates[studenttaskid]) {
+    progressPendingUpdates[studenttaskid] = { studenttaskid };
+  }
+
+  progressPendingUpdates[studenttaskid].completeStatus = update.completeStatus;
+  progressPendingUpdates[studenttaskid].verifyStatus = update.verifyStatus;
+
+  return row;
+}
+
+function renderAdminProgressClassGridTaskHeader(task, module) {
+  const taskName = task.taskname || "Untitled Task";
+  const moduleName = module.modulename || module.subjectname || "Module";
+
+  return `
+    <th class="admin-progress-class-grid-task-header" scope="col" aria-label="${escapeForAttribute(moduleName)}: ${escapeForAttribute(taskName)}">
+      <span class="admin-progress-class-grid-task-title-wrap">
+        <span class="admin-progress-class-grid-task-title">${escapeHtml(taskName)}</span>
+      </span>
+    </th>
+  `;
+}
+
+function renderAdminProgressClassGridTaskCell(student, module, task) {
+  const row = findAdminProgressClassGridTaskRow(student, module, task);
+  const studentName = student.username || "Student";
+  const moduleName = module.modulename || module.subjectname || "Module";
+  const taskName = task.taskname || "Untitled Task";
+  const state = getAdminProgressClassMatrixCellState(row);
+  const stateLabel = getAdminProgressClassMatrixStateLabel(state);
+  const label = `${studentName}, ${moduleName}, ${taskName}: ${stateLabel}`;
+  const studentTaskId = row ? String(row.studenttaskid || "") : "";
+
+  return `
+    <td class="admin-progress-class-grid-task-cell">
+      <div class="admin-progress-class-grid-task-status">
+        <button
+          type="button"
+          class="admin-progress-class-grid-status-button admin-progress-class-grid-status-button--${escapeForAttribute(state)}"
+          data-progress-action="cycle-admin-progress-class-cell"
+          data-studenttaskid="${escapeForAttribute(studentTaskId)}"
+          data-status="${escapeForAttribute(state)}"
+          aria-label="${escapeForAttribute(label)}"
+          ${studentTaskId ? "" : "disabled"}
+        >
+          ${renderAdminProgressClassGridStatusSymbol(state)}
+        </button>
+      </div>
+    </td>
+  `;
+}
+
+function renderAdminProgressClassGridStatusSymbol(state) {
+  const normalizedState = String(state || "blank");
+
+  if (normalizedState === "verified") {
+    return `
+      <span class="admin-progress-class-grid-status-symbol status-tick status-tick-verified" aria-hidden="true">${M4L_PROGRESS_TICK}</span>
+      <span class="visually-hidden">Verified</span>
+    `;
+  }
+
+  if (normalizedState === "complete") {
+    return `
+      <span class="admin-progress-class-grid-status-symbol status-tick status-tick-complete" aria-hidden="true">${M4L_PROGRESS_TICK}</span>
+      <span class="visually-hidden">Complete</span>
+    `;
+  }
+
+  return `
+    <span class="admin-progress-class-grid-status-symbol" aria-hidden="true"></span>
+    <span class="visually-hidden">Blank</span>
+  `;
+}
+
+function updateAdminProgressClassMatrixCellButton(button, nextState) {
+  if (!button) return false;
+
+  ["blank", "complete", "verified"].forEach(state => {
+    button.classList.remove(`admin-progress-class-grid-status-button--${state}`);
+  });
+
+  button.classList.add(`admin-progress-class-grid-status-button--${nextState}`);
+  button.dataset.status = nextState;
+  button.innerHTML = renderAdminProgressClassGridStatusSymbol(nextState);
+
+  const existingLabel = button.getAttribute("aria-label") || "Progress cell";
+  const baseLabel = existingLabel.replace(/: (Blank|Complete|Verified)$/i, "");
+  button.setAttribute("aria-label", `${baseLabel}: ${getAdminProgressClassMatrixStateLabel(nextState)}`);
+
+  return true;
+}
+
+function scheduleAdminProgressClassMatrixAutosave(button) {
+  if (typeof window === "undefined") return false;
+
+  if (adminProgressClassMatrixSaveTimer) {
+    window.clearTimeout(adminProgressClassMatrixSaveTimer);
+  }
+
+  adminProgressClassMatrixSaveTimer = window.setTimeout(() => {
+    saveAdminProgressClassMatrixPendingChanges(button);
+  }, 650);
+
+  return true;
+}
+
+async function saveAdminProgressClassMatrixPendingChanges(button) {
+  if (adminProgressClassMatrixSaveInFlight) {
+    return adminProgressClassMatrixSaveInFlight;
+  }
+
+  if (!progressPendingUpdates || Object.keys(progressPendingUpdates).length === 0) {
+    return false;
+  }
+
+  if (button) {
+    button.classList.add("is-saving");
+  }
+
+  adminProgressClassMatrixSaveInFlight = Promise.resolve()
+    .then(() => saveProgressPendingChanges({ reload: false, alert: false }))
+    .then(saved => {
+      if (saved) {
+        if (typeof clearAdminProgressDashboardCache === "function") {
+          clearAdminProgressDashboardCache();
+        }
+        if (typeof refreshAdminProgressDashboardCacheInBackground === "function") {
+          refreshAdminProgressDashboardCacheInBackground({ render: false });
+        }
+      }
+      return saved;
+    })
+    .catch(error => {
+      console.error("Failed to autosave progress matrix update:", error);
+      alert("Could not save this progress update. Please refresh and try again.");
+      return false;
+    })
+    .finally(() => {
+      if (button) {
+        button.classList.remove("is-saving");
+      }
+      adminProgressClassMatrixSaveInFlight = null;
+    });
+
+  return adminProgressClassMatrixSaveInFlight;
+}
+
+function cycleAdminProgressClassMatrixCell(button) {
+  if (!button || button.disabled) return false;
+
+  const studentTaskId = String(button.dataset.studenttaskid || "");
+  if (!studentTaskId) return false;
+
+  const currentState = String(button.dataset.status || "blank");
+  const nextState = getNextAdminProgressClassMatrixCellState(currentState);
+
+  applyAdminProgressClassMatrixStateToRow(studentTaskId, nextState);
+  updateAdminProgressClassMatrixCellButton(button, nextState);
+  scheduleAdminProgressClassMatrixAutosave(button);
+
+  return true;
+}
+
+function bindAdminProgressClassMatrixLiveCells() {
+  if (typeof document === "undefined" || document.__m4lAdminProgressClassMatrixLiveBound === true) {
+    return false;
+  }
+
+  document.__m4lAdminProgressClassMatrixLiveBound = true;
+
+  document.addEventListener("click", event => {
+    const target = event.target;
+    const button = target && typeof target.closest === "function"
+      ? target.closest('[data-progress-action="cycle-admin-progress-class-cell"]')
+      : null;
+
+    if (!button) return;
+
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    cycleAdminProgressClassMatrixCell(button);
+  }, true);
+
+  document.addEventListener("keydown", event => {
+    if (!event || (event.key !== "Enter" && event.key !== " ")) return;
+
+    const target = event.target;
+    const button = target && typeof target.closest === "function"
+      ? target.closest('[data-progress-action="cycle-admin-progress-class-cell"]')
+      : null;
+
+    if (!button) return;
+
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    cycleAdminProgressClassMatrixCell(button);
+  }, true);
+
+  return true;
+}
+
+bindAdminProgressClassMatrixLiveCells();
+
+
+
 }
 
 window.M4LProgress = {
