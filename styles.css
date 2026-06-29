@@ -1,4 +1,4 @@
-/* M4L v76.7.3 - Shared top-stack visibility fix for Home, Attendance and Student Progress. */
+/* M4L v76.7.4 - Shared bounded viewport top-stack fix for Home, Attendance and Student Progress. */
 :root {
   /* ==========================================
      BRAND PALETTE (Sage & Lavender)
@@ -75,6 +75,7 @@
   --student-progress-active-header-height: 86px;
   --student-progress-top-stack-extra-gap: 14px;
   --attendance-control-sticky-gap: 8px;
+  --attendance-control-pane-height: 176px;
   --attendance-panel-visible-gap: 10px;
   --attendance-panel-min-width: 340px;
   --icon-size: 24px;
@@ -5881,10 +5882,26 @@ body.pdf-viewer-open.has-user-band .pdf-viewer-header {
   }
 }
 
-/* Shared top-stack visibility correction - V76.7.3
-   Screens with fixed dots/top controls must reserve matching space so short
-   content cannot slide underneath the auth banner, dots, or sticky/fixed bars. */
+/* Shared bounded viewport top-stack correction - V76.7.4
+   Fixed top controls stay visible, while each screen reserves a bounded content
+   viewport underneath them. This prevents Home, Attendance and Student Progress
+   content from scrolling underneath the auth band or swipe dots. */
 @media (max-width: 767px), (max-device-width: 767px) {
+  body.is-home-section,
+  body.is-attendance-section,
+  body.is-student-progress-section {
+    overflow-y: hidden;
+    overscroll-behavior-y: none;
+  }
+
+  body.is-home-section .app-shell,
+  body.is-attendance-section .app-shell,
+  body.is-student-progress-section .app-shell {
+    align-items: flex-start;
+    justify-content: center;
+    overflow: hidden;
+  }
+
   #student-home.screen,
   #admin-home.screen {
     --home-visible-top-stack-height: calc(
@@ -5894,7 +5911,35 @@ body.pdf-viewer-open.has-user-band .pdf-viewer-header {
       var(--home-sticky-action-height) +
       var(--home-top-stack-extra-gap)
     );
+    align-self: flex-start;
+    width: 100%;
+    max-width: 100%;
+    height: calc(
+      100dvh -
+      var(--user-band-height) -
+      var(--user-band-safe-area-top) -
+      var(--bottom-nav-height) -
+      var(--bottom-nav-safe-area) -
+      24px
+    );
+    max-height: calc(
+      100dvh -
+      var(--user-band-height) -
+      var(--user-band-safe-area-top) -
+      var(--bottom-nav-height) -
+      var(--bottom-nav-safe-area) -
+      24px
+    );
+    min-height: 0;
+    overflow: hidden;
     padding-top: var(--home-visible-top-stack-height);
+    padding-bottom: 10px;
+  }
+
+  #student-home.screen.active,
+  #admin-home.screen.active {
+    display: grid;
+    grid-template-rows: minmax(0, 1fr);
   }
 
   #student-home .home-sticky-action-bar,
@@ -5916,28 +5961,112 @@ body.pdf-viewer-open.has-user-band .pdf-viewer-header {
     padding: 0 0 8px;
   }
 
+  #student-home .home-swipe-shell,
+  #admin-home .home-swipe-shell {
+    height: 100%;
+    min-height: 0;
+    display: grid;
+    grid-template-rows: minmax(0, 1fr);
+    overflow: hidden;
+  }
+
   #student-home .home-swipe-track,
-  #admin-home .home-swipe-track,
+  #admin-home .home-swipe-track {
+    height: 100%;
+    min-height: 0;
+    align-items: stretch;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
   #student-home .home-swipe-panel,
   #admin-home .home-swipe-panel {
-    align-items: flex-start;
+    height: 100%;
+    max-height: 100%;
+    min-height: 0;
     align-content: start;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  #student-home .home-swipe-panel > :first-child,
+  #admin-home .home-swipe-panel > :first-child {
+    margin-top: 0;
   }
 
   #attendance-screen.screen {
-    padding-top: calc(var(--swipe-dot-band-gap) + var(--swipe-dot-bar-height) + 14px);
+    align-self: flex-start;
+    width: 100%;
+    max-width: 100%;
+    height: calc(
+      100dvh -
+      var(--user-band-height) -
+      var(--user-band-safe-area-top) -
+      var(--bottom-nav-height) -
+      var(--bottom-nav-safe-area) -
+      24px
+    );
+    max-height: calc(
+      100dvh -
+      var(--user-band-height) -
+      var(--user-band-safe-area-top) -
+      var(--bottom-nav-height) -
+      var(--bottom-nav-safe-area) -
+      24px
+    );
+    min-height: 0;
+    overflow: hidden;
+    padding-top: calc(var(--swipe-dot-band-gap) + var(--swipe-dot-bar-height) + 12px);
+    padding-bottom: 10px;
+  }
+
+  #attendance-screen.screen.active {
+    display: block;
+  }
+
+  #attendance-screen .attendance-swipe-track {
+    height: 100%;
+    min-height: 0;
+    align-items: stretch;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  #attendance-screen .attendance-swipe-panel {
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  #attendance-register-content,
+  #attendance-report-content,
+  #attendance-stats-content {
+    height: 100%;
+    min-height: 0;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    overflow: hidden;
   }
 
   #attendance-screen .attendance-sticky-control-pane {
-    position: sticky;
-    top: calc(
-      var(--user-band-height) +
-      var(--user-band-safe-area-top) +
-      var(--swipe-dot-band-gap) +
-      var(--swipe-dot-bar-height) +
-      var(--attendance-control-sticky-gap)
-    );
-    z-index: 94;
+    position: relative;
+    top: auto;
+    z-index: 3;
+    grid-row: 1;
+    margin: 0 0 10px;
+    background: var(--surface-app);
+  }
+
+  #attendance-screen .attendance-panel-scroll-body {
+    grid-row: 2;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
+    padding: 0 0 14px;
   }
 
   #progress-subjects-screen.student-theme {
@@ -5948,7 +6077,32 @@ body.pdf-viewer-open.has-user-band .pdf-viewer-header {
       var(--student-progress-active-header-height) +
       var(--student-progress-top-stack-extra-gap)
     );
+    align-self: flex-start;
+    height: calc(
+      100dvh -
+      var(--user-band-height) -
+      var(--user-band-safe-area-top) -
+      var(--bottom-nav-height) -
+      var(--bottom-nav-safe-area) -
+      24px
+    );
+    max-height: calc(
+      100dvh -
+      var(--user-band-height) -
+      var(--user-band-safe-area-top) -
+      var(--bottom-nav-height) -
+      var(--bottom-nav-safe-area) -
+      24px
+    );
+    min-height: 0;
+    overflow: hidden;
     padding-top: var(--student-progress-visible-top-stack-height);
+    padding-bottom: 10px;
+  }
+
+  #progress-subjects-screen.student-theme.active {
+    display: grid;
+    grid-template-rows: minmax(0, 1fr);
   }
 
   #progress-subjects-screen.student-theme .student-progress-active-module-header {
@@ -5967,10 +6121,38 @@ body.pdf-viewer-open.has-user-band .pdf-viewer-header {
     transform: translateX(-50%);
   }
 
-  #progress-subjects-screen.student-theme .student-progress-swipe-track,
+  #progress-subjects-screen.student-theme .student-progress-swipe-shell {
+    height: 100%;
+    min-height: 0;
+    display: grid;
+    grid-template-rows: minmax(0, 1fr);
+    overflow: hidden;
+  }
+
+  #progress-subjects-screen.student-theme .student-progress-swipe-track {
+    height: 100%;
+    min-height: 0;
+    align-items: stretch;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
   #progress-subjects-screen.student-theme .student-progress-module-panel {
-    align-items: flex-start;
-    align-content: start;
+    height: 100%;
+    min-height: 0;
+    display: grid;
+    grid-template-rows: minmax(0, 1fr);
+    align-content: stretch;
+    overflow: hidden;
+  }
+
+  #progress-subjects-screen.student-theme .student-progress-module-task-card {
+    height: 100%;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
   }
 }
 
@@ -5984,6 +6166,9 @@ body.pdf-viewer-open.has-user-band .pdf-viewer-header {
       var(--home-sticky-action-height) +
       var(--home-top-stack-extra-gap)
     );
+    align-self: flex-start;
+    min-height: 0;
+    overflow: hidden;
     padding-top: var(--home-visible-top-stack-height);
   }
 
@@ -6008,24 +6193,41 @@ body.pdf-viewer-open.has-user-band .pdf-viewer-header {
   }
 
   #attendance-screen.screen {
-    padding-top: calc(var(--swipe-dot-band-gap) + var(--swipe-dot-bar-height) + 14px);
+    padding-top: calc(var(--swipe-dot-band-gap) + var(--swipe-dot-bar-height) + 12px);
   }
 
   #attendance-screen .attendance-sticky-control-pane {
-    position: sticky;
-    top: calc(
-      var(--user-band-height) +
-      var(--user-band-safe-area-top) +
-      var(--top-nav-height) +
-      var(--swipe-dot-band-gap) +
-      var(--swipe-dot-bar-height) +
-      var(--attendance-control-sticky-gap)
-    );
-    z-index: 94;
+    position: relative;
+    top: auto;
+    z-index: 3;
+    margin: 0 0 10px;
+  }
+
+  #attendance-register-content,
+  #attendance-report-content,
+  #attendance-stats-content {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  #attendance-screen .attendance-panel-scroll-body {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
   }
 }
 
 @media (min-width: 1180px) {
+  body.is-home-section,
+  body.is-attendance-section,
+  body.is-student-progress-section {
+    overflow-y: auto;
+    overscroll-behavior-y: auto;
+  }
+
   #student-home .home-sticky-action-bar,
   #admin-home .home-sticky-action-bar {
     position: sticky;
@@ -6040,4 +6242,3 @@ body.pdf-viewer-open.has-user-band .pdf-viewer-header {
     top: auto;
   }
 }
-
