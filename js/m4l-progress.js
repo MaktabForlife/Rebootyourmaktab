@@ -1,4 +1,4 @@
-/* M4L v73.5.3 - Admin Progress review fixes + Individual selected-student exit + V73.4 baseline
+/* M4L v75.6 - Combined Admin/Student Progress revision: Admin Progress review updates + Student Progress admin-style rebuild
    Load after /app.js, /js/m4l-auth.js, /js/m4l-shell.js, /js/m4l-timetable.js, and /js/m4l-resources.js.
    This is a classic script, not type=module, so existing global function calls remain safe
    while the app is split gradually.
@@ -14,6 +14,8 @@ let currentStudentSubjectKey = "";
 
 let progressUiGlobalHandlersBound = false;
 const M4L_PROGRESS_TICK = "\u2713";
+let studentProgressAutoSaveTimer = 0;
+let studentProgressAutoSaveInFlight = null;
 
 function bindProgressUiHandlers(containerOrId) {
   // Progress actions use one delegated handler so dynamically-rendered
@@ -249,7 +251,7 @@ function handleProgressUiClick(event) {
 
 
 
-async function showStudentTasks() {
+async function showStudentTasks(options = {}) {
   setProgressScreensForStudent();
   setManualRefreshButton("progress-subjects-screen", "refreshStudentTaskProgress(this)");
 
@@ -282,7 +284,8 @@ async function showStudentTasks() {
 
     const normalizedTasks = result.tasks.map(normalizeStudentTask);
     studentSubjectTaskGroups = buildStudentSubjectTaskGroups(normalizedTasks);
-    renderStudentSubjectProgress();
+    renderStudentSubjectProgress(options);
+
   } catch (err) {
     console.error("Could not load student tasks:", err);
     setDomHtml("progress-subjects-list", `<p class="error-message">${escapeHtml(err.message || "Failed to load tasks")}</p>`);
@@ -319,6 +322,8 @@ function setProgressScreensForStudent() {
 
 
 function ensureStudentProgressSaveButton() {
+  // Legacy Student Progress save-button cleanup retained for compatibility.
+  // V75.6 removes the visible Student Progress Save button and auto-saves changes.
   // V70 renders the student Progress Save button inside the frozen module header.
   // Remove any legacy save button that may have been injected into the old nav-header.
   document.querySelectorAll("#progress-subjects-screen .nav-header .student-progress-save-btn").forEach(button => button.remove());
@@ -662,12 +667,16 @@ function getStudentModuleProgressSummary(module) {
   const tasks = module && Array.isArray(module.tasks) ? module.tasks : [];
   const total = tasks.length;
   const completed = tasks.filter(task => isStatusOn(task.completestatus)).length;
+  const verified = tasks.filter(task => isStatusOn(task.verifystatus)).length;
   const percentComplete = total === 0 ? 0 : Math.round((completed / total) * 100);
+  const percentVerified = total === 0 ? 0 : Math.round((verified / total) * 100);
 
   return {
     total,
     completed,
-    percentComplete: Math.max(0, Math.min(100, percentComplete))
+    verified,
+    percentComplete: Math.max(0, Math.min(100, percentComplete)),
+    percentVerified: Math.max(0, Math.min(100, percentVerified))
   };
 }
 
@@ -683,6 +692,8 @@ function getStudentProgressModuleByKey(modules, moduleKey) {
 }
 
 function renderStudentProgressHeaderBar(percentComplete, options = {}) {
+  // Legacy single-bar renderer retained for older calls. V75.6 uses
+  // renderStudentProgressModuleBars() for the active module header.
   const width = Math.max(0, Math.min(100, Number(percentComplete) || 0));
   const moduleKey = options.moduleKey !== undefined
     ? ` data-progress-module-fill="${escapeForAttribute(options.moduleKey)}"`
@@ -706,17 +717,47 @@ function renderStudentProgressHeaderBar(percentComplete, options = {}) {
   `;
 }
 
+function renderStudentProgressModuleBars(module) {
+  const summary = getStudentModuleProgressSummary(module);
+
+  return `
+    <div class="admin-progress-module-bars student-progress-active-module-bars" aria-label="Module progress">
+      <span class="admin-progress-module-bar-row">
+        ${renderAdminProgressBarOrTick(summary.percentComplete, "complete", "Module complete progress")}
+      </span>
+      <span class="admin-progress-module-bar-row">
+        ${renderAdminProgressBarOrTick(summary.percentVerified, "verify", "Module verify progress")}
+      </span>
+    </div>
+  `;
+}
+
+function renderStudentProgressActiveModuleHeaderContent(module) {
+  if (!module) return "";
+
+  const title = module.subjectname || module.modulename || "Progress";
+
+  return `
+    <div class="admin-progress-module-title-block student-progress-active-module-title-block">
+      <h3>${escapeHtml(title)}</h3>
+    </div>
+    ${renderStudentProgressModuleBars(module)}
+  `;
+}
+
+function renderStudentProgressActiveModuleHeader(modules, activeModuleKey) {
+  const module = getStudentProgressModuleByKey(modules, activeModuleKey);
+
+  return `
+    <div class="student-progress-active-module-header admin-progress-module-heading" data-student-progress-active-module-header>
+      ${renderStudentProgressActiveModuleHeaderContent(module)}
+    </div>
+  `;
+}
+
 function renderStudentProgressGlobalActions(modules, activeModuleKey) {
   return `
     <div class="student-progress-global-actions" data-progress-global-actions>
-      <div class="student-progress-global-save-row">
-        <button
-          type="button"
-          class="student-progress-save-btn"
-          data-progress-action="save-student-progress"
-          aria-label="Save all student progress changes"
-        >Save</button>
-      </div>
       ${renderStudentProgressSwipeDots(modules, activeModuleKey)}
     </div>
   `;
@@ -731,22 +772,19 @@ function renderStudentProgressFrozenHeader(modules, activeModuleKey) {
 
 function updateStudentProgressModuleIndicators(moduleKey) {
   const modules = getStudentProgressModules();
-  const targetModules = moduleKey
-    ? modules.filter(module => String(module.subjectid || "") === String(moduleKey || ""))
-    : modules;
+  const activeModuleKey = String(
+    moduleKey ||
+    getStudentProgressSwipeActiveModuleKey() ||
+    currentStudentSubjectKey ||
+    (modules[0] && modules[0].subjectid) ||
+    ""
+  );
+  const activeModule = getStudentProgressModuleByKey(modules, activeModuleKey);
+  const header = document.querySelector("#progress-subjects-screen [data-student-progress-active-module-header]");
 
-  targetModules.forEach(module => {
-    const key = String(module.subjectid || "");
-    const summary = getStudentModuleProgressSummary(module);
-
-    document
-      .querySelectorAll("#progress-subjects-screen [data-progress-module-fill]")
-      .forEach(fill => {
-        if (String(fill.dataset.progressModuleFill || "") === key) {
-          fill.style.width = `${summary.percentComplete}%`;
-        }
-      });
-  });
+  if (header && activeModule) {
+    header.innerHTML = renderStudentProgressActiveModuleHeaderContent(activeModule);
+  }
 
   return true;
 }
@@ -771,7 +809,7 @@ function updateStudentProgressFrozenHeader() {
 
   currentStudentSubjectKey = String(activeModule.subjectid || activeModuleKey || currentStudentSubjectKey || "");
   setDomText("progress-subjects-title", activeModule.subjectname || "Progress");
-  updateStudentProgressModuleIndicators();
+  updateStudentProgressModuleIndicators(currentStudentSubjectKey);
 
   return true;
 }
@@ -814,6 +852,7 @@ function renderStudentProgressSwipeDots(modules, activeModuleKey) {
 }
 
 function renderStudentProgressTaskTableHeader() {
+  // Legacy V70 heading renderer retained for older task-list screens.
   return `
     <div class="student-progress-task-row student-progress-task-heading-row" role="row">
       <div class="student-progress-task-cell student-progress-task-name-heading" role="columnheader" aria-label="Task"></div>
@@ -832,69 +871,53 @@ function renderStudentProgressTaskTableRow(task) {
 
   const isComplete = isStatusOn(completeStatus);
   const isVerified = isStatusOn(task.verifystatus);
-
-  let fullAudioPlayerHtml = "";
-  if (task.audiolink) {
-    fullAudioPlayerHtml = `
-      <div class="student-progress-task-media-block">
-        <audio class="resource-audio-control" controls controlsList="nodownload" preload="none">
-          <source src="${escapeForAttribute(task.audiolink)}" />
-          Your browser cannot play this audio file.
-        </audio>
-      </div>
-    `;
-  }
+  const taskName = task.taskname || "Untitled Task";
 
   return `
-    <div class="student-progress-task-row" role="row">
-      <div class="student-progress-task-cell student-progress-task-name" role="cell">
-        <div>${escapeHtml(task.taskname)}</div>
-        ${fullAudioPlayerHtml}
-        ${renderStudentTaskLinkButtons(task)}
-      </div>
+    <div class="admin-progress-individual-task-row student-progress-admin-style-task-row" role="row">
+      <div class="admin-progress-individual-task-name student-progress-admin-style-task-name" role="cell">${escapeHtml(taskName)}</div>
 
-      <div class="student-progress-task-cell student-progress-status-cell" role="cell">
-        <button
-          type="button"
-          class="student-progress-status-control student-progress-status-control--complete${isComplete ? " is-on" : ""}"
-          data-progress-action="toggle-student-subject-task"
-          data-studenttaskid="${escapeForAttribute(task.studenttaskid)}"
-          data-complete="${isComplete ? "false" : "true"}"
-          aria-label="${isComplete ? "Mark incomplete" : "Mark complete"}: ${escapeForAttribute(task.taskname)}"
-        >
-          ${renderTaskStatusIndicator("complete", isComplete)}
-        </button>
-      </div>
+      <button
+        type="button"
+        class="admin-progress-status-control admin-progress-complete-control student-progress-complete-control${isComplete ? " is-on" : ""}"
+        data-progress-action="toggle-student-subject-task"
+        data-studenttaskid="${escapeForAttribute(task.studenttaskid)}"
+        data-complete="${isComplete ? "false" : "true"}"
+        aria-label="${isComplete ? "Mark incomplete" : "Mark complete"}: ${escapeForAttribute(taskName)}"
+      >
+        ${renderTaskStatusIndicator("complete", isComplete)}
+      </button>
 
-      <div class="student-progress-task-cell student-progress-status-cell" role="cell">
-        <span class="student-progress-status-control student-progress-status-control--verify${isVerified ? " is-on" : ""}" aria-label="${isVerified ? "Verified by Muallimah" : "To be verified by Muallimah"}">
-          ${renderTaskStatusIndicator("verify", isVerified, { muted: true })}
-        </span>
-      </div>
+      <span
+        class="admin-progress-status-control admin-progress-verify-control student-progress-verify-control is-view-only${isVerified ? " is-on" : ""}"
+        aria-disabled="true"
+        aria-label="${isVerified ? "Verified by Muallimah" : "To be verified by Muallimah"}"
+      >
+        ${renderTaskStatusIndicator("verify", isVerified, { muted: !isVerified })}
+      </span>
     </div>
   `;
 }
 
 function renderStudentProgressTaskTable(module) {
+  const title = module.subjectname || module.modulename || "Module";
   const taskRowsHtml = [...module.tasks]
     .sort(sortByModuleThenTask)
     .map(task => renderStudentProgressTaskTableRow(task))
     .join("");
 
   return `
-    <div class="student-progress-task-scroll" data-progress-task-scroll>
-      <div class="student-progress-task-table" role="table" aria-label="${escapeForAttribute(module.subjectname || "Module")} progress tasks">
-        ${renderStudentProgressTaskTableHeader()}
+    <section class="admin-progress-task-card admin-progress-individual-module-card student-progress-module-task-card" aria-label="${escapeForAttribute(title)} progress tasks">
+      <div class="admin-progress-individual-task-list student-progress-admin-style-task-list" role="table" aria-label="${escapeForAttribute(title)} progress tasks">
         ${taskRowsHtml}
       </div>
-    </div>
+    </section>
   `;
 }
 
 function renderStudentProgressModulePanel(module, index, moduleCount) {
   const moduleKey = String(module.subjectid || "");
   const title = module.subjectname || `Module ${index + 1}`;
-  const summary = getStudentModuleProgressSummary(module);
 
   return `
     <section
@@ -904,10 +927,6 @@ function renderStudentProgressModulePanel(module, index, moduleCount) {
       data-progress-module-key="${escapeForAttribute(moduleKey)}"
       aria-label="${escapeForAttribute(title)}"
     >
-      <div class="student-progress-module-header">
-        <h2 class="student-progress-module-title">${escapeHtml(title)}</h2>
-        ${renderStudentProgressHeaderBar(summary.percentComplete, { moduleKey })}
-      </div>
       ${renderStudentProgressTaskTable(module)}
     </section>
   `;
@@ -942,6 +961,7 @@ function renderStudentSubjectProgress(options = {}) {
   setDomHtml(container, `
     <div class="student-progress-swipe-shell" data-progress-swipe="progress-subjects-screen">
       ${renderStudentProgressGlobalActions(modules, preferredModuleKey)}
+      ${renderStudentProgressActiveModuleHeader(modules, preferredModuleKey)}
       <div
         id="student-progress-swipe-track"
         class="student-progress-swipe-track"
@@ -1285,6 +1305,48 @@ function updateStudentProgressStatusControls(studenttaskid, complete) {
   return didUpdate;
 }
 
+async function flushStudentProgressAutoSave() {
+  if (studentProgressAutoSaveTimer) {
+    window.clearTimeout(studentProgressAutoSaveTimer);
+    studentProgressAutoSaveTimer = 0;
+  }
+
+  if (!hasProgressPendingUpdates()) {
+    return true;
+  }
+
+  if (studentProgressAutoSaveInFlight) {
+    return studentProgressAutoSaveInFlight;
+  }
+
+  studentProgressAutoSaveInFlight = saveProgressPendingChanges({ reload: false, alert: false })
+    .catch(err => {
+      console.error("Could not auto-save student progress:", err);
+      return false;
+    })
+    .finally(() => {
+      studentProgressAutoSaveInFlight = null;
+    });
+
+  return studentProgressAutoSaveInFlight;
+}
+
+function scheduleStudentProgressAutoSave(delay = 650) {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  if (studentProgressAutoSaveTimer) {
+    window.clearTimeout(studentProgressAutoSaveTimer);
+  }
+
+  studentProgressAutoSaveTimer = window.setTimeout(() => {
+    flushStudentProgressAutoSave();
+  }, delay);
+
+  return true;
+}
+
 function toggleStudentSubjectTask(studenttaskid, complete) {
   if (!studenttaskid) return;
 
@@ -1306,12 +1368,14 @@ function toggleStudentSubjectTask(studenttaskid, complete) {
 
   if (getStudentProgressSwipeTrack()) {
     updateStudentProgressStatusControls(studenttaskid, complete);
-    updateStudentProgressModuleIndicators();
+    updateStudentProgressModuleIndicators(currentStudentSubjectKey);
     updateStudentProgressTaskScrollState();
+    scheduleStudentProgressAutoSave();
     return;
   }
 
   renderStudentSubjectTaskList();
+  scheduleStudentProgressAutoSave();
 }
 
 
@@ -1425,7 +1489,7 @@ let adminProgressPopoutRows = [];
 let adminProgressActiveView = "all";
 let adminProgressSelectedGroup = "ALL";
 
-const ADMIN_PROGRESS_DASHBOARD_CACHE_KEY = "m4l_admin_progress_dashboard_v73_5_3";
+const ADMIN_PROGRESS_DASHBOARD_CACHE_KEY = "m4l_admin_progress_dashboard_v75_6";
 let adminProgressLeaveGuardBound = false;
 
 function hasProgressPendingUpdates() {
@@ -1503,7 +1567,7 @@ function clearAdminProgressDashboardCache() {
 }
 
 function bindAdminProgressSwipeUpClose(element, closeHandler) {
-  // V73.5.3: Progress screens close only through their visible X buttons.
+  // V75.6: Progress screens close only through their visible X buttons.
   // Do not attach swipe-up-to-close to headers, panels, backdrops, or scrollable lists.
   return false;
 }
@@ -2874,10 +2938,19 @@ function renderAdminIndividualModuleTaskRow(row) {
 function renderAdminIndividualSelectedModuleCard(module) {
   const moduleName = module.modulename || "Module";
   const rows = Array.isArray(module.rows) ? module.rows.sort(sortByModuleThenTask) : [];
+  const summary = getAdminProgressSummaryFromRows(rows);
 
   return `
     <section class="admin-progress-task-card admin-progress-individual-module-card" aria-label="${escapeForAttribute(moduleName)} tasks">
-      <div class="admin-progress-individual-module-title">${escapeHtml(moduleName)}</div>
+      <div class="admin-progress-module-heading admin-progress-individual-module-heading">
+        <div class="admin-progress-module-title-block">
+          <h3 class="admin-progress-individual-module-title">${escapeHtml(moduleName)}</h3>
+        </div>
+        ${renderAdminProgressModuleBars({
+          moduleCompletedPercent: summary.completedPercent,
+          moduleVerifiedPercent: summary.verifiedPercent
+        })}
+      </div>
       <div class="admin-progress-individual-task-list" role="table" aria-label="${escapeForAttribute(moduleName)} task progress">
         ${rows.map(renderAdminIndividualModuleTaskRow).join("")}
       </div>
@@ -4857,22 +4930,26 @@ async function runManualRefresh(button, callback) {
 }
 
 async function refreshStudentTaskProgress(button) {
-  if (!confirmRefreshIfUnsaved()) return;
+  const previousModuleKey = getStudentProgressSwipeActiveModuleKey() || currentStudentSubjectKey;
 
   await runManualRefresh(button, async () => {
-    progressPendingUpdates = {};
-    await showStudentTasks();
+    await flushStudentProgressAutoSave();
+    await showStudentTasks({
+      moduleKey: previousModuleKey,
+      scrollBehavior: "auto"
+    });
   });
 }
 
 async function refreshStudentModuleTaskList(button) {
-  if (!confirmRefreshIfUnsaved()) return;
-
   const previousModuleKey = currentStudentSubjectKey;
 
   await runManualRefresh(button, async () => {
-    progressPendingUpdates = {};
-    await showStudentTasks();
+    await flushStudentProgressAutoSave();
+    await showStudentTasks({
+      moduleKey: previousModuleKey,
+      scrollBehavior: "auto"
+    });
 
     if (previousModuleKey && studentSubjectTaskGroups && studentSubjectTaskGroups[previousModuleKey]) {
       openStudentSubjectTasks(previousModuleKey);
