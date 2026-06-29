@@ -1,4 +1,4 @@
-/* M4L v77.5a - reverse colours Admin Progress compact sticky matrix header + light shading + V76.7.4 bounded top-stack baseline. */
+/* M4L v77.5b - Admin Progress matrix header-chip + module body column alternation + V76.7.4 bounded top-stack baseline. */
 :root {
   /* ==========================================
      BRAND PALETTE (Sage & Lavender)
@@ -6251,8 +6251,8 @@ body.pdf-viewer-open.has-user-band .pdf-viewer-header {
    - Module header is compact and shows colour-coded percentages instead of bars.
    - Task headers are shorter and bottom-justified.
    - One live state per cell: blank, complete, or verified.
-   - Module shading and student-name group shading use the same light combo:
-     surface-app and surface-app mixed with disabled.
+   - Row/column headers use surface-chip.
+   - Matrix body columns alternate by module between surface-card and surface-app.
 */
 .admin-progress-class-overview {
   --admin-progress-class-module-header-height: 40px;
@@ -6260,8 +6260,9 @@ body.pdf-viewer-open.has-user-band .pdf-viewer-header {
   --admin-progress-class-student-col-width: 122px;
   --admin-progress-class-task-col-width: 50px;
   --admin-progress-class-row-height: 40px;
-  --admin-progress-class-grid-shade-app: var(--surface-app);
-  --admin-progress-class-grid-shade-disabled:var(--surface-card);
+  --admin-progress-class-grid-body-card: var(--surface-card);
+  --admin-progress-class-grid-body-app: var(--surface-app);
+  --admin-progress-class-grid-header-surface: var(--surface-chip);
   width: 100%;
   max-width: 100%;
   min-width: 0;
@@ -6312,14 +6313,17 @@ body.pdf-viewer-open.has-user-band .pdf-viewer-header {
   min-width: var(--admin-progress-class-task-col-width);
 }
 
-.admin-progress-class-grid-module-theme--app,
-.admin-progress-class-grid-name-theme--app {
-  --admin-progress-class-grid-current-shade: var(--surface-app);
+.admin-progress-class-grid-module-theme--app {
+  --admin-progress-class-grid-body-surface: var(--admin-progress-class-grid-body-card);
 }
 
-.admin-progress-class-grid-module-theme--disabled,
+.admin-progress-class-grid-module-theme--disabled {
+  --admin-progress-class-grid-body-surface: var(--admin-progress-class-grid-body-app);
+}
+
+.admin-progress-class-grid-name-theme--app,
 .admin-progress-class-grid-name-theme--disabled {
-  --admin-progress-class-grid-current-shade: var(---surface-card);
+  --admin-progress-class-grid-name-surface: var(--admin-progress-class-grid-header-surface);
 }
 
 .admin-progress-class-grid th,
@@ -6331,7 +6335,7 @@ body.pdf-viewer-open.has-user-band .pdf-viewer-header {
 
 .admin-progress-class-grid th {
   position: sticky;
-  background: var(--surface-chip), var(--surface-chip);
+  background: var(--admin-progress-class-grid-header-surface);
   color: var(--text-muted);
   font-size: 0.72rem;
   font-weight: 760;
@@ -6461,13 +6465,22 @@ body.pdf-viewer-open.has-user-band .pdf-viewer-header {
   height: var(--admin-progress-class-row-height);
   padding: 0;
   text-align: center;
-  background: var(--admin-progress-class-grid-current-shade, var(--surface-app));
+  background: var(--admin-progress-class-grid-body-surface, var(--admin-progress-class-grid-body-card));
+  background-clip: padding-box;
+}
+
+.admin-progress-class-grid-corner-top,
+.admin-progress-class-grid-student-header,
+.admin-progress-class-grid-module-header,
+.admin-progress-class-grid-task-header,
+.admin-progress-class-grid-student-cell {
+  background: var(--admin-progress-class-grid-header-surface);
+  background-clip: padding-box;
 }
 
 .admin-progress-class-grid-student-cell {
   position: sticky;
   z-index: 5;
-  background: var(--admin-progress-class-grid-current-shade, var(--surface-app));
 }
 
 .admin-progress-class-grid-student-button {
@@ -6677,4 +6690,3 @@ body.pdf-viewer-open.has-user-band .pdf-viewer-header {
     font-size: 0.9rem;
   }
 }
-
