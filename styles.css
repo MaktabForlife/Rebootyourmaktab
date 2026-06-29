@@ -1,4 +1,4 @@
-/* M4L v77.3 - Admin Progress matrix alternating module shading + V76.7.4 bounded top-stack baseline. */
+/* M4L v77.4 - Admin Progress compact sticky matrix header + light shading + V76.7.4 bounded top-stack baseline. */
 :root {
   /* ==========================================
      BRAND PALETTE (Sage & Lavender)
@@ -6243,28 +6243,41 @@ body.pdf-viewer-open.has-user-band .pdf-viewer-header {
   }
 }
 
+/* Admin Progress All task matrix grid - V77.4
+   Compact two-row frozen matrix header with lighter module/name shading.
 
-/* Admin Progress All task matrix grid - V77.1
-   All view now displays every task under its module. Module headers show
-   progress bars; task headers use vertical text; student rows show only ticks
-   for completed/verified tasks. Group and Individual keep existing layouts. */
+   Changes:
+   - A1 and A2 are separate sticky cells so columns/rows scroll underneath.
+   - Module header is compact and shows colour-coded percentages instead of bars.
+   - Task headers are shorter and bottom-justified.
+   - One live state per cell: blank, complete, or verified.
+   - Module shading and student-name group shading use the same light combo:
+     surface-app and surface-app mixed with disabled.
+*/
 .admin-progress-class-overview {
-  --admin-progress-class-module-header-height: 74px;
-  --admin-progress-class-task-header-height: 132px;
-  --admin-progress-class-student-col-width: 142px;
-  --admin-progress-class-task-col-width: 54px;
+  --admin-progress-class-module-header-height: 40px;
+  --admin-progress-class-task-header-height: 94px;
+  --admin-progress-class-student-col-width: 122px;
+  --admin-progress-class-task-col-width: 50px;
+  --admin-progress-class-row-height: 40px;
+  --admin-progress-class-grid-shade-app: var(--surface-app);
+  --admin-progress-class-grid-shade-disabled: color-mix(in srgb, var(--surface-app) 78%, var(--disabled) 22%);
   width: 100%;
   max-width: 100%;
   min-width: 0;
   display: grid;
-  gap: 12px;
+  gap: 10px;
   align-content: start;
 }
 
-.admin-progress-class-grid-card {
+.admin-progress-class-grid-card,
+.admin-progress-class-grid-scroll {
   width: 100%;
   max-width: 100%;
   min-width: 0;
+}
+
+.admin-progress-class-grid-card {
   min-height: 0;
   border: 1px solid rgba(var(--primary-rgb), 0.14);
   border-radius: 20px;
@@ -6274,10 +6287,7 @@ body.pdf-viewer-open.has-user-band .pdf-viewer-header {
 }
 
 .admin-progress-class-grid-scroll {
-  width: 100%;
-  max-width: 100%;
-  min-width: 0;
-  max-height: calc(100dvh - var(--user-band-height) - var(--user-band-safe-area-top) - var(--bottom-nav-height) - var(--bottom-nav-safe-area) - 118px);
+  max-height: calc(100dvh - var(--user-band-height) - var(--user-band-safe-area-top) - var(--bottom-nav-height) - var(--bottom-nav-safe-area) - 110px);
   overflow: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
@@ -6285,7 +6295,7 @@ body.pdf-viewer-open.has-user-band .pdf-viewer-header {
 
 .admin-progress-class-grid {
   width: max-content;
-  min-width: 100%;
+  min-width: max-content;
   border-collapse: separate;
   border-spacing: 0;
   color: var(--text-muted);
@@ -6302,31 +6312,112 @@ body.pdf-viewer-open.has-user-band .pdf-viewer-header {
   min-width: var(--admin-progress-class-task-col-width);
 }
 
+.admin-progress-class-grid-module-theme--app,
+.admin-progress-class-grid-name-theme--app {
+  --admin-progress-class-grid-current-shade: var(--admin-progress-class-grid-shade-app);
+}
+
+.admin-progress-class-grid-module-theme--disabled,
+.admin-progress-class-grid-name-theme--disabled {
+  --admin-progress-class-grid-current-shade: var(--admin-progress-class-grid-shade-disabled);
+}
+
 .admin-progress-class-grid th,
 .admin-progress-class-grid td {
-  border-bottom: 1px solid rgba(var(--primary-rgb), 0.13);
-  border-right: 1px solid rgba(var(--primary-rgb), 0.10);
-  background: var(--surface-card);
+  border-bottom: 1px solid rgba(var(--primary-rgb), 0.12);
+  border-right: 1px solid rgba(var(--primary-rgb), 0.09);
   vertical-align: middle;
 }
 
 .admin-progress-class-grid th {
   position: sticky;
-  z-index: 4;
-  background: color-mix(in srgb, var(--surface-chip) 72%, var(--surface-card));
+  background: var(--admin-progress-class-grid-current-shade, var(--surface-app));
   color: var(--text-muted);
-  font-size: 0.74rem;
-  font-weight: 850;
-  line-height: 1.12;
+  font-size: 0.72rem;
+  font-weight: 760;
+  line-height: 1.06;
   text-align: center;
+}
+
+.admin-progress-class-grid-corner-top,
+.admin-progress-class-grid-student-header,
+.admin-progress-class-grid-student-cell {
+  left: 0;
+  width: var(--admin-progress-class-student-col-width);
+  min-width: var(--admin-progress-class-student-col-width);
+  max-width: var(--admin-progress-class-student-col-width);
+  border-right: 2px solid rgba(var(--primary-rgb), 0.16);
+}
+
+.admin-progress-class-grid-corner-top {
+  top: 0;
+  height: var(--admin-progress-class-module-header-height);
+  min-height: var(--admin-progress-class-module-header-height);
+  padding: 0;
+  z-index: 14;
+}
+
+.admin-progress-class-grid-student-header {
+  top: var(--admin-progress-class-module-header-height);
+  height: var(--admin-progress-class-task-header-height);
+  min-height: var(--admin-progress-class-task-header-height);
+  padding: 7px 8px 8px;
+  z-index: 13;
+  vertical-align: bottom;
+}
+
+.admin-progress-class-grid-student-header-inner {
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
 }
 
 .admin-progress-class-grid-module-header {
   top: 0;
   height: var(--admin-progress-class-module-header-height);
   min-height: var(--admin-progress-class-module-header-height);
-  padding: 8px 8px 7px;
-  z-index: 5;
+  padding: 4px 7px;
+  z-index: 8;
+}
+
+.admin-progress-class-grid-module-headline {
+  height: 100%;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.admin-progress-class-grid-module-title {
+  min-width: 0;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1.04;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.admin-progress-class-grid-module-percentages {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  font-size: 0.68rem;
+  font-weight: 850;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.admin-progress-class-grid-module-percent--complete {
+  color: var(--complete);
+}
+
+.admin-progress-class-grid-module-percent--verified {
+  color: var(--verified);
 }
 
 .admin-progress-class-grid-task-header {
@@ -6335,51 +6426,60 @@ body.pdf-viewer-open.has-user-band .pdf-viewer-header {
   min-width: var(--admin-progress-class-task-col-width);
   height: var(--admin-progress-class-task-header-height);
   min-height: var(--admin-progress-class-task-header-height);
-  padding: 8px 4px;
+  padding: 3px 3px 6px;
   vertical-align: bottom;
-  z-index: 5;
+  z-index: 7;
+}
+
+.admin-progress-class-grid-task-title-wrap {
+  width: 100%;
+  height: calc(var(--admin-progress-class-task-header-height) - 9px);
+  min-height: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.admin-progress-class-grid-task-title {
+  display: inline-block;
+  max-height: calc(var(--admin-progress-class-task-header-height) - 12px);
+  color: var(--text-muted);
+  font-size: 0.62rem;
+  font-weight: 760;
+  line-height: 0.98;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  transform-origin: center;
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .admin-progress-class-grid td {
   width: var(--admin-progress-class-task-col-width);
   min-width: var(--admin-progress-class-task-col-width);
-  height: 44px;
-  padding: 4px;
+  height: var(--admin-progress-class-row-height);
+  padding: 0;
+  text-align: center;
+  background: var(--admin-progress-class-grid-current-shade, var(--surface-app));
 }
 
-.admin-progress-class-grid-student-header,
 .admin-progress-class-grid-student-cell {
   position: sticky;
-  left: 0;
-  min-width: var(--admin-progress-class-student-col-width);
-  width: var(--admin-progress-class-student-col-width);
-  max-width: var(--admin-progress-class-student-col-width);
-  border-right: 2px solid rgba(var(--primary-rgb), 0.18);
-  text-align: left;
-}
-
-.admin-progress-class-grid-student-header {
-  top: 0;
-  z-index: 8;
-  height: calc(var(--admin-progress-class-module-header-height) + var(--admin-progress-class-task-header-height));
-  padding: 8px;
-}
-
-.admin-progress-class-grid-student-cell {
-  z-index: 3;
-  background: color-mix(in srgb, var(--surface-soft) 64%, var(--surface-card));
+  z-index: 5;
+  background: var(--admin-progress-class-grid-current-shade, var(--surface-app));
 }
 
 .admin-progress-class-grid-student-button {
   width: 100%;
-  min-height: 36px;
-  padding: 6px 8px;
+  min-height: var(--admin-progress-class-row-height);
+  padding: 5px 7px;
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  gap: 6px;
+  gap: 5px;
   border: 0;
-  border-radius: 12px;
+  border-radius: 0;
   background: transparent;
   color: var(--text-muted);
   box-shadow: none;
@@ -6389,10 +6489,10 @@ body.pdf-viewer-open.has-user-band .pdf-viewer-header {
 
 .admin-progress-class-grid-student-prefix {
   flex: 0 0 auto;
-  min-width: 1.35em;
+  min-width: 1.18em;
   color: var(--text-subtle);
-  font-size: 0.78rem;
-  font-weight: 850;
+  font-size: 0.74rem;
+  font-weight: 680;
   line-height: 1;
   text-align: center;
 }
@@ -6400,242 +6500,15 @@ body.pdf-viewer-open.has-user-band .pdf-viewer-header {
 .admin-progress-class-grid-student-name {
   min-width: 0;
   color: var(--text-muted);
-  font-size: 0.86rem;
-  font-weight: 800;
-  line-height: 1.12;
-  overflow-wrap: anywhere;
-}
-
-.admin-progress-class-grid-module-title {
-  display: block;
-  max-width: 100%;
-  margin: 0 auto 6px;
-  color: var(--text-muted);
-  font-size: 0.75rem;
-  font-weight: 850;
+  font-size: 0.8rem;
+  font-weight: 400;
   line-height: 1.08;
   overflow-wrap: anywhere;
 }
 
-.admin-progress-class-grid-module-header .admin-progress-module-bars {
-  width: min(100%, 120px);
-  margin-inline: auto;
-  gap: 5px;
-}
-
-.admin-progress-class-grid-module-header .admin-progress-module-bar-row {
-  min-width: 0;
-}
-
-.admin-progress-class-grid-module-header .admin-progress-card-track {
-  height: 7px;
-}
-
-.admin-progress-class-grid-module-header .admin-progress-card-tick {
-  min-height: 11px;
-  font-size: 0.74rem;
-}
-
-.admin-progress-class-grid-task-title {
-  display: inline-block;
-  max-height: calc(var(--admin-progress-class-task-header-height) - 14px);
-  color: var(--text-muted);
-  font-size: 0.7rem;
-  font-weight: 800;
-  line-height: 1.05;
-  writing-mode: vertical-rl;
-  transform: rotate(180deg);
-  text-align: left;
-  white-space: normal;
-  overflow-wrap: anywhere;
-}
-
 .admin-progress-class-grid-task-status {
   min-width: 0;
-  min-height: 32px;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  align-items: center;
-  justify-items: center;
-  column-gap: 2px;
-}
-
-.admin-progress-class-grid-status-slot {
-  width: 20px;
-  min-width: 20px;
-  min-height: 24px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.95rem;
-  line-height: 1;
-}
-
-.admin-progress-class-grid-status-slot--complete .status-tick {
-  color: var(--complete);
-}
-
-.admin-progress-class-grid-status-slot--verify .status-tick {
-  color: var(--verified);
-}
-
-.admin-progress-class-grid-caption {
-  padding: 8px 10px 10px;
-  color: var(--text-subtle);
-  font-size: 0.72rem;
-  line-height: 1.25;
-  text-align: center;
-}
-
-@media (min-width: 760px) {
-  .admin-progress-class-grid-scroll {
-    max-height: calc(100dvh - var(--user-band-height) - var(--user-band-safe-area-top) - var(--top-nav-height) - 92px);
-  }
-}
-
-@media (max-width: 767px), (max-device-width: 767px) {
-  .admin-progress-class-overview {
-    --admin-progress-class-module-header-height: 70px;
-    --admin-progress-class-task-header-height: 118px;
-    --admin-progress-class-student-col-width: 118px;
-    --admin-progress-class-task-col-width: 48px;
-  }
-
-  .admin-progress-class-grid-scroll {
-    max-height: calc(100dvh - var(--user-band-height) - var(--user-band-safe-area-top) - var(--bottom-nav-height) - var(--bottom-nav-safe-area) - 116px);
-  }
-
-  .admin-progress-class-grid-student-button {
-    gap: 4px;
-    padding-inline: 5px;
-  }
-
-  .admin-progress-class-grid-student-prefix {
-    min-width: 1.15em;
-    font-size: 0.72rem;
-  }
-
-  .admin-progress-class-grid-student-name {
-    font-size: 0.78rem;
-  }
-
-  .admin-progress-class-grid-task-title {
-    font-size: 0.64rem;
-  }
-
-  .admin-progress-class-grid-status-slot {
-    width: 18px;
-    min-width: 18px;
-    min-height: 22px;
-    font-size: 0.88rem;
-  }
-}
-
-/* M4L v77.3 - Admin Progress task matrix refinements
-   Integrated into the Progress Matrix section and deployed as /styles.css?v=77.3.
-
-   Changes:
-   - Keeps matrix/card full-width on mobile while grid scrolls internally.
-   - Bottom-justifies vertical task names.
-   - Makes student names normal font weight.
-   - Displays one state per cell: blank, complete, or verified.
-   - Adds live editable cell button styling.
-   - Alternates module shading with surface-app and surface-chip.
-*/
-
-.admin-progress-class-grid-card,
-.admin-progress-class-grid-scroll {
-  width: 100%;
-  max-width: 100%;
-  min-width: 0;
-}
-
-.admin-progress-class-grid-scroll {
-  overflow: auto;
-  overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
-}
-
-.admin-progress-class-grid--task-matrix {
-  width: max-content;
-  min-width: max-content;
-}
-
-.admin-progress-class-grid-module-theme--app {
-  --admin-progress-class-grid-module-surface: var(--surface-app);
-}
-
-.admin-progress-class-grid-module-theme--chip {
-  --admin-progress-class-grid-module-surface: var(--surface-chip);
-}
-
-.admin-progress-class-grid-module-header.admin-progress-class-grid-module-theme--app,
-.admin-progress-class-grid-module-header.admin-progress-class-grid-module-theme--chip,
-.admin-progress-class-grid-task-header.admin-progress-class-grid-module-theme--app,
-.admin-progress-class-grid-task-header.admin-progress-class-grid-module-theme--chip,
-.admin-progress-class-grid-task-cell.admin-progress-class-grid-module-theme--app,
-.admin-progress-class-grid-task-cell.admin-progress-class-grid-module-theme--chip {
-  background: var(--admin-progress-class-grid-module-surface);
-}
-
-.admin-progress-class-grid-module-header.admin-progress-class-grid-module-theme--app,
-.admin-progress-class-grid-task-header.admin-progress-class-grid-module-theme--app {
-  box-shadow: inset 0 -1px 0 rgba(var(--primary-rgb), 0.12);
-}
-
-.admin-progress-class-grid-module-header.admin-progress-class-grid-module-theme--chip,
-.admin-progress-class-grid-task-header.admin-progress-class-grid-module-theme--chip {
-  box-shadow: inset 0 -1px 0 rgba(var(--primary-rgb), 0.16);
-}
-
-.admin-progress-class-grid-task-cell.admin-progress-class-grid-module-theme--app,
-.admin-progress-class-grid-task-cell.admin-progress-class-grid-module-theme--chip {
-  background-clip: padding-box;
-}
-
-.admin-progress-class-grid-task-header {
-  vertical-align: bottom;
-  padding: 6px 4px 8px;
-}
-
-.admin-progress-class-grid-task-title-wrap {
-  width: 100%;
-  height: calc(var(--admin-progress-class-task-header-height) - 12px);
-  min-height: 0;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-}
-
-.admin-progress-class-grid-task-title {
-  display: inline-block;
-  max-height: calc(var(--admin-progress-class-task-header-height) - 16px);
-  writing-mode: vertical-rl;
-  transform: rotate(180deg);
-  transform-origin: center;
-  text-align: left;
-  white-space: normal;
-  overflow-wrap: anywhere;
-}
-
-.admin-progress-class-grid-student-name {
-  font-weight: 400;
-  letter-spacing: 0;
-}
-
-.admin-progress-class-grid-student-prefix {
-  font-weight: 650;
-}
-
-.admin-progress-class-grid-task-cell {
-  padding: 0;
-  text-align: center;
-  vertical-align: middle;
-}
-
-.admin-progress-class-grid-task-status {
-  min-width: 0;
-  min-height: 32px;
+  min-height: var(--admin-progress-class-row-height);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -6644,7 +6517,7 @@ body.pdf-viewer-open.has-user-band .pdf-viewer-header {
 .admin-progress-class-grid-status-button {
   width: 100%;
   min-width: 0;
-  min-height: 34px;
+  min-height: var(--admin-progress-class-row-height);
   height: 100%;
   padding: 0;
   border: 0;
@@ -6694,23 +6567,47 @@ body.pdf-viewer-open.has-user-band .pdf-viewer-header {
   line-height: 1;
 }
 
-.admin-progress-class-grid-status-button:focus-visible {
+.admin-progress-class-grid-status-button:focus-visible,
+.admin-progress-class-grid-student-button:focus-visible {
   outline: 2px solid rgba(var(--primary-rgb), 0.38);
   outline-offset: -2px;
 }
 
-.admin-progress-class-grid-status-button:not(:disabled):active {
-  transform: scale(0.94);
+.admin-progress-class-grid-status-button:not(:disabled):active,
+.admin-progress-class-grid-student-button:active {
+  transform: scale(0.96);
+}
+
+.admin-progress-class-grid-caption {
+  padding: 7px 10px 9px;
+  color: var(--text-subtle);
+  font-size: 0.7rem;
+  line-height: 1.2;
+  text-align: center;
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .admin-progress-class-grid-status-button:not(:disabled):hover {
-    background: rgba(var(--primary-rgb), 0.08);
+  .admin-progress-class-grid-status-button:not(:disabled):hover,
+  .admin-progress-class-grid-student-button:hover {
+    background: rgba(var(--primary-rgb), 0.07);
+  }
+}
+
+@media (min-width: 760px) {
+  .admin-progress-class-grid-scroll {
+    max-height: calc(100dvh - var(--user-band-height) - var(--user-band-safe-area-top) - var(--top-nav-height) - 88px);
   }
 }
 
 @media (max-width: 767px), (max-device-width: 767px) {
-  .admin-progress-class-overview,
+  .admin-progress-class-overview {
+    --admin-progress-class-module-header-height: 38px;
+    --admin-progress-class-task-header-height: 86px;
+    --admin-progress-class-student-col-width: 104px;
+    --admin-progress-class-task-col-width: 46px;
+    --admin-progress-class-row-height: 38px;
+  }
+
   .admin-progress-class-grid-card,
   .admin-progress-class-grid-scroll {
     width: 100%;
@@ -6723,33 +6620,61 @@ body.pdf-viewer-open.has-user-band .pdf-viewer-header {
   }
 
   .admin-progress-class-grid-scroll {
-    max-height: calc(
-      100dvh -
-      var(--user-band-height) -
-      var(--user-band-safe-area-top) -
-      var(--bottom-nav-height) -
-      var(--bottom-nav-safe-area) -
-      116px
-    );
+    max-height: calc(100dvh - var(--user-band-height) - var(--user-band-safe-area-top) - var(--bottom-nav-height) - var(--bottom-nav-safe-area) - 108px);
   }
 
-  .admin-progress-class-grid--task-matrix {
-    width: max-content;
-    min-width: max-content;
+  .admin-progress-class-grid-module-header {
+    padding-inline: 5px;
+  }
+
+  .admin-progress-class-grid-module-headline {
+    gap: 5px;
+  }
+
+  .admin-progress-class-grid-module-title {
+    font-size: 0.68rem;
+  }
+
+  .admin-progress-class-grid-module-percentages {
+    gap: 4px;
+    font-size: 0.58rem;
+  }
+
+  .admin-progress-class-grid-student-header {
+    padding: 6px 6px 7px;
   }
 
   .admin-progress-class-grid-task-header {
-    padding-bottom: 7px;
+    padding-bottom: 6px;
   }
 
   .admin-progress-class-grid-task-title-wrap {
-    height: calc(var(--admin-progress-class-task-header-height) - 10px);
+    height: calc(var(--admin-progress-class-task-header-height) - 9px);
+  }
+
+  .admin-progress-class-grid-task-title {
+    font-size: 0.54rem;
+    line-height: 0.96;
+  }
+
+  .admin-progress-class-grid-student-button {
+    gap: 4px;
+    padding-inline: 5px;
+  }
+
+  .admin-progress-class-grid-student-prefix {
+    min-width: 1.05em;
+    font-size: 0.68rem;
   }
 
   .admin-progress-class-grid-student-name {
-    font-weight: 400;
+    font-size: 0.72rem;
+  }
+
+  .admin-progress-class-grid-status-symbol {
+    min-width: 18px;
+    min-height: 22px;
+    font-size: 0.9rem;
   }
 }
 
-
-  
