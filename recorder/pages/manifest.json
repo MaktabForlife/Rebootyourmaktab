@@ -1,0 +1,21 @@
+{
+  "title": "Reader Recorder Pages",
+  "version": "1.0",
+  "pages": [
+    {
+      "pageNo": 1,
+      "title": "Page 1",
+      "src": "./page-001.jpg"
+    },
+    {
+      "pageNo": 2,
+      "title": "Page 2",
+      "src": "./page-002.jpg"
+    },
+    {
+      "pageNo": 3,
+      "title": "Page 3",
+      "src": "./page-003.jpg"
+    }
+  ]
+}
