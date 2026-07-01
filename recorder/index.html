@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Reader Recorder</title>
-  <link rel="stylesheet" href="./recorder.css?v=1.0" />
+  <link rel="stylesheet" href="./recorder.css?v=1.2" />
 </head>
 <body>
   <main class="recorder-shell">
@@ -20,21 +20,22 @@
       <div class="screen-heading-row">
         <div>
           <h2 id="page-select-title">Select page</h2>
-          <p class="screen-hint">Choose one page image, then record your reading.</p>
+          <p class="screen-hint">Choose an image set, select one page, then record your reading.</p>
         </div>
       </div>
 
-      <div class="upload-card">
-        <label for="page-upload" class="upload-label">
-          <span class="upload-title">Add page images</span>
-          <span class="upload-subtitle">JPG, PNG, WebP. You may select one or many.</span>
-        </label>
-        <input id="page-upload" type="file" accept="image/*" multiple />
+      <div class="image-selector-card">
+        <button id="image-selector-btn" class="image-selector-btn" type="button" aria-haspopup="dialog" aria-controls="image-picker-sheet">
+          <span class="image-selector-kicker">Image Selector</span>
+          <span id="image-selector-current" class="image-selector-current">Loading images...</span>
+          <span class="image-selector-chevron" aria-hidden="true">⌄</span>
+        </button>
+        <input id="page-upload" class="visually-hidden" type="file" accept="image/*" multiple />
       </div>
 
       <div id="page-empty-state" class="empty-state">
         <p>No pages loaded yet.</p>
-        <p class="muted">Upload images, or deploy a <code>pages/manifest.json</code> file with your page image list.</p>
+        <p class="muted">Choose an image set, or select your own image.</p>
       </div>
 
       <div id="page-grid" class="page-grid" aria-label="Available reader pages"></div>
@@ -54,13 +55,15 @@
       </div>
 
       <div class="record-controls" aria-label="Recording controls">
-        <div class="timer-block">
-          <span id="timer-label" class="timer-label">Time remaining</span>
-          <output id="countdown-timer" class="countdown-timer" aria-live="polite">02:00</output>
-        </div>
         <div class="control-row">
-          <button id="record-btn" class="primary-action" type="button">Record</button>
-          <button id="stop-btn" class="danger-action hidden" type="button">Stop</button>
+          <button id="record-btn" class="record-icon-action" type="button" aria-label="Start recording">
+            <img class="record-control-icon" src="./record.svg" alt="" aria-hidden="true" />
+            <span class="record-action-label">RECORD</span>
+          </button>
+          <button id="stop-btn" class="record-icon-action hidden" type="button" aria-label="Stop recording">
+            <img class="record-control-icon" src="./stoprecord.svg" alt="" aria-hidden="true" />
+            <span class="record-action-meta">Time remaining <output id="countdown-timer" aria-live="polite">02:00</output></span>
+          </button>
         </div>
         <p id="record-helper" class="record-helper">Microphone permission will be requested when you tap Record.</p>
       </div>
@@ -84,6 +87,18 @@
     </section>
   </main>
 
-  <script src="./recorder.js?v=1.0"></script>
+  <div id="image-picker-sheet" class="picker-sheet hidden" role="dialog" aria-modal="true" aria-labelledby="image-picker-title">
+    <button id="image-picker-backdrop" class="picker-backdrop" type="button" aria-label="Close image selector"></button>
+    <div class="picker-panel">
+      <div class="picker-handle" aria-hidden="true"></div>
+      <div class="picker-header-row">
+        <h2 id="image-picker-title">Image Selector</h2>
+        <button id="image-picker-close" class="picker-close-btn" type="button" aria-label="Close image selector">×</button>
+      </div>
+      <div id="image-picker-options" class="picker-options" role="listbox" aria-label="Image sets"></div>
+    </div>
+  </div>
+
+  <script src="./recorder.js?v=1.2"></script>
 </body>
 </html>
