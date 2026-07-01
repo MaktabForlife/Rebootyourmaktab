@@ -1370,8 +1370,8 @@ body.is-admin-progress-section.has-user-band .app-shell {
   min-width: 0;
   padding-inline: 28px;
   color: var(--text-muted);
-  font-size: clamp(0.98rem, 4.2vw, 1.28rem);
-  font-weight: 500;
+  font-size: clamp(1.22rem, 5.4vw, 1.58rem);
+  font-weight: 850;
   line-height: 1.15;
   text-align: center;
   overflow-wrap: anywhere;
@@ -2708,7 +2708,7 @@ body.is-student-progress-section .app-shell {
   width: 100%;
   min-width: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(86px, 128px);
+  grid-template-columns: minmax(0, 1fr) minmax(104px, 132px);
   align-items: center;
   gap: 10px;
   justify-content: stretch;
@@ -2722,6 +2722,10 @@ body.is-student-progress-section .app-shell {
 
 #progress-subjects-screen.student-theme .student-progress-active-module-title-block {
   min-width: 0;
+  display: grid;
+  grid-template-rows: auto auto;
+  align-content: center;
+  gap: 7px;
 }
 
 #progress-subjects-screen.student-theme .student-progress-active-module-title {
@@ -2730,17 +2734,17 @@ body.is-student-progress-section .app-shell {
   padding-inline: 28px 0;
   color: var(--text-muted);
   font-family: var(--font-heading);
-  font-size: clamp(0.98rem, 4.2vw, 1.28rem);
-  font-weight: 500;
-  line-height: 1.15;
+  font-size: clamp(1.22rem, 5.4vw, 1.58rem);
+  font-weight: 850;
+  line-height: 1.12;
   text-align: center;
   overflow-wrap: anywhere;
 }
 
 #progress-subjects-screen.student-theme .student-progress-active-module-header .admin-progress-module-bars,
 #progress-subjects-screen.student-theme .student-progress-panel-module-header .admin-progress-module-bars {
-  width: min(100%, 128px);
-  justify-self: end;
+  width: min(100%, 188px);
+  justify-self: center;
 }
 
 /* Per-panel module headers are hidden on mobile because the active module header is sticky. */
@@ -2887,7 +2891,7 @@ body.is-student-progress-section .app-shell {
   }
 
   #progress-subjects-screen.student-theme .student-progress-active-module-header {
-    grid-template-columns: minmax(0, 1fr) minmax(72px, 34%);
+    grid-template-columns: minmax(0, 1fr) minmax(104px, 34%);
     gap: 8px;
     padding: 20px 12px 12px;
   }
@@ -2897,8 +2901,8 @@ body.is-student-progress-section .app-shell {
   }
 
   #progress-subjects-screen.student-theme .student-progress-active-module-header .admin-progress-module-bars {
-    width: min(100%, 108px);
-    justify-self: end;
+    width: min(100%, 178px);
+    justify-self: center;
   }
 
   #progress-subjects-screen.student-theme .student-progress-module-task-card {
@@ -6777,8 +6781,8 @@ body.pdf-viewer-open.has-user-band .pdf-viewer-header {
 .student-progress-module-grid-card {
   min-height: 0;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  gap: 8px;
+  grid-template-rows: minmax(0, 1fr);
+  gap: 0;
 }
 
 /* V78.1.1: keep the module card bounded while the task grid scrolls. */
@@ -6795,20 +6799,23 @@ body.pdf-viewer-open.has-user-band .pdf-viewer-header {
 }
 
 .student-progress-module-edit-toggle {
-  width: 46px;
-  min-width: 46px;
-  min-height: 42px;
-  padding: 4px 2px 3px;
+  width: 100%;
+  min-width: 104px;
+  max-width: 132px;
+  min-height: 62px;
+  padding: 7px 8px 6px;
   display: inline-flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 1px;
+  gap: 4px;
+  justify-self: end;
   border: 1px solid rgba(var(--primary-rgb), 0.14);
-  border-radius: 14px;
+  border-radius: 18px;
   background: var(--surface-card);
   color: var(--text-muted);
   box-shadow: none;
+  text-align: center;
 }
 
 .student-progress-module-edit-toggle.is-editing {
@@ -6816,38 +6823,51 @@ body.pdf-viewer-open.has-user-band .pdf-viewer-header {
   color: var(--text-inverse);
 }
 
+.student-progress-module-edit-toggle.is-saving {
+  cursor: wait;
+  opacity: 0.92;
+}
+
+.student-progress-module-edit-toggle.has-save-error {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
 .student-progress-module-edit-label {
   display: block;
+  max-width: 100%;
   color: currentColor;
-  font-size: 0.52rem;
-  font-weight: 820;
+  font-size: 0.62rem;
+  font-weight: 850;
+  line-height: 1.05;
+  text-align: center;
+  white-space: normal;
+}
+
+.student-progress-module-bar-row {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.student-progress-module-bar-label {
+  color: var(--text-subtle);
+  font-size: 0.56rem;
+  font-weight: 850;
   line-height: 1;
+  text-align: right;
+  letter-spacing: 0.02em;
 }
 
 .student-progress-active-module-header .student-progress-active-module-title {
-  font-size: clamp(1.05rem, 4.4vw, 1.25rem);
-  font-weight: 800;
-}
-
-.student-progress-module-panel.is-viewing .student-progress-grid-instruction {
-  display: none;
+  font-size: clamp(1.22rem, 5.4vw, 1.58rem);
+  font-weight: 850;
 }
 
 .student-progress-grid-instruction {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  width: fit-content;
-  max-width: 100%;
-  margin-inline: auto;
-  padding: 5px 9px;
-  border-radius: 999px;
-  background: var(--surface-chip);
-  color: var(--text-muted);
-  font-size: 0.68rem;
-  font-weight: 760;
-  line-height: 1;
+  display: none;
 }
 
 .student-progress-module-grid {
@@ -6977,6 +6997,44 @@ body.pdf-viewer-open.has-user-band .pdf-viewer-header {
 
 .student-progress-module-panel.is-editing .student-progress-grid-complete-cell .student-progress-grid-date-note {
   display: none;
+}
+
+/* V78.1.2: header action owns the edit instruction; task grid remains a clean internal scroller. */
+#progress-subjects-screen.student-theme .student-progress-module-task-card {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+}
+
+#progress-subjects-screen.student-theme .student-progress-module-grid {
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 420px) {
+  #progress-subjects-screen.student-theme .student-progress-active-module-header {
+    grid-template-columns: minmax(0, 1fr) 104px;
+  }
+
+  #progress-subjects-screen.student-theme .student-progress-active-module-title {
+    font-size: clamp(1.18rem, 5vw, 1.42rem);
+  }
+
+  .student-progress-module-edit-toggle {
+    min-width: 98px;
+    max-width: 104px;
+    min-height: 60px;
+    padding-inline: 6px;
+  }
+
+  .student-progress-module-edit-label {
+    font-size: 0.58rem;
+  }
+
+  .student-progress-module-bar-row {
+    grid-template-columns: 44px minmax(0, 1fr);
+    gap: 5px;
+  }
 }
 
 .student-progress-grid-empty-status {
