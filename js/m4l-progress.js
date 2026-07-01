@@ -922,10 +922,12 @@ function renderStudentProgressModuleBars(module) {
 
   return `
     <div class="admin-progress-module-bars student-progress-active-module-bars" aria-label="Module progress">
-      <span class="admin-progress-module-bar-row">
+      <span class="admin-progress-module-bar-row student-progress-module-bar-row">
+        <span class="student-progress-module-bar-label">Student</span>
         ${renderAdminProgressBarOrTick(summary.percentComplete, "complete", "Module complete progress")}
       </span>
-      <span class="admin-progress-module-bar-row">
+      <span class="admin-progress-module-bar-row student-progress-module-bar-row">
+        <span class="student-progress-module-bar-label">Teacher</span>
         ${renderAdminProgressBarOrTick(summary.percentVerified, "verify", "Module verify progress")}
       </span>
     </div>
@@ -954,12 +956,12 @@ function renderStudentProgressModuleEditToggle(module) {
       class="student-progress-module-edit-toggle${isEditing ? " is-editing" : ""}"
       data-progress-action="toggle-student-progress-module-edit"
       data-progress-module-key="${escapeForAttribute(moduleKey)}"
-      aria-label="${isEditing ? "Finish editing module" : "Edit completed tasks"}"
+      aria-label="${isEditing ? "Finish editing module" : "Click to mark complete"}"
       aria-pressed="${isEditing ? "true" : "false"}"
-      title="${isEditing ? "Done" : "Edit"}"
+      title="${isEditing ? "Done" : "Click to mark complete"}"
     >
       <span class="app-icon app-icon-small ${isEditing ? "save-mode-icon" : "student-edit-icon"}" aria-hidden="true"></span>
-      <span class="student-progress-module-edit-label">${isEditing ? "Done" : "Edit"}</span>
+      <span class="student-progress-module-edit-label">${isEditing ? "Done" : "Click to mark complete"}</span>
     </button>
   `;
 }
@@ -1158,22 +1160,81 @@ function setStudentProgressModuleEditState(moduleKey, isEditing) {
 function updateStudentProgressModuleEditButton(button, isEditing) {
   if (!button) return false;
 
+  button.disabled = false;
   button.classList.toggle("is-editing", !!isEditing);
+  button.classList.remove("is-saving", "has-save-error");
   button.setAttribute("aria-pressed", isEditing ? "true" : "false");
-  button.setAttribute("aria-label", isEditing ? "Finish editing module" : "Edit completed tasks");
-  button.setAttribute("title", isEditing ? "Done" : "Edit");
+  button.setAttribute("aria-label", isEditing ? "Finish editing module" : "Click to mark complete");
+  button.setAttribute("title", isEditing ? "Done" : "Click to mark complete");
   button.innerHTML = `
     <span class="app-icon app-icon-small ${isEditing ? "save-mode-icon" : "student-edit-icon"}" aria-hidden="true"></span>
-    <span class="student-progress-module-edit-label">${isEditing ? "Done" : "Edit"}</span>
+    <span class="student-progress-module-edit-label">${isEditing ? "Done" : "Click to mark complete"}</span>
   `;
   return true;
+}
+
+function setStudentProgressModuleEditButtonSaving(button, label = "Saving...") {
+  if (!button) return false;
+
+  button.disabled = true;
+  button.classList.add("is-editing", "is-saving");
+  button.classList.remove("has-save-error");
+  button.setAttribute("aria-pressed", "true");
+  button.setAttribute("aria-label", label);
+  button.setAttribute("title", label);
+  button.innerHTML = `
+    <span class="app-icon app-icon-small save-mode-icon" aria-hidden="true"></span>
+    <span class="student-progress-module-edit-label">${escapeHtml(label)}</span>
+  `;
+  return true;
+}
+
+function setStudentProgressModuleEditButtonError(button, label = "Save failed") {
+  if (!button) return false;
+
+  button.disabled = false;
+  button.classList.add("is-editing", "has-save-error");
+  button.classList.remove("is-saving");
+  button.setAttribute("aria-pressed", "true");
+  button.setAttribute("aria-label", label);
+  button.setAttribute("title", label);
+  button.innerHTML = `
+    <span class="app-icon app-icon-small save-mode-icon" aria-hidden="true"></span>
+    <span class="student-progress-module-edit-label">${escapeHtml(label)}</span>
+  `;
+  return true;
+}
+
+async function finishStudentProgressModuleEdit(button, key) {
+  setStudentProgressModuleEditButtonSaving(button, "Saving...");
+
+  try {
+    const saved = await flushStudentProgressAutoSave();
+
+    if (saved === false && hasProgressPendingUpdates()) {
+      setStudentProgressModuleEditButtonError(button, "Save failed");
+      return false;
+    }
+
+    setStudentProgressModuleEditState(key, false);
+    return true;
+  } catch (err) {
+    console.error("Could not save student progress before finishing edit mode:", err);
+    setStudentProgressModuleEditButtonError(button, "Save failed");
+    return false;
+  }
 }
 
 function toggleStudentProgressModuleEdit(button) {
   const key = String(button?.dataset?.progressModuleKey || getStudentProgressSwipeActiveModuleKey() || "");
   if (!key) return false;
 
-  return setStudentProgressModuleEditState(key, !isStudentProgressModuleEditing(key));
+  if (isStudentProgressModuleEditing(key)) {
+    finishStudentProgressModuleEdit(button, key);
+    return true;
+  }
+
+  return setStudentProgressModuleEditState(key, true);
 }
 
 function canToggleStudentProgressGridCell(actionEl) {
@@ -1267,10 +1328,6 @@ function renderStudentProgressTaskTable(module) {
 
   return `
     <section class="admin-progress-task-card admin-progress-individual-module-card student-progress-module-task-card student-progress-module-grid-card" aria-label="${escapeForAttribute(title)} progress tasks">
-      <div class="student-progress-grid-instruction">
-        <span class="app-icon app-icon-small student-edit-icon" aria-hidden="true"></span>
-        <span>Click to mark complete</span>
-      </div>
       <div class="student-progress-module-grid" role="table" aria-label="${escapeForAttribute(title)} progress tasks">
         ${renderStudentProgressTaskTableHeader()}
         ${taskRowsHtml}
