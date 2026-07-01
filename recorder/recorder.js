@@ -123,26 +123,80 @@
     }
   }
 
+  function isAbsoluteAssetUrl(value) {
+    return /^(https?:|blob:|data:|\/)/i.test(String(value || ""));
+  }
+
+  function joinManifestPath(basePath, filePath) {
+    const cleanFilePath = String(filePath || "").trim();
+    if (!cleanFilePath) return "";
+    if (isAbsoluteAssetUrl(cleanFilePath)) return cleanFilePath;
+
+    const cleanBasePath = String(basePath || "").trim();
+    if (!cleanBasePath) return cleanFilePath;
+
+    const normalizedBase = cleanBasePath.endsWith("/") ? cleanBasePath : `${cleanBasePath}/`;
+    return `${normalizedBase}${cleanFilePath}`.replace(/\\/g, "/");
+  }
+
+  function resolveManifestImageUrl(imagePath, manifestDirectoryUrl) {
+    const cleanPath = String(imagePath || "").trim();
+    if (!cleanPath) return "";
+
+    if (isAbsoluteAssetUrl(cleanPath)) {
+      return cleanPath;
+    }
+
+    try {
+      return new URL(cleanPath, manifestDirectoryUrl).href;
+    } catch (error) {
+      console.warn("Could not resolve image path from manifest", cleanPath, error);
+      return cleanPath;
+    }
+  }
+
+  function normalizeManifestPage(page, index, manifest, manifestDirectoryUrl) {
+    const pageNo = page.pageNo || page.page || index + 1;
+    const lessonNo = page.lesson || page.lessonNo || null;
+    const rawImagePath = page.src || page.imageUrl || page.image || page.file || page.filename || "";
+    const imagePath = joinManifestPath(
+      rawImagePath && rawImagePath.includes("/") ? "" : manifest.imageBasePath,
+      rawImagePath
+    );
+
+    const title = page.title
+      || (lessonNo ? `Lesson ${lessonNo}` : "")
+      || (page.type === "cover" ? "Cover" : "")
+      || `Page ${pageNo}`;
+
+    return {
+      id: String(page.id || page.pageId || pageNo || index + 1),
+      title: String(title),
+      pageNo: Number(pageNo) || index + 1,
+      lesson: lessonNo === null ? null : Number(lessonNo),
+      type: String(page.type || (lessonNo ? "lesson" : "page")),
+      src: resolveManifestImageUrl(imagePath, manifestDirectoryUrl),
+      source: "manifest"
+    };
+  }
+
   async function loadStaticManifest() {
     try {
-      const response = await fetch("./pages/manifest.json", { cache: "no-store" });
+      const manifestUrl = new URL("./pages/manifest.json", window.location.href);
+      const manifestDirectoryUrl = new URL("./", manifestUrl).href;
+      const response = await fetch(manifestUrl.href, { cache: "no-store" });
       if (!response.ok) return;
 
       const manifest = await response.json();
       const pages = Array.isArray(manifest.pages) ? manifest.pages : [];
       const normalized = pages
-        .map((page, index) => ({
-          id: String(page.id || page.pageNo || index + 1),
-          title: String(page.title || `Page ${page.pageNo || index + 1}`),
-          src: String(page.src || page.imageUrl || ""),
-          source: "manifest"
-        }))
+        .map((page, index) => normalizeManifestPage(page || {}, index, manifest || {}, manifestDirectoryUrl))
         .filter(page => page.src);
 
       if (normalized.length) {
         state.pages = normalized;
         renderPageGrid();
-        setStatus("Pages loaded");
+        setStatus(`${manifest.bookTitle || manifest.title || "Pages"} loaded`);
       }
     } catch (error) {
       // The manifest is optional. Upload still works when this file is absent.
@@ -494,3 +548,7 @@
 
   init();
 })();
+
+
+
+
