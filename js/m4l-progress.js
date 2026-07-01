@@ -1,4 +1,4 @@
-/* M4L v78.1 - Admin Progress compact sticky matrix header + light shading + Student Progress bounded header baseline
+/* M4L v78.1.1 - Student Progress edit state + header edit icon + scroll hotfix
    Load after /app.js, /js/m4l-auth.js, /js/m4l-shell.js, /js/m4l-timetable.js, and /js/m4l-resources.js.
    This is a classic script, not type=module, so existing global function calls remain safe
    while the app is split gradually.
@@ -18,7 +18,6 @@ let studentProgressAutoSaveTimer = 0;
 let studentProgressAutoSaveInFlight = null;
 let studentProgressSectionStateGuardBound = false;
 let studentProgressModuleEditState = Object.create(null);
-
 
 function resetStudentProgressViewportScroll() {
   const reset = () => {
@@ -977,18 +976,6 @@ function renderStudentProgressActiveModuleHeaderContent(module) {
   `;
 }
 
-function renderStudentProgressActiveModuleHeaderContent(module) {
-  if (!module) return "";
-
-  const title = module.subjectname || module.modulename || "Progress";
-
-  return `
-    <div class="student-progress-active-module-title-block">
-      <h2 class="student-progress-active-module-title">${escapeHtml(title)}</h2>
-    </div>
-    ${renderStudentProgressModuleBars(module)}
-  `;
-}
 
 function renderStudentProgressActiveModuleHeader(modules, activeModuleKey) {
   const module = getStudentProgressModuleByKey(modules, activeModuleKey);
