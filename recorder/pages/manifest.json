@@ -1,11 +1,11 @@
 {
   "version": 2,
   "title": "Recorder Reader Books",
-  "defaultBook": "Part 1",
+  "defaultBook": "Part-1",
   "books": [
     {
       "bookTitle": "Part 1",
-      "folder": "Part-1",
+      "folder": "Part 1",
       "imageBasePath": "Part-1/",
       "coverPage": "Page00001.jpeg",
       "firstLessonPage": 2,
@@ -527,13 +527,7 @@
           "lesson": 32,
           "title": "Lesson 32",
           "image": "Part-2/Page00034.jpg"
-        },
-        {
-          "page": 35,
-          "type": "extra",
-          "lesson": null,
-          "title": "Extra Page",
-          "image": "Part-2/Page00035.jpg"
+       
         }
       ]
     }
