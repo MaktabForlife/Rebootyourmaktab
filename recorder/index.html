@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Reader Recorder</title>
+  <link rel="stylesheet" href="./recorder.css?v=1.0" />
+</head>
+<body>
+  <main class="recorder-shell">
+    <header class="recorder-header">
+      <div>
+        <p class="eyebrow">Maktab4Life</p>
+        <h1>Reader Recorder</h1>
+      </div>
+      <div id="status-pill" class="status-pill" aria-live="polite">Ready</div>
+    </header>
+
+    <section id="page-select-screen" class="recorder-screen active" aria-labelledby="page-select-title">
+      <div class="screen-heading-row">
+        <div>
+          <h2 id="page-select-title">Select page</h2>
+          <p class="screen-hint">Choose one page image, then record your reading.</p>
+        </div>
+      </div>
+
+      <div class="upload-card">
+        <label for="page-upload" class="upload-label">
+          <span class="upload-title">Add page images</span>
+          <span class="upload-subtitle">JPG, PNG, WebP. You may select one or many.</span>
+        </label>
+        <input id="page-upload" type="file" accept="image/*" multiple />
+      </div>
+
+      <div id="page-empty-state" class="empty-state">
+        <p>No pages loaded yet.</p>
+        <p class="muted">Upload images, or deploy a <code>pages/manifest.json</code> file with your page image list.</p>
+      </div>
+
+      <div id="page-grid" class="page-grid" aria-label="Available reader pages"></div>
+    </section>
+
+    <section id="record-screen" class="recorder-screen" aria-labelledby="record-title">
+      <div class="screen-heading-row compact">
+        <button id="back-to-pages-btn" class="icon-text-btn" type="button" aria-label="Back to page selection">‹ <span>Pages</span></button>
+        <div class="record-title-block">
+          <h2 id="record-title">Record page</h2>
+          <p id="selected-page-label" class="screen-hint">Selected page</p>
+        </div>
+      </div>
+
+      <div class="reader-frame">
+        <canvas id="reader-canvas" aria-label="Selected reader page"></canvas>
+      </div>
+
+      <div class="record-controls" aria-label="Recording controls">
+        <div class="timer-block">
+          <span id="timer-label" class="timer-label">Time remaining</span>
+          <output id="countdown-timer" class="countdown-timer" aria-live="polite">02:00</output>
+        </div>
+        <div class="control-row">
+          <button id="record-btn" class="primary-action" type="button">Record</button>
+          <button id="stop-btn" class="danger-action hidden" type="button">Stop</button>
+        </div>
+        <p id="record-helper" class="record-helper">Microphone permission will be requested when you tap Record.</p>
+      </div>
+    </section>
+
+    <section id="preview-screen" class="recorder-screen" aria-labelledby="preview-title">
+      <div class="screen-heading-row">
+        <div>
+          <h2 id="preview-title">Preview recording</h2>
+          <p id="recording-meta" class="screen-hint">Review before sharing.</p>
+        </div>
+      </div>
+
+      <video id="preview-video" class="preview-video" controls playsinline></video>
+
+      <div class="preview-actions">
+        <button id="rerecord-btn" class="secondary-action" type="button">Re-record</button>
+        <button id="share-btn" class="primary-action" type="button">Share</button>
+        <a id="download-link" class="secondary-action download-link" href="#" download>Download</a>
+      </div>
+    </section>
+  </main>
+
+  <script src="./recorder.js?v=1.0"></script>
+</body>
+</html>
