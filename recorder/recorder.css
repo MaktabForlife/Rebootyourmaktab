@@ -36,6 +36,10 @@ body {
   overflow-x: hidden;
 }
 
+body.picker-open {
+  overflow: hidden;
+}
+
 button,
 input,
 a {
@@ -45,6 +49,18 @@ a {
 button,
 a {
   -webkit-tap-highlight-color: transparent;
+}
+
+.visually-hidden {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0 0 0 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
 }
 
 .recorder-shell {
@@ -138,7 +154,7 @@ h2 {
   font-size: 0.92rem;
 }
 
-.upload-card,
+.image-selector-card,
 .empty-state,
 .reader-frame,
 .record-controls,
@@ -148,32 +164,50 @@ h2 {
   box-shadow: 0 10px 28px var(--shadow);
 }
 
-.upload-card {
-  position: relative;
-  padding: 16px;
-  border: 1px dashed color-mix(in srgb, var(--primary) 70%, var(--text-muted));
+.image-selector-card {
+  padding: 10px;
 }
 
-.upload-label {
+.image-selector-btn {
+  width: 100%;
+  min-height: 66px;
+  border: 0;
+  border-radius: 999px;
+  padding: 10px 18px;
+  background: var(--surface-chip);
+  color: var(--text-strong);
   display: grid;
-  gap: 4px;
+  grid-template-columns: 1fr auto;
+  grid-template-areas:
+    "kicker chevron"
+    "current chevron";
+  gap: 2px 12px;
+  text-align: left;
   cursor: pointer;
 }
 
-.upload-title {
-  color: var(--text-strong);
-  font-weight: 800;
-}
-
-.upload-subtitle,
-.muted {
+.image-selector-kicker {
+  grid-area: kicker;
   color: var(--text-subtle);
-  font-size: 0.9rem;
+  font-size: 0.78rem;
+  font-weight: 750;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
-#page-upload {
-  width: 100%;
-  margin-top: 12px;
+.image-selector-current {
+  grid-area: current;
+  font-size: clamp(1.08rem, 4.5vw, 1.35rem);
+  font-weight: 850;
+  line-height: 1.15;
+}
+
+.image-selector-chevron {
+  grid-area: chevron;
+  align-self: center;
+  color: var(--text-muted);
+  font-size: 1.55rem;
+  line-height: 1;
 }
 
 .empty-state {
@@ -185,6 +219,11 @@ h2 {
 .empty-state.hidden,
 .hidden {
   display: none !important;
+}
+
+.muted {
+  color: var(--text-subtle);
+  font-size: 0.9rem;
 }
 
 .page-grid {
@@ -212,7 +251,11 @@ h2 {
 .primary-action:focus-visible,
 .secondary-action:focus-visible,
 .danger-action:focus-visible,
-.icon-text-btn:focus-visible {
+.icon-text-btn:focus-visible,
+.image-selector-btn:focus-visible,
+.record-icon-action:focus-visible,
+.picker-option:focus-visible,
+.picker-close-btn:focus-visible {
   outline: 3px solid color-mix(in srgb, var(--primary) 75%, black 10%);
   outline-offset: 3px;
 }
@@ -236,6 +279,12 @@ h2 {
 .page-title {
   font-weight: 750;
   color: var(--text-strong);
+}
+
+.page-subtitle {
+  color: var(--text-subtle);
+  font-size: 0.82rem;
+  font-weight: 650;
 }
 
 .icon-text-btn {
@@ -276,32 +325,55 @@ h2 {
 .record-controls {
   padding: 16px;
   display: grid;
-  gap: 14px;
+  gap: 12px;
   text-align: center;
-}
-
-.timer-block {
-  display: grid;
-  gap: 4px;
-}
-
-.timer-label {
-  color: var(--text-muted);
-  font-size: 0.88rem;
-}
-
-.countdown-timer {
-  color: var(--text-strong);
-  font-size: clamp(2.2rem, 12vw, 4.4rem);
-  font-weight: 850;
-  line-height: 1;
-  font-variant-numeric: tabular-nums;
 }
 
 .control-row,
 .preview-actions {
   display: grid;
   gap: 10px;
+}
+
+.record-icon-action {
+  min-height: 112px;
+  border: 0;
+  border-radius: var(--radius-lg);
+  padding: 8px 12px 10px;
+  background: transparent;
+  color: var(--text-strong);
+  display: inline-grid;
+  justify-items: center;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+}
+
+.record-control-icon {
+  width: 82px;
+  height: 82px;
+  object-fit: contain;
+  display: block;
+}
+
+.record-action-label {
+  color: var(--text-strong);
+  font-size: 0.92rem;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+}
+
+.record-action-meta {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  font-weight: 450;
+  line-height: 1.2;
+}
+
+#countdown-timer {
+  color: var(--text-strong);
+  font: inherit;
+  font-variant-numeric: tabular-nums;
 }
 
 .primary-action,
@@ -352,18 +424,116 @@ h2 {
   padding: 14px;
 }
 
+.picker-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  align-items: end;
+}
+
+.picker-backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(0, 0, 0, 0.34);
+}
+
+.picker-panel {
+  position: relative;
+  width: min(100%, 760px);
+  max-height: min(78dvh, 620px);
+  margin: 0 auto;
+  border-radius: 28px 28px 0 0;
+  padding: 10px 14px calc(18px + var(--safe-bottom));
+  background: var(--surface-card);
+  box-shadow: 0 -14px 34px rgba(0, 0, 0, 0.18);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.picker-handle {
+  width: 48px;
+  height: 5px;
+  border-radius: 999px;
+  margin: 0 auto 4px;
+  background: color-mix(in srgb, var(--text-subtle) 28%, transparent);
+}
+
+.picker-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.picker-header-row h2 {
+  margin-bottom: 0;
+}
+
+.picker-close-btn {
+  width: 42px;
+  height: 42px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--surface-chip);
+  color: var(--text-strong);
+  font-size: 1.55rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.picker-options {
+  display: grid;
+  gap: 8px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 2px 0 6px;
+}
+
+.picker-option {
+  width: 100%;
+  border: 0;
+  border-radius: 18px;
+  padding: 14px 16px;
+  background: var(--surface-soft);
+  color: var(--text-strong);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.picker-option.is-selected {
+  background: var(--primary);
+}
+
+.picker-option-title {
+  font-weight: 850;
+}
+
+.picker-option-meta {
+  display: block;
+  margin-top: 2px;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  font-weight: 650;
+}
+
+.picker-option-check {
+  color: var(--text-strong);
+  font-weight: 900;
+}
+
 @media (min-width: 640px) {
   .page-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
-  .control-row,
   .preview-actions {
     grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  .control-row .primary-action,
-  .control-row .danger-action {
-    grid-column: 2 / span 1;
   }
 }
