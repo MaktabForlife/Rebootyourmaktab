@@ -10,6 +10,12 @@
     pageSelectScreen: document.getElementById("page-select-screen"),
     recordScreen: document.getElementById("record-screen"),
     previewScreen: document.getElementById("preview-screen"),
+    imageSelectorBtn: document.getElementById("image-selector-btn"),
+    imageSelectorCurrent: document.getElementById("image-selector-current"),
+    imagePickerSheet: document.getElementById("image-picker-sheet"),
+    imagePickerOptions: document.getElementById("image-picker-options"),
+    imagePickerBackdrop: document.getElementById("image-picker-backdrop"),
+    imagePickerClose: document.getElementById("image-picker-close"),
     pageUpload: document.getElementById("page-upload"),
     pageGrid: document.getElementById("page-grid"),
     pageEmptyState: document.getElementById("page-empty-state"),
@@ -28,6 +34,8 @@
   };
 
   const state = {
+    books: [],
+    selectedBookId: "",
     pages: [],
     selectedPage: null,
     selectedImage: null,
@@ -133,7 +141,7 @@
     if (isAbsoluteAssetUrl(cleanFilePath)) return cleanFilePath;
 
     const cleanBasePath = String(basePath || "").trim();
-    if (!cleanBasePath) return cleanFilePath;
+    if (!cleanBasePath || cleanFilePath.includes("/")) return cleanFilePath.replace(/\\/g, "/");
 
     const normalizedBase = cleanBasePath.endsWith("/") ? cleanBasePath : `${cleanBasePath}/`;
     return `${normalizedBase}${cleanFilePath}`.replace(/\\/g, "/");
@@ -155,14 +163,11 @@
     }
   }
 
-  function normalizeManifestPage(page, index, manifest, manifestDirectoryUrl) {
+  function normalizeManifestPage(page, index, book, manifestDirectoryUrl) {
     const pageNo = page.pageNo || page.page || index + 1;
     const lessonNo = page.lesson || page.lessonNo || null;
     const rawImagePath = page.src || page.imageUrl || page.image || page.file || page.filename || "";
-    const imagePath = joinManifestPath(
-      rawImagePath && rawImagePath.includes("/") ? "" : manifest.imageBasePath,
-      rawImagePath
-    );
+    const imagePath = joinManifestPath(book.imageBasePath || book.folder || "", rawImagePath);
 
     const title = page.title
       || (lessonNo ? `Lesson ${lessonNo}` : "")
@@ -170,14 +175,60 @@
       || `Page ${pageNo}`;
 
     return {
-      id: String(page.id || page.pageId || pageNo || index + 1),
+      id: String(page.id || page.pageId || `${book.id || book.bookTitle || "book"}-${pageNo || index + 1}`),
       title: String(title),
       pageNo: Number(pageNo) || index + 1,
       lesson: lessonNo === null ? null : Number(lessonNo),
       type: String(page.type || (lessonNo ? "lesson" : "page")),
       src: resolveManifestImageUrl(imagePath, manifestDirectoryUrl),
-      source: "manifest"
+      source: "manifest",
+      bookTitle: book.bookTitle || book.title || "Reader Pages"
     };
+  }
+
+  function normalizeBook(rawBook, index, manifestDirectoryUrl) {
+    const bookTitle = String(rawBook.bookTitle || rawBook.title || rawBook.name || `Image Set ${index + 1}`);
+    const pages = Array.isArray(rawBook.pages) ? rawBook.pages : [];
+    const id = String(rawBook.id || rawBook.bookId || rawBook.folder || bookTitle).trim() || `book-${index + 1}`;
+    const normalizedBook = {
+      ...rawBook,
+      id,
+      bookTitle,
+      pages: []
+    };
+
+    normalizedBook.pages = pages
+      .map((page, pageIndex) => normalizeManifestPage(page || {}, pageIndex, normalizedBook, manifestDirectoryUrl))
+      .filter(page => page.src);
+
+    return normalizedBook;
+  }
+
+  function normalizeManifest(manifest, manifestDirectoryUrl) {
+    if (Array.isArray(manifest.books)) {
+      return manifest.books
+        .map((book, index) => normalizeBook(book || {}, index, manifestDirectoryUrl))
+        .filter(book => book.pages.length);
+    }
+
+    const singleBook = {
+      ...manifest,
+      id: manifest.id || manifest.bookTitle || manifest.title || "default-book",
+      bookTitle: manifest.bookTitle || manifest.title || "Reader Pages",
+      pages: Array.isArray(manifest.pages) ? manifest.pages : []
+    };
+
+    return normalizeBook(singleBook, 0, manifestDirectoryUrl).pages.length
+      ? [normalizeBook(singleBook, 0, manifestDirectoryUrl)]
+      : [];
+  }
+
+  function getSelectedBook() {
+    return state.books.find(book => book.id === state.selectedBookId) || null;
+  }
+
+  function setImageSelectorLabel(text) {
+    els.imageSelectorCurrent.textContent = text || "Select image set";
   }
 
   async function loadStaticManifest() {
@@ -185,40 +236,121 @@
       const manifestUrl = new URL("./pages/manifest.json", window.location.href);
       const manifestDirectoryUrl = new URL("./", manifestUrl).href;
       const response = await fetch(manifestUrl.href, { cache: "no-store" });
-      if (!response.ok) return;
+      if (!response.ok) {
+        setImageSelectorLabel("Select your own image");
+        renderImagePickerOptions();
+        return;
+      }
 
       const manifest = await response.json();
-      const pages = Array.isArray(manifest.pages) ? manifest.pages : [];
-      const normalized = pages
-        .map((page, index) => normalizeManifestPage(page || {}, index, manifest || {}, manifestDirectoryUrl))
-        .filter(page => page.src);
+      state.books = normalizeManifest(manifest || {}, manifestDirectoryUrl);
+      renderImagePickerOptions();
 
-      if (normalized.length) {
-        state.pages = normalized;
-        renderPageGrid();
-        setStatus(`${manifest.bookTitle || manifest.title || "Pages"} loaded`);
+      if (state.books.length) {
+        const defaultBook = state.books.find(book => book.bookTitle === manifest.defaultBook || book.id === manifest.defaultBook) || state.books[0];
+        selectBook(defaultBook.id, { closePicker: false });
+      } else {
+        setImageSelectorLabel("Select your own image");
+        setStatus("Ready");
       }
     } catch (error) {
-      // The manifest is optional. Upload still works when this file is absent.
       console.info("No static pages manifest loaded", error);
+      setImageSelectorLabel("Select your own image");
+      renderImagePickerOptions();
     }
+  }
+
+  function renderImagePickerOptions() {
+    els.imagePickerOptions.innerHTML = "";
+
+    state.books.forEach(book => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = `picker-option${book.id === state.selectedBookId ? " is-selected" : ""}`;
+      button.dataset.bookId = book.id;
+      button.setAttribute("role", "option");
+      button.setAttribute("aria-selected", book.id === state.selectedBookId ? "true" : "false");
+      button.innerHTML = `
+        <span>
+          <span class="picker-option-title">${escapeHtml(book.bookTitle)}</span>
+          <span class="picker-option-meta">${book.pages.length} pages</span>
+        </span>
+        <span class="picker-option-check" aria-hidden="true">${book.id === state.selectedBookId ? "✓" : "›"}</span>
+      `;
+      els.imagePickerOptions.appendChild(button);
+    });
+
+    const ownButton = document.createElement("button");
+    ownButton.type = "button";
+    ownButton.className = `picker-option${state.selectedBookId === "upload" ? " is-selected" : ""}`;
+    ownButton.dataset.action = "upload";
+    ownButton.setAttribute("role", "option");
+    ownButton.setAttribute("aria-selected", state.selectedBookId === "upload" ? "true" : "false");
+    ownButton.innerHTML = `
+      <span>
+        <span class="picker-option-title">Select your own image</span>
+        <span class="picker-option-meta">Choose image files from this device</span>
+      </span>
+      <span class="picker-option-check" aria-hidden="true">${state.selectedBookId === "upload" ? "✓" : "›"}</span>
+    `;
+    els.imagePickerOptions.appendChild(ownButton);
+  }
+
+  function openImagePicker() {
+    renderImagePickerOptions();
+    els.imagePickerSheet.classList.remove("hidden");
+    document.body.classList.add("picker-open");
+  }
+
+  function closeImagePicker() {
+    els.imagePickerSheet.classList.add("hidden");
+    document.body.classList.remove("picker-open");
+  }
+
+  function selectBook(bookId, options = {}) {
+    const book = state.books.find(item => item.id === bookId);
+    if (!book) return;
+
+    cleanupUploadedObjectUrls();
+    state.selectedBookId = book.id;
+    state.pages = book.pages;
+    setImageSelectorLabel(book.bookTitle);
+    renderImagePickerOptions();
+    renderPageGrid();
+    setStatus(`${book.bookTitle} loaded`);
+
+    if (options.closePicker !== false) {
+      closeImagePicker();
+    }
+  }
+
+  function cleanupUploadedObjectUrls() {
+    state.pages
+      .filter(page => page.objectUrl)
+      .forEach(page => cleanObjectUrl(page.src));
   }
 
   function addUploadedPages(fileList) {
     const files = Array.from(fileList || []).filter(file => file && file.type && file.type.startsWith("image/"));
     if (!files.length) return;
 
+    cleanupUploadedObjectUrls();
     const uploadedPages = files.map((file, index) => ({
       id: `upload-${Date.now()}-${index}`,
-      title: file.name.replace(/\.[^.]+$/, "") || `Page ${state.pages.length + index + 1}`,
+      title: file.name.replace(/\.[^.]+$/, "") || `Image ${index + 1}`,
+      pageNo: index + 1,
       src: URL.createObjectURL(file),
       objectUrl: true,
-      source: "upload"
+      source: "upload",
+      bookTitle: "Own image"
     }));
 
-    state.pages = [...state.pages, ...uploadedPages];
+    state.selectedBookId = "upload";
+    state.pages = uploadedPages;
+    setImageSelectorLabel("Own image");
+    renderImagePickerOptions();
     renderPageGrid();
-    setStatus("Pages ready");
+    setStatus("Image ready");
   }
 
   function renderPageGrid() {
@@ -231,9 +363,15 @@
       button.className = "page-card";
       button.dataset.pageIndex = String(index);
       button.setAttribute("aria-label", `Select ${page.title}`);
+      const subtitle = page.type === "cover"
+        ? "Cover"
+        : page.lesson
+          ? `Lesson ${page.lesson}`
+          : `Page ${page.pageNo || index + 1}`;
       button.innerHTML = `
         <span class="page-thumb-wrap"><img src="${escapeAttribute(page.src)}" alt="" loading="lazy"></span>
         <span class="page-title">${escapeHtml(page.title)}</span>
+        <span class="page-subtitle">${escapeHtml(subtitle)}</span>
       `;
       els.pageGrid.appendChild(button);
     });
@@ -259,7 +397,7 @@
     setStatus("Loading page");
     state.selectedPage = page;
     state.selectedImage = await loadImage(page.src);
-    els.selectedPageLabel.textContent = page.title;
+    els.selectedPageLabel.textContent = `${page.bookTitle ? `${page.bookTitle} • ` : ""}${page.title}`;
     drawSelectedPage();
     resetTimer();
     showScreen(els.recordScreen);
@@ -500,6 +638,31 @@
   }
 
   function bindEvents() {
+    els.imageSelectorBtn.addEventListener("click", openImagePicker);
+    els.imagePickerBackdrop.addEventListener("click", closeImagePicker);
+    els.imagePickerClose.addEventListener("click", closeImagePicker);
+
+    els.imagePickerOptions.addEventListener("click", event => {
+      const option = event.target.closest(".picker-option");
+      if (!option) return;
+
+      if (option.dataset.action === "upload") {
+        closeImagePicker();
+        els.pageUpload.click();
+        return;
+      }
+
+      if (option.dataset.bookId) {
+        selectBook(option.dataset.bookId);
+      }
+    });
+
+    document.addEventListener("keydown", event => {
+      if (event.key === "Escape" && !els.imagePickerSheet.classList.contains("hidden")) {
+        closeImagePicker();
+      }
+    });
+
     els.pageUpload.addEventListener("change", event => addUploadedPages(event.target.files));
 
     els.pageGrid.addEventListener("click", event => {
@@ -548,7 +711,3 @@
 
   init();
 })();
-
-
-
-
