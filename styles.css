@@ -774,6 +774,26 @@ body.has-user-band .top-bar button[onclick="logout()"] {
   font-size: 0.8rem;
 }
 
+
+/* V78.1.3: student header cleanup: no module progress indicators; save action remains neutral. */
+#progress-subjects-screen.student-theme .student-progress-active-module-header .admin-progress-module-bars,
+#progress-subjects-screen.student-theme .student-progress-panel-module-header .admin-progress-module-bars,
+#progress-subjects-screen.student-theme .student-progress-active-module-bars {
+  display: none;
+}
+
+#progress-subjects-screen.student-theme .student-progress-active-module-title-block {
+  align-content: center;
+  gap: 0;
+}
+
+.student-progress-module-edit-toggle.is-editing,
+.student-progress-module-edit-toggle.is-saving {
+  background: var(--surface-card);
+  color: var(--text-muted);
+  border-color: rgba(var(--primary-rgb), 0.22);
+}
+
 @media (max-width: 420px) {
   .status-action-row {
     grid-template-columns: 1fr;
@@ -2723,9 +2743,8 @@ body.is-student-progress-section .app-shell {
 #progress-subjects-screen.student-theme .student-progress-active-module-title-block {
   min-width: 0;
   display: grid;
-  grid-template-rows: auto auto;
   align-content: center;
-  gap: 7px;
+  gap: 0;
 }
 
 #progress-subjects-screen.student-theme .student-progress-active-module-title {
@@ -3284,6 +3303,26 @@ body.is-student-progress-section .app-shell {
     border-color: rgba(var(--white-rgb), 0.74);
     box-shadow: 0 6px 12px rgba(var(--black-rgb), 0.13);
   }
+}
+
+
+/* V78.1.3: student header cleanup: no module progress indicators; save action remains neutral. */
+#progress-subjects-screen.student-theme .student-progress-active-module-header .admin-progress-module-bars,
+#progress-subjects-screen.student-theme .student-progress-panel-module-header .admin-progress-module-bars,
+#progress-subjects-screen.student-theme .student-progress-active-module-bars {
+  display: none;
+}
+
+#progress-subjects-screen.student-theme .student-progress-active-module-title-block {
+  align-content: center;
+  gap: 0;
+}
+
+.student-progress-module-edit-toggle.is-editing,
+.student-progress-module-edit-toggle.is-saving {
+  background: var(--surface-card);
+  color: var(--text-muted);
+  border-color: rgba(var(--primary-rgb), 0.22);
 }
 
 @media (max-width: 420px) {
@@ -5494,6 +5533,26 @@ body.pdf-viewer-open.has-user-band .pdf-viewer-header {
   display: block;
 }
 
+
+/* V78.1.3: student header cleanup: no module progress indicators; save action remains neutral. */
+#progress-subjects-screen.student-theme .student-progress-active-module-header .admin-progress-module-bars,
+#progress-subjects-screen.student-theme .student-progress-panel-module-header .admin-progress-module-bars,
+#progress-subjects-screen.student-theme .student-progress-active-module-bars {
+  display: none;
+}
+
+#progress-subjects-screen.student-theme .student-progress-active-module-title-block {
+  align-content: center;
+  gap: 0;
+}
+
+.student-progress-module-edit-toggle.is-editing,
+.student-progress-module-edit-toggle.is-saving {
+  background: var(--surface-card);
+  color: var(--text-muted);
+  border-color: rgba(var(--primary-rgb), 0.22);
+}
+
 @media (max-width: 420px) {
   .student-copy-icon-btn {
     width: 32px;
@@ -6819,8 +6878,9 @@ body.pdf-viewer-open.has-user-band .pdf-viewer-header {
 }
 
 .student-progress-module-edit-toggle.is-editing {
-  background: var(--primary);
-  color: var(--text-inverse);
+  background: var(--surface-card);
+  color: var(--text-muted);
+  border-color: rgba(var(--primary-rgb), 0.22);
 }
 
 .student-progress-module-edit-toggle.is-saving {
@@ -7009,6 +7069,26 @@ body.pdf-viewer-open.has-user-band .pdf-viewer-header {
   min-height: 0;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+}
+
+
+/* V78.1.3: student header cleanup: no module progress indicators; save action remains neutral. */
+#progress-subjects-screen.student-theme .student-progress-active-module-header .admin-progress-module-bars,
+#progress-subjects-screen.student-theme .student-progress-panel-module-header .admin-progress-module-bars,
+#progress-subjects-screen.student-theme .student-progress-active-module-bars {
+  display: none;
+}
+
+#progress-subjects-screen.student-theme .student-progress-active-module-title-block {
+  align-content: center;
+  gap: 0;
+}
+
+.student-progress-module-edit-toggle.is-editing,
+.student-progress-module-edit-toggle.is-saving {
+  background: var(--surface-card);
+  color: var(--text-muted);
+  border-color: rgba(var(--primary-rgb), 0.22);
 }
 
 @media (max-width: 420px) {
