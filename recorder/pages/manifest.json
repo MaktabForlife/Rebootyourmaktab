@@ -1,21 +1,277 @@
 {
-  "title": "Reader Recorder Pages",
-  "version": "1.0",
+  "version": 1,
+  "bookTitle": "Part 1",
+  "imageBasePath": "Part 1/",
+  "coverPage": "Page00001.jpeg",
+  "firstLessonPage": 2,
+  "lastLessonPage": 38,
+  "totalPages": 38,
   "pages": [
     {
-      "pageNo": 1,
-      "title": "Page 1",
-      "src": "./page-001.jpg"
+      "page": 1,
+      "type": "cover",
+      "lesson": null,
+      "title": "Cover",
+      "image": "Part 1/Page00001.jpeg"
     },
     {
-      "pageNo": 2,
-      "title": "Page 2",
-      "src": "./page-002.jpg"
+      "page": 2,
+      "type": "lesson",
+      "lesson": 2,
+      "title": "Lesson 2",
+      "image": "Part 1/Page00002.jpeg"
     },
     {
-      "pageNo": 3,
-      "title": "Page 3",
-      "src": "./page-003.jpg"
+      "page": 3,
+      "type": "lesson",
+      "lesson": 3,
+      "title": "Lesson 3",
+      "image": "Part 1/Page00003.jpeg"
+    },
+    {
+      "page": 4,
+      "type": "lesson",
+      "lesson": 4,
+      "title": "Lesson 4",
+      "image": "Part 1/Page00004.jpeg"
+    },
+    {
+      "page": 5,
+      "type": "lesson",
+      "lesson": 5,
+      "title": "Lesson 5",
+      "image": "Part 1/Page00005.jpeg"
+    },
+    {
+      "page": 6,
+      "type": "lesson",
+      "lesson": 6,
+      "title": "Lesson 6",
+      "image": "Part 1/Page00006.jpeg"
+    },
+    {
+      "page": 7,
+      "type": "lesson",
+      "lesson": 7,
+      "title": "Lesson 7",
+      "image": "Part 1/Page00007.jpeg"
+    },
+    {
+      "page": 8,
+      "type": "lesson",
+      "lesson": 8,
+      "title": "Lesson 8",
+      "image": "Part 1/Page00008.jpeg"
+    },
+    {
+      "page": 9,
+      "type": "lesson",
+      "lesson": 9,
+      "title": "Lesson 9",
+      "image": "Part 1/Page00009.jpeg"
+    },
+    {
+      "page": 10,
+      "type": "lesson",
+      "lesson": 10,
+      "title": "Lesson 10",
+      "image": "Part 1/Page00010.jpeg"
+    },
+    {
+      "page": 11,
+      "type": "lesson",
+      "lesson": 11,
+      "title": "Lesson 11",
+      "image": "Part 1/Page00011.jpeg"
+    },
+    {
+      "page": 12,
+      "type": "lesson",
+      "lesson": 12,
+      "title": "Lesson 12",
+      "image": "Part 1/Page00012.jpeg"
+    },
+    {
+      "page": 13,
+      "type": "lesson",
+      "lesson": 13,
+      "title": "Lesson 13",
+      "image": "Part 1/Page00013.jpeg"
+    },
+    {
+      "page": 14,
+      "type": "lesson",
+      "lesson": 14,
+      "title": "Lesson 14",
+      "image": "Part 1/Page00014.jpeg"
+    },
+    {
+      "page": 15,
+      "type": "lesson",
+      "lesson": 15,
+      "title": "Lesson 15",
+      "image": "Part 1/Page00015.jpeg"
+    },
+    {
+      "page": 16,
+      "type": "lesson",
+      "lesson": 16,
+      "title": "Lesson 16",
+      "image": "Part 1/Page00016.jpeg"
+    },
+    {
+      "page": 17,
+      "type": "lesson",
+      "lesson": 17,
+      "title": "Lesson 17",
+      "image": "Part 1/Page00017.jpeg"
+    },
+    {
+      "page": 18,
+      "type": "lesson",
+      "lesson": 18,
+      "title": "Lesson 18",
+      "image": "Part 1/Page00018.jpeg"
+    },
+    {
+      "page": 19,
+      "type": "lesson",
+      "lesson": 19,
+      "title": "Lesson 19",
+      "image": "Part 1/Page00019.jpeg"
+    },
+    {
+      "page": 20,
+      "type": "lesson",
+      "lesson": 20,
+      "title": "Lesson 20",
+      "image": "Part 1/Page00020.jpeg"
+    },
+    {
+      "page": 21,
+      "type": "lesson",
+      "lesson": 21,
+      "title": "Lesson 21",
+      "image": "Part 1/Page00021.jpeg"
+    },
+    {
+      "page": 22,
+      "type": "lesson",
+      "lesson": 22,
+      "title": "Lesson 22",
+      "image": "Part 1/Page00022.jpeg"
+    },
+    {
+      "page": 23,
+      "type": "lesson",
+      "lesson": 23,
+      "title": "Lesson 23",
+      "image": "Part 1/Page00023.jpeg"
+    },
+    {
+      "page": 24,
+      "type": "lesson",
+      "lesson": 24,
+      "title": "Lesson 24",
+      "image": "Part 1/Page00024.jpeg"
+    },
+    {
+      "page": 25,
+      "type": "lesson",
+      "lesson": 25,
+      "title": "Lesson 25",
+      "image": "Part 1/Page00025.jpeg"
+    },
+    {
+      "page": 26,
+      "type": "lesson",
+      "lesson": 26,
+      "title": "Lesson 26",
+      "image": "Part 1/Page00026.jpeg"
+    },
+    {
+      "page": 27,
+      "type": "lesson",
+      "lesson": 27,
+      "title": "Lesson 27",
+      "image": "Part 1/Page00027.jpeg"
+    },
+    {
+      "page": 28,
+      "type": "lesson",
+      "lesson": 28,
+      "title": "Lesson 28",
+      "image": "Part 1/Page00028.jpeg"
+    },
+    {
+      "page": 29,
+      "type": "lesson",
+      "lesson": 29,
+      "title": "Lesson 29",
+      "image": "Part 1/Page00029.jpeg"
+    },
+    {
+      "page": 30,
+      "type": "lesson",
+      "lesson": 30,
+      "title": "Lesson 30",
+      "image": "Part 1/Page00030.jpeg"
+    },
+    {
+      "page": 31,
+      "type": "lesson",
+      "lesson": 31,
+      "title": "Lesson 31",
+      "image": "Part 1/Page00031.jpeg"
+    },
+    {
+      "page": 32,
+      "type": "lesson",
+      "lesson": 32,
+      "title": "Lesson 32",
+      "image": "Part 1/Page00032.jpeg"
+    },
+    {
+      "page": 33,
+      "type": "lesson",
+      "lesson": 33,
+      "title": "Lesson 33",
+      "image": "Part 1/Page00033.jpeg"
+    },
+    {
+      "page": 34,
+      "type": "lesson",
+      "lesson": 34,
+      "title": "Lesson 34",
+      "image": "Part 1/Page00034.jpeg"
+    },
+    {
+      "page": 35,
+      "type": "lesson",
+      "lesson": 35,
+      "title": "Lesson 35",
+      "image": "Part 1/Page00035.jpeg"
+    },
+    {
+      "page": 36,
+      "type": "lesson",
+      "lesson": 36,
+      "title": "Lesson 36",
+      "image": "Part 1/Page00036.jpeg"
+    },
+    {
+      "page": 37,
+      "type": "lesson",
+      "lesson": 37,
+      "title": "Lesson 37",
+      "image": "Part 1/Page00037.jpeg"
+    },
+    {
+      "page": 38,
+      "type": "lesson",
+      "lesson": 38,
+      "title": "Lesson 38",
+      "image": "Part 1/Page00038.jpeg"
     }
   ]
 }
