@@ -956,12 +956,12 @@ function renderStudentProgressModuleEditToggle(module) {
       class="student-progress-module-edit-toggle${isEditing ? " is-editing" : ""}"
       data-progress-action="toggle-student-progress-module-edit"
       data-progress-module-key="${escapeForAttribute(moduleKey)}"
-      aria-label="${isEditing ? "Finish editing module" : "Click to mark complete"}"
+      aria-label="${isEditing ? "Save completed changes" : "Click to edit"}"
       aria-pressed="${isEditing ? "true" : "false"}"
-      title="${isEditing ? "Done" : "Click to mark complete"}"
+      title="${isEditing ? "Save" : "Click to edit"}"
     >
       <span class="app-icon app-icon-small ${isEditing ? "save-mode-icon" : "student-edit-icon"}" aria-hidden="true"></span>
-      <span class="student-progress-module-edit-label">${isEditing ? "Done" : "Click to mark complete"}</span>
+      <span class="student-progress-module-edit-label">${isEditing ? "Save" : "Click to edit"}</span>
     </button>
   `;
 }
@@ -972,7 +972,6 @@ function renderStudentProgressActiveModuleHeaderContent(module) {
   return `
     <div class="student-progress-active-module-title-block">
       <h2 class="student-progress-active-module-title">${escapeHtml(title)}</h2>
-      ${renderStudentProgressModuleBars(module)}
     </div>
     ${renderStudentProgressModuleEditToggle(module)}
   `;
@@ -1164,11 +1163,11 @@ function updateStudentProgressModuleEditButton(button, isEditing) {
   button.classList.toggle("is-editing", !!isEditing);
   button.classList.remove("is-saving", "has-save-error");
   button.setAttribute("aria-pressed", isEditing ? "true" : "false");
-  button.setAttribute("aria-label", isEditing ? "Finish editing module" : "Click to mark complete");
-  button.setAttribute("title", isEditing ? "Done" : "Click to mark complete");
+  button.setAttribute("aria-label", isEditing ? "Save completed changes" : "Click to edit");
+  button.setAttribute("title", isEditing ? "Save" : "Click to edit");
   button.innerHTML = `
     <span class="app-icon app-icon-small ${isEditing ? "save-mode-icon" : "student-edit-icon"}" aria-hidden="true"></span>
-    <span class="student-progress-module-edit-label">${isEditing ? "Done" : "Click to mark complete"}</span>
+    <span class="student-progress-module-edit-label">${isEditing ? "Save" : "Click to edit"}</span>
   `;
   return true;
 }
