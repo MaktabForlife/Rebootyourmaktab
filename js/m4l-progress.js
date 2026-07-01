@@ -17,6 +17,8 @@ const M4L_PROGRESS_TICK = "\u2713";
 let studentProgressAutoSaveTimer = 0;
 let studentProgressAutoSaveInFlight = null;
 let studentProgressSectionStateGuardBound = false;
+let studentProgressModuleEditState = Object.create(null);
+
 
 function resetStudentProgressViewportScroll() {
   const reset = () => {
