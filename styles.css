@@ -27,10 +27,11 @@
      LAVENDER PALETTE
      ========================================== */
   --surface-chip: #F4EEF6;     /* Ultra-light lavender for surfaces */
-  --surface-track: #DBBCDF;    /* Mid-lavender for pills  */
-   --banner-color: #CDB4DB;     /* Dusty Lavender - Soft contrast for headers/banners */
-  --surface-banner: #BCBBC2;    /* lavender banner */
+   --surface-banner: #f2cfff;    /* lavender banner */
+  --surface-track: #e0a9f5;    /* Mid-lavender for pills  */
+   --banner-color: #d897f0;     /* Dusty Lavender - Soft contrast for headers/banners */
   --surface-dark: #916496;     /* Deep dusty lavender for dark modes or dark overlays */
+
 
   /* ==========================================
     WHITEs
