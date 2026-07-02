@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <!-- PWA: Student install settings -->
-  <link rel="stylesheet" href="/styles.css?v=82" />
+  <link rel="stylesheet" href="/styles.css?v=82.1" />
   <link rel="manifest" href="/student-manifest.json" />
   <link rel="apple-touch-icon" sizes="180x180" href="/student-apple-touch-icon.png" />
   <link rel="icon" type="image/png" sizes="32x32" href="/student-favicon-32x32.png" />
@@ -87,24 +87,14 @@
           data-home-swipe-track
           aria-label="Student Home panels"
         >
-          <section class="home-swipe-panel home-swipe-panel--timetable" data-home-swipe-panel data-home-panel-index="0" aria-label="Zoom and timetable">
-            <button
-              id="student-zoom-link-btn"
-              type="button"
-              class="zoom-link-button"
-              onclick="openStudentTimetableZoom()"
-              disabled
-            >
-              <span class="zoom-link-button__icon" aria-hidden="true"></span>
-              <span class="zoom-link-button__text">Join Zoom Class</span>
-            </button>
+          <section class="home-swipe-panel home-swipe-panel--timetable" data-home-swipe-panel data-home-panel-index="0" aria-label="Home apps and timetable">
 
             <div class="home-cover-icon-grid" aria-label="Student home app icons">
-              <button type="button" class="home-cover-icon-btn" data-cover-home-role="student" data-cover-home-nav="progress">
+              <button type="button" class="home-cover-icon-btn" data-cover-home-role="student" data-cover-home-nav="record">
                 <span class="home-cover-icon-tile" aria-hidden="true">
                   <span class="home-cover-icon-glyph"></span>
                 </span>
-                <span class="home-cover-icon-label">Progress</span>
+                <span class="home-cover-icon-label">Record</span>
               </button>
               <button type="button" class="home-cover-icon-btn" data-cover-home-role="student" data-cover-home-nav="library">
                 <span class="home-cover-icon-tile" aria-hidden="true">
@@ -112,11 +102,11 @@
                 </span>
                 <span class="home-cover-icon-label">Library</span>
               </button>
-              <button type="button" class="home-cover-icon-btn" data-cover-home-role="student" data-cover-home-nav="record">
+              <button type="button" class="home-cover-icon-btn" data-cover-home-role="student" data-cover-home-nav="progress">
                 <span class="home-cover-icon-tile" aria-hidden="true">
                   <span class="home-cover-icon-glyph"></span>
                 </span>
-                <span class="home-cover-icon-label">Record</span>
+                <span class="home-cover-icon-label">Progress</span>
               </button>
             </div>
 
@@ -234,7 +224,7 @@
 <script src="/js/m4l-dom.js?v=11"></script>
 <script src="/app.js?v=69"></script>
 <script src="/js/m4l-auth.js?v=56"></script>
-<script src="/js/m4l-shell.js?v=82"></script>
+<script src="/js/m4l-shell.js?v=82.1"></script>
 <script src="/js/m4l-timetable.js?v=76.7.4"></script>
 <script src="/js/m4l-resources.js?v=72.1"></script>
 <script src="/js/m4l-progress.js?v=79.7"></script>
