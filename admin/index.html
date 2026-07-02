@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <!-- PWA: Admin install settings -->
-  <link rel="stylesheet" href="/styles.css?v=79.4" />
+  <link rel="stylesheet" href="/styles.css?v=65.4.2" />
   <link rel="manifest" href="/admin-manifest.json" />
   <link rel="apple-touch-icon" sizes="180x180" href="/admin-apple-touch-icon.png" />
   <link rel="icon" type="image/png" sizes="32x32" href="/admin-favicon-32x32.png" />
@@ -66,62 +66,49 @@
       <p id="auth-error" class="error-message"></p>
     </section>
 
-    <!-- ADMIN HOME -->
-    <section id="admin-home" class="screen admin-theme">
-      <div class="home-swipe-shell" data-home-swipe="admin-home">
-        <div class="home-swipe-dots" data-home-swipe-dots aria-label="Home panels">
-          <button type="button" class="home-swipe-dot is-active" data-home-panel-index="0" aria-label="Show timetable panel" aria-current="true"></button>
-          <button type="button" class="home-swipe-dot" data-home-panel-index="1" aria-label="Show class duas panel" aria-current="false"></button>
-        </div>
-        <div
-          id="admin-home-panel"
-          class="student-home-panel admin-home-panel home-swipe-track"
-          data-home-swipe-track
-          aria-label="Admin Home panels"
-        >
-          <section class="home-swipe-panel home-swipe-panel--timetable" data-home-swipe-panel data-home-panel-index="0" aria-label="Zoom and timetable">
-            <button
-              id="admin-home-zoom-link-btn"
-              type="button"
-              class="zoom-link-button"
-              data-timetable-action="open-zoom"
-            >
-              <span class="zoom-link-button__icon" aria-hidden="true"></span>
-              <span class="zoom-link-button__text">Join Zoom Class</span>
-            </button>
-
-            <section class="timetable-card">
-              <div class="timetable-card-header">
-                <h3>Timetable</h3>
-                <button
-                  type="button"
-                  class="small-btn manual-refresh-btn"
-                  title="Refresh timetable"
-                  aria-label="Refresh timetable"
-                  onclick="refreshAdminHomeTimetable(this)"
-                >
-                  <span class="manual-refresh-btn__icon" aria-hidden="true"></span>
-                  <span class="visually-hidden">Refresh timetable</span>
-                </button>
-              </div>
-
-              <div id="admin-home-timetable-content">
-                <p class="helper-text">Loading timetable...</p>
-              </div>
-            </section>
-          </section>
-
-          <section
-            id="admin-home-duas-panel"
-            class="home-swipe-panel home-swipe-panel--duas"
-            data-home-swipe-panel
-            data-home-panel-index="1"
-            aria-label="Class duas"
+    <!-- ADMIN HOME / COVER PAGE - V81 -->
+    <section id="admin-home" class="screen admin-theme m4l-cover-home" data-cover-home="admin">
+      <section class="dashboard-section m4l-cover-home-panel" aria-label="Admin cover home">
+        <div class="list-stack m4l-cover-action-list" aria-label="Admin home actions">
+          <button
+            id="admin-home-zoom-link-btn"
+            type="button"
+            class="list-btn zoom-link-button is-disabled"
+            data-timetable-action="open-zoom"
+            disabled
+            aria-disabled="true"
+            title="Zoom link has not been added yet"
           >
-            <p class="helper-text">Loading class duas...</p>
-          </section>
-        </div>
+            <span class="zoom-link-button__icon" aria-hidden="true"></span>
+            <span class="zoom-link-button__text">Join Zoom Class</span>
+          </button>
 
+          <button type="button" class="list-btn" data-cover-action="admin-progress">
+            Progress
+          </button>
+
+          <button type="button" class="list-btn" data-cover-action="admin-library">
+            Library
+          </button>
+
+          <button type="button" class="list-btn" data-cover-action="admin-attendance">
+            Attendance
+          </button>
+
+          <button type="button" class="list-btn" data-cover-action="admin-menu">
+            Admin
+          </button>
+        </div>
+      </section>
+
+      <!-- Compatibility targets kept hidden so existing timetable/duas loaders and Zoom state continue to work. -->
+      <div class="m4l-cover-home-compat" hidden aria-hidden="true">
+        <div id="admin-home-timetable-content">
+          <p class="helper-text">Loading timetable...</p>
+        </div>
+        <div id="admin-home-duas-panel">
+          <p class="helper-text">Loading class duas...</p>
+        </div>
       </div>
     </section>
 
@@ -148,13 +135,37 @@
       </div>
     </section>
     <!-- PROGRESS REPORT -->
-<section id="progress-report" class="screen admin-theme admin-progress-screen">
-  <div class="nav-header admin-progress-landing-header">
-    <h2>Progress</h2>
+<section id="progress-report" class="screen admin-theme">
+  <div class="nav-header">
+    <h2 class="visually-hidden">Progress Monitor</h2>
+    <button class="small-btn home-icon-btn" onclick="showScreen('admin-home')" aria-label="Home" title="Home"><span class="home-icon-btn__icon" aria-hidden="true"></span><span class="visually-hidden">Home</span></button>
   </div>
 
-  <div id="admin-progress-dashboard" class="admin-progress-dashboard">
-    <p class="helper-text">Loading progress...</p>
+  <div class="dashboard-section">
+    <h3>Progress for Class</h3>
+    <button class="list-btn" onclick="openProgressContext('class', 'ALL')">
+      View Full Class
+    </button>
+  </div>
+
+  <div class="dashboard-section">
+    <h3>Progress for Groups</h3>
+    <select id="progress-group-select">
+      <option value="">Select a Group...</option>
+    </select>
+    <button class="list-btn" onclick="openSelectedGroupProgress()">
+      View Group
+    </button>
+  </div>
+
+  <div class="dashboard-section">
+    <h3>Progress for Individuals</h3>
+    <select id="progress-student-select">
+      <option value="">Select a Student...</option>
+    </select>
+    <button class="list-btn" onclick="openSelectedStudentProgress()">
+      View Student
+    </button>
   </div>
 </section>
 
@@ -177,15 +188,9 @@
 </section>
 
 <section id="progress-task-students-screen" class="screen admin-theme">
-  <div class="nav-header admin-progress-detail-header">
-    <button
-      type="button"
-      class="small-btn admin-progress-close-btn"
-      data-progress-action="close-admin-progress-task-screen"
-      aria-label="Close progress detail"
-      title="Close"
-    >X</button>
+  <div class="nav-header">
     <h2 id="progress-task-students-title">Task</h2>
+    <button class="small-btn" onclick="showScreen('progress-tasks-screen')">Back</button>
   </div>
 
   <div id="progress-task-students-list" class="list-stack"></div>
@@ -290,65 +295,23 @@
   </div>
 </section>
     <!-- ADMIN ATTENDANCE -->
-    <section id="attendance-screen" class="screen admin-theme">
-      <div
-        class="attendance-panel-dots"
-        data-attendance-swipe-dots
-        aria-label="Attendance panels"
-      >
-        <button
-          type="button"
-          class="attendance-panel-dot is-active"
-          data-attendance-panel-index="0"
-          aria-label="Show Register"
-          aria-current="true"
-        ></button>
-        <button
-          type="button"
-          class="attendance-panel-dot"
-          data-attendance-panel-index="1"
-          aria-label="Show Records"
-          aria-current="false"
-        ></button>
-        <button
-          type="button"
-          class="attendance-panel-dot"
-          data-attendance-panel-index="2"
-          aria-label="Show Stats"
-          aria-current="false"
-        ></button>
+<section id="attendance-register-screen" class="screen admin-theme">
+  <div id="attendance-register-content">
+    <p class="helper-text">Loading attendance...</p>
+  </div>
+</section>
+
+
+    
+    <section id="attendance-report-screen" class="screen admin-theme">
+      <div id="attendance-report-content" class="list-stack">
+        <p class="helper-text">Loading attendance...</p>
       </div>
+    </section>
 
-      <div class="attendance-swipe-track" data-attendance-swipe-track>
-        <section
-          id="attendance-register-panel"
-          class="attendance-swipe-panel"
-          aria-label="Register"
-        >
-          <div id="attendance-register-content">
-            <p class="helper-text">Loading attendance...</p>
-          </div>
-        </section>
-
-        <section
-          id="attendance-report-panel"
-          class="attendance-swipe-panel"
-          aria-label="Attendance Records"
-        >
-          <div id="attendance-report-content">
-            <p class="helper-text">Loading attendance...</p>
-          </div>
-        </section>
-
-        <section
-          id="attendance-stats-panel"
-          class="attendance-swipe-panel"
-          aria-label="Attendance Stats"
-        >
-          <div id="attendance-stats-content">
-            <p class="helper-text">Loading statistics...</p>
-          </div>
-        </section>
+    <section id="attendance-stats-screen" class="screen admin-theme">
+      <div id="attendance-stats-content" class="list-stack">
+        <p class="helper-text">Loading statistics...</p>
       </div>
     </section>
 
@@ -425,14 +388,15 @@
 
   </main>
 <script src="/js/m4l-dom.js?v=11"></script>
-<script src="/app.js?v=69"></script>
+<script src="/app.js?v=80"></script>
 <script src="/js/m4l-auth.js?v=55"></script>
-<script src="/js/m4l-shell.js?v=80a"></script>
-<script src="/js/m4l-attendance.js?v=76.7.4"></script>
+<script src="/js/m4l-shell.js?v=81"></script>
+<script src="/js/m4l-swipe.js?v=64.2"></script>
+<script src="/js/m4l-attendance.js?v=64.3"></script>
 <script src="/js/m4l-admin-academics.js?v=55"></script>
-<script src="/js/m4l-timetable.js?v=76.7.4"></script>
-<script src="/js/m4l-resources.js?v=69"></script>
-<script src="/js/m4l-progress.js?v=79.4"></script>
+<script src="/js/m4l-timetable.js?v=62"></script>
+<script src="/js/m4l-resources.js?v=80"></script>
+<script src="/js/m4l-progress.js?v=55"></script>
 <script src="/js/m4l-manage-students.js?v=55"></script>
 </body>
 </html>
