@@ -7,7 +7,7 @@
 
   <!-- PWA: Admin install settings -->
   <!-- M4L v79.7: Admin index Progress HTML cleanup; quarantined legacy Progress sections removed. -->
-  <link rel="stylesheet" href="/styles.css?v=81.1" />
+  <link rel="stylesheet" href="/styles.css?v=79.7" />
   <link rel="manifest" href="/admin-manifest.json" />
   <link rel="apple-touch-icon" sizes="180x180" href="/admin-apple-touch-icon.png" />
   <link rel="icon" type="image/png" sizes="32x32" href="/admin-favicon-32x32.png" />
@@ -81,15 +81,6 @@
           aria-label="Admin Home panels"
         >
           <section class="home-swipe-panel home-swipe-panel--timetable" data-home-swipe-panel data-home-panel-index="0" aria-label="Zoom and timetable">
-            <section class="class-duas-card home-opening-dua-card" aria-label="Opening praise and salawat">
-              <div class="class-duas-card__list">
-                <article class="class-duas-card__item">
-                  <p class="class-duas-card__arabic" dir="rtl" lang="ar">بسم الله، والحمد لله، والصلاة والسلام على رسول الله، وعلى آله وصحبه أجمعين</p>
-                  <p class="class-duas-card__translation">In the name of Allah, and all praise is due to Allah. May blessings and peace be upon the Messenger of Allah, and upon his family and all his companions</p>
-                </article>
-              </div>
-            </section>
-
             <button
               id="admin-home-zoom-link-btn"
               type="button"
@@ -115,28 +106,24 @@
               </button>
             </div>
 
-            <section class="home-timetable-section" aria-labelledby="admin-home-timetable-title">
-              <h3 id="admin-home-timetable-title" class="home-timetable-title">Reboot Your Maktab Timetable</h3>
+            <section class="timetable-card">
+              <div class="timetable-card-header">
+                <h3>Timetable</h3>
+                <button
+                  type="button"
+                  class="small-btn manual-refresh-btn"
+                  title="Refresh timetable"
+                  aria-label="Refresh timetable"
+                  onclick="refreshAdminHomeTimetable(this)"
+                >
+                  <span class="manual-refresh-btn__icon" aria-hidden="true"></span>
+                  <span class="visually-hidden">Refresh timetable</span>
+                </button>
+              </div>
 
-              <section class="timetable-card">
-                <div class="timetable-card-header">
-                  <h3>Timetable</h3>
-                  <button
-                    type="button"
-                    class="small-btn manual-refresh-btn"
-                    title="Refresh timetable"
-                    aria-label="Refresh timetable"
-                    onclick="refreshAdminHomeTimetable(this)"
-                  >
-                    <span class="manual-refresh-btn__icon" aria-hidden="true"></span>
-                    <span class="visually-hidden">Refresh timetable</span>
-                  </button>
-                </div>
-
-                <div id="admin-home-timetable-content">
-                  <p class="helper-text">Loading timetable...</p>
-                </div>
-              </section>
+              <div id="admin-home-timetable-content">
+                <p class="helper-text">Loading timetable...</p>
+              </div>
             </section>
           </section>
 
@@ -431,7 +418,7 @@
 <script src="/js/m4l-dom.js?v=11"></script>
 <script src="/app.js?v=69"></script>
 <script src="/js/m4l-auth.js?v=55"></script>
-<script src="/js/m4l-shell.js?v=81.1"></script>
+<script src="/js/m4l-shell.js?v=81"></script>
 <script src="/js/m4l-attendance.js?v=76.7.4"></script>
 <script src="/js/m4l-admin-academics.js?v=55"></script>
 <script src="/js/m4l-timetable.js?v=76.7.4"></script>
