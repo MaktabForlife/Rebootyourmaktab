@@ -6,6 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <!-- PWA: Admin install settings -->
+  <!-- M4L v79.5: Admin index Progress HTML quarantine; shared CSS/JS refs remain at deployed v79.4. -->
   <link rel="stylesheet" href="/styles.css?v=79.4" />
   <link rel="manifest" href="/admin-manifest.json" />
   <link rel="apple-touch-icon" sizes="180x180" href="/admin-apple-touch-icon.png" />
@@ -148,6 +149,7 @@
       </div>
     </section>
     <!-- PROGRESS REPORT -->
+    <!-- M4L v79.5: active Admin Progress dashboard retained; legacy support screens below are quarantined as comments. -->
 <section id="progress-report" class="screen admin-theme admin-progress-screen">
   <div class="nav-header admin-progress-landing-header">
     <h2>Progress</h2>
@@ -158,6 +160,9 @@
   </div>
 </section>
 
+<!-- V79_LEGACY_QUARANTINE_START: progress-subjects-screen
+     V79.5: old Admin Progress modules screen; active V79 dashboard no longer uses this legacy module-list route.
+     Kept as HTML comment for rollback. Delete only after a later cleanup round confirms no route needs this section.
 <section id="progress-subjects-screen" class="screen admin-theme">
   <div class="nav-header">
     <h2 id="progress-subjects-title">Modules</h2>
@@ -166,7 +171,11 @@
 
   <div id="progress-subjects-list" class="list-stack"></div>
 </section>
+V79_LEGACY_QUARANTINE_END: progress-subjects-screen -->
 
+<!-- V79_LEGACY_QUARANTINE_START: progress-tasks-screen
+     V79.5: old Admin Progress tasks screen; active V79 dashboard no longer uses this legacy task-list route.
+     Kept as HTML comment for rollback. Delete only after a later cleanup round confirms no route needs this section.
 <section id="progress-tasks-screen" class="screen admin-theme">
   <div class="nav-header">
     <h2 id="progress-tasks-title">Tasks</h2>
@@ -175,6 +184,7 @@
 
   <div id="progress-tasks-list" class="list-stack"></div>
 </section>
+V79_LEGACY_QUARANTINE_END: progress-tasks-screen -->
 
 <section id="progress-task-students-screen" class="screen admin-theme">
   <div class="nav-header admin-progress-detail-header">
@@ -279,6 +289,9 @@
   </div>
 </section>
 
+<!-- V79_LEGACY_QUARANTINE_START: teacher-student-tasks
+     V79.5: old Teacher/Admin student-tasks screen; current Admin Progress uses the V79 progress dashboard/detail routes.
+     Kept as HTML comment for rollback. Delete only after a later cleanup round confirms no route needs this section.
 <section id="teacher-student-tasks" class="screen admin-theme">
   <div class="nav-header">
     <h2 id="teacher-student-tasks-title">Student Tasks</h2>
@@ -289,6 +302,7 @@
     <p class="helper-text">Loading student tasks...</p>
   </div>
 </section>
+V79_LEGACY_QUARANTINE_END: teacher-student-tasks -->
     <!-- ADMIN ATTENDANCE -->
     <section id="attendance-screen" class="screen admin-theme">
       <div
