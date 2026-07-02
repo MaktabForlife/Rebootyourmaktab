@@ -1,32 +1,12 @@
-/* M4L v79.3 - Student legacy Progress CSS quarantine.
-   Baseline: current GitHub styles.css after confirmed V78.1.3 Progress.
-   Scope: Progress CSS admin legacy quarantine only; no index files changed.
-   Rule: legacy blocks are commented first, not deleted. Delete only after testing confirms safe.
+/* M4L v79.7 - Progress CSS cleanup: quarantined legacy CSS removed
+   Baseline: V79.4 deployed successfully after Student/Admin CSS quarantine testing.
+   Scope: removed only CSS already inside legacy quarantine marker blocks.
+   Protected: active Student Progress grid/edit styles and active Admin Progress layouts.
 */
 
-/* V79.3 quarantine summary
-   Commented CSS only. No HTML/index changes.
-   Builds on V79.1 CSS quarantine after V79.2 JS row/list quarantine tested working.
-   Newly quarantined selector families:
-   - remaining old task/status row layout styles
-   - remaining old progress drill/list/student-row styles
-   - remaining old status-toggle/save-progress-button styles
-   Still active/protected:
-   - V78.1.3 Student Progress module-card/grid/edit system
-   - Admin All/Class grid
-   - Admin Group grid
-   - Admin Select Student / Individual view
-*/
-
-/* V79.4 quarantine summary
-   Commented CSS only. No HTML/index changes.
-   Quarantined selector family:
-   - old admin-progress-popout styles from the previous in-screen popout build.
-   Still active/protected:
-   - Admin All/Class grid
-   - Admin Group grid
-   - Admin Select Student / Individual view
-   - shared progress swipe primitives and task card styles used by active individual views
+/* V79.7 cleanup summary
+   Removed previously quarantined Progress CSS blocks only.
+   Active Student/Admin Progress styles remain protected.
 */
 
 :root {
@@ -868,217 +848,23 @@ body.has-user-band .top-bar button[onclick="logout()"] {
   margin-top: 12px;
 }
 
-/* V79_LEGACY_QUARANTINE_START
-   V79.3 Reason: remaining old Student/Progress row-list CSS after V79.2 JS row/list quarantine.
-   Selector: .task-status-row
-
-.task-status-row {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-V79_LEGACY_QUARANTINE_END */
 
 .clickable-card {
   cursor: pointer;
 }
 
-/* V79_LEGACY_QUARANTINE_START
-   V79.3 Reason: remaining old Student/Progress row-list CSS after V79.2 JS row/list quarantine.
-   Selector: .mini-progress-grid
-
-.mini-progress-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  margin-top: 10px;
-}
-V79_LEGACY_QUARANTINE_END */
-
-/* V79_LEGACY_QUARANTINE_START
-   V79.3 Reason: remaining old Student/Progress row-list CSS after V79.2 JS row/list quarantine.
-   Selector: .mini-progress-box
-
-.mini-progress-box {
-  background: var(--surface-chip);
-  border-radius: 12px;
-  padding: 10px;
-  text-align: center;
-}
-V79_LEGACY_QUARANTINE_END */
-
-/* V79_LEGACY_QUARANTINE_START
-   V79.3 Reason: remaining old Student/Progress row-list CSS after V79.2 JS row/list quarantine.
-   Selector: .mini-progress-number
-
-.mini-progress-number {
-  font-size: 1.4rem;
-  font-weight: bold;
-  color: var(--primary);
-}
-V79_LEGACY_QUARANTINE_END */
 
 
-/* V79_LEGACY_QUARANTINE_START
-   V79.3 Reason: remaining old Student/Progress row-list CSS after V79.2 JS row/list quarantine.
-   Selector: .progress-indicators
-
-.progress-indicators {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  align-items: flex-end;
-}
-V79_LEGACY_QUARANTINE_END */
-
-/* V79_LEGACY_QUARANTINE_START
-   V79.3 Reason: remaining old Student/Progress row-list CSS after V79.2 JS row/list quarantine.
-   Selector: .progress-pill
-
-.progress-pill {
-  background: var(--surface-chip);
-  color: var(--primary);
-  padding: 5px 10px;
-  border-radius: 999px;
-  font-size: 0.85rem;
-  white-space: nowrap;
-}
-V79_LEGACY_QUARANTINE_END */
 
 
-/* V79_LEGACY_QUARANTINE_START
-   V79.3 Reason: remaining old Student/Progress row-list CSS after V79.2 JS row/list quarantine.
-   Selector: .status-action
 
-.status-action {
-  min-height: 34px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  color: var(--text-muted);
-  cursor: pointer;
-  font-size: 0.85rem;
-}
-V79_LEGACY_QUARANTINE_END */
+
+
 
 
 .save-btn {
   margin-top: 16px;
-}/* V79_LEGACY_QUARANTINE_START
-   Reason: old Progress row/list or segmented selector style; replaced by V78+ Progress grids/module cards.
-   Selector: .progress-list-button
-
-
-.progress-list-button {
-  background: var(--surface-card);
-  color: var(--primary);
-  border: 1px solid rgba(var(--primary-rgb), 0.14);
-  border-radius: 16px;
-  padding: 16px;
-  margin-bottom: 10px;
-  display: grid;
-  grid-template-columns: 1fr 220px;
-  align-items: center;
-  text-align: left;
-  gap: 14px;
-  box-shadow: 0 2px 5px rgba(var(--black-rgb), 0.08);
 }
-V79_LEGACY_QUARANTINE_END *//* V79_LEGACY_QUARANTINE_START
-   Reason: old Progress row/list or segmented selector style; replaced by V78+ Progress grids/module cards.
-   Selector: .progress-list-title
-
-
-.progress-list-title {
-  font-family: var(--font-heading);
-  letter-spacing: 0.02em;
-  font-size: 1.1rem;
-}
-V79_LEGACY_QUARANTINE_END *//* V79_LEGACY_QUARANTINE_START
-   Reason: old Progress row/list or segmented selector style; replaced by V78+ Progress grids/module cards.
-   Selector: .progress-bars
-
-
-.progress-bars {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-V79_LEGACY_QUARANTINE_END *//* V79_LEGACY_QUARANTINE_START
-   Reason: old Progress row/list or segmented selector style; replaced by V78+ Progress grids/module cards.
-   Selector: .progress-bar-row
-
-
-.progress-bar-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-V79_LEGACY_QUARANTINE_END *//* V79_LEGACY_QUARANTINE_START
-   Reason: old Progress row/list or segmented selector style; replaced by V78+ Progress grids/module cards.
-   Selector: .progress-bar-label
-
-
-.progress-bar-label {
-  width: 68px;
-  font-size: 0.78rem;
-  color: var(--primary);
-  opacity: 0.95;
-  text-align: right;
-}
-V79_LEGACY_QUARANTINE_END *//* V79_LEGACY_QUARANTINE_START
-   Reason: old Progress row/list or segmented selector style; replaced by V78+ Progress grids/module cards.
-   Selector: .progress-track
-
-
-.progress-track {
-  flex: 1;
-  height: 14px;
-  background: var(--surface-track);
-  border: 1px solid rgba(var(--primary-rgb), 0.18);
-  border-radius: 999px;
-  overflow: hidden;
-}
-V79_LEGACY_QUARANTINE_END *//* V79_LEGACY_QUARANTINE_START
-   Reason: old Progress row/list or segmented selector style; replaced by V78+ Progress grids/module cards.
-   Selector: .progress-fill
-
-
-.progress-fill {
-  height: 100%;
-  border-radius: 999px;
-}
-V79_LEGACY_QUARANTINE_END *//* V79_LEGACY_QUARANTINE_START
-   Reason: old Progress row/list or segmented selector style; replaced by V78+ Progress grids/module cards.
-   Selector: .student-status-row
-
-
-
-.student-status-row {
-  background: var(--surface-card);
-  color: var(--primary);
-  border: 1px solid rgba(var(--primary-rgb), 0.14);
-  border-radius: 16px;
-  padding: 12px;
-  display: grid;
-  grid-template-columns: 1.4fr 1fr 1fr;
-  gap: 8px;
-  align-items: center;
-  margin-bottom: 10px;
-  text-align: left;
-  box-shadow: 0 2px 5px rgba(var(--black-rgb), 0.08);
-}
-V79_LEGACY_QUARANTINE_END *//* V79_LEGACY_QUARANTINE_START
-   Reason: old Progress row/list or segmented selector style; replaced by V78+ Progress grids/module cards.
-   Selector: .student-status-name
-
-
-.student-status-name {
-  color: var(--primary);
-  font-weight: bold;
-}
-V79_LEGACY_QUARANTINE_END */
-
 
 .status-tick {
   font-size: 1rem;
@@ -1092,109 +878,7 @@ V79_LEGACY_QUARANTINE_END */
 
 .status-tick-verified {
   color: var(--verified);
-}/* V79_LEGACY_QUARANTINE_START
-   Reason: old Progress row/list or segmented selector style; replaced by V78+ Progress grids/module cards.
-   Selector: .task-status-heading-row
-
-
-
-.task-status-heading-row {
-  background: transparent;
-  border: 0;
-  box-shadow: none;
-  padding: 0 12px 2px;
-  margin: 0 0 4px;
 }
-V79_LEGACY_QUARANTINE_END *//* V79_LEGACY_QUARANTINE_START
-   Reason: old Progress row/list or segmented selector style; replaced by V78+ Progress grids/module cards.
-   Selector: .task-status-heading-row .student-status-name
-
-
-.task-status-heading-row .student-status-name {
-  min-height: 1px;
-}
-V79_LEGACY_QUARANTINE_END *//* V79_LEGACY_QUARANTINE_START
-   Reason: old Progress row/list or segmented selector style; replaced by V78+ Progress grids/module cards.
-   Selector: .task-status-heading
-
-
-.task-status-heading {
-  min-height: 26px;
-  color: var(--primary);
-  cursor: default;
-  font-size: 0.78rem;
-  font-weight: 700;
-  line-height: 1.1;
-}
-V79_LEGACY_QUARANTINE_END *//* V79_LEGACY_QUARANTINE_START
-   Reason: old Progress row/list or segmented selector style; replaced by V78+ Progress grids/module cards.
-   Selector: .task-status-control
-
-
-.task-status-control {
-  min-height: 44px;
-  color: var(--primary);
-}
-V79_LEGACY_QUARANTINE_END *//* V79_LEGACY_QUARANTINE_START
-   Reason: old Progress row/list or segmented selector style; replaced by V78+ Progress grids/module cards.
-   Selector: .task-status-control.is-view-only
-
-
-.task-status-control.is-view-only {
-  cursor: default;
-}
-V79_LEGACY_QUARANTINE_END *//* V79_LEGACY_QUARANTINE_START
-   Reason: old Progress row/list or segmented selector style; replaced by V78+ Progress grids/module cards.
-   Selector: .task-status-control.is-muted-status,
-.task-status-heading.is-muted-status
-
-
-.task-status-control.is-muted-status,
-.task-status-heading.is-muted-status {
-  color: var(--status-muted);
-}
-V79_LEGACY_QUARANTINE_END *//* V79_LEGACY_QUARANTINE_START
-   Reason: old Progress row/list or segmented selector style; replaced by V78+ Progress grids/module cards.
-   Selector: .task-status-icon
-
-
-.task-status-icon {
-  width: var(--task-status-icon-size);
-  height: var(--task-status-icon-size);
-  display: inline-block;
-  flex: 0 0 auto;
-  background: currentColor;
-  color: var(--primary);
-  -webkit-mask: var(--task-status-icon-url) center / contain no-repeat;
-  mask: var(--task-status-icon-url) center / contain no-repeat;
-}
-V79_LEGACY_QUARANTINE_END *//* V79_LEGACY_QUARANTINE_START
-   Reason: old Progress row/list or segmented selector style; replaced by V78+ Progress grids/module cards.
-   Selector: .task-status-icon--complete
-
-
-.task-status-icon--complete {
-  --task-status-icon-url: url('/icons/tocomplete.svg');
-}
-V79_LEGACY_QUARANTINE_END *//* V79_LEGACY_QUARANTINE_START
-   Reason: old Progress row/list or segmented selector style; replaced by V78+ Progress grids/module cards.
-   Selector: .task-status-icon--verify
-
-
-.task-status-icon--verify {
-  --task-status-icon-url: url('/icons/toverify.svg');
-}
-V79_LEGACY_QUARANTINE_END *//* V79_LEGACY_QUARANTINE_START
-   Reason: old Progress row/list or segmented selector style; replaced by V78+ Progress grids/module cards.
-   Selector: .task-status-icon--muted
-
-
-.task-status-icon--muted {
-  color: var(--status-muted);
-  opacity: 0.78;
-}
-V79_LEGACY_QUARANTINE_END */
-
 .group-heading {
   background: var(--primary);
   color: var(--text-inverse);
@@ -1205,111 +889,13 @@ V79_LEGACY_QUARANTINE_END */
   margin: 15px 0 8px;
 }
 
-@media (max-width: 700px) {/* V79_LEGACY_QUARANTINE_START
-   Reason: old Progress row/list or segmented selector style; replaced by V78+ Progress grids/module cards.
-   Selector: .progress-list-button
+@media (max-width: 700px) {}
 
-  .progress-list-button {
-    grid-template-columns: 1fr;
-  }
-V79_LEGACY_QUARANTINE_END *//* V79_LEGACY_QUARANTINE_START
-   Reason: old Progress row/list or segmented selector style; replaced by V78+ Progress grids/module cards.
-   Selector: .progress-bar-label
-
-
-  .progress-bar-label {
-    width: 60px;
-    font-size: 0.74rem;
-  }
-V79_LEGACY_QUARANTINE_END */
-}
-
-@media (max-width: 520px) {/* V79_LEGACY_QUARANTINE_START
-   Reason: old Progress row/list or segmented selector style; replaced by V78+ Progress grids/module cards.
-   Selector: .student-status-row
-
-  .student-status-row {
-    display: flex;
-    flex-direction: row;
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    gap: 8px;
-    align-items: center;
-    text-align: left;
-    padding: 10px;
-  }
-V79_LEGACY_QUARANTINE_END *//* V79_LEGACY_QUARANTINE_START
-   Reason: old Progress row/list or segmented selector style; replaced by V78+ Progress grids/module cards.
-   Selector: .student-status-name
-
-
-  .student-status-name {
-    flex: 1 0 110px;
-    min-width: 110px;
-    text-align: left;
-    font-size: 0.95rem;
-    line-height: 1.05;
-    overflow-wrap: anywhere;
-  }
-V79_LEGACY_QUARANTINE_END */
-
-/* V79_LEGACY_QUARANTINE_START
-   V79.3 Reason: remaining old Student/Progress row-list CSS after V79.2 JS row/list quarantine.
-   Selector: @media max-width 520 .status-action
-
-  .status-action {
-    flex: 0 0 82px;
-    width: 82px;
-    min-width: 82px;
-    min-height: 44px;
-    font-size: 0.68rem;
-    line-height: 1.05;
-    white-space: normal;
-    text-align: center;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-V79_LEGACY_QUARANTINE_END */
+@media (max-width: 520px) {
 
   .status-tick {
     font-size: 1rem;
-  }/* V79_LEGACY_QUARANTINE_START
-   Reason: old Progress row/list or segmented selector style; replaced by V78+ Progress grids/module cards.
-   Selector: .task-status-icon
-
-
-  .task-status-icon {
-    width: 28px;
-    height: 28px;
-  }
-V79_LEGACY_QUARANTINE_END *//* V79_LEGACY_QUARANTINE_START
-   Reason: old Progress row/list or segmented selector style; replaced by V78+ Progress grids/module cards.
-   Selector: .task-status-heading
-
-
-  .task-status-heading {
-    font-size: 0.72rem;
-  }
-V79_LEGACY_QUARANTINE_END *//* V79_LEGACY_QUARANTINE_START
-   Reason: old Progress row/list or segmented selector style; replaced by V78+ Progress grids/module cards.
-   Selector: .task-status-heading-row
-
-
-  .task-status-heading-row {
-    padding-block: 0;
-    margin-bottom: 2px;
-  }
-V79_LEGACY_QUARANTINE_END *//* V79_LEGACY_QUARANTINE_START
-   Reason: old Progress row/list or segmented selector style; replaced by V78+ Progress grids/module cards.
-   Selector: .task-status-heading-row .status-action
-
-
-  .task-status-heading-row .status-action {
-    min-height: 24px;
-  }
-V79_LEGACY_QUARANTINE_END */
-}
+  }}
 
 @media (min-width: 600px) {
   .card-grid {
@@ -1317,301 +903,27 @@ V79_LEGACY_QUARANTINE_END */
   }
 }
 
-/* V79_LEGACY_QUARANTINE_START
-   V79.3 Reason: remaining old Student/Progress row-list CSS after V79.2 JS row/list quarantine.
-   Selector: .progress-button-list
-
-.progress-button-list {
-  display: grid;
-  gap: 14px;
-  margin-top: 16px;
-}
-V79_LEGACY_QUARANTINE_END */
-
-/* V79_LEGACY_QUARANTINE_START
-   V79.3 Reason: remaining old Student/Progress row-list CSS after V79.2 JS row/list quarantine.
-   Selector: .progress-drill-button
-
-.progress-drill-button {
-  width: 100%;
-  border: 1px solid rgba(var(--primary-rgb), 0.14);
-  background: var(--surface-card);
-  border-radius: 18px;
-  padding: 16px;
-  text-align: left;
-  cursor: pointer;
-  color: var(--primary);
-  box-shadow: 0 2px 5px rgba(var(--black-rgb), 0.08);
-}
-V79_LEGACY_QUARANTINE_END */
-
-/* V79_LEGACY_QUARANTINE_START
-   V79.3 Reason: remaining old Student/Progress row-list CSS after V79.2 JS row/list quarantine.
-   Selector: .progress-drill-button:hover
-
-.progress-drill-button:hover {
-  transform: translateY(-1px);
-  border-color: rgba(var(--primary-rgb), 0.26);
-}
-V79_LEGACY_QUARANTINE_END */
-
-/* V79_LEGACY_QUARANTINE_START
-   V79.3 Reason: remaining old Student/Progress row-list CSS after V79.2 JS row/list quarantine.
-   Selector: .progress-button-title
-
-.progress-button-title {
-  display: block;
-  font-size: 1rem;
-  font-weight: 700;
-  margin-bottom: 12px;
-}
-V79_LEGACY_QUARANTINE_END */
-
-/* V79_LEGACY_QUARANTINE_START
-   V79.3 Reason: remaining old Student/Progress row-list CSS after V79.2 JS row/list quarantine.
-   Selector: .dual-progress
-
-.dual-progress {
-  display: grid;
-  gap: 8px;
-}
-V79_LEGACY_QUARANTINE_END */
-
-/* V79_LEGACY_QUARANTINE_START
-   V79.3 Reason: remaining old Student/Progress row-list CSS after V79.2 JS row/list quarantine.
-   Selector: .progress-line
-
-.progress-line {
-  display: grid;
-  grid-template-columns: 76px 1fr;
-  align-items: center;
-  gap: 10px;
-}
-V79_LEGACY_QUARANTINE_END */
-
-/* V79_LEGACY_QUARANTINE_START
-   V79.3 Reason: remaining old Student/Progress row-list CSS after V79.2 JS row/list quarantine.
-   Selector: .progress-label
-
-.progress-label {
-  font-size: 0.78rem;
-  opacity: 0.82;
-}
-V79_LEGACY_QUARANTINE_END *//* V79_LEGACY_QUARANTINE_START
-   Reason: old Progress row/list or segmented selector style; replaced by V78+ Progress grids/module cards.
-   Selector: .progress-track
 
 
-.progress-track {
-  display: block;
-  height: 9px;
-  overflow: hidden;
-  border-radius: 999px;
-  background: var(--disabled);
-}
-V79_LEGACY_QUARANTINE_END *//* V79_LEGACY_QUARANTINE_START
-   Reason: old Progress row/list or segmented selector style; replaced by V78+ Progress grids/module cards.
-   Selector: .progress-fill
 
 
-.progress-fill {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-}
-V79_LEGACY_QUARANTINE_END *//* V79_LEGACY_QUARANTINE_START
-   Reason: old Progress row/list or segmented selector style; replaced by V78+ Progress grids/module cards.
-   Selector: .progress-fill-complete
 
 
-.progress-fill-complete {
-  background: var(--complete);
-}
-V79_LEGACY_QUARANTINE_END *//* V79_LEGACY_QUARANTINE_START
-   Reason: old Progress row/list or segmented selector style; replaced by V78+ Progress grids/module cards.
-   Selector: .progress-fill-verified
 
 
-.progress-fill-verified {
-  background: var(--verified);
-}
-V79_LEGACY_QUARANTINE_END */
 
-/* V79_LEGACY_QUARANTINE_START
-   V79.3 Reason: remaining old Student/Progress row-list CSS after V79.2 JS row/list quarantine.
-   Selector: .progress-header-row
 
-.progress-header-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 16px;
-}
-V79_LEGACY_QUARANTINE_END */
 
-/* V79_LEGACY_QUARANTINE_START
-   V79.3 Reason: remaining old Student/Progress row-list CSS after V79.2 JS row/list quarantine.
-   Selector: .progress-group-block
 
-.progress-group-block {
-  margin-top: 18px;
-}
-V79_LEGACY_QUARANTINE_END */
 
-/* V79_LEGACY_QUARANTINE_START
-   V79.3 Reason: remaining old Student/Progress row-list CSS after V79.2 JS row/list quarantine.
-   Selector: .progress-group-block h4
 
-.progress-group-block h4 {
-  margin: 0 0 10px;
-  font-size: 0.95rem;
-  opacity: 0.9;
-}
-V79_LEGACY_QUARANTINE_END */
 
-/* V79_LEGACY_QUARANTINE_START
-   V79.3 Reason: remaining old Student/Progress row-list CSS after V79.2 JS row/list quarantine.
-   Selector: .progress-student-list
 
-.progress-student-list {
-  display: grid;
-  gap: 10px;
-}
-V79_LEGACY_QUARANTINE_END */
 
-/* V79_LEGACY_QUARANTINE_START
-   V79.3 Reason: remaining old Student/Progress row-list CSS after V79.2 JS row/list quarantine.
-   Selector: .progress-student-row
-
-.progress-student-row {
-  display: grid;
-  grid-template-columns: 1fr auto auto;
-  align-items: center;
-  gap: 10px;
-  padding: 12px;
-  border: 1px solid rgba(var(--primary-rgb), 0.14);
-  border-radius: 16px;
-  background: var(--surface-card);
-  color: var(--primary);
-  box-shadow: 0 2px 5px rgba(var(--black-rgb), 0.08);
-}
-V79_LEGACY_QUARANTINE_END */
-
-/* V79_LEGACY_QUARANTINE_START
-   V79.3 Reason: remaining old Student/Progress row-list CSS after V79.2 JS row/list quarantine.
-   Selector: .progress-student-name
-
-.progress-student-name {
-  font-weight: 650;
-}
-V79_LEGACY_QUARANTINE_END */
-
-/* V79_LEGACY_QUARANTINE_START
-   V79.3 Reason: remaining old Student/Progress row-list CSS after V79.2 JS row/list quarantine.
-   Selector: .status-toggle
-
-.status-toggle {
-  border: 1px solid rgba(var(--primary-rgb), 0.16);
-  border-radius: 999px;
-  padding: 7px 11px;
-  font-size: 0.82rem;
-  font-weight: 700;
-  cursor: pointer;
-  background: var(--surface-card);
-  color: var(--primary);
-}
-V79_LEGACY_QUARANTINE_END */
-
-/* V79_LEGACY_QUARANTINE_START
-   V79.3 Reason: remaining old Student/Progress row-list CSS after V79.2 JS row/list quarantine.
-   Selector: .status-toggle.is-complete
-
-.status-toggle.is-complete {
-  color: var(--complete);
-  border-color: var(--complete);
-}
-V79_LEGACY_QUARANTINE_END */
-
-/* V79_LEGACY_QUARANTINE_START
-   V79.3 Reason: remaining old Student/Progress row-list CSS after V79.2 JS row/list quarantine.
-   Selector: .status-toggle.is-verified
-
-.status-toggle.is-verified {
-  color: var(--verified);
-  border-color: var(--verified);
-}
-V79_LEGACY_QUARANTINE_END */
-
-/* V79_LEGACY_QUARANTINE_START
-   V79.3 Reason: remaining old Student/Progress row-list CSS after V79.2 JS row/list quarantine.
-   Selector: .status-toggle.is-off
-
-.status-toggle.is-off {
-  color: var(--disabled);
-  border-color: var(--disabled);
-}
-V79_LEGACY_QUARANTINE_END */
-
-/* V79_LEGACY_QUARANTINE_START
-   V79.3 Reason: remaining old Student/Progress row-list CSS after V79.2 JS row/list quarantine.
-   Selector: .save-progress-button
-
-.save-progress-button {
-  margin-top: 20px;
-  width: 100%;
-}
-V79_LEGACY_QUARANTINE_END */
 
 @media (max-width: 640px) {
-/* V79_LEGACY_QUARANTINE_START
-   V79.3 Reason: remaining old Student/Progress row-list CSS after V79.2 JS row/list quarantine.
-   Selector: @media max-width 640 .progress-student-row
 
-  .progress-student-row {
-    display: flex;
-    flex-direction: row;
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    gap: 8px;
-    align-items: center;
-    text-align: left;
-    padding: 10px;
-  }
-V79_LEGACY_QUARANTINE_END */
 
-/* V79_LEGACY_QUARANTINE_START
-   V79.3 Reason: remaining old Student/Progress row-list CSS after V79.2 JS row/list quarantine.
-   Selector: @media max-width 640 .progress-student-name
-
-  .progress-student-name {
-    flex: 1 0 110px;
-    min-width: 110px;
-    text-align: left;
-    font-size: 0.95rem;
-    line-height: 1.05;
-    overflow-wrap: anywhere;
-  }
-V79_LEGACY_QUARANTINE_END */
-
-/* V79_LEGACY_QUARANTINE_START
-   V79.3 Reason: remaining old Student/Progress row-list CSS after V79.2 JS row/list quarantine.
-   Selector: @media max-width 640 .status-toggle
-
-  .status-toggle {
-    flex: 0 0 82px;
-    width: 82px;
-    min-width: 82px;
-    min-height: 44px;
-    padding: 5px 4px;
-    font-size: 0.68rem;
-    line-height: 1.05;
-    white-space: normal;
-    text-align: center;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-V79_LEGACY_QUARANTINE_END */
 }
 
 
@@ -1739,92 +1051,7 @@ body.is-admin-progress-section.has-user-band .app-shell {
   margin: 0 0 8px;
   background: transparent;
   box-shadow: none;
-}/* V79_LEGACY_QUARANTINE_START
-   Reason: old Progress row/list or segmented selector style; replaced by V78+ Progress grids/module cards.
-   Selector: .m4l-segmented-control
-
-
-.m4l-segmented-control {
-  width: min(100%, 430px);
-  min-height: 52px;
-  display: grid;
-  grid-template-columns: 0.9fr 1.35fr 1.15fr;
-  align-items: stretch;
-  overflow: hidden;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--surface-track) 62%, var(--surface-card));
-  box-shadow: inset 0 0 0 1px rgba(var(--primary-rgb), 0.12);
 }
-V79_LEGACY_QUARANTINE_END *//* V79_LEGACY_QUARANTINE_START
-   Reason: old Progress row/list or segmented selector style; replaced by V78+ Progress grids/module cards.
-   Selector: .m4l-segmented-option
-
-
-.m4l-segmented-option {
-  position: relative;
-  width: 100%;
-  min-width: 0;
-  min-height: 52px;
-  padding: 8px 10px;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  color: var(--text-strong);
-  box-shadow: none;
-  font-size: 0.95rem;
-  font-weight: 850;
-  line-height: 1;
-  letter-spacing: 0;
-}
-V79_LEGACY_QUARANTINE_END *//* V79_LEGACY_QUARANTINE_START
-   Reason: old Progress row/list or segmented selector style; replaced by V78+ Progress grids/module cards.
-   Selector: .m4l-segmented-option + .m4l-segmented-option::before
-
-
-.m4l-segmented-option + .m4l-segmented-option::before {
-  content: "";
-  position: absolute;
-  top: 12px;
-  bottom: 12px;
-  left: 0;
-  width: 1px;
-  background: rgba(var(--black-rgb), 0.24);
-  opacity: 0.42;
-}
-V79_LEGACY_QUARANTINE_END *//* V79_LEGACY_QUARANTINE_START
-   Reason: old Progress row/list or segmented selector style; replaced by V78+ Progress grids/module cards.
-   Selector: .m4l-segmented-option.is-active
-
-
-.m4l-segmented-option.is-active {
-  background: var(--primary);
-  color: var(--text-inverse);
-  border-radius: 999px;
-}
-V79_LEGACY_QUARANTINE_END *//* V79_LEGACY_QUARANTINE_START
-   Reason: old Progress row/list or segmented selector style; replaced by V78+ Progress grids/module cards.
-   Selector: .m4l-segmented-option.is-active::before,
-.m4l-segmented-option.is-active + .m4l-segmented-option::before
-
-
-.m4l-segmented-option.is-active::before,
-.m4l-segmented-option.is-active + .m4l-segmented-option::before {
-  display: none;
-}
-V79_LEGACY_QUARANTINE_END *//* V79_LEGACY_QUARANTINE_START
-   Reason: old Progress row/list or segmented selector style; replaced by V78+ Progress grids/module cards.
-   Selector: .m4l-segmented-option--select
-
-
-.m4l-segmented-option--select {
-  display: flex;
-  align-items: stretch;
-  justify-content: center;
-  padding: 0;
-  cursor: default;
-}
-V79_LEGACY_QUARANTINE_END */
-
 .admin-progress-group-picker {
   width: 100%;
   height: 100%;
@@ -1848,16 +1075,7 @@ V79_LEGACY_QUARANTINE_END */
 .admin-progress-group-picker:disabled {
   opacity: 0.55;
   cursor: not-allowed;
-}/* V79_LEGACY_QUARANTINE_START
-   Reason: old Progress row/list or segmented selector style; replaced by V78+ Progress grids/module cards.
-   Selector: .m4l-segmented-option--select.is-active .admin-progress-group-picker
-
-
-.m4l-segmented-option--select.is-active .admin-progress-group-picker {
-  color: var(--text-inverse);
 }
-V79_LEGACY_QUARANTINE_END */
-
 .admin-progress-placeholder-card {
   max-width: 560px;
   margin: 16px auto;
@@ -2490,16 +1708,7 @@ V79_LEGACY_QUARANTINE_END */
 
 .admin-progress-verify-control {
   color: var(--primary);
-}/* V79_LEGACY_QUARANTINE_START
-   Reason: old Progress row/list or segmented selector style; replaced by V78+ Progress grids/module cards.
-   Selector: .admin-progress-status-control .task-status-icon
-
-
-.admin-progress-status-control .task-status-icon {
-  color: currentColor;
 }
-V79_LEGACY_QUARANTINE_END */
-
 .admin-progress-complete-control .status-tick-complete,
 .is-admin-complete-override .status-tick-complete {
   color: var(--complete);
@@ -2587,133 +1796,6 @@ V79_LEGACY_QUARANTINE_END */
   background: transparent;
 }
 
-/* V79_LEGACY_QUARANTINE_START
-   V79.4 admin popout base block.
-   Reason: old in-screen admin student popout replaced by full Select Student / Individual Progress view.
-
-.admin-progress-student-popout {
-  position: fixed;
-  top: calc(var(--user-band-height) + var(--user-band-safe-area-top) + 10px);
-  right: 0;
-  bottom: calc(var(--bottom-nav-height) + var(--bottom-nav-safe-area) + 8px);
-  left: 0;
-  z-index: 70;
-  display: flex;
-  align-items: stretch;
-  justify-content: center;
-  width: 100dvw;
-  max-width: 100dvw;
-  overflow: hidden;
-  padding: 8px max(8px, env(safe-area-inset-right, 0px)) 8px max(8px, env(safe-area-inset-left, 0px));
-}
-
-.admin-progress-student-popout.hidden {
-  display: none;
-}
-
-.admin-progress-popout-backdrop {
-  position: absolute;
-  inset: 0;
-  background: rgba(var(--black-rgb), 0.18);
-}
-
-.admin-progress-popout-panel {
-  position: relative;
-  z-index: 1;
-  width: min(100%, 560px);
-  max-width: 100%;
-  min-width: 0;
-  max-height: 100%;
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  gap: 10px;
-  padding: 12px;
-  border-radius: 22px;
-  background: var(--surface-app);
-  box-shadow: 0 14px 34px rgba(var(--black-rgb), 0.20);
-  overflow: hidden;
-}
-
-.admin-progress-popout-header {
-  position: relative;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  align-items: center;
-  gap: 12px;
-  border-bottom: 3px solid var(--primary);
-  padding-bottom: 10px;
-}
-
-.admin-progress-popout-header h3 {
-  padding-left: 18px;
-  min-width: 0;
-  margin: 0;
-  color: var(--text-muted);
-  line-height: 1.2;
-  font-weight: 400;
-  overflow-wrap: anywhere;
-}
-
-.admin-progress-popout-content {
-  min-width: 0;
-  min-height: 0;
-  overflow: hidden;
-  display: grid;
-  align-content: stretch;
-}
-
-.admin-progress-popout-swipe-shell {
-  width: 100%;
-  max-width: 100%;
-  min-width: 0;
-  min-height: 0;
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  gap: 10px;
-  overflow: hidden;
-}
-
-.admin-progress-popout-module-track {
-  min-height: 0;
-}
-
-.admin-progress-popout-module {
-  min-height: 0;
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  gap: 10px;
-  padding: 12px;
-  border-radius: 18px;
-  background: var(--surface-card);
-  border: 1px solid rgba(var(--primary-rgb), 0.12);
-  overflow: hidden;
-}
-
-.admin-progress-popout-module-title {
-  color: var(--text-muted);
-  font-weight: 700;
-}
-
-.admin-progress-popout-task-list {
-  overflow-y: auto;
-  padding-right: 2px;
-  -webkit-overflow-scrolling: touch;
-}
-
-.admin-progress-popout-task-name {
-  color: var(--text-muted);
-  font-weight: 400;
-}
-
-.admin-progress-popout-actions,
-.admin-progress-popout-save,
-.admin-progress-save-button,
-.admin-progress-task-work-header {
-  display: none;
-}
-
-
-V79_LEGACY_QUARANTINE_END */
 
 @media (min-width: 760px) {
   body.is-admin-progress-section.has-bottom-nav .app-shell {
@@ -2745,17 +1827,6 @@ V79_LEGACY_QUARANTINE_END */
     align-items: start;
   }
 
-/* V79_LEGACY_QUARANTINE_START
-   Reason: old admin popout media rule replaced by full Individual view.
-   Selector: .admin-progress-student-popout {
-
-  .admin-progress-student-popout {
-    top: calc(var(--user-band-height) + var(--user-band-safe-area-top) + var(--top-nav-height) + 18px);
-    bottom: 14px;
-  }
-
-  
-V79_LEGACY_QUARANTINE_END */
 .admin-progress-task-card {
     flex-basis: 300px;
   }
@@ -2769,17 +1840,6 @@ V79_LEGACY_QUARANTINE_END */
     flex-basis: min(430px, 42vw);
   }
 
-/* V79_LEGACY_QUARANTINE_START
-   Reason: old admin popout media rule replaced by full Individual view.
-   Selector: .admin-progress-popout-panel {
-
-  .admin-progress-popout-panel {
-    margin-left: auto;
-    margin-right: 24px;
-    width: min(520px, 46vw);
-  }
-
-V79_LEGACY_QUARANTINE_END */
 }
 
 @media (min-width: 1180px) {
@@ -2854,39 +1914,10 @@ V79_LEGACY_QUARANTINE_END */
     font-size: 0.95rem;
   }
 
-/* V79_LEGACY_QUARANTINE_START
-   Reason: old admin popout media rule replaced by full Individual view.
-   Selector: .admin-progress-student-popout {
-
-  .admin-progress-student-popout {
-    padding-inline: 8px;
-  }
-
-  
-V79_LEGACY_QUARANTINE_END */
 .admin-progress-aig-shell {
     padding-top: 2px;
     padding-bottom: 6px;
-  }/* V79_LEGACY_QUARANTINE_START
-   Reason: old Progress row/list or segmented selector style; replaced by V78+ Progress grids/module cards.
-   Selector: .m4l-segmented-control
-
-
-  .m4l-segmented-control {
-    min-height: 48px;
   }
-V79_LEGACY_QUARANTINE_END *//* V79_LEGACY_QUARANTINE_START
-   Reason: old Progress row/list or segmented selector style; replaced by V78+ Progress grids/module cards.
-   Selector: .m4l-segmented-option
-
-
-  .m4l-segmented-option {
-    min-height: 48px;
-    padding-inline: 6px;
-    font-size: 0.78rem;
-  }
-V79_LEGACY_QUARANTINE_END */
-
   .admin-progress-group-picker {
     min-height: 48px;
     padding-inline: 8px 22px;
@@ -2911,17 +1942,6 @@ V79_LEGACY_QUARANTINE_END */
     padding: 12px;
   }
 
-/* V79_LEGACY_QUARANTINE_START
-   Reason: old admin popout media rule replaced by full Individual view.
-   Selector: .admin-progress-popout-panel {
-
-  .admin-progress-popout-panel {
-    width: 100%;
-    max-width: 100%;
-    border-radius: 18px;
-  }
-
-V79_LEGACY_QUARANTINE_END */
 }
 
 
@@ -3230,16 +2250,7 @@ body.is-student-progress-section .app-shell {
 #progress-subjects-screen.student-theme .student-progress-status-control .status-tick-verified,
 #progress-subjects-screen.student-theme .student-progress-verify-control .status-tick-verified {
   color: var(--verified);
-}/* V79_LEGACY_QUARANTINE_START
-   Reason: old Progress row/list or segmented selector style; replaced by V78+ Progress grids/module cards.
-   Selector: #progress-subjects-screen.student-theme .student-progress-verify-control .task-status-icon
-
-
-#progress-subjects-screen.student-theme .student-progress-verify-control .task-status-icon {
-  color: var(--disabled);
 }
-V79_LEGACY_QUARANTINE_END */
-
 #progress-subjects-screen.student-theme .student-progress-task-media-block {
   margin-top: 8px;
 }
