@@ -1,6 +1,5 @@
-/* M4L v81 - Shell / Navigation / User Band module.
-   Owns Home native scroll dot binding, app browser-back history handling,
-   and cover-home entry actions.
+/* M4L v80 - Shell / Navigation / User Band module.
+   Owns Home native scroll dot binding and app browser-back history handling.
    /js/m4l-swipe.js is no longer required. */
 
 function showScreen(screenId) {
@@ -40,9 +39,6 @@ function showScreen(screenId) {
     updateBottomNavigation(screenId);
   }
 
-  if (typeof updateCoverHomeState === "function") {
-    updateCoverHomeState(screenId);
-  }
 
   if (typeof bindHomeNativeScrollControls === "function") {
     bindHomeNativeScrollControls(screenId);
@@ -1121,110 +1117,6 @@ function setTextActionButton(button, text, actionValue) {
   }
 }
 
-
-/* =========================
-   COVER HOME ENTRY ACTIONS - V81
-   Home is now the authenticated cover/root page. These actions enter the
-   existing inner app screens without changing those screens' own behaviour.
-========================= */
-
-function isM4LCoverHomeScreen(screenId) {
-  return String(screenId || "") === "student-home" || String(screenId || "") === "admin-home";
-}
-
-function updateCoverHomeState(screenId) {
-  const isCoverHome = isM4LCoverHomeScreen(screenId) && !!(typeof state !== "undefined" && state && state.token);
-
-  if (typeof document !== "undefined" && document.body) {
-    document.body.classList.toggle("is-cover-home", isCoverHome);
-  }
-
-  const appShell = typeof document !== "undefined" ? document.querySelector(".app-shell") : null;
-  if (appShell) {
-    appShell.classList.toggle("is-cover-home", isCoverHome);
-  }
-
-  return isCoverHome;
-}
-
-const M4L_COVER_HOME_ACTIONS = {
-  "student-library": { actionName: "showStudentResources", fallbackScreen: "student-resources-subjects" },
-  "student-progress": { actionName: "showStudentTasks", fallbackScreen: "progress-subjects-screen" },
-  "admin-progress": { actionName: "showProgressReport", fallbackScreen: "progress-report" },
-  "admin-library": { actionName: "showAdminResources", fallbackScreen: "student-resources-subjects" },
-  "admin-attendance": { actionName: "openMarkRegister", fallbackScreen: "attendance-screen" },
-  "admin-menu": { actionName: "showAdminAcademics", fallbackScreen: "admin-academics" }
-};
-
-let coverHomeActionHandlersBound = false;
-
-function runM4LCoverHomeAction(actionKey) {
-  const key = String(actionKey || "");
-  const action = M4L_COVER_HOME_ACTIONS[key];
-
-  if (!action) {
-    console.warn("Unsupported cover home action:", key);
-    return false;
-  }
-
-  try {
-    if (action.actionName && typeof window[action.actionName] === "function") {
-      const result = window[action.actionName]();
-      if (result && typeof result.catch === "function") {
-        result.catch(error => {
-          console.error("Cover home action failed:", action.actionName, error);
-          if (action.fallbackScreen) {
-            showScreen(action.fallbackScreen);
-          }
-        });
-      }
-      return true;
-    }
-
-    if (action.fallbackScreen) {
-      return showScreen(action.fallbackScreen);
-    }
-  } catch (error) {
-    console.error("Cover home action failed:", key, error);
-    if (action.fallbackScreen) {
-      return showScreen(action.fallbackScreen);
-    }
-  }
-
-  return false;
-}
-
-function handleCoverHomeActionClick(event) {
-  const button = event.target && event.target.closest
-    ? event.target.closest("[data-cover-action]")
-    : null;
-
-  if (!button || button.disabled) return;
-
-  const activeCover = button.closest(".m4l-cover-home, [data-cover-home]");
-  if (!activeCover) return;
-
-  event.preventDefault();
-  runM4LCoverHomeAction(button.dataset.coverAction || "");
-}
-
-function bindCoverHomeActionHandlers() {
-  if (coverHomeActionHandlersBound === true) return true;
-  if (!document || typeof document.addEventListener !== "function") return false;
-
-  coverHomeActionHandlersBound = true;
-  document.addEventListener("click", handleCoverHomeActionClick);
-  return true;
-}
-
-if (typeof document !== "undefined") {
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", bindCoverHomeActionHandlers, { once: true });
-  } else {
-    bindCoverHomeActionHandlers();
-  }
-}
-
 const BOTTOM_NAV_ITEMS = {
   student: [
     {
@@ -1577,8 +1469,6 @@ function shouldShowBottomNavigation(screenId, role) {
 
   const hiddenScreens = new Set([
     "auth-screen",
-    "student-home",
-    "admin-home",
     "pdf-viewer-screen"
   ]);
 
@@ -1713,9 +1603,6 @@ window.M4LShell = {
   setTextActionButton: typeof setTextActionButton === "function" ? setTextActionButton : undefined,
   getBottomNavRole: typeof getBottomNavRole === "function" ? getBottomNavRole : undefined,
   updateBottomNavigation: typeof updateBottomNavigation === "function" ? updateBottomNavigation : undefined,
-  updateCoverHomeState: typeof updateCoverHomeState === "function" ? updateCoverHomeState : undefined,
-  bindCoverHomeActionHandlers: typeof bindCoverHomeActionHandlers === "function" ? bindCoverHomeActionHandlers : undefined,
-  runM4LCoverHomeAction: typeof runM4LCoverHomeAction === "function" ? runM4LCoverHomeAction : undefined,
   bindHomeSwipeControls: typeof bindHomeSwipeControls === "function" ? bindHomeSwipeControls : undefined,
   bindHomeNativeScrollControls: typeof bindHomeNativeScrollControls === "function" ? bindHomeNativeScrollControls : undefined,
   bindHomeNativeScrollPanels: typeof bindHomeNativeScrollPanels === "function" ? bindHomeNativeScrollPanels : undefined,
