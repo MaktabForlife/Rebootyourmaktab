@@ -1,6 +1,6 @@
-/* M4L v82.2 - Admin Individual Progress rebuild from Student Progress grid
-   Baseline: V82.1.1 user band/timetable refinements plus V79.7 Progress cleanup.
-   Scope: rebuild Admin Individual Progress using the proven Student Progress module-grid sheet.
+/* M4L v82.2.1 - User band font/Zoom icon cleanup + Admin Individual Progress baseline
+   Baseline: V82.2 Admin Individual Progress rebuild from Student Progress grid.
+   Scope: user band font weights, banner action icon cleanup, and clean Zoom icon support.
    Protected: Student Progress, Admin All/Class dashboard, Group dashboard, Library, Attendance, Home.
 */
 
@@ -585,21 +585,40 @@ button:active {
 
 .app-user-band__zoom {
   justify-self: center;
+  background: transparent;
+  background-color: transparent;
+  background-image: none;
+  box-shadow: none;
+}
+
+.app-user-band__zoom::before,
+.app-user-band__zoom::after,
+.app-user-band__menu-btn::before,
+.app-user-band__menu-btn::after {
+  content: none;
+  display: none;
 }
 
 .app-user-band__zoom .app-icon,
 .app-user-band__menu-btn .app-icon {
   width: 25px;
   height: 25px;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+} 
+
+.app-user-band__zoom .app-icon-zoom {
+  background-color: currentColor;
 }
 
 .app-user-band__action-label {
   display: block;
   color: currentColor;
   font-size: 0.56rem;
-  font-weight: 850;
+  font-weight: 400;
   line-height: 1;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.04em;
 }
 
 .app-user-band__menu-shell {
@@ -654,8 +673,8 @@ button:active {
   margin: 0 0 4px;
   color: var(--text-muted);
   font-size: 0.78rem;
-  font-weight: 850;
-  letter-spacing: 0.08em;
+  font-weight: 400;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
@@ -671,13 +690,13 @@ button:active {
 
 .app-user-profile-menu__label {
   color: var(--text-muted);
-  font-weight: 800;
+  font-weight: 400;
 }
 
 .app-user-profile-menu__value {
   min-width: 0;
   overflow-wrap: anywhere;
-  font-weight: 650;
+  font-weight: 400;
 }
 
 .app-user-menu__item {
@@ -695,7 +714,7 @@ button:active {
   color: var(--text);
   box-shadow: none;
   font-size: 0.92rem;
-  font-weight: 750;
+  font-weight: 400;
   letter-spacing: 0;
   text-align: left;
 }
@@ -712,6 +731,7 @@ button:active {
 .app-user-menu__item-label {
   min-width: 0;
   color: currentColor;
+  font-weight: 400;
   line-height: 1.1;
 }
 
@@ -7337,7 +7357,7 @@ body.pdf-viewer-open.has-user-band .pdf-viewer-header {
   }
 }
 
-/* M4L v82.2 - Admin Individual Progress rebuild from Student Progress grid */
+/* M4L v82.2.1 - User band font/Zoom icon cleanup + Admin Individual Progress baseline */
 .admin-individual-progress-shell {
   display: grid;
   gap: 12px;
