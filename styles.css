@@ -1,7 +1,7 @@
-/* M4L v79.7 - Progress CSS cleanup: quarantined legacy CSS removed
-   Baseline: V79.4 deployed successfully after Student/Admin CSS quarantine testing.
-   Scope: removed only CSS already inside legacy quarantine marker blocks.
-   Protected: active Student Progress grid/edit styles and active Admin Progress layouts.
+/* M4L v81.1 - Home opening praise and timetable heading
+   Built only from uploaded styles(72).css.
+   Scope: adds Home-only styling for the opening praise card and the timetable heading.
+   Protected: existing Progress, Library, Attendance, Home swipe, and Timetable layout rules remain unchanged.
 */
 
 /* V79.7 cleanup summary
@@ -3081,6 +3081,43 @@ body.is-student-progress-section .app-shell {
   text-align: center;
 }
 
+
+
+/* V81.1 Home opening praise and timetable heading
+   Scoped to Home cover pages only; inner screens keep their existing layout. */
+#student-home .home-opening-dua-card,
+#admin-home .home-opening-dua-card {
+  margin: 0 0 10px;
+}
+
+#student-home .home-opening-dua-card .class-duas-card__list,
+#admin-home .home-opening-dua-card .class-duas-card__list {
+  gap: 0;
+}
+
+#student-home .home-opening-dua-card .class-duas-card__arabic,
+#admin-home .home-opening-dua-card .class-duas-card__arabic {
+  margin-bottom: 8px;
+}
+
+#student-home .home-timetable-section,
+#admin-home .home-timetable-section {
+  width: 100%;
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+}
+
+#student-home .home-timetable-title,
+#admin-home .home-timetable-title {
+  margin: 0;
+  color: var(--primary);
+  font-family: var(--font-heading);
+  font-size: clamp(1.05rem, 4.4vw, 1.32rem);
+  font-weight: 800;
+  line-height: 1.15;
+  text-align: center;
+}
 
 /* Home: compact timetable layout */
 #student-home .top-bar,
