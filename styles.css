@@ -1,7 +1,7 @@
-/* M4L v82.1.1 - User band profile/Zoom/menu labels + timetable refinements
-   Baseline: V79.7 Progress cleanup.
-   Scope: user band profile menu, labelled Zoom/menu actions, same-tab Zoom opening support, and timetable styling refinements.
-   Protected: active Student/Admin Progress and Attendance layouts.
+/* M4L v82.2 - Admin Individual Progress rebuild from Student Progress grid
+   Baseline: V82.1.1 user band/timetable refinements plus V79.7 Progress cleanup.
+   Scope: rebuild Admin Individual Progress using the proven Student Progress module-grid sheet.
+   Protected: Student Progress, Admin All/Class dashboard, Group dashboard, Library, Attendance, Home.
 */
 
 :root {
@@ -7334,5 +7334,168 @@ body.pdf-viewer-open.has-user-band .pdf-viewer-header {
     min-width: 18px;
     min-height: 22px;
     font-size: 0.9rem;
+  }
+}
+
+/* M4L v82.2 - Admin Individual Progress rebuild from Student Progress grid */
+.admin-individual-progress-shell {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.admin-individual-progress-active-header {
+  grid-template-columns: minmax(30px, auto) minmax(0, 1fr) minmax(98px, 132px);
+  align-items: center;
+}
+
+.admin-individual-progress-active-header .admin-progress-close-btn {
+  position: absolute;
+  top: 3px;
+  left: 7px;
+}
+
+.admin-individual-progress-active-header .admin-individual-progress-edit-toggle {
+  justify-self: end;
+}
+
+.admin-individual-progress-student-name {
+  padding-inline: 28px;
+  font-weight: 850;
+}
+
+.admin-individual-progress-swipe-shell {
+  width: 100%;
+  min-width: 0;
+  gap: 10px;
+}
+
+.admin-individual-progress-track {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.admin-individual-progress-panel,
+.admin-progress-individual-module-card.admin-individual-progress-module-task-card {
+  flex: 0 0 100%;
+  width: 100%;
+  min-width: 100%;
+  max-width: 100%;
+}
+
+.admin-individual-progress-panel {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 12px;
+  align-content: stretch;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+  cursor: default;
+}
+
+.admin-individual-progress-panel:active {
+  transform: none;
+}
+
+.admin-individual-progress-module-header {
+  position: relative;
+  top: auto;
+  z-index: 1;
+  padding: 14px 12px;
+}
+
+.admin-individual-progress-module-header .student-progress-active-module-title-block {
+  align-content: center;
+}
+
+.admin-individual-progress-module-title {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.admin-individual-progress-module-task-card {
+  min-height: 0;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  margin-inline: 0;
+  background: var(--surface-chip);
+  overflow: hidden;
+}
+
+.admin-individual-progress-grid {
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+.admin-individual-progress-grid-row {
+  grid-template-columns: minmax(0, 1fr) 62px 62px;
+}
+
+.admin-individual-progress-status-cell {
+  cursor: default;
+}
+
+.admin-individual-progress-shell.is-editing .admin-individual-progress-status-cell {
+  cursor: pointer;
+}
+
+.admin-individual-progress-shell.is-viewing .admin-individual-progress-status-cell:not(.is-on) .admin-progress-status-edit-icon {
+  display: none;
+}
+
+.admin-individual-progress-shell.is-viewing .admin-individual-progress-status-cell:not(.is-on) {
+  pointer-events: none;
+}
+
+.admin-progress-status-edit-icon {
+  width: 22px;
+  height: 22px;
+  color: var(--text-subtle);
+  opacity: 0.9;
+}
+
+.admin-individual-progress-complete-cell.is-on .status-tick-complete {
+  color: var(--complete);
+}
+
+.admin-individual-progress-verify-cell.is-on .status-tick-verified {
+  color: var(--verified);
+}
+
+.admin-individual-progress-shell .student-progress-grid-date-note {
+  display: none;
+}
+
+.admin-individual-progress-shell.is-viewing .student-progress-grid-status-cell:focus .student-progress-grid-date-note,
+.admin-individual-progress-shell.is-viewing .student-progress-grid-status-cell:focus-visible .student-progress-grid-date-note {
+  display: block;
+}
+
+.admin-individual-progress-shell.is-editing .student-progress-grid-date-note {
+  display: none;
+}
+
+@media (max-width: 520px) {
+  .admin-individual-progress-active-header {
+    grid-template-columns: minmax(24px, auto) minmax(0, 1fr) minmax(94px, 104px);
+  }
+
+  .admin-individual-progress-grid-row {
+    grid-template-columns: minmax(0, 1fr) 54px 54px;
+  }
+
+  .admin-individual-progress-module-task-card {
+    padding: 13px;
   }
 }
