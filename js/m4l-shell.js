@@ -1,4 +1,4 @@
-/* M4L v82.1 - Shell / Navigation / User Band module.
+/* M4L v82.1.1 - Shell / Navigation / User Band module.
    Owns Home native scroll dot binding, app browser-back history handling, and cover-home navigation.
    /js/m4l-swipe.js is no longer required. */
 
@@ -74,7 +74,7 @@ function showScreen(screenId) {
 ========================= */
 
 const M4L_APP_HISTORY_FLAG = "maktab4life";
-const M4L_APP_HISTORY_VERSION = 821;
+const M4L_APP_HISTORY_VERSION = 8211;
 const M4L_APP_HISTORY_EXIT_WINDOW_MS = 1800;
 
 let m4lAppHistoryBound = false;
@@ -824,6 +824,54 @@ function getCurrentUserLevelText() {
   return group ? `Student · Group ${group}` : "Student";
 }
 
+function getCurrentUserRoleLabel() {
+  const user = state.user || {};
+  const role = String(user.role || user.Role || "").trim();
+  const navRole = getBottomNavRole();
+
+  if (navRole === "admin") {
+    return role || "Admin";
+  }
+
+  return "Student";
+}
+
+function getCurrentUserGroupLabel() {
+  const user = state.user || {};
+  const group = String(
+    user.classgroup ||
+    user.ClassGroup ||
+    user.group ||
+    user.Group ||
+    ""
+  ).trim();
+
+  return group ? `Group ${group}` : "";
+}
+
+function getUserBandProfileMarkup(username, role) {
+  const roleLabel = getCurrentUserRoleLabel();
+  const groupLabel = role === "student" ? getCurrentUserGroupLabel() : "";
+  const rows = [
+    { label: "Name", value: username },
+    { label: "Role", value: roleLabel }
+  ];
+
+  if (groupLabel) {
+    rows.push({ label: "Group", value: groupLabel });
+  }
+
+  return `
+    <p class="app-user-profile-menu__title">Profile</p>
+    ${rows.map(row => `
+      <div class="app-user-profile-menu__row">
+        <span class="app-user-profile-menu__label">${escapeHtml(row.label)}</span>
+        <span class="app-user-profile-menu__value">${escapeHtml(row.value)}</span>
+      </div>
+    `).join("")}
+  `;
+}
+
 function getUserBandElement() {
   if (!document.body) {
     console.warn("User band could not be created because document.body is missing.");
@@ -1120,11 +1168,51 @@ function closeUserBandMenu() {
   return true;
 }
 
+function closeUserBandProfileMenu() {
+  const menu = document.getElementById("app-user-band-profile-menu");
+  const toggle = document.querySelector("#app-user-band [data-user-profile-toggle]");
+
+  if (menu) {
+    menu.classList.add("hidden");
+  }
+
+  if (toggle) {
+    toggle.setAttribute("aria-expanded", "false");
+  }
+
+  return true;
+}
+
+function closeUserBandMenus() {
+  closeUserBandMenu();
+  closeUserBandProfileMenu();
+  return true;
+}
+
 function setUserBandMenuOpen(isOpen) {
   const menu = document.getElementById("app-user-band-menu");
   const toggle = document.querySelector("#app-user-band [data-app-menu-toggle]");
 
   if (!menu || !toggle) return false;
+
+  if (isOpen) {
+    closeUserBandProfileMenu();
+  }
+
+  menu.classList.toggle("hidden", !isOpen);
+  toggle.setAttribute("aria-expanded", isOpen ? "true" : "false");
+  return true;
+}
+
+function setUserBandProfileMenuOpen(isOpen) {
+  const menu = document.getElementById("app-user-band-profile-menu");
+  const toggle = document.querySelector("#app-user-band [data-user-profile-toggle]");
+
+  if (!menu || !toggle) return false;
+
+  if (isOpen) {
+    closeUserBandMenu();
+  }
 
   menu.classList.toggle("hidden", !isOpen);
   toggle.setAttribute("aria-expanded", isOpen ? "true" : "false");
@@ -1141,12 +1229,12 @@ function bindUserBandMenuDismissHandler() {
     const band = document.getElementById("app-user-band");
     if (!band || band.classList.contains("hidden")) return;
     if (band.contains(event.target)) return;
-    closeUserBandMenu();
+    closeUserBandMenus();
   });
 
   document.addEventListener("keydown", event => {
     if (event.key === "Escape") {
-      closeUserBandMenu();
+      closeUserBandMenus();
     }
   });
 
@@ -1158,18 +1246,21 @@ function openUserBandZoomLink() {
   if (!confirmed) return false;
 
   if (typeof openTimetableZoomLink === "function") {
-    openTimetableZoomLink();
+    openTimetableZoomLink("", { sameTab: true });
     return true;
   }
 
   if (window.M4LTimetable && typeof window.M4LTimetable.openTimetableZoomLink === "function") {
-    window.M4LTimetable.openTimetableZoomLink();
+    window.M4LTimetable.openTimetableZoomLink("", { sameTab: true });
     return true;
   }
 
   const zoomButton = document.querySelector("[data-timetable-action='open-zoom'][data-zoom-link]:not(:disabled)");
-  if (zoomButton && typeof zoomButton.click === "function") {
-    zoomButton.click();
+  const zoomLink = zoomButton ? String(zoomButton.dataset.zoomLink || "").trim() : "";
+
+  if (zoomLink) {
+    const targetLink = /^https?:\/\//i.test(zoomLink) ? zoomLink : `https://${zoomLink}`;
+    window.location.assign(targetLink);
     return true;
   }
 
@@ -1185,7 +1276,7 @@ function attachUserBandZoomHandler(band) {
 
   zoomButton.addEventListener("click", event => {
     event.preventDefault();
-    closeUserBandMenu();
+    closeUserBandMenus();
     openUserBandZoomLink();
   });
 
@@ -1219,6 +1310,27 @@ function handleUserBandMenuAction(action, role) {
   if (!navKey) return false;
 
   return handleBottomNavigationClick(activeRole, navKey);
+}
+
+function attachUserBandProfileHandler(band) {
+  if (!band) return false;
+
+  const toggle = band.querySelector("[data-user-profile-toggle]");
+  const menu = band.querySelector("#app-user-band-profile-menu");
+
+  if (!toggle || !menu) return false;
+
+  bindUserBandMenuDismissHandler();
+
+  toggle.addEventListener("click", event => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const isOpen = toggle.getAttribute("aria-expanded") === "true";
+    setUserBandProfileMenuOpen(!isOpen);
+  });
+
+  return true;
 }
 
 function attachUserBandMenuHandlers(band) {
@@ -1274,19 +1386,31 @@ function updateUserBand(screenId) {
   }
 
   const username = getCurrentUserName() || (role === "admin" ? "Admin" : "Student");
-  const levelText = getCurrentUserLevelText();
 
   band.innerHTML = `
-    <div class="app-user-band__identity-wrap" aria-label="Logged-in user">
-      <span class="app-icon app-icon-small app-icon-user app-user-band__identity-icon" aria-hidden="true"></span>
-      <div class="app-user-band__identity">
-        <h2 class="app-user-band__name">${escapeHtml(username)}</h2>
-        <p class="app-user-band__level">${escapeHtml(levelText)}</p>
+    <div class="app-user-band__identity-shell">
+      <button
+        type="button"
+        class="app-user-band__profile-btn"
+        data-user-profile-toggle
+        aria-label="Open profile menu"
+        title="Profile"
+        aria-expanded="false"
+        aria-controls="app-user-band-profile-menu"
+      >
+        <span class="app-icon app-icon-small app-icon-user app-user-band__identity-icon" aria-hidden="true"></span>
+        <span class="app-user-band__identity">
+          <span class="app-user-band__name">${escapeHtml(username)}</span>
+        </span>
+      </button>
+      <div id="app-user-band-profile-menu" class="app-user-profile-menu hidden" role="menu" aria-label="Profile menu">
+        ${getUserBandProfileMarkup(username, role)}
       </div>
     </div>
 
     <button type="button" class="app-user-band__zoom" data-user-band-zoom aria-label="Open Zoom" title="Open Zoom">
-      <span class="app-icon app-icon-large app-icon-zoom" aria-hidden="true"></span>
+      <span class="app-icon app-icon-zoom" aria-hidden="true"></span>
+      <span class="app-user-band__action-label">ZOOM</span>
     </button>
 
     <div class="app-user-band__menu-shell">
@@ -1299,7 +1423,8 @@ function updateUserBand(screenId) {
         aria-expanded="false"
         aria-controls="app-user-band-menu"
       >
-        <span class="app-icon app-icon-large app-icon-menu" aria-hidden="true"></span>
+        <span class="app-icon app-icon-menu" aria-hidden="true"></span>
+        <span class="app-user-band__action-label">MENU</span>
       </button>
       <div id="app-user-band-menu" class="app-user-menu hidden" role="menu" aria-label="App menu">
         ${getUserBandMenuMarkup()}
@@ -1307,6 +1432,7 @@ function updateUserBand(screenId) {
     </div>
   `;
 
+  attachUserBandProfileHandler(band);
   attachUserBandZoomHandler(band);
   attachUserBandMenuHandlers(band);
   return true;
