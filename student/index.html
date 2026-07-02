@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <!-- PWA: Student install settings -->
-  <link rel="stylesheet" href="/styles.css?v=79.4" />
+  <link rel="stylesheet" href="/styles.css?v=79.3" />
   <link rel="manifest" href="/student-manifest.json" />
   <link rel="apple-touch-icon" sizes="180x180" href="/student-apple-touch-icon.png" />
   <link rel="icon" type="image/png" sizes="32x32" href="/student-favicon-32x32.png" />
@@ -66,41 +66,71 @@
       <p id="auth-error" class="error-message"></p>
     </section>
 
-    <!-- STUDENT HOME / COVER PAGE - V81 -->
-    <section id="student-home" class="screen student-theme m4l-cover-home" data-cover-home="student">
-      <section class="dashboard-section m4l-cover-home-panel" aria-label="Student cover home">
-        <div class="list-stack m4l-cover-action-list" aria-label="Student home actions">
-          <button
-            id="student-zoom-link-btn"
-            type="button"
-            class="list-btn zoom-link-button is-disabled"
-            data-timetable-action="open-zoom"
-            disabled
-            aria-disabled="true"
-            title="Zoom link has not been added yet"
+    <!-- STUDENT HOME -->
+    <section id="student-home" class="screen student-theme">
+      <div class="top-bar">
+        <div>
+          <h2 id="student-home-title">Student</h2>
+          <p id="student-welcome" class="mini-text">Student Home page</p>
+        </div>
+        <button class="small-btn" onclick="logout()">Logout</button>
+      </div>
+
+      <div class="home-swipe-shell" data-home-swipe="student-home">
+        <div class="home-swipe-dots" data-home-swipe-dots aria-label="Home panels">
+          <button type="button" class="home-swipe-dot is-active" data-home-panel-index="0" aria-label="Show timetable panel" aria-current="true"></button>
+          <button type="button" class="home-swipe-dot" data-home-panel-index="1" aria-label="Show class duas panel" aria-current="false"></button>
+        </div>
+        <div
+          id="student-home-swipe-track"
+          class="student-home-panel home-swipe-track"
+          data-home-swipe-track
+          aria-label="Student Home panels"
+        >
+          <section class="home-swipe-panel home-swipe-panel--timetable" data-home-swipe-panel data-home-panel-index="0" aria-label="Zoom and timetable">
+            <button
+              id="student-zoom-link-btn"
+              type="button"
+              class="zoom-link-button"
+              onclick="openStudentTimetableZoom()"
+              disabled
+            >
+              <span class="zoom-link-button__icon" aria-hidden="true"></span>
+              <span class="zoom-link-button__text">Join Zoom Class</span>
+            </button>
+
+            <section class="timetable-card">
+              <div class="timetable-card-header">
+                <h3>Timetable</h3>
+                <button
+                  type="button"
+                  class="small-btn manual-refresh-btn"
+                  title="Refresh timetable"
+                  aria-label="Refresh timetable"
+                  onclick="refreshStudentHomeTimetable(this)"
+                >
+                  <span class="manual-refresh-btn__icon" aria-hidden="true"></span>
+                  <span class="visually-hidden">Refresh timetable</span>
+                </button>
+              </div>
+
+              <div id="student-timetable-content">
+                <p class="helper-text">Loading timetable...</p>
+              </div>
+            </section>
+          </section>
+
+          <section
+            id="student-home-duas-panel"
+            class="home-swipe-panel home-swipe-panel--duas"
+            data-home-swipe-panel
+            data-home-panel-index="1"
+            aria-label="Class duas"
           >
-            <span class="zoom-link-button__icon" aria-hidden="true"></span>
-            <span class="zoom-link-button__text">Join Zoom Class</span>
-          </button>
-
-          <button type="button" class="list-btn" data-cover-action="student-library">
-            Library
-          </button>
-
-          <button type="button" class="list-btn" data-cover-action="student-progress">
-            Progress
-          </button>
+            <p class="helper-text">Loading class duas...</p>
+          </section>
         </div>
-      </section>
 
-      <!-- Compatibility targets kept hidden so existing timetable/duas loaders and Zoom state continue to work. -->
-      <div class="m4l-cover-home-compat" hidden aria-hidden="true">
-        <div id="student-timetable-content">
-          <p class="helper-text">Loading timetable...</p>
-        </div>
-        <div id="student-home-duas-panel">
-          <p class="helper-text">Loading class duas...</p>
-        </div>
       </div>
     </section>
 
@@ -177,12 +207,12 @@
 
   </main>
 <script src="/js/m4l-dom.js?v=11"></script>
-<script src="/app.js?v=80"></script>
+<script src="/app.js?v=69"></script>
 <script src="/js/m4l-auth.js?v=56"></script>
-<script src="/js/m4l-shell.js?v=81"></script>
-<script src="/js/m4l-timetable.js?v=69.1"></script>
-<script src="/js/m4l-resources.js?v=80"></script>
-<script src="/js/m4l-progress.js?v=79.4"></script>
+<script src="/js/m4l-shell.js?v=80a"></script>
+<script src="/js/m4l-timetable.js?v=76.7.4"></script>
+<script src="/js/m4l-resources.js?v=72.1"></script>
+<script src="/js/m4l-progress.js?v=79.3"></script>
 </body>
 </html>
 
