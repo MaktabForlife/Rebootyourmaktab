@@ -1,4 +1,4 @@
-/* M4L v81 - Shell / Navigation / User Band module.
+/* M4L v82 - Shell / Navigation / User Band module.
    Owns Home native scroll dot binding, app browser-back history handling, and cover-home navigation.
    /js/m4l-swipe.js is no longer required. */
 
@@ -43,6 +43,10 @@ function showScreen(screenId) {
     bindCoverHomeNavigation();
   }
 
+  if (typeof hydrateCoverHomeNavigationButtons === "function") {
+    hydrateCoverHomeNavigationButtons(document.getElementById(screenId) || document);
+  }
+
   if (typeof bindHomeNativeScrollControls === "function") {
     bindHomeNativeScrollControls(screenId);
   }
@@ -70,7 +74,7 @@ function showScreen(screenId) {
 ========================= */
 
 const M4L_APP_HISTORY_FLAG = "maktab4life";
-const M4L_APP_HISTORY_VERSION = 81;
+const M4L_APP_HISTORY_VERSION = 82;
 const M4L_APP_HISTORY_EXIT_WINDOW_MS = 1800;
 
 let m4lAppHistoryBound = false;
@@ -1141,6 +1145,12 @@ const BOTTOM_NAV_ITEMS = {
       icon: "/icons/progress.svg",
       targetScreen: "progress-subjects-screen",
       actionName: "showStudentTasks"
+    },
+    {
+      key: "record",
+      label: "Record",
+      icon: "/icons/navrecord.svg",
+      targetScreen: "record-lesson-screen"
     }
   ],
   admin: [
@@ -1177,6 +1187,12 @@ const BOTTOM_NAV_ITEMS = {
       icon: "/icons/admin.svg",
       targetScreen: "admin-academics",
       actionName: "showAdminAcademics"
+    },
+    {
+      key: "record",
+      label: "Record",
+      icon: "/icons/navrecord.svg",
+      targetScreen: "record-lesson-screen"
     }
   ]
 };
@@ -1192,6 +1208,51 @@ function getBottomNavRole() {
 }
 
 
+
+function getCoverHomeNavigationRole(button) {
+  return String(
+    (button && button.dataset ? button.dataset.coverHomeRole : "") ||
+    (typeof getBottomNavRole === "function" ? getBottomNavRole() : "") ||
+    ""
+  ).trim();
+}
+
+function getCoverHomeNavigationItem(button) {
+  if (!button) return null;
+
+  const role = getCoverHomeNavigationRole(button);
+  const key = String(button.dataset.coverHomeNav || "").trim();
+
+  if (!role || !key) return null;
+
+  return getBottomNavItems(role).find(navItem => navItem.key === key) || null;
+}
+
+function hydrateCoverHomeNavigationButtons(scope) {
+  if (!document) return false;
+
+  const root = scope && typeof scope.querySelectorAll === "function" ? scope : document;
+  const buttons = Array.from(root.querySelectorAll("[data-cover-home-nav]"));
+
+  buttons.forEach(button => {
+    const item = getCoverHomeNavigationItem(button);
+    if (!item) return;
+
+    button.style.setProperty("--cover-home-icon", `url('${item.icon}')`);
+
+    if (!button.getAttribute("aria-label")) {
+      button.setAttribute("aria-label", `Open ${item.label}`);
+    }
+
+    const label = button.querySelector(".home-cover-icon-label");
+    if (label && !label.textContent.trim()) {
+      label.textContent = item.label;
+    }
+  });
+
+  return true;
+}
+
 let coverHomeNavigationBound = false;
 
 function isCoverHomeScreen(screenId) {
@@ -1203,6 +1264,7 @@ function bindCoverHomeNavigation() {
   if (!document || typeof document.addEventListener !== "function") return false;
 
   coverHomeNavigationBound = true;
+  hydrateCoverHomeNavigationButtons(document);
   document.addEventListener("click", handleCoverHomeNavigationClick);
   return true;
 }
@@ -1531,6 +1593,8 @@ function getBottomNavActiveKey(screenId, role) {
       return "library";
     }
 
+    if (screenId === "record-lesson-screen") return "record";
+
     return "home";
   }
 
@@ -1538,6 +1602,8 @@ function getBottomNavActiveKey(screenId, role) {
     if (screenId === "admin-home") return "home";
 
     if (String(screenId || "").startsWith("attendance")) return "attendance";
+
+    if (screenId === "record-lesson-screen") return "record";
 
     if (String(screenId || "").startsWith("admin-timetable")) return "admin";
 
