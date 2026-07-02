@@ -1,6 +1,6 @@
-/* M4L v79.1 - Progress cleanup quarantine
+/* M4L v79.2 - Student legacy row/list quarantine
    Baseline: uploaded m4l-progress.js content with confirmed V78.1.3 Progress markers.
-   Scope: Progress JS quarantine only; no index files changed.
+   Scope: Progress JS quarantine only; no index files changed. V79.2 quarantines the old Student row/list progress build.
    Rule: legacy code is commented/marked first, not deleted. Delete only after testing confirms safe.
 */  
   
@@ -1424,183 +1424,299 @@ function renderStudentSubjectProgress(options = {}) {
 }  
   
   
-/* V79_LEGACY_QUARANTINE_CANDIDATE: openStudentSubjectTasks
-   Reason: old student subject/task row-list build appears superseded by the V78+ module-card grid, but remains active until testing confirms no route calls it.
-   V79.1 keeps this active for safety; comment/delete only after smoke testing confirms unused.
+/* V79_LEGACY_QUARANTINE_START: openStudentSubjectTasks
+   V79.2: Old Student Progress row/list build replaced by the active V78.1.3+ module-card grid.
+   Original implementation is line-commented below for rollback. Delete only after final confirmation.
 */
-function openStudentSubjectTasks(subjectKey) {  
-  setProgressScreensForStudent();  
-  setManualRefreshButton("progress-tasks-screen", "refreshStudentModuleTaskList(this)");  
+function openStudentSubjectTasks(subjectKey) {
+  // V79.2: Old Student Progress row/list screen is quarantined.
+  // Fallback safely stays on the current module-card Progress screen.
+  const key = String(subjectKey || currentStudentSubjectKey || "");
+  if (key) {
+    currentStudentSubjectKey = key;
+  }
+  console.warn("V79.2 legacy Student Progress row/list route is quarantined; using module-card Progress instead.");
+  if (typeof showScreen === "function") {
+    showScreen("progress-subjects-screen");
+  }
+  renderStudentSubjectProgress({
+    moduleKey: key,
+    scrollBehavior: "auto"
+  });
+  return false;
+}
+
+// V79_LEGACY_QUARANTINE_ORIGINAL_START: openStudentSubjectTasks
+// /* V79_LEGACY_QUARANTINE_CANDIDATE: openStudentSubjectTasks
+//    Reason: old student subject/task row-list build appears superseded by the V78+ module-card grid, but remains active until testing confirms no route calls it.
+//    V79.1 keeps this active for safety; comment/delete only after smoke testing confirms unused.
+// */
+// function openStudentSubjectTasks(subjectKey) {  
+//   setProgressScreensForStudent();  
+//   setManualRefreshButton("progress-tasks-screen", "refreshStudentModuleTaskList(this)");  
+//
+//   const subject = studentSubjectTaskGroups ? studentSubjectTaskGroups[subjectKey] : null;  
+//
+//   if (!subject) {  
+//     alert("Subject not found. Please reload your tasks.");  
+//     return;  
+//   }  
+//
+//   currentStudentSubjectKey = subjectKey;  
+//   setDomText("progress-tasks-title", subject.subjectname);  
+//
+//   if (!showScreen("progress-tasks-screen")) {  
+//     console.warn("Progress tasks screen is missing.");  
+//     return;  
+//   }  
+//
+//   renderStudentSubjectTaskList();  
+// }
+// V79_LEGACY_QUARANTINE_ORIGINAL_END: openStudentSubjectTasks
+/* V79_LEGACY_QUARANTINE_END: openStudentSubjectTasks */
   
-  const subject = studentSubjectTaskGroups ? studentSubjectTaskGroups[subjectKey] : null;  
-  
-  if (!subject) {  
-    alert("Subject not found. Please reload your tasks.");  
-    return;  
-  }  
-  
-  currentStudentSubjectKey = subjectKey;  
-  setDomText("progress-tasks-title", subject.subjectname);  
-  
-  if (!showScreen("progress-tasks-screen")) {  
-    console.warn("Progress tasks screen is missing.");  
-    return;  
-  }  
-  
-  renderStudentSubjectTaskList();  
-}  
   
   
-/* V79_LEGACY_QUARANTINE_CANDIDATE: renderTaskStatusHeader
-   Reason: old student subject/task row-list build appears superseded by the V78+ module-card grid, but remains active until testing confirms no route calls it.
-   V79.1 keeps this active for safety; comment/delete only after smoke testing confirms unused.
+/* V79_LEGACY_QUARANTINE_START: renderTaskStatusHeader
+   V79.2: Old Student Progress row/list build replaced by the active V78.1.3+ module-card grid.
+   Original implementation is line-commented below for rollback. Delete only after final confirmation.
 */
-function renderTaskStatusHeader(firstLabel, secondLabel, options = {}) {  
-  const firstMutedClass = options.firstMuted ? " is-muted-status" : "";  
-  const secondMutedClass = options.secondMuted ? " is-muted-status" : "";  
+function renderTaskStatusHeader() {
+  // V79.2: Old Student Progress row/list heading renderer quarantined.
+  return "";
+}
+
+// V79_LEGACY_QUARANTINE_ORIGINAL_START: renderTaskStatusHeader
+// /* V79_LEGACY_QUARANTINE_CANDIDATE: renderTaskStatusHeader
+//    Reason: old student subject/task row-list build appears superseded by the V78+ module-card grid, but remains active until testing confirms no route calls it.
+//    V79.1 keeps this active for safety; comment/delete only after smoke testing confirms unused.
+// */
+// function renderTaskStatusHeader(firstLabel, secondLabel, options = {}) {  
+//   const firstMutedClass = options.firstMuted ? " is-muted-status" : "";  
+//   const secondMutedClass = options.secondMuted ? " is-muted-status" : "";  
+//
+//   return `  
+//     <div class="student-status-row task-status-heading-row">  
+//       <div class="student-status-name task-status-heading-name"></div>  
+//       <div class="status-action task-status-heading${firstMutedClass}">${escapeHtml(firstLabel)}</div>  
+//       <div class="status-action task-status-heading${secondMutedClass}">${escapeHtml(secondLabel)}</div>  
+//     </div>  
+//   `;  
+// }
+// V79_LEGACY_QUARANTINE_ORIGINAL_END: renderTaskStatusHeader
+/* V79_LEGACY_QUARANTINE_END: renderTaskStatusHeader */
   
-  return `  
-    <div class="student-status-row task-status-heading-row">  
-      <div class="student-status-name task-status-heading-name"></div>  
-      <div class="status-action task-status-heading${firstMutedClass}">${escapeHtml(firstLabel)}</div>  
-      <div class="status-action task-status-heading${secondMutedClass}">${escapeHtml(secondLabel)}</div>  
-    </div>  
-  `;  
-}  
   
-/* V79_LEGACY_QUARANTINE_CANDIDATE: renderTaskStatusIndicator
-   Reason: old student subject/task row-list build appears superseded by the V78+ module-card grid, but remains active until testing confirms no route calls it.
-   V79.1 keeps this active for safety; comment/delete only after smoke testing confirms unused.
+/* V79_LEGACY_QUARANTINE_START: renderTaskStatusIndicator
+   V79.2: Old Student Progress row/list build replaced by the active V78.1.3+ module-card grid.
+   Original implementation is line-commented below for rollback. Delete only after final confirmation.
 */
-function renderTaskStatusIndicator(type, isOn, options = {}) {  
-  const normalizedType = type === "verify" ? "verify" : "complete";  
-  const onClass = normalizedType === "verify" ? "status-tick-verified" : "status-tick-complete";  
-  const offLabel = normalizedType === "verify" ? "To be verified" : "To be completed";  
-  const onLabel = normalizedType === "verify" ? "Verified" : "Completed";  
+function renderTaskStatusIndicator(type, isOn, options = {}) {
+  // V79.2: Old Student Progress row/list status renderer quarantined.
+  const normalizedType = type === "verify" ? "verify" : "complete";
+  const onClass = normalizedType === "verify" ? "status-tick-verified" : "status-tick-complete";
+  const offLabel = normalizedType === "verify" ? "To be verified" : "To be completed";
+  const onLabel = normalizedType === "verify" ? "Verified" : "Completed";
+
+  if (isOn) {
+    return `
+      <span class="status-tick ${onClass}" aria-hidden="true">${M4L_PROGRESS_TICK}</span>
+      <span class="visually-hidden">${onLabel}</span>
+    `;
+  }
+
+  return `<span class="visually-hidden">${offLabel}</span>`;
+}
+
+// V79_LEGACY_QUARANTINE_ORIGINAL_START: renderTaskStatusIndicator
+// /* V79_LEGACY_QUARANTINE_CANDIDATE: renderTaskStatusIndicator
+//    Reason: old student subject/task row-list build appears superseded by the V78+ module-card grid, but remains active until testing confirms no route calls it.
+//    V79.1 keeps this active for safety; comment/delete only after smoke testing confirms unused.
+// */
+// function renderTaskStatusIndicator(type, isOn, options = {}) {  
+//   const normalizedType = type === "verify" ? "verify" : "complete";  
+//   const onClass = normalizedType === "verify" ? "status-tick-verified" : "status-tick-complete";  
+//   const offLabel = normalizedType === "verify" ? "To be verified" : "To be completed";  
+//   const onLabel = normalizedType === "verify" ? "Verified" : "Completed";  
+//
+//   if (isOn) {  
+//     return `  
+//       <span class="status-tick ${onClass}" aria-hidden="true">${M4L_PROGRESS_TICK}</span>  
+//       <span class="visually-hidden">${onLabel}</span>  
+//     `;  
+//   }  
+//
+//   const mutedClass = options.muted ? " task-status-icon--muted" : "";  
+//
+//   return `  
+//     <span class="task-status-icon task-status-icon--${normalizedType}${mutedClass}" aria-hidden="true"></span>  
+//     <span class="visually-hidden">${offLabel}</span>  
+//   `;  
+// }
+// V79_LEGACY_QUARANTINE_ORIGINAL_END: renderTaskStatusIndicator
+/* V79_LEGACY_QUARANTINE_END: renderTaskStatusIndicator */
   
-  if (isOn) {  
-    return `  
-      <span class="status-tick ${onClass}" aria-hidden="true">${M4L_PROGRESS_TICK}</span>  
-      <span class="visually-hidden">${onLabel}</span>  
-    `;  
-  }  
   
-  const mutedClass = options.muted ? " task-status-icon--muted" : "";  
-  
-  return `  
-    <span class="task-status-icon task-status-icon--${normalizedType}${mutedClass}" aria-hidden="true"></span>  
-    <span class="visually-hidden">${offLabel}</span>  
-  `;  
-}  
-  
-/* V79_LEGACY_QUARANTINE_CANDIDATE: renderStudentSubjectTaskList
-   Reason: old student subject/task row-list build appears superseded by the V78+ module-card grid, but remains active until testing confirms no route calls it.
-   V79.1 keeps this active for safety; comment/delete only after smoke testing confirms unused.
+/* V79_LEGACY_QUARANTINE_START: renderStudentSubjectTaskList
+   V79.2: Old Student Progress row/list build replaced by the active V78.1.3+ module-card grid.
+   Original implementation is line-commented below for rollback. Delete only after final confirmation.
 */
-function renderStudentSubjectTaskList() {  
-  const container = getDomElement("progress-tasks-list");  
-  if (!container) {  
-    console.warn("Missing progress-tasks-list container.");  
-    return;  
-  }  
+function renderStudentSubjectTaskList() {
+  // V79.2: Old Student Progress row/list task screen is quarantined.
+  // Re-render the active module-card Progress screen if this legacy path is called.
+  console.warn("V79.2 legacy Student Progress task list is quarantined; refreshing module-card Progress instead.");
+  renderStudentSubjectProgress({
+    moduleKey: currentStudentSubjectKey,
+    scrollBehavior: "auto"
+  });
+  return false;
+}
+
+// V79_LEGACY_QUARANTINE_ORIGINAL_START: renderStudentSubjectTaskList
+// /* V79_LEGACY_QUARANTINE_CANDIDATE: renderStudentSubjectTaskList
+//    Reason: old student subject/task row-list build appears superseded by the V78+ module-card grid, but remains active until testing confirms no route calls it.
+//    V79.1 keeps this active for safety; comment/delete only after smoke testing confirms unused.
+// */
+// function renderStudentSubjectTaskList() {  
+//   const container = getDomElement("progress-tasks-list");  
+//   if (!container) {  
+//     console.warn("Missing progress-tasks-list container.");  
+//     return;  
+//   }  
+//
+//   const subject = studentSubjectTaskGroups ? studentSubjectTaskGroups[currentStudentSubjectKey] : null;  
+//
+//   if (!subject || subject.tasks.length === 0) {  
+//     setDomHtml(container, `<p class="helper-text">No tasks found for this module.</p>`);  
+//     return;  
+//   }  
+//
+//   const taskRowsHtml = [...subject.tasks]  
+//     .sort(sortByModuleThenTask)  
+//     .map(task => renderStudentTaskStatusRow(task))  
+//     .join("");  
+//
+//   setDomHtml(container, `  
+//     ${renderTaskStatusHeader("Me", "Muallimah", { secondMuted: true })}  
+//     ${taskRowsHtml}  
+//   `);  
+//   bindProgressUiHandlers(container);  
+// }
+// V79_LEGACY_QUARANTINE_ORIGINAL_END: renderStudentSubjectTaskList
+/* V79_LEGACY_QUARANTINE_END: renderStudentSubjectTaskList */
   
-  const subject = studentSubjectTaskGroups ? studentSubjectTaskGroups[currentStudentSubjectKey] : null;  
   
-  if (!subject || subject.tasks.length === 0) {  
-    setDomHtml(container, `<p class="helper-text">No tasks found for this module.</p>`);  
-    return;  
-  }  
-  
-  const taskRowsHtml = [...subject.tasks]  
-    .sort(sortByModuleThenTask)  
-    .map(task => renderStudentTaskStatusRow(task))  
-    .join("");  
-  
-  setDomHtml(container, `  
-    ${renderTaskStatusHeader("Me", "Muallimah", { secondMuted: true })}  
-    ${taskRowsHtml}  
-  `);  
-  bindProgressUiHandlers(container);  
-}  
-  
-/* V79_LEGACY_QUARANTINE_CANDIDATE: buildStudentModuleTaskGroups
-   Reason: old student subject/task row-list build appears superseded by the V78+ module-card grid, but remains active until testing confirms no route calls it.
-   V79.1 keeps this active for safety; comment/delete only after smoke testing confirms unused.
+/* V79_LEGACY_QUARANTINE_START: buildStudentModuleTaskGroups
+   V79.2: Old Student Progress row/list build replaced by the active V78.1.3+ module-card grid.
+   Original implementation is line-commented below for rollback. Delete only after final confirmation.
 */
-function buildStudentModuleTaskGroups(tasks) {  
-  const groups = {};  
+function buildStudentModuleTaskGroups(tasks) {
+  // V79.2: Old Student Progress row/list module grouping helper quarantined.
+  // Return a compatible module-array shape for any accidental legacy caller.
+  const groups = buildStudentSubjectTaskGroups(Array.isArray(tasks) ? tasks : []);
+  return Object.values(groups || {}).map(group => ({
+    moduleid: group.subjectid || "",
+    modulename: group.subjectname || "Module",
+    tasks: Array.isArray(group.tasks) ? group.tasks : []
+  })).sort(sortModuleGroupsByModuleId);
+}
+
+// V79_LEGACY_QUARANTINE_ORIGINAL_START: buildStudentModuleTaskGroups
+// /* V79_LEGACY_QUARANTINE_CANDIDATE: buildStudentModuleTaskGroups
+//    Reason: old student subject/task row-list build appears superseded by the V78+ module-card grid, but remains active until testing confirms no route calls it.
+//    V79.1 keeps this active for safety; comment/delete only after smoke testing confirms unused.
+// */
+// function buildStudentModuleTaskGroups(tasks) {  
+//   const groups = {};  
+//
+//   [...tasks].sort(sortByModuleThenTask).forEach(task => {  
+//     const moduleName = task.modulename || "General";  
+//     const moduleKey = task.moduleid || moduleName;  
+//
+//     if (!groups[moduleKey]) {  
+//       groups[moduleKey] = {  
+//         moduleid: task.moduleid || moduleKey,  
+//         modulename: moduleName,  
+//         tasks: []  
+//       };  
+//     }  
+//
+//     groups[moduleKey].tasks.push(task);  
+//   });  
+//
+//   return Object.values(groups).sort(sortModuleGroupsByModuleId);  
+// }
+// V79_LEGACY_QUARANTINE_ORIGINAL_END: buildStudentModuleTaskGroups
+/* V79_LEGACY_QUARANTINE_END: buildStudentModuleTaskGroups */
   
-  [...tasks].sort(sortByModuleThenTask).forEach(task => {  
-    const moduleName = task.modulename || "General";  
-    const moduleKey = task.moduleid || moduleName;  
   
-    if (!groups[moduleKey]) {  
-      groups[moduleKey] = {  
-        moduleid: task.moduleid || moduleKey,  
-        modulename: moduleName,  
-        tasks: []  
-      };  
-    }  
-  
-    groups[moduleKey].tasks.push(task);  
-  });  
-  
-  return Object.values(groups).sort(sortModuleGroupsByModuleId);  
-}  
-  
-/* V79_LEGACY_QUARANTINE_CANDIDATE: renderStudentTaskStatusRow
-   Reason: old student subject/task row-list build appears superseded by the V78+ module-card grid, but remains active until testing confirms no route calls it.
-   V79.1 keeps this active for safety; comment/delete only after smoke testing confirms unused.
+/* V79_LEGACY_QUARANTINE_START: renderStudentTaskStatusRow
+   V79.2: Old Student Progress row/list build replaced by the active V78.1.3+ module-card grid.
+   Original implementation is line-commented below for rollback. Delete only after final confirmation.
 */
-function renderStudentTaskStatusRow(task) {  
-  const pending = progressPendingUpdates[task.studenttaskid] || {};  
+function renderStudentTaskStatusRow(task) {
+  // V79.2: Old Student Progress row/list task-row renderer quarantined.
+  const taskName = task && task.taskname ? task.taskname : "Untitled Task";
+  return `<div class="helper-text">${escapeHtml(taskName)}</div>`;
+}
+
+// V79_LEGACY_QUARANTINE_ORIGINAL_START: renderStudentTaskStatusRow
+// /* V79_LEGACY_QUARANTINE_CANDIDATE: renderStudentTaskStatusRow
+//    Reason: old student subject/task row-list build appears superseded by the V78+ module-card grid, but remains active until testing confirms no route calls it.
+//    V79.1 keeps this active for safety; comment/delete only after smoke testing confirms unused.
+// */
+// function renderStudentTaskStatusRow(task) {  
+//   const pending = progressPendingUpdates[task.studenttaskid] || {};  
+//
+//   const completeStatus = pending.completeStatus !== undefined  
+//     ? pending.completeStatus  
+//     : task.completestatus;  
+//
+//   const isComplete = isStatusOn(completeStatus);  
+//   const isVerified = isStatusOn(task.verifystatus);  
+//
+//   // 1. Build the standalone audio player if an audio link exists  
+//   let fullAudioPlayerHtml = "";  
+//   if (task.audiolink) {  
+//     fullAudioPlayerHtml = `  
+//       <div style="margin-top: 10px; margin-bottom: 10px;">  
+//         <audio class="resource-audio-control" controls controlsList="nodownload" preload="none" style="width: 100%; max-width: 300px;">  
+//           <source src="${escapeForAttribute(task.audiolink)}" />  
+//           Your browser cannot play this audio file.  
+//         </audio>  
+//       </div>  
+//     `;  
+//   }  
+//
+//   // 2. Inject the player into the layout under the task name  
+//   return `  
+//     <div class="student-status-row">  
+//       <div class="student-status-name">  
+//         <div>${escapeHtml(task.taskname)}</div>  
+//         ${fullAudioPlayerHtml}  
+//         ${renderStudentTaskLinkButtons(task)}  
+//       </div>  
+//
+//       <div  
+//         class="status-action task-status-control"  
+//         role="button"  
+//         tabindex="0"  
+//         data-progress-action="toggle-student-subject-task"  
+//         data-studenttaskid="${escapeForAttribute(task.studenttaskid)}"  
+//         data-complete="${isComplete ? "false" : "true"}"  
+//       >  
+//         ${renderTaskStatusIndicator("complete", isComplete)}  
+//       </div>  
+//
+//       <div class="status-action task-status-control is-view-only" aria-label="${isVerified ? "Verified by Muallimah" : "To be verified by Muallimah"}">  
+//         ${renderTaskStatusIndicator("verify", isVerified, { muted: !isVerified })}  
+//       </div>  
+//     </div>  
+//   `;  
+// }
+// V79_LEGACY_QUARANTINE_ORIGINAL_END: renderStudentTaskStatusRow
+/* V79_LEGACY_QUARANTINE_END: renderStudentTaskStatusRow */
   
-  const completeStatus = pending.completeStatus !== undefined  
-    ? pending.completeStatus  
-    : task.completestatus;  
-  
-  const isComplete = isStatusOn(completeStatus);  
-  const isVerified = isStatusOn(task.verifystatus);  
-  
-  // 1. Build the standalone audio player if an audio link exists  
-  let fullAudioPlayerHtml = "";  
-  if (task.audiolink) {  
-    fullAudioPlayerHtml = `  
-      <div style="margin-top: 10px; margin-bottom: 10px;">  
-        <audio class="resource-audio-control" controls controlsList="nodownload" preload="none" style="width: 100%; max-width: 300px;">  
-          <source src="${escapeForAttribute(task.audiolink)}" />  
-          Your browser cannot play this audio file.  
-        </audio>  
-      </div>  
-    `;  
-  }  
-  
-  // 2. Inject the player into the layout under the task name  
-  return `  
-    <div class="student-status-row">  
-      <div class="student-status-name">  
-        <div>${escapeHtml(task.taskname)}</div>  
-        ${fullAudioPlayerHtml}  
-        ${renderStudentTaskLinkButtons(task)}  
-      </div>  
-  
-      <div  
-        class="status-action task-status-control"  
-        role="button"  
-        tabindex="0"  
-        data-progress-action="toggle-student-subject-task"  
-        data-studenttaskid="${escapeForAttribute(task.studenttaskid)}"  
-        data-complete="${isComplete ? "false" : "true"}"  
-      >  
-        ${renderTaskStatusIndicator("complete", isComplete)}  
-      </div>  
-  
-      <div class="status-action task-status-control is-view-only" aria-label="${isVerified ? "Verified by Muallimah" : "To be verified by Muallimah"}">  
-        ${renderTaskStatusIndicator("verify", isVerified, { muted: !isVerified })}  
-      </div>  
-    </div>  
-  `;  
-}  
   
 function renderStudentTaskLinkButtons(task) {  
   const links = [];  
