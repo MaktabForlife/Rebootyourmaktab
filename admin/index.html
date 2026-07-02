@@ -7,7 +7,7 @@
 
   <!-- PWA: Admin install settings -->
   <!-- M4L v79.7: Admin index Progress HTML cleanup; quarantined legacy Progress sections removed. -->
-  <link rel="stylesheet" href="/styles.css?v=79.7" />
+  <link rel="stylesheet" href="/styles.css?v=82" />
   <link rel="manifest" href="/admin-manifest.json" />
   <link rel="apple-touch-icon" sizes="180x180" href="/admin-apple-touch-icon.png" />
   <link rel="icon" type="image/png" sizes="32x32" href="/admin-favicon-32x32.png" />
@@ -91,18 +91,36 @@
               <span class="zoom-link-button__text">Join Zoom Class</span>
             </button>
 
-            <div class="list-stack" aria-label="Admin home navigation">
-              <button type="button" class="list-btn" data-cover-home-role="admin" data-cover-home-nav="progress">
-                <span>Progress</span>
+            <div class="home-cover-icon-grid" aria-label="Admin home app icons">
+              <button type="button" class="home-cover-icon-btn" data-cover-home-role="admin" data-cover-home-nav="progress">
+                <span class="home-cover-icon-tile" aria-hidden="true">
+                  <span class="home-cover-icon-glyph"></span>
+                </span>
+                <span class="home-cover-icon-label">Progress</span>
               </button>
-              <button type="button" class="list-btn" data-cover-home-role="admin" data-cover-home-nav="resources">
-                <span>Library</span>
+              <button type="button" class="home-cover-icon-btn" data-cover-home-role="admin" data-cover-home-nav="resources">
+                <span class="home-cover-icon-tile" aria-hidden="true">
+                  <span class="home-cover-icon-glyph"></span>
+                </span>
+                <span class="home-cover-icon-label">Library</span>
               </button>
-              <button type="button" class="list-btn" data-cover-home-role="admin" data-cover-home-nav="attendance">
-                <span>Attendance</span>
+              <button type="button" class="home-cover-icon-btn" data-cover-home-role="admin" data-cover-home-nav="attendance">
+                <span class="home-cover-icon-tile" aria-hidden="true">
+                  <span class="home-cover-icon-glyph"></span>
+                </span>
+                <span class="home-cover-icon-label">Attendance</span>
               </button>
-              <button type="button" class="list-btn" data-cover-home-role="admin" data-cover-home-nav="admin">
-                <span>Admin</span>
+              <button type="button" class="home-cover-icon-btn" data-cover-home-role="admin" data-cover-home-nav="admin">
+                <span class="home-cover-icon-tile" aria-hidden="true">
+                  <span class="home-cover-icon-glyph"></span>
+                </span>
+                <span class="home-cover-icon-label">Admin</span>
+              </button>
+              <button type="button" class="home-cover-icon-btn" data-cover-home-role="admin" data-cover-home-nav="record">
+                <span class="home-cover-icon-tile" aria-hidden="true">
+                  <span class="home-cover-icon-glyph"></span>
+                </span>
+                <span class="home-cover-icon-label">Record</span>
               </button>
             </div>
 
@@ -383,6 +401,19 @@
     </section>
 
 
+
+    <!-- RECORD LESSON -->
+    <section id="record-lesson-screen" class="screen admin-theme">
+      <div class="nav-header">
+        <h2>Record Lesson</h2>
+        <button class="small-btn home-icon-btn" onclick="showScreen('admin-home')" aria-label="Home" title="Home"><span class="home-icon-btn__icon" aria-hidden="true"></span><span class="visually-hidden">Home</span></button>
+      </div>
+
+      <div class="dashboard-section">
+        <p class="helper-text">Record Lesson will be connected next.</p>
+      </div>
+    </section>
+
     <!-- PDF VIEWER -->
     <section id="pdf-viewer-screen" class="screen admin-theme">
       <div class="nav-header pdf-viewer-header">
@@ -418,7 +449,7 @@
 <script src="/js/m4l-dom.js?v=11"></script>
 <script src="/app.js?v=69"></script>
 <script src="/js/m4l-auth.js?v=55"></script>
-<script src="/js/m4l-shell.js?v=81"></script>
+<script src="/js/m4l-shell.js?v=82"></script>
 <script src="/js/m4l-attendance.js?v=76.7.4"></script>
 <script src="/js/m4l-admin-academics.js?v=55"></script>
 <script src="/js/m4l-timetable.js?v=76.7.4"></script>
