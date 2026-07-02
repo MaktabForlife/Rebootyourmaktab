@@ -7,6 +7,8 @@
 
   const els = {
     statusPill: document.getElementById("status-pill"),
+    contextTitle: document.getElementById("recorder-context-title"),
+    pagePill: document.getElementById("page-pill"),
     pageSelectScreen: document.getElementById("page-select-screen"),
     recordScreen: document.getElementById("record-screen"),
     previewScreen: document.getElementById("preview-screen"),
@@ -63,6 +65,30 @@
     [els.pageSelectScreen, els.recordScreen, els.previewScreen].forEach(item => {
       item.classList.toggle("active", item === screen);
     });
+    updateHeaderContext(screen);
+  }
+
+  function getSelectedPageTitle(prefix) {
+    const page = state.selectedPage || {};
+    const bookTitle = String(page.bookTitle || "").trim();
+    const pageTitle = String(page.title || "Selected page").trim();
+    return `${prefix} ${bookTitle} ${pageTitle}`.replace(/\s+/g, " ").trim();
+  }
+
+  function updateHeaderContext(screen) {
+    if (!els.contextTitle) return;
+
+    if (screen === els.recordScreen) {
+      els.contextTitle.textContent = getSelectedPageTitle("Record");
+      return;
+    }
+
+    if (screen === els.previewScreen) {
+      els.contextTitle.textContent = getSelectedPageTitle("Preview");
+      return;
+    }
+
+    els.contextTitle.textContent = "Select a page";
   }
 
   function formatTime(msRemaining) {
@@ -397,7 +423,7 @@
     setStatus("Loading page");
     state.selectedPage = page;
     state.selectedImage = await loadImage(page.src);
-    els.selectedPageLabel.textContent = `${page.bookTitle ? `${page.bookTitle} • ` : ""}${page.title}`;
+    if (els.selectedPageLabel) els.selectedPageLabel.textContent = `${page.bookTitle ? `${page.bookTitle} ` : ""}${page.title}`;
     drawSelectedPage();
     resetTimer();
     showScreen(els.recordScreen);
@@ -491,7 +517,7 @@
       state.startedAt = Date.now();
       els.recordBtn.classList.add("hidden");
       els.stopBtn.classList.remove("hidden");
-      els.recordHelper.textContent = "Recording. Read from the selected page.";
+      els.recordHelper.textContent = "";
       setStatus("Recording", true);
       updateTimer();
       state.timerId = window.setInterval(updateTimer, 250);
@@ -563,7 +589,7 @@
     els.previewVideo.src = state.recordingUrl;
     els.downloadLink.href = state.recordingUrl;
     els.downloadLink.download = fileName;
-    els.recordingMeta.textContent = `${state.selectedPage ? state.selectedPage.title : "Selected page"} • ${Math.min(120, Math.round(durationMs / 1000))} seconds • ${extension.toUpperCase()}`;
+    if (els.recordingMeta) els.recordingMeta.textContent = `${state.selectedPage ? state.selectedPage.title : "Selected page"} • ${Math.min(120, Math.round(durationMs / 1000))} seconds • ${extension.toUpperCase()}`;
 
     setStatus("Preview");
     showScreen(els.previewScreen);
@@ -637,7 +663,20 @@
     }
   }
 
+
+  function goToPageSelection() {
+    if (state.mediaRecorder && state.mediaRecorder.state === "recording") {
+      alert("Stop the recording before changing page.");
+      return;
+    }
+
+    cleanupRecording({ keepSelectedPage: false });
+    setStatus("Ready");
+    showScreen(els.pageSelectScreen);
+  }
+
   function bindEvents() {
+    if (els.pagePill) els.pagePill.addEventListener("click", goToPageSelection);
     els.imageSelectorBtn.addEventListener("click", openImagePicker);
     els.imagePickerBackdrop.addEventListener("click", closeImagePicker);
     els.imagePickerClose.addEventListener("click", closeImagePicker);
@@ -675,11 +714,7 @@
       });
     });
 
-    els.backToPagesBtn.addEventListener("click", () => {
-      cleanupRecording({ keepSelectedPage: false });
-      setStatus("Ready");
-      showScreen(els.pageSelectScreen);
-    });
+    if (els.backToPagesBtn) els.backToPagesBtn.addEventListener("click", goToPageSelection);
 
     els.recordBtn.addEventListener("click", startRecording);
     els.stopBtn.addEventListener("click", () => stopRecording("manual"));
@@ -705,6 +740,7 @@
     }
     state.canvasContext = els.readerCanvas.getContext("2d", { alpha: false });
     resetTimer();
+    updateHeaderContext(els.pageSelectScreen);
     bindEvents();
     loadStaticManifest();
   }
