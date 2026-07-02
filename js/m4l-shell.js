@@ -1,4 +1,4 @@
-/* M4L v82 - Shell / Navigation / User Band module.
+/* M4L v82.1 - Shell / Navigation / User Band module.
    Owns Home native scroll dot binding, app browser-back history handling, and cover-home navigation.
    /js/m4l-swipe.js is no longer required. */
 
@@ -74,7 +74,7 @@ function showScreen(screenId) {
 ========================= */
 
 const M4L_APP_HISTORY_FLAG = "maktab4life";
-const M4L_APP_HISTORY_VERSION = 82;
+const M4L_APP_HISTORY_VERSION = 821;
 const M4L_APP_HISTORY_EXIT_WINDOW_MS = 1800;
 
 let m4lAppHistoryBound = false;
@@ -775,6 +775,23 @@ function getBackIconButtonMarkup(actionValue = "goHome()") {
   return getHeaderIconButtonMarkup("back", actionValue, "Back");
 }
 
+function escapeForAttribute(value) {
+  if (typeof escapeAttribute === "function") {
+    return escapeAttribute(value);
+  }
+
+  if (typeof escapeHtml === "function") {
+    return escapeHtml(value).replace(/"/g, "&quot;");
+  }
+
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
 function getCurrentUserName() {
   const user = state.user || {};
   return String(
@@ -1064,6 +1081,182 @@ function attachUserBandRefreshHandler(band, refreshAction) {
   return true;
 }
 
+const USER_BAND_MENU_ITEMS = [
+  { action: "home", label: "Home", icon: "/icons/home.svg" },
+  { action: "record", label: "Recorder", icon: "/icons/navrecord.svg" },
+  { action: "library", label: "Library", icon: "/icons/resources.svg" },
+  { action: "progress", label: "Mark Progress", icon: "/icons/progress.svg" },
+  { action: "logout", label: "Logout", icon: "/icons/logout.svg" }
+];
+
+let userBandMenuDismissHandlerBound = false;
+
+function getUserBandMenuMarkup() {
+  return USER_BAND_MENU_ITEMS.map(item => `
+    <button
+      type="button"
+      class="app-user-menu__item"
+      data-app-menu-action="${escapeForAttribute(item.action)}"
+      role="menuitem"
+    >
+      <span class="app-user-menu__item-icon" style="--app-menu-icon: url('${escapeForAttribute(item.icon)}')" aria-hidden="true"></span>
+      <span class="app-user-menu__item-label">${escapeHtml(item.label)}</span>
+    </button>
+  `).join("");
+}
+
+function closeUserBandMenu() {
+  const menu = document.getElementById("app-user-band-menu");
+  const toggle = document.querySelector("#app-user-band [data-app-menu-toggle]");
+
+  if (menu) {
+    menu.classList.add("hidden");
+  }
+
+  if (toggle) {
+    toggle.setAttribute("aria-expanded", "false");
+  }
+
+  return true;
+}
+
+function setUserBandMenuOpen(isOpen) {
+  const menu = document.getElementById("app-user-band-menu");
+  const toggle = document.querySelector("#app-user-band [data-app-menu-toggle]");
+
+  if (!menu || !toggle) return false;
+
+  menu.classList.toggle("hidden", !isOpen);
+  toggle.setAttribute("aria-expanded", isOpen ? "true" : "false");
+  return true;
+}
+
+function bindUserBandMenuDismissHandler() {
+  if (userBandMenuDismissHandlerBound === true) return true;
+  if (!document || typeof document.addEventListener !== "function") return false;
+
+  userBandMenuDismissHandlerBound = true;
+
+  document.addEventListener("click", event => {
+    const band = document.getElementById("app-user-band");
+    if (!band || band.classList.contains("hidden")) return;
+    if (band.contains(event.target)) return;
+    closeUserBandMenu();
+  });
+
+  document.addEventListener("keydown", event => {
+    if (event.key === "Escape") {
+      closeUserBandMenu();
+    }
+  });
+
+  return true;
+}
+
+function openUserBandZoomLink() {
+  const confirmed = window.confirm("Do you want to open the Reboot Your Maktab Zoom link?");
+  if (!confirmed) return false;
+
+  if (typeof openTimetableZoomLink === "function") {
+    openTimetableZoomLink();
+    return true;
+  }
+
+  if (window.M4LTimetable && typeof window.M4LTimetable.openTimetableZoomLink === "function") {
+    window.M4LTimetable.openTimetableZoomLink();
+    return true;
+  }
+
+  const zoomButton = document.querySelector("[data-timetable-action='open-zoom'][data-zoom-link]:not(:disabled)");
+  if (zoomButton && typeof zoomButton.click === "function") {
+    zoomButton.click();
+    return true;
+  }
+
+  alert("Zoom link has not been added yet.");
+  return false;
+}
+
+function attachUserBandZoomHandler(band) {
+  if (!band) return false;
+
+  const zoomButton = band.querySelector("[data-user-band-zoom]");
+  if (!zoomButton) return false;
+
+  zoomButton.addEventListener("click", event => {
+    event.preventDefault();
+    closeUserBandMenu();
+    openUserBandZoomLink();
+  });
+
+  return true;
+}
+
+function handleUserBandMenuAction(action, role) {
+  const activeRole = String(role || getBottomNavRole() || "").trim();
+
+  if (action === "home") {
+    return showScreen(getM4LAppHomeScreenId(activeRole));
+  }
+
+  if (action === "logout") {
+    if (typeof logout === "function") {
+      logout();
+      return true;
+    }
+
+    console.warn("Logout function is missing.");
+    return false;
+  }
+
+  const actionKeyByMenuAction = {
+    record: "record",
+    library: "library",
+    progress: "progress"
+  };
+
+  const navKey = actionKeyByMenuAction[action] || "";
+  if (!navKey) return false;
+
+  return handleBottomNavigationClick(activeRole, navKey);
+}
+
+function attachUserBandMenuHandlers(band) {
+  if (!band) return false;
+
+  const toggle = band.querySelector("[data-app-menu-toggle]");
+  const menu = band.querySelector("#app-user-band-menu");
+
+  if (!toggle || !menu) return false;
+
+  bindUserBandMenuDismissHandler();
+
+  toggle.addEventListener("click", event => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const isOpen = toggle.getAttribute("aria-expanded") === "true";
+    setUserBandMenuOpen(!isOpen);
+  });
+
+  menu.addEventListener("click", event => {
+    const item = event.target && event.target.closest
+      ? event.target.closest("[data-app-menu-action]")
+      : null;
+
+    if (!item) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    const action = String(item.dataset.appMenuAction || "").trim();
+    closeUserBandMenu();
+    handleUserBandMenuAction(action, getBottomNavRole());
+  });
+
+  return true;
+}
+
 function updateUserBand(screenId) {
   const band = getUserBandElement();
   if (!band) return false;
@@ -1082,30 +1275,43 @@ function updateUserBand(screenId) {
 
   const username = getCurrentUserName() || (role === "admin" ? "Admin" : "Student");
   const levelText = getCurrentUserLevelText();
-  const refreshAction = getUserBandRefreshAction(screenId, role);
 
   band.innerHTML = `
-    <div class="app-user-band__identity">
-      <h2 class="app-user-band__name">${escapeHtml(username)}</h2>
-      <p class="app-user-band__level">${escapeHtml(levelText)}</p>
+    <div class="app-user-band__identity-wrap" aria-label="Logged-in user">
+      <span class="app-icon app-icon-small app-icon-user app-user-band__identity-icon" aria-hidden="true"></span>
+      <div class="app-user-band__identity">
+        <h2 class="app-user-band__name">${escapeHtml(username)}</h2>
+        <p class="app-user-band__level">${escapeHtml(levelText)}</p>
+      </div>
     </div>
-    <div class="app-user-band__actions">
-      ${refreshAction ? `
-        <button type="button" class="app-user-band__refresh manual-refresh-btn icon-action-btn icon-action-btn-large${userBandRefreshInProgress ? " is-refreshing" : ""}" data-user-band-refresh aria-label="${escapeHtml(refreshAction.title || refreshAction.label || "Refresh")}" title="${escapeHtml(refreshAction.title || refreshAction.label || "Refresh")}"${userBandRefreshInProgress ? " disabled" : ""}>
-          ${getRefreshIconMarkup()}
-        </button>
-      ` : ""}
-      <button type="button" class="app-user-band__logout icon-action-btn icon-action-btn-large" data-user-band-logout aria-label="Logout" title="Logout">
-        <span class="app-icon app-icon-large" style="--app-icon-url: url('/icons/logout.svg')" aria-hidden="true"></span>
-        <span class="app-user-band__logout-label">Logout</span>
+
+    <button type="button" class="app-user-band__zoom" data-user-band-zoom aria-label="Open Zoom" title="Open Zoom">
+      <span class="app-icon app-icon-large app-icon-zoom" aria-hidden="true"></span>
+    </button>
+
+    <div class="app-user-band__menu-shell">
+      <button
+        type="button"
+        class="app-user-band__menu-btn"
+        data-app-menu-toggle
+        aria-label="Open menu"
+        title="Menu"
+        aria-expanded="false"
+        aria-controls="app-user-band-menu"
+      >
+        <span class="app-icon app-icon-large app-icon-menu" aria-hidden="true"></span>
       </button>
+      <div id="app-user-band-menu" class="app-user-menu hidden" role="menu" aria-label="App menu">
+        ${getUserBandMenuMarkup()}
+      </div>
     </div>
   `;
 
-  attachUserBandRefreshHandler(band, refreshAction);
-  attachUserBandLogoutHandler(band);
+  attachUserBandZoomHandler(band);
+  attachUserBandMenuHandlers(band);
   return true;
 }
+
 
 function setTextActionButton(button, text, actionValue) {
   if (!button) return;
@@ -1127,10 +1333,10 @@ function setTextActionButton(button, text, actionValue) {
 const BOTTOM_NAV_ITEMS = {
   student: [
     {
-      key: "home",
-      label: "Home",
-      icon: "/icons/home.svg",
-      targetScreen: "student-home"
+      key: "record",
+      label: "Record",
+      icon: "/icons/navrecord.svg",
+      targetScreen: "record-lesson-screen"
     },
     {
       key: "library",
@@ -1145,20 +1351,28 @@ const BOTTOM_NAV_ITEMS = {
       icon: "/icons/progress.svg",
       targetScreen: "progress-subjects-screen",
       actionName: "showStudentTasks"
+    }
+  ],
+  admin: [
+    {
+      key: "attendance",
+      label: "Attendance",
+      icon: "/icons/attendance.svg",
+      targetScreen: "attendance-screen",
+      actionName: "openMarkRegister"
     },
     {
       key: "record",
       label: "Record",
       icon: "/icons/navrecord.svg",
       targetScreen: "record-lesson-screen"
-    }
-  ],
-  admin: [
+    },
     {
-      key: "home",
-      label: "Home",
-      icon: "/icons/home.svg",
-      targetScreen: "admin-home"
+      key: "library",
+      label: "Library",
+      icon: "/icons/resources.svg",
+      targetScreen: "student-resources-subjects",
+      actionName: "showAdminResources"
     },
     {
       key: "progress",
@@ -1168,31 +1382,11 @@ const BOTTOM_NAV_ITEMS = {
       actionName: "showProgressReport"
     },
     {
-      key: "resources",
-      label: "Library",
-      icon: "/icons/resources.svg",
-      targetScreen: "student-resources-subjects",
-      actionName: "showAdminResources"
-    },
-    {
-      key: "attendance",
-      label: "Attendance",
-      icon: "/icons/attendance.svg",
-      targetScreen: "attendance-screen",
-      actionName: "openMarkRegister"
-    },
-    {
       key: "admin",
       label: "Admin",
       icon: "/icons/admin.svg",
       targetScreen: "admin-academics",
       actionName: "showAdminAcademics"
-    },
-    {
-      key: "record",
-      label: "Record",
-      icon: "/icons/navrecord.svg",
-      targetScreen: "record-lesson-screen"
     }
   ]
 };
@@ -1582,32 +1776,28 @@ function shouldShowBottomNavigation(screenId, role) {
 }
 
 function getBottomNavActiveKey(screenId, role) {
-  if (role === "student") {
-    if (screenId === "student-home") return "home";
+  const id = String(screenId || "");
 
-    if (["progress-subjects-screen", "progress-tasks-screen"].includes(screenId)) {
+  if (role === "student") {
+    if (id === "record-lesson-screen") return "record";
+
+    if (["progress-subjects-screen", "progress-tasks-screen"].includes(id)) {
       return "progress";
     }
 
-    if (String(screenId || "").startsWith("student-resources")) {
+    if (id.startsWith("student-resources")) {
       return "library";
     }
 
-    if (screenId === "record-lesson-screen") return "record";
-
-    return "home";
+    return "";
   }
 
   if (role === "admin") {
-    if (screenId === "admin-home") return "home";
+    if (id.startsWith("attendance")) return "attendance";
 
-    if (String(screenId || "").startsWith("attendance")) return "attendance";
+    if (id === "record-lesson-screen") return "record";
 
-    if (screenId === "record-lesson-screen") return "record";
-
-    if (String(screenId || "").startsWith("admin-timetable")) return "admin";
-
-    if (String(screenId || "").startsWith("student-resources")) return "resources";
+    if (id.startsWith("student-resources")) return "library";
 
     if ([
       "progress-report",
@@ -1615,21 +1805,23 @@ function getBottomNavActiveKey(screenId, role) {
       "progress-tasks-screen",
       "progress-task-students-screen",
       "teacher-student-tasks"
-    ].includes(screenId)) {
+    ].includes(id)) {
       return "progress";
     }
 
-    if (String(screenId || "").startsWith("manage-student")) return "admin";
+    if (id.startsWith("admin-timetable")) return "admin";
 
-    if (screenId === "placeholder-screen") {
+    if (id.startsWith("manage-student")) return "admin";
+
+    if (id === "placeholder-screen") {
       return "admin";
     }
 
-    if (["admin-academics", "subjects-screen"].includes(screenId)) {
+    if (["admin-academics", "subjects-screen"].includes(id)) {
       return "admin";
     }
 
-    return "home";
+    return "";
   }
 
   return "";
