@@ -1,6 +1,5 @@
 /* M4L v81 - Shell / Navigation / User Band module.
-   Owns Home native scroll dot binding, app browser-back history handling,
-   and cover-home entry actions.
+   Owns Home native scroll dot binding, app browser-back history handling, and cover-home navigation.
    /js/m4l-swipe.js is no longer required. */
 
 function showScreen(screenId) {
@@ -40,8 +39,8 @@ function showScreen(screenId) {
     updateBottomNavigation(screenId);
   }
 
-  if (typeof updateCoverHomeState === "function") {
-    updateCoverHomeState(screenId);
+  if (typeof bindCoverHomeNavigation === "function") {
+    bindCoverHomeNavigation();
   }
 
   if (typeof bindHomeNativeScrollControls === "function") {
@@ -71,7 +70,7 @@ function showScreen(screenId) {
 ========================= */
 
 const M4L_APP_HISTORY_FLAG = "maktab4life";
-const M4L_APP_HISTORY_VERSION = 80;
+const M4L_APP_HISTORY_VERSION = 81;
 const M4L_APP_HISTORY_EXIT_WINDOW_MS = 1800;
 
 let m4lAppHistoryBound = false;
@@ -1121,110 +1120,6 @@ function setTextActionButton(button, text, actionValue) {
   }
 }
 
-
-/* =========================
-   COVER HOME ENTRY ACTIONS - V81
-   Home is now the authenticated cover/root page. These actions enter the
-   existing inner app screens without changing those screens' own behaviour.
-========================= */
-
-function isM4LCoverHomeScreen(screenId) {
-  return String(screenId || "") === "student-home" || String(screenId || "") === "admin-home";
-}
-
-function updateCoverHomeState(screenId) {
-  const isCoverHome = isM4LCoverHomeScreen(screenId) && !!(typeof state !== "undefined" && state && state.token);
-
-  if (typeof document !== "undefined" && document.body) {
-    document.body.classList.toggle("is-cover-home", isCoverHome);
-  }
-
-  const appShell = typeof document !== "undefined" ? document.querySelector(".app-shell") : null;
-  if (appShell) {
-    appShell.classList.toggle("is-cover-home", isCoverHome);
-  }
-
-  return isCoverHome;
-}
-
-const M4L_COVER_HOME_ACTIONS = {
-  "student-library": { actionName: "showStudentResources", fallbackScreen: "student-resources-subjects" },
-  "student-progress": { actionName: "showStudentTasks", fallbackScreen: "progress-subjects-screen" },
-  "admin-progress": { actionName: "showProgressReport", fallbackScreen: "progress-report" },
-  "admin-library": { actionName: "showAdminResources", fallbackScreen: "student-resources-subjects" },
-  "admin-attendance": { actionName: "openMarkRegister", fallbackScreen: "attendance-screen" },
-  "admin-menu": { actionName: "showAdminAcademics", fallbackScreen: "admin-academics" }
-};
-
-let coverHomeActionHandlersBound = false;
-
-function runM4LCoverHomeAction(actionKey) {
-  const key = String(actionKey || "");
-  const action = M4L_COVER_HOME_ACTIONS[key];
-
-  if (!action) {
-    console.warn("Unsupported cover home action:", key);
-    return false;
-  }
-
-  try {
-    if (action.actionName && typeof window[action.actionName] === "function") {
-      const result = window[action.actionName]();
-      if (result && typeof result.catch === "function") {
-        result.catch(error => {
-          console.error("Cover home action failed:", action.actionName, error);
-          if (action.fallbackScreen) {
-            showScreen(action.fallbackScreen);
-          }
-        });
-      }
-      return true;
-    }
-
-    if (action.fallbackScreen) {
-      return showScreen(action.fallbackScreen);
-    }
-  } catch (error) {
-    console.error("Cover home action failed:", key, error);
-    if (action.fallbackScreen) {
-      return showScreen(action.fallbackScreen);
-    }
-  }
-
-  return false;
-}
-
-function handleCoverHomeActionClick(event) {
-  const button = event.target && event.target.closest
-    ? event.target.closest("[data-cover-action]")
-    : null;
-
-  if (!button || button.disabled) return;
-
-  const activeCover = button.closest(".m4l-cover-home, [data-cover-home]");
-  if (!activeCover) return;
-
-  event.preventDefault();
-  runM4LCoverHomeAction(button.dataset.coverAction || "");
-}
-
-function bindCoverHomeActionHandlers() {
-  if (coverHomeActionHandlersBound === true) return true;
-  if (!document || typeof document.addEventListener !== "function") return false;
-
-  coverHomeActionHandlersBound = true;
-  document.addEventListener("click", handleCoverHomeActionClick);
-  return true;
-}
-
-if (typeof document !== "undefined") {
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", bindCoverHomeActionHandlers, { once: true });
-  } else {
-    bindCoverHomeActionHandlers();
-  }
-}
-
 const BOTTOM_NAV_ITEMS = {
   student: [
     {
@@ -1295,6 +1190,45 @@ function getBottomNavRole() {
 
   return "";
 }
+
+
+let coverHomeNavigationBound = false;
+
+function isCoverHomeScreen(screenId) {
+  return isM4LAppHomeScreen(screenId);
+}
+
+function bindCoverHomeNavigation() {
+  if (coverHomeNavigationBound === true) return true;
+  if (!document || typeof document.addEventListener !== "function") return false;
+
+  coverHomeNavigationBound = true;
+  document.addEventListener("click", handleCoverHomeNavigationClick);
+  return true;
+}
+
+function handleCoverHomeNavigationClick(event) {
+  const button = event.target && event.target.closest
+    ? event.target.closest("[data-cover-home-nav]")
+    : null;
+
+  if (!button || button.disabled) return;
+
+  const key = String(button.dataset.coverHomeNav || "").trim();
+  if (!key) return;
+
+  event.preventDefault();
+
+  const role = String(button.dataset.coverHomeRole || getBottomNavRole() || "").trim();
+
+  if (!role) {
+    console.warn("Cover Home navigation could not determine role.");
+    return;
+  }
+
+  handleBottomNavigationClick(role, key);
+}
+
 
 let bottomNavigationViewportHandlerBound = false;
 
@@ -1670,16 +1604,19 @@ function updateBottomNavigation(screenId) {
 
   const itemCount = nav.querySelectorAll(".bottom-nav__item").length;
   const isVisible = itemCount > 0 && shouldShowBottomNavigation(screenId, role);
+  const isCoverHome = isCoverHomeScreen(screenId) && !!state.token;
 
   nav.classList.toggle("hidden", !isVisible);
 
   if (document.body) {
     document.body.classList.toggle("has-bottom-nav", isVisible);
+    document.body.classList.toggle("is-cover-home", isCoverHome);
   }
 
   const appShell = document.querySelector(".app-shell");
   if (appShell) {
     appShell.classList.toggle("has-bottom-nav", isVisible);
+    appShell.classList.toggle("is-cover-home", isCoverHome);
   }
 
   if (!isVisible) return;
@@ -1713,9 +1650,7 @@ window.M4LShell = {
   setTextActionButton: typeof setTextActionButton === "function" ? setTextActionButton : undefined,
   getBottomNavRole: typeof getBottomNavRole === "function" ? getBottomNavRole : undefined,
   updateBottomNavigation: typeof updateBottomNavigation === "function" ? updateBottomNavigation : undefined,
-  updateCoverHomeState: typeof updateCoverHomeState === "function" ? updateCoverHomeState : undefined,
-  bindCoverHomeActionHandlers: typeof bindCoverHomeActionHandlers === "function" ? bindCoverHomeActionHandlers : undefined,
-  runM4LCoverHomeAction: typeof runM4LCoverHomeAction === "function" ? runM4LCoverHomeAction : undefined,
+  bindCoverHomeNavigation: typeof bindCoverHomeNavigation === "function" ? bindCoverHomeNavigation : undefined,
   bindHomeSwipeControls: typeof bindHomeSwipeControls === "function" ? bindHomeSwipeControls : undefined,
   bindHomeNativeScrollControls: typeof bindHomeNativeScrollControls === "function" ? bindHomeNativeScrollControls : undefined,
   bindHomeNativeScrollPanels: typeof bindHomeNativeScrollPanels === "function" ? bindHomeNativeScrollPanels : undefined,
