@@ -1,4 +1,4 @@
-/* M4L v81 - Shell / Navigation / User Band module.
+/* M4L v81.1 - Shell / Navigation / User Band module.
    Owns Home native scroll dot binding, app browser-back history handling, and cover-home navigation.
    /js/m4l-swipe.js is no longer required. */
 
@@ -41,6 +41,10 @@ function showScreen(screenId) {
 
   if (typeof bindCoverHomeNavigation === "function") {
     bindCoverHomeNavigation();
+  }
+
+  if (typeof ensureCoverHomeOpeningPlacement === "function") {
+    ensureCoverHomeOpeningPlacement(screenId);
   }
 
   if (typeof bindHomeNativeScrollControls === "function") {
@@ -1198,6 +1202,74 @@ function isCoverHomeScreen(screenId) {
   return isM4LAppHomeScreen(screenId);
 }
 
+
+const coverHomeOpeningObservers = new WeakMap();
+
+function placeCoverHomeOpeningCard(screenOrId) {
+  const screen = typeof screenOrId === "string"
+    ? document.getElementById(screenOrId)
+    : screenOrId;
+
+  if (!screen || !screen.querySelector) {
+    return false;
+  }
+
+  const openingCard = screen.querySelector(".home-opening-dua-card");
+  if (!openingCard) {
+    return false;
+  }
+
+  const actionBar = screen.querySelector(".home-sticky-action-bar");
+  if (actionBar && actionBar.parentNode && openingCard.nextElementSibling !== actionBar) {
+    actionBar.parentNode.insertBefore(openingCard, actionBar);
+    return true;
+  }
+
+  const zoomButton = screen.querySelector(".zoom-link-button");
+  if (zoomButton && zoomButton.parentNode && openingCard.nextElementSibling !== zoomButton) {
+    zoomButton.parentNode.insertBefore(openingCard, zoomButton);
+    return true;
+  }
+
+  return true;
+}
+
+function ensureCoverHomeOpeningPlacement(screenId) {
+  if (!isCoverHomeScreen(screenId)) {
+    return false;
+  }
+
+  const screen = document.getElementById(screenId);
+  if (!screen) {
+    return false;
+  }
+
+  placeCoverHomeOpeningCard(screen);
+
+  if (typeof MutationObserver === "function" && !coverHomeOpeningObservers.has(screen)) {
+    const observer = new MutationObserver(() => {
+      placeCoverHomeOpeningCard(screen);
+    });
+
+    observer.observe(screen, {
+      childList: true,
+      subtree: true
+    });
+
+    coverHomeOpeningObservers.set(screen, observer);
+  }
+
+  if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
+    window.requestAnimationFrame(() => placeCoverHomeOpeningCard(screen));
+    window.setTimeout(() => placeCoverHomeOpeningCard(screen), 0);
+    window.setTimeout(() => placeCoverHomeOpeningCard(screen), 250);
+  } else if (typeof window !== "undefined" && typeof window.setTimeout === "function") {
+    window.setTimeout(() => placeCoverHomeOpeningCard(screen), 0);
+  }
+
+  return true;
+}
+
 function bindCoverHomeNavigation() {
   if (coverHomeNavigationBound === true) return true;
   if (!document || typeof document.addEventListener !== "function") return false;
@@ -1657,6 +1729,7 @@ window.M4LShell = {
   updateHomeNativeScrollDots: typeof updateHomeNativeScrollDots === "function" ? updateHomeNativeScrollDots : undefined,
   scrollHomeNativeScrollToPanel: typeof scrollHomeNativeScrollToPanel === "function" ? scrollHomeNativeScrollToPanel : undefined,
   bindHomeSwipePanels: typeof bindHomeSwipePanels === "function" ? bindHomeSwipePanels : undefined,
+  ensureCoverHomeOpeningPlacement: typeof ensureCoverHomeOpeningPlacement === "function" ? ensureCoverHomeOpeningPlacement : undefined,
   placeBottomNavigationForViewport: typeof placeBottomNavigationForViewport === "function" ? placeBottomNavigationForViewport : undefined,
   runUserBandRefresh: typeof runUserBandRefresh === "function" ? runUserBandRefresh : undefined,
   refreshCurrentResourceView: typeof refreshCurrentResourceView === "function" ? refreshCurrentResourceView : undefined,
