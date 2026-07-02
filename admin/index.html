@@ -6,8 +6,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <!-- PWA: Admin install settings -->
-  <!-- M4L v79.5: Admin index Progress HTML quarantine; shared CSS/JS refs remain at deployed v79.4. -->
-  <link rel="stylesheet" href="/styles.css?v=79.4" />
+  <!-- M4L v79.7: Admin index Progress HTML cleanup; quarantined legacy Progress sections removed. -->
+  <link rel="stylesheet" href="/styles.css?v=79.7" />
   <link rel="manifest" href="/admin-manifest.json" />
   <link rel="apple-touch-icon" sizes="180x180" href="/admin-apple-touch-icon.png" />
   <link rel="icon" type="image/png" sizes="32x32" href="/admin-favicon-32x32.png" />
@@ -149,7 +149,7 @@
       </div>
     </section>
     <!-- PROGRESS REPORT -->
-    <!-- M4L v79.5: active Admin Progress dashboard retained; legacy support screens below are quarantined as comments. -->
+    <!-- M4L v79.7: active Admin Progress dashboard retained; quarantined legacy support screens removed. -->
 <section id="progress-report" class="screen admin-theme admin-progress-screen">
   <div class="nav-header admin-progress-landing-header">
     <h2>Progress</h2>
@@ -160,31 +160,7 @@
   </div>
 </section>
 
-<!-- V79_LEGACY_QUARANTINE_START: progress-subjects-screen
-     V79.5: old Admin Progress modules screen; active V79 dashboard no longer uses this legacy module-list route.
-     Kept as HTML comment for rollback. Delete only after a later cleanup round confirms no route needs this section.
-<section id="progress-subjects-screen" class="screen admin-theme">
-  <div class="nav-header">
-    <h2 id="progress-subjects-title">Modules</h2>
-    <button class="small-btn" onclick="showScreen('progress-report')">Back</button>
-  </div>
 
-  <div id="progress-subjects-list" class="list-stack"></div>
-</section>
-V79_LEGACY_QUARANTINE_END: progress-subjects-screen -->
-
-<!-- V79_LEGACY_QUARANTINE_START: progress-tasks-screen
-     V79.5: old Admin Progress tasks screen; active V79 dashboard no longer uses this legacy task-list route.
-     Kept as HTML comment for rollback. Delete only after a later cleanup round confirms no route needs this section.
-<section id="progress-tasks-screen" class="screen admin-theme">
-  <div class="nav-header">
-    <h2 id="progress-tasks-title">Tasks</h2>
-    <button class="small-btn" onclick="showScreen('progress-subjects-screen')">Back</button>
-  </div>
-
-  <div id="progress-tasks-list" class="list-stack"></div>
-</section>
-V79_LEGACY_QUARANTINE_END: progress-tasks-screen -->
 
 <section id="progress-task-students-screen" class="screen admin-theme">
   <div class="nav-header admin-progress-detail-header">
@@ -289,20 +265,6 @@ V79_LEGACY_QUARANTINE_END: progress-tasks-screen -->
   </div>
 </section>
 
-<!-- V79_LEGACY_QUARANTINE_START: teacher-student-tasks
-     V79.5: old Teacher/Admin student-tasks screen; current Admin Progress uses the V79 progress dashboard/detail routes.
-     Kept as HTML comment for rollback. Delete only after a later cleanup round confirms no route needs this section.
-<section id="teacher-student-tasks" class="screen admin-theme">
-  <div class="nav-header">
-    <h2 id="teacher-student-tasks-title">Student Tasks</h2>
-    <button class="small-btn" onclick="showScreen('progress-report')">Back</button>
-  </div>
-
-  <div id="teacher-student-task-list" class="list-stack">
-    <p class="helper-text">Loading student tasks...</p>
-  </div>
-</section>
-V79_LEGACY_QUARANTINE_END: teacher-student-tasks -->
     <!-- ADMIN ATTENDANCE -->
     <section id="attendance-screen" class="screen admin-theme">
       <div
@@ -446,7 +408,7 @@ V79_LEGACY_QUARANTINE_END: teacher-student-tasks -->
 <script src="/js/m4l-admin-academics.js?v=55"></script>
 <script src="/js/m4l-timetable.js?v=76.7.4"></script>
 <script src="/js/m4l-resources.js?v=69"></script>
-<script src="/js/m4l-progress.js?v=79.4"></script>
+<script src="/js/m4l-progress.js?v=79.7"></script>
 <script src="/js/m4l-manage-students.js?v=55"></script>
 </body>
 </html>
