@@ -1,11 +1,7 @@
-/* M4L v79.2 - Student legacy row/list quarantine
-   Baseline: uploaded m4l-progress.js content with confirmed V78.1.3 Progress markers.
-   Scope: Progress JS admin legacy quarantine only; no index files changed. V79.2 quarantines the old Student row/list progress build.
-   Rule: legacy code is commented/marked first, not deleted. Delete only after testing confirms safe.
-   V79.4 summary:
-   - Quarantined old admin module shelf/task-card fallback renderers with rollback comments and safe stubs.
-   - Quarantined old admin student popout implementation with rollback comments and safe stubs.
-   - Popout calls now safely redirect to the current Select Student / Individual view when possible.
+/* M4L v79.7 - Progress cleanup: quarantined legacy code removed
+   Baseline: V79.4 deployed successfully after Student/Admin quarantine testing.
+   Scope: removed only code already inside legacy quarantine marker blocks.
+   Protected: active Student Progress module-card grid, Admin All/Class, Group, Select Student, Individual views.
 */  
   
 /* =========================  
@@ -866,26 +862,6 @@ function bindStudentProgressSwipeControls() {
   return true;  
 }  
   
-/* V79_LEGACY_QUARANTINE_START: getStudentModuleProgressSummary
-   Reason: student module progress indicators were removed from the active V78.1.3 Student Progress header.
-
-function getStudentModuleProgressSummary(module) {  
-  const tasks = module && Array.isArray(module.tasks) ? module.tasks : [];  
-  const total = tasks.length;  
-  const completed = tasks.filter(task => isStatusOn(task.completestatus)).length;  
-  const verified = tasks.filter(task => isStatusOn(task.verifystatus)).length;  
-  const percentComplete = total === 0 ? 0 : Math.round((completed / total) * 100);  
-  const percentVerified = total === 0 ? 0 : Math.round((verified / total) * 100);  
-  
-  return {  
-    total,  
-    completed,  
-    verified,  
-    percentComplete: Math.max(0, Math.min(100, percentComplete)),  
-    percentVerified: Math.max(0, Math.min(100, percentVerified))  
-  };  
-}
-V79_LEGACY_QUARANTINE_END: getStudentModuleProgressSummary */  
   
 function getStudentProgressModuleByKey(modules, moduleKey) {  
   const list = Array.isArray(modules) ? modules : getStudentProgressModules();  
@@ -898,56 +874,7 @@ function getStudentProgressModuleByKey(modules, moduleKey) {
   return list.find(module => String(module.subjectid || "") === key) || list[0];  
 }  
   
-/* V79_LEGACY_QUARANTINE_START: renderStudentProgressHeaderBar
-   Reason: student module progress indicators were removed from the active V78.1.3 Student Progress header.
-
-function renderStudentProgressHeaderBar(percentComplete, options = {}) {  
-  // Legacy single-bar renderer retained for older calls. V76.6.3 uses  
-  // renderStudentProgressModuleBars() for the active module header.  
-  const width = Math.max(0, Math.min(100, Number(percentComplete) || 0));  
-  const moduleKey = options.moduleKey !== undefined  
-    ? ` data-progress-module-fill="${escapeForAttribute(options.moduleKey)}"`  
-    : "";  
   
-  if (width >= 100) {  
-    return `  
-      <div class="student-progress-status-bar" aria-label="Module progress complete">  
-        <span class="student-progress-status-complete-tick"${moduleKey} aria-hidden="true">${M4L_PROGRESS_TICK}</span>  
-        <span class="visually-hidden">Module progress 100 percent</span>  
-      </div>  
-    `;  
-  }  
-  
-  return `  
-    <div class="student-progress-status-bar" aria-label="Module progress">  
-      <span class="student-progress-status-track">  
-        <span class="student-progress-status-fill"${moduleKey} style="width:${width}%"></span>  
-      </span>  
-    </div>  
-  `;  
-}
-V79_LEGACY_QUARANTINE_END: renderStudentProgressHeaderBar */  
-  
-/* V79_LEGACY_QUARANTINE_START: renderStudentProgressModuleBars
-   Reason: student module progress indicators were removed from the active V78.1.3 Student Progress header.
-
-function renderStudentProgressModuleBars(module) {  
-  const summary = getStudentModuleProgressSummary(module);  
-  
-  return `  
-    <div class="admin-progress-module-bars student-progress-active-module-bars" aria-label="Module progress">  
-      <span class="admin-progress-module-bar-row student-progress-module-bar-row">  
-        <span class="student-progress-module-bar-label">Student</span>  
-        ${renderAdminProgressBarOrTick(summary.percentComplete, "complete", "Module complete progress")}  
-      </span>  
-      <span class="admin-progress-module-bar-row student-progress-module-bar-row">  
-        <span class="student-progress-module-bar-label">Teacher</span>  
-        ${renderAdminProgressBarOrTick(summary.percentVerified, "verify", "Module verify progress")}  
-      </span>  
-    </div>  
-  `;  
-}
-V79_LEGACY_QUARANTINE_END: renderStudentProgressModuleBars */  
   
 function renderStudentProgressCloseButton() {  
   return `  
@@ -1428,298 +1355,17 @@ function renderStudentSubjectProgress(options = {}) {
 }  
   
   
-/* V79_LEGACY_QUARANTINE_START: openStudentSubjectTasks
-   V79.2: Old Student Progress row/list build replaced by the active V78.1.3+ module-card grid.
-   Original implementation is line-commented below for rollback. Delete only after final confirmation.
-*/
-function openStudentSubjectTasks(subjectKey) {
-  // V79.2: Old Student Progress row/list screen is quarantined.
-  // Fallback safely stays on the current module-card Progress screen.
-  const key = String(subjectKey || currentStudentSubjectKey || "");
-  if (key) {
-    currentStudentSubjectKey = key;
-  }
-  console.warn("V79.2 legacy Student Progress row/list route is quarantined; using module-card Progress instead.");
-  if (typeof showScreen === "function") {
-    showScreen("progress-subjects-screen");
-  }
-  renderStudentSubjectProgress({
-    moduleKey: key,
-    scrollBehavior: "auto"
-  });
-  return false;
-}
-
-// V79_LEGACY_QUARANTINE_ORIGINAL_START: openStudentSubjectTasks
-// /* V79_LEGACY_QUARANTINE_CANDIDATE: openStudentSubjectTasks
-//    Reason: old student subject/task row-list build appears superseded by the V78+ module-card grid, but remains active until testing confirms no route calls it.
-//    V79.1 keeps this active for safety; comment/delete only after smoke testing confirms unused.
-// */
-// function openStudentSubjectTasks(subjectKey) {  
-//   setProgressScreensForStudent();  
-//   setManualRefreshButton("progress-tasks-screen", "refreshStudentModuleTaskList(this)");  
-//
-//   const subject = studentSubjectTaskGroups ? studentSubjectTaskGroups[subjectKey] : null;  
-//
-//   if (!subject) {  
-//     alert("Subject not found. Please reload your tasks.");  
-//     return;  
-//   }  
-//
-//   currentStudentSubjectKey = subjectKey;  
-//   setDomText("progress-tasks-title", subject.subjectname);  
-//
-//   if (!showScreen("progress-tasks-screen")) {  
-//     console.warn("Progress tasks screen is missing.");  
-//     return;  
-//   }  
-//
-//   renderStudentSubjectTaskList();  
-// }
-// V79_LEGACY_QUARANTINE_ORIGINAL_END: openStudentSubjectTasks
-/* V79_LEGACY_QUARANTINE_END: openStudentSubjectTasks */
   
   
   
-/* V79_LEGACY_QUARANTINE_START: renderTaskStatusHeader
-   V79.2: Old Student Progress row/list build replaced by the active V78.1.3+ module-card grid.
-   Original implementation is line-commented below for rollback. Delete only after final confirmation.
-*/
-function renderTaskStatusHeader() {
-  // V79.2: Old Student Progress row/list heading renderer quarantined.
-  return "";
-}
-
-// V79_LEGACY_QUARANTINE_ORIGINAL_START: renderTaskStatusHeader
-// /* V79_LEGACY_QUARANTINE_CANDIDATE: renderTaskStatusHeader
-//    Reason: old student subject/task row-list build appears superseded by the V78+ module-card grid, but remains active until testing confirms no route calls it.
-//    V79.1 keeps this active for safety; comment/delete only after smoke testing confirms unused.
-// */
-// function renderTaskStatusHeader(firstLabel, secondLabel, options = {}) {  
-//   const firstMutedClass = options.firstMuted ? " is-muted-status" : "";  
-//   const secondMutedClass = options.secondMuted ? " is-muted-status" : "";  
-//
-//   return `  
-//     <div class="student-status-row task-status-heading-row">  
-//       <div class="student-status-name task-status-heading-name"></div>  
-//       <div class="status-action task-status-heading${firstMutedClass}">${escapeHtml(firstLabel)}</div>  
-//       <div class="status-action task-status-heading${secondMutedClass}">${escapeHtml(secondLabel)}</div>  
-//     </div>  
-//   `;  
-// }
-// V79_LEGACY_QUARANTINE_ORIGINAL_END: renderTaskStatusHeader
-/* V79_LEGACY_QUARANTINE_END: renderTaskStatusHeader */
   
   
-/* V79_LEGACY_QUARANTINE_START: renderTaskStatusIndicator
-   V79.2: Old Student Progress row/list build replaced by the active V78.1.3+ module-card grid.
-   Original implementation is line-commented below for rollback. Delete only after final confirmation.
-*/
-function renderTaskStatusIndicator(type, isOn, options = {}) {
-  // V79.2: Old Student Progress row/list status renderer quarantined.
-  const normalizedType = type === "verify" ? "verify" : "complete";
-  const onClass = normalizedType === "verify" ? "status-tick-verified" : "status-tick-complete";
-  const offLabel = normalizedType === "verify" ? "To be verified" : "To be completed";
-  const onLabel = normalizedType === "verify" ? "Verified" : "Completed";
-
-  if (isOn) {
-    return `
-      <span class="status-tick ${onClass}" aria-hidden="true">${M4L_PROGRESS_TICK}</span>
-      <span class="visually-hidden">${onLabel}</span>
-    `;
-  }
-
-  return `<span class="visually-hidden">${offLabel}</span>`;
-}
-
-// V79_LEGACY_QUARANTINE_ORIGINAL_START: renderTaskStatusIndicator
-// /* V79_LEGACY_QUARANTINE_CANDIDATE: renderTaskStatusIndicator
-//    Reason: old student subject/task row-list build appears superseded by the V78+ module-card grid, but remains active until testing confirms no route calls it.
-//    V79.1 keeps this active for safety; comment/delete only after smoke testing confirms unused.
-// */
-// function renderTaskStatusIndicator(type, isOn, options = {}) {  
-//   const normalizedType = type === "verify" ? "verify" : "complete";  
-//   const onClass = normalizedType === "verify" ? "status-tick-verified" : "status-tick-complete";  
-//   const offLabel = normalizedType === "verify" ? "To be verified" : "To be completed";  
-//   const onLabel = normalizedType === "verify" ? "Verified" : "Completed";  
-//
-//   if (isOn) {  
-//     return `  
-//       <span class="status-tick ${onClass}" aria-hidden="true">${M4L_PROGRESS_TICK}</span>  
-//       <span class="visually-hidden">${onLabel}</span>  
-//     `;  
-//   }  
-//
-//   const mutedClass = options.muted ? " task-status-icon--muted" : "";  
-//
-//   return `  
-//     <span class="task-status-icon task-status-icon--${normalizedType}${mutedClass}" aria-hidden="true"></span>  
-//     <span class="visually-hidden">${offLabel}</span>  
-//   `;  
-// }
-// V79_LEGACY_QUARANTINE_ORIGINAL_END: renderTaskStatusIndicator
-/* V79_LEGACY_QUARANTINE_END: renderTaskStatusIndicator */
   
   
-/* V79_LEGACY_QUARANTINE_START: renderStudentSubjectTaskList
-   V79.2: Old Student Progress row/list build replaced by the active V78.1.3+ module-card grid.
-   Original implementation is line-commented below for rollback. Delete only after final confirmation.
-*/
-function renderStudentSubjectTaskList() {
-  // V79.2: Old Student Progress row/list task screen is quarantined.
-  // Re-render the active module-card Progress screen if this legacy path is called.
-  console.warn("V79.2 legacy Student Progress task list is quarantined; refreshing module-card Progress instead.");
-  renderStudentSubjectProgress({
-    moduleKey: currentStudentSubjectKey,
-    scrollBehavior: "auto"
-  });
-  return false;
-}
-
-// V79_LEGACY_QUARANTINE_ORIGINAL_START: renderStudentSubjectTaskList
-// /* V79_LEGACY_QUARANTINE_CANDIDATE: renderStudentSubjectTaskList
-//    Reason: old student subject/task row-list build appears superseded by the V78+ module-card grid, but remains active until testing confirms no route calls it.
-//    V79.1 keeps this active for safety; comment/delete only after smoke testing confirms unused.
-// */
-// function renderStudentSubjectTaskList() {  
-//   const container = getDomElement("progress-tasks-list");  
-//   if (!container) {  
-//     console.warn("Missing progress-tasks-list container.");  
-//     return;  
-//   }  
-//
-//   const subject = studentSubjectTaskGroups ? studentSubjectTaskGroups[currentStudentSubjectKey] : null;  
-//
-//   if (!subject || subject.tasks.length === 0) {  
-//     setDomHtml(container, `<p class="helper-text">No tasks found for this module.</p>`);  
-//     return;  
-//   }  
-//
-//   const taskRowsHtml = [...subject.tasks]  
-//     .sort(sortByModuleThenTask)  
-//     .map(task => renderStudentTaskStatusRow(task))  
-//     .join("");  
-//
-//   setDomHtml(container, `  
-//     ${renderTaskStatusHeader("Me", "Muallimah", { secondMuted: true })}  
-//     ${taskRowsHtml}  
-//   `);  
-//   bindProgressUiHandlers(container);  
-// }
-// V79_LEGACY_QUARANTINE_ORIGINAL_END: renderStudentSubjectTaskList
-/* V79_LEGACY_QUARANTINE_END: renderStudentSubjectTaskList */
   
   
-/* V79_LEGACY_QUARANTINE_START: buildStudentModuleTaskGroups
-   V79.2: Old Student Progress row/list build replaced by the active V78.1.3+ module-card grid.
-   Original implementation is line-commented below for rollback. Delete only after final confirmation.
-*/
-function buildStudentModuleTaskGroups(tasks) {
-  // V79.2: Old Student Progress row/list module grouping helper quarantined.
-  // Return a compatible module-array shape for any accidental legacy caller.
-  const groups = buildStudentSubjectTaskGroups(Array.isArray(tasks) ? tasks : []);
-  return Object.values(groups || {}).map(group => ({
-    moduleid: group.subjectid || "",
-    modulename: group.subjectname || "Module",
-    tasks: Array.isArray(group.tasks) ? group.tasks : []
-  })).sort(sortModuleGroupsByModuleId);
-}
-
-// V79_LEGACY_QUARANTINE_ORIGINAL_START: buildStudentModuleTaskGroups
-// /* V79_LEGACY_QUARANTINE_CANDIDATE: buildStudentModuleTaskGroups
-//    Reason: old student subject/task row-list build appears superseded by the V78+ module-card grid, but remains active until testing confirms no route calls it.
-//    V79.1 keeps this active for safety; comment/delete only after smoke testing confirms unused.
-// */
-// function buildStudentModuleTaskGroups(tasks) {  
-//   const groups = {};  
-//
-//   [...tasks].sort(sortByModuleThenTask).forEach(task => {  
-//     const moduleName = task.modulename || "General";  
-//     const moduleKey = task.moduleid || moduleName;  
-//
-//     if (!groups[moduleKey]) {  
-//       groups[moduleKey] = {  
-//         moduleid: task.moduleid || moduleKey,  
-//         modulename: moduleName,  
-//         tasks: []  
-//       };  
-//     }  
-//
-//     groups[moduleKey].tasks.push(task);  
-//   });  
-//
-//   return Object.values(groups).sort(sortModuleGroupsByModuleId);  
-// }
-// V79_LEGACY_QUARANTINE_ORIGINAL_END: buildStudentModuleTaskGroups
-/* V79_LEGACY_QUARANTINE_END: buildStudentModuleTaskGroups */
   
   
-/* V79_LEGACY_QUARANTINE_START: renderStudentTaskStatusRow
-   V79.2: Old Student Progress row/list build replaced by the active V78.1.3+ module-card grid.
-   Original implementation is line-commented below for rollback. Delete only after final confirmation.
-*/
-function renderStudentTaskStatusRow(task) {
-  // V79.2: Old Student Progress row/list task-row renderer quarantined.
-  const taskName = task && task.taskname ? task.taskname : "Untitled Task";
-  return `<div class="helper-text">${escapeHtml(taskName)}</div>`;
-}
-
-// V79_LEGACY_QUARANTINE_ORIGINAL_START: renderStudentTaskStatusRow
-// /* V79_LEGACY_QUARANTINE_CANDIDATE: renderStudentTaskStatusRow
-//    Reason: old student subject/task row-list build appears superseded by the V78+ module-card grid, but remains active until testing confirms no route calls it.
-//    V79.1 keeps this active for safety; comment/delete only after smoke testing confirms unused.
-// */
-// function renderStudentTaskStatusRow(task) {  
-//   const pending = progressPendingUpdates[task.studenttaskid] || {};  
-//
-//   const completeStatus = pending.completeStatus !== undefined  
-//     ? pending.completeStatus  
-//     : task.completestatus;  
-//
-//   const isComplete = isStatusOn(completeStatus);  
-//   const isVerified = isStatusOn(task.verifystatus);  
-//
-//   // 1. Build the standalone audio player if an audio link exists  
-//   let fullAudioPlayerHtml = "";  
-//   if (task.audiolink) {  
-//     fullAudioPlayerHtml = `  
-//       <div style="margin-top: 10px; margin-bottom: 10px;">  
-//         <audio class="resource-audio-control" controls controlsList="nodownload" preload="none" style="width: 100%; max-width: 300px;">  
-//           <source src="${escapeForAttribute(task.audiolink)}" />  
-//           Your browser cannot play this audio file.  
-//         </audio>  
-//       </div>  
-//     `;  
-//   }  
-//
-//   // 2. Inject the player into the layout under the task name  
-//   return `  
-//     <div class="student-status-row">  
-//       <div class="student-status-name">  
-//         <div>${escapeHtml(task.taskname)}</div>  
-//         ${fullAudioPlayerHtml}  
-//         ${renderStudentTaskLinkButtons(task)}  
-//       </div>  
-//
-//       <div  
-//         class="status-action task-status-control"  
-//         role="button"  
-//         tabindex="0"  
-//         data-progress-action="toggle-student-subject-task"  
-//         data-studenttaskid="${escapeForAttribute(task.studenttaskid)}"  
-//         data-complete="${isComplete ? "false" : "true"}"  
-//       >  
-//         ${renderTaskStatusIndicator("complete", isComplete)}  
-//       </div>  
-//
-//       <div class="status-action task-status-control is-view-only" aria-label="${isVerified ? "Verified by Muallimah" : "To be verified by Muallimah"}">  
-//         ${renderTaskStatusIndicator("verify", isVerified, { muted: !isVerified })}  
-//       </div>  
-//     </div>  
-//   `;  
-// }
-// V79_LEGACY_QUARANTINE_ORIGINAL_END: renderStudentTaskStatusRow
-/* V79_LEGACY_QUARANTINE_END: renderStudentTaskStatusRow */
   
   
 function renderStudentTaskLinkButtons(task) {  
@@ -3909,41 +3555,6 @@ function renderAdminProgressDashboard(modules) {
   bindAdminProgressDashboardRailControls(dashboard);  
 }  
   
-/* V79_LEGACY_QUARANTINE_START: renderAdminProgressModuleShelf
-   V79.4 reason: old admin module shelf fallback replaced by active All/Class grid, Group grid, and Select Student / Individual views.
-   Original implementation is line-commented for rollback; stub below keeps references safe.
-
-// function renderAdminProgressModuleShelf(module, moduleIndex = 0) {  
-//   const tasks = Array.isArray(module.tasks) ? module.tasks : [];  
-//   const moduleName = module.modulename || module.subjectname || "Module";  
-//
-//   return `  
-//     <section  
-//       class="admin-progress-module-shelf"  
-//       data-admin-progress-dashboard-shelf  
-//       data-progress-module-index="${moduleIndex}"  
-//       aria-label="${escapeForAttribute(moduleName)}"  
-//     >  
-//       <div class="admin-progress-module-heading">  
-//         <div class="admin-progress-module-title-block">  
-//           <h3>${escapeHtml(moduleName)}</h3>  
-//           <span class="admin-progress-module-count">${tasks.length} ${tasks.length === 1 ? "task" : "tasks"}</span>  
-//         </div>  
-//         ${renderAdminProgressModuleBars(module)}  
-//       </div>  
-//       ${renderAdminProgressDashboardTaskDots(tasks, moduleName)}  
-//       <div  
-//         class="m4l-progress-swipe-track m4l-progress-swipe-track--cards admin-progress-task-rail"  
-//         data-admin-progress-dashboard-rail  
-//         aria-label="${escapeForAttribute(moduleName)} tasks"  
-//       >  
-//         ${tasks.map(renderAdminProgressTaskCard).join("")}  
-//       </div>  
-//     </section>  
-//   `;  
-// }  
-//
-V79_LEGACY_QUARANTINE_END: renderAdminProgressModuleShelf */
 
 function renderAdminProgressModuleShelf(module, moduleIndex = 0) {
   console.warn("V79.4 legacy admin module shelf route is quarantined.", moduleIndex, module);
@@ -3956,61 +3567,12 @@ function renderAdminProgressModuleShelf(module, moduleIndex = 0) {
   `;
 }
 
-/* V79_LEGACY_QUARANTINE_START: renderAdminProgressModuleBars
-   V79.4 reason: old module shelf progress bars are only used by quarantined shelf renderer.
-   Original implementation is line-commented for rollback; stub below keeps references safe.
-
-// function renderAdminProgressModuleBars(module) {  
-//   const completedPercent = getProgressPercentValue(module.moduleCompletedPercent);  
-//   const verifiedPercent = getProgressPercentValue(module.moduleVerifiedPercent);  
-//
-//   return `  
-//     <div class="admin-progress-module-bars" aria-label="Module progress">  
-//       <span class="admin-progress-module-bar-row">  
-//         ${renderAdminProgressBarOrTick(completedPercent, "complete", "Module complete progress")}  
-//       </span>  
-//       <span class="admin-progress-module-bar-row">  
-//         ${renderAdminProgressBarOrTick(verifiedPercent, "verify", "Module verify progress")}  
-//       </span>  
-//     </div>  
-//   `;  
-// }  
-//
-V79_LEGACY_QUARANTINE_END: renderAdminProgressModuleBars */
 
 function renderAdminProgressModuleBars(module) {
   console.warn("V79.4 legacy admin module progress bars are quarantined.", module);
   return "";
 }
 
-/* V79_LEGACY_QUARANTINE_START: renderAdminProgressDashboardTaskDots
-   V79.4 reason: old module shelf task-card dots are only used by quarantined shelf renderer.
-   Original implementation is line-commented for rollback; stub below keeps references safe.
-
-// function renderAdminProgressDashboardTaskDots(tasks, moduleName) {  
-//   const list = Array.isArray(tasks) ? tasks : [];  
-//
-//   if (list.length <= 1) {  
-//     return "";  
-//   }  
-//
-//   return `  
-//     <div class="m4l-progress-swipe-dots admin-progress-task-dots" data-admin-progress-dashboard-task-dots aria-label="${escapeForAttribute(moduleName || "Module")} task cards">  
-//       ${list.map((task, index) => `  
-//         <button  
-//           type="button"  
-//           class="m4l-progress-swipe-dot admin-progress-task-dot${index === 0 ? " is-active" : ""}"  
-//           data-progress-action="scroll-admin-dashboard-task"  
-//           data-progress-task-index="${index}"  
-//           aria-label="Show ${escapeForAttribute(task.taskname || `task ${index + 1}`)}"  
-//           aria-current="${index === 0 ? "true" : "false"}"  
-//         ></button>  
-//       `).join("")}  
-//     </div>  
-//   `;  
-// }  
-//
-V79_LEGACY_QUARANTINE_END: renderAdminProgressDashboardTaskDots */
 
 function renderAdminProgressDashboardTaskDots(tasks, moduleName) {
   console.warn("V79.4 legacy admin task-card dots are quarantined.", moduleName, tasks);
@@ -4133,32 +3695,6 @@ function bindAdminProgressDashboardRailControls(container) {
   return rails.length > 0;  
 }  
   
-/* V79_LEGACY_QUARANTINE_START: renderAdminProgressTaskCard
-   V79.4 reason: old module shelf task-card renderer is superseded by current matrix/individual views.
-   Original implementation is line-commented for rollback; stub below keeps references safe.
-
-// function renderAdminProgressTaskCard(task) {  
-//   const completedPercent = getProgressPercentValue(task.completedPercent);  
-//   const verifiedPercent = getProgressPercentValue(task.verifiedPercent);  
-//
-//   return `  
-//     <button  
-//       type="button"  
-//       class="admin-progress-task-card"  
-//       data-progress-action="open-admin-progress-task-card"  
-//       data-subjectid="${escapeForAttribute(task.subjectid || "ALL")}"  
-//       data-subjectname="${escapeForAttribute(task.subjectname || task.modulename || "Module")}"  
-//       data-taskid="${escapeForAttribute(task.taskid)}"  
-//       data-taskname="${escapeForAttribute(task.taskname)}"  
-//       data-classgroup="${escapeForAttribute(task.classgroup || adminProgressSelectedGroup || "ALL")}"  
-//     >  
-//       <span class="admin-progress-task-card-title">${escapeHtml(task.taskname || "Untitled Task")}</span>  
-//       ${renderAdminProgressCardBars(completedPercent, verifiedPercent)}  
-//     </button>  
-//   `;  
-// }  
-//
-V79_LEGACY_QUARANTINE_END: renderAdminProgressTaskCard */
 
 function renderAdminProgressTaskCard(task) {
   console.warn("V79.4 legacy admin task card renderer is quarantined.", task);
@@ -5567,73 +5103,12 @@ function renderAdminProgressStudentTaskRow(row) {
   `;  
 }  
   
-/* V79_LEGACY_QUARANTINE_START: ensureAdminProgressStudentPopout
-   V79.4 reason: old in-screen student popout replaced by full Select Student / Individual view.
-   Original implementation is line-commented for rollback; stub below keeps references safe.
-
-// function ensureAdminProgressStudentPopout() {  
-//   let popout = document.getElementById("admin-progress-student-popout");  
-//   if (popout) {  
-//     bindProgressUiHandlers(popout);  
-//     const panel = popout.querySelector(".admin-progress-popout-panel");  
-//     return popout;  
-//   }  
-//
-//   const host = document.getElementById("progress-task-students-screen") || document.body;  
-//   host.insertAdjacentHTML("beforeend", `  
-//     <div id="admin-progress-student-popout" class="admin-progress-student-popout hidden" aria-hidden="true">  
-//       <div class="admin-progress-popout-backdrop" aria-hidden="true"></div>  
-//       <section class="admin-progress-popout-panel" role="dialog" aria-modal="true" aria-labelledby="admin-progress-popout-title">  
-//         <div class="admin-progress-popout-header">  
-//           <button type="button" class="small-btn admin-progress-close-btn admin-progress-popout-close" data-progress-action="close-admin-progress-student-popout" aria-label="Close student progress" title="Close">X</button>  
-//           <h3 id="admin-progress-popout-title">Student Progress</h3>  
-//         </div>  
-//         <div id="admin-progress-popout-content" class="admin-progress-popout-content">  
-//           <p class="helper-text">Loading student progress...</p>  
-//         </div>  
-//       </section>  
-//     </div>  
-//   `);  
-//
-//   popout = document.getElementById("admin-progress-student-popout");  
-//   bindProgressUiHandlers(popout);  
-//   const panel = popout ? popout.querySelector(".admin-progress-popout-panel") : null;  
-//   return popout;  
-// }  
-//
-V79_LEGACY_QUARANTINE_END: ensureAdminProgressStudentPopout */
 
 function ensureAdminProgressStudentPopout() {
   console.warn("V79.4 legacy admin student popout is quarantined.");
   return null;
 }
 
-/* V79_LEGACY_QUARANTINE_START: openAdminProgressStudentPopout
-   V79.4 reason: old in-screen student popout replaced by full Select Student / Individual view.
-   Original implementation is line-commented for rollback; stub below keeps references safe.
-
-// async function openAdminProgressStudentPopout(studentid, username) {  
-//   if (!studentid) {  
-//     alert("Student details are missing.");  
-//     return;  
-//   }  
-//
-//   const popout = ensureAdminProgressStudentPopout();  
-//   if (!popout) return;  
-//
-//   progressState.activePopoutStudentId = studentid;  
-//   progressState.activePopoutStudentName = username || "Student";  
-//
-//   popout.classList.remove("hidden");  
-//   popout.setAttribute("aria-hidden", "false");  
-//   document.body.classList.add("admin-progress-popout-open");  
-//   setDomText("admin-progress-popout-title", progressState.activePopoutStudentName);  
-//   setDomHtml("admin-progress-popout-content", `<p class="helper-text">Loading student progress...</p>`);  
-//
-//   await loadAdminStudentProgressPopout(studentid, username);  
-// }  
-//
-V79_LEGACY_QUARANTINE_END: openAdminProgressStudentPopout */
 
 async function openAdminProgressStudentPopout(studentid, username) {
   console.warn("V79.4 legacy admin student popout route is quarantined; opening full student view instead.", studentid, username);
@@ -5649,449 +5124,66 @@ async function openAdminProgressStudentPopout(studentid, username) {
   return false;
 }
 
-/* V79_LEGACY_QUARANTINE_START: loadAdminStudentProgressPopout
-   V79.4 reason: old in-screen student popout replaced by full Select Student / Individual view.
-   Original implementation is line-commented for rollback; stub below keeps references safe.
-
-// async function loadAdminStudentProgressPopout(studentid, username) {  
-//   const content = getDomElement("admin-progress-popout-content");  
-//   if (!content) return;  
-//
-//   try {  
-//     const result = await apiPost("/api/progress/task-detail", {  
-//       studentid,  
-//       classgroup: "ALL",  
-//       subjectid: "ALL",  
-//       taskid: "ALL"  
-//     }, state.token);  
-//
-//     if (!result.success) {  
-//       setDomHtml(content, `<p class="error-message">${escapeHtml(result.error || "Could not load student progress.")}</p>`);  
-//       return;  
-//     }  
-//
-//     const rows = Array.isArray(result.students)  
-//       ? result.students.map(normalizeProgressStudentRow)  
-//       : [];  
-//
-//     adminProgressPopoutRows = rows;  
-//     renderAdminStudentProgressPopout(rows, username);  
-//   } catch (err) {  
-//     console.error("Could not load admin student progress popout:", err);  
-//     setDomHtml(content, `<p class="error-message">${escapeHtml(err.message || "Could not load student progress.")}</p>`);  
-//   }  
-// }  
-//
-V79_LEGACY_QUARANTINE_END: loadAdminStudentProgressPopout */
 
 async function loadAdminStudentProgressPopout(studentid, username) {
   console.warn("V79.4 legacy admin popout loader is quarantined.", studentid, username);
   return false;
 }
 
-/* V79_LEGACY_QUARANTINE_START: renderAdminStudentProgressPopout
-   V79.4 reason: old in-screen student popout replaced by full Select Student / Individual view.
-   Original implementation is line-commented for rollback; stub below keeps references safe.
-
-// function renderAdminStudentProgressPopout(rows, username) {  
-//   const content = getDomElement("admin-progress-popout-content");  
-//   if (!content) return;  
-//
-//   const byModule = {};  
-//
-//   (Array.isArray(rows) ? rows : [])  
-//     .map(normalizeProgressStudentRow)  
-//     .filter(row => String(row.classgroup || "").trim() !== "0")  
-//     .sort(sortByModuleThenTask)  
-//     .forEach(row => {  
-//       const moduleKey = getAdminModuleKey(row);  
-//       if (!byModule[moduleKey]) {  
-//         byModule[moduleKey] = {  
-//           moduleid: row.moduleid || row.subjectid || moduleKey,  
-//           modulename: getAdminModuleName(row),  
-//           rows: []  
-//         };  
-//       }  
-//       byModule[moduleKey].rows.push(row);  
-//     });  
-//
-//   const modules = Object.values(byModule).sort(sortModuleGroupsByModuleId);  
-//
-//   if (modules.length === 0) {  
-//     setDomHtml(content, `<p class="helper-text">No tasks assigned to this student.</p>`);  
-//     return;  
-//   }  
-//
-//   const panelsHtml = modules.map((module, index) => `  
-//     <section  
-//       class="m4l-progress-swipe-panel m4l-progress-swipe-panel--full admin-progress-popout-module"  
-//       data-admin-popout-module-panel  
-//       data-progress-module-index="${index}"  
-//       aria-label="${escapeForAttribute(module.modulename || "Module")}">  
-//       <div class="admin-progress-popout-module-title">${escapeHtml(module.modulename || "Module")}</div>  
-//       <div class="admin-progress-popout-task-list">  
-//         ${module.rows.sort(sortByModuleThenTask).map(renderAdminStudentProgressPopoutRow).join("")}  
-//       </div>  
-//     </section>  
-//   `).join("");  
-//
-//   const html = `  
-//     <div class="admin-progress-popout-swipe-shell" data-admin-popout-module-swipe-shell>  
-//       ${renderAdminProgressPopoutModuleSwipeDots(modules)}  
-//       <div class="m4l-progress-swipe-track m4l-progress-swipe-track--full admin-progress-popout-module-track" data-admin-popout-module-swipe-track aria-label="${escapeForAttribute(username || "Student")} progress modules">  
-//         ${panelsHtml}  
-//       </div>  
-//     </div>  
-//   `;  
-//
-//   setDomHtml(content, html);  
-//   bindProgressUiHandlers(content);  
-//   bindAdminProgressPopoutModuleSwipeControls();  
-// }  
-//
-V79_LEGACY_QUARANTINE_END: renderAdminStudentProgressPopout */
 
 function renderAdminStudentProgressPopout(rows, username) {
   console.warn("V79.4 legacy admin popout renderer is quarantined.", username, rows);
   return false;
 }
 
-/* V79_LEGACY_QUARANTINE_START: getAdminProgressPopoutModuleSwipeTrack
-   V79.4 reason: old popout swipe helper replaced by current individual module view.
-   Original implementation is line-commented for rollback; stub below keeps references safe.
-
-// function getAdminProgressPopoutModuleSwipeTrack() {  
-//   return document.querySelector("#admin-progress-student-popout [data-admin-popout-module-swipe-track]");  
-// }  
-//
-V79_LEGACY_QUARANTINE_END: getAdminProgressPopoutModuleSwipeTrack */
 
 function getAdminProgressPopoutModuleSwipeTrack() {
   return null;
 }
 
-/* V79_LEGACY_QUARANTINE_START: getAdminProgressPopoutModulePanels
-   V79.4 reason: old popout swipe helper replaced by current individual module view.
-   Original implementation is line-commented for rollback; stub below keeps references safe.
-
-// function getAdminProgressPopoutModulePanels(track) {  
-//   const targetTrack = track || getAdminProgressPopoutModuleSwipeTrack();  
-//
-//   if (!targetTrack || !targetTrack.children) {  
-//     return [];  
-//   }  
-//
-//   return Array.from(targetTrack.children).filter(child => {  
-//     return child &&  
-//       child.matches &&  
-//       child.matches("[data-admin-popout-module-panel], .admin-progress-popout-module");  
-//   });  
-// }  
-//
-V79_LEGACY_QUARANTINE_END: getAdminProgressPopoutModulePanels */
 
 function getAdminProgressPopoutModulePanels(track) {
   return [];
 }
 
-/* V79_LEGACY_QUARANTINE_START: getAdminProgressPopoutModuleActiveIndex
-   V79.4 reason: old popout swipe helper replaced by current individual module view.
-   Original implementation is line-commented for rollback; stub below keeps references safe.
-
-// function getAdminProgressPopoutModuleActiveIndex(track) {  
-//   const targetTrack = track || getAdminProgressPopoutModuleSwipeTrack();  
-//
-//   if (!targetTrack) {  
-//     return 0;  
-//   }  
-//
-//   const panels = getAdminProgressPopoutModulePanels(targetTrack);  
-//
-//   if (panels.length <= 1) {  
-//     return 0;  
-//   }  
-//
-//   if ((targetTrack.scrollWidth || 0) <= (targetTrack.clientWidth || 0) + 2) {  
-//     return 0;  
-//   }  
-//
-//   const firstPanel = panels[0];  
-//   const secondPanel = panels[1];  
-//   let step = targetTrack.clientWidth || 1;  
-//
-//   if (firstPanel && secondPanel) {  
-//     const firstRect = firstPanel.getBoundingClientRect();  
-//     const secondRect = secondPanel.getBoundingClientRect();  
-//     const measuredStep = Math.abs(secondRect.left - firstRect.left);  
-//
-//     if (measuredStep > 1) {  
-//       step = measuredStep;  
-//     }  
-//   }  
-//
-//   const index = Math.round((targetTrack.scrollLeft || 0) / step);  
-//   return Math.max(0, Math.min(panels.length - 1, index));  
-// }  
-//
-V79_LEGACY_QUARANTINE_END: getAdminProgressPopoutModuleActiveIndex */
 
 function getAdminProgressPopoutModuleActiveIndex(track) {
   return 0;
 }
 
-/* V79_LEGACY_QUARANTINE_START: updateAdminProgressPopoutModuleSwipeDots
-   V79.4 reason: old popout swipe helper replaced by current individual module view.
-   Original implementation is line-commented for rollback; stub below keeps references safe.
-
-// function updateAdminProgressPopoutModuleSwipeDots() {  
-//   const popout = document.getElementById("admin-progress-student-popout");  
-//   const track = getAdminProgressPopoutModuleSwipeTrack();  
-//
-//   if (!popout || !track) {  
-//     return false;  
-//   }  
-//
-//   const dots = Array.from(popout.querySelectorAll("[data-admin-popout-module-swipe-dots] [data-progress-module-index]"));  
-//
-//   if (!dots.length) {  
-//     return false;  
-//   }  
-//
-//   const activeIndex = getAdminProgressPopoutModuleActiveIndex(track);  
-//
-//   dots.forEach((dot, fallbackIndex) => {  
-//     const dotIndex = Number(dot.dataset.progressModuleIndex || fallbackIndex || 0);  
-//     const isActive = dotIndex === activeIndex;  
-//     dot.classList.toggle("is-active", isActive);  
-//     dot.setAttribute("aria-current", isActive ? "true" : "false");  
-//   });  
-//
-//   return true;  
-// }  
-//
-V79_LEGACY_QUARANTINE_END: updateAdminProgressPopoutModuleSwipeDots */
 
 function updateAdminProgressPopoutModuleSwipeDots(track) {
   return false;
 }
 
-/* V79_LEGACY_QUARANTINE_START: scrollAdminProgressPopoutModuleToIndex
-   V79.4 reason: old popout swipe helper replaced by current individual module view.
-   Original implementation is line-commented for rollback; stub below keeps references safe.
-
-// function scrollAdminProgressPopoutModuleToIndex(moduleIndex, options = {}) {  
-//   const track = getAdminProgressPopoutModuleSwipeTrack();  
-//   const panels = getAdminProgressPopoutModulePanels(track);  
-//   const index = Number(moduleIndex || 0);  
-//
-//   if (!track || !panels[index]) {  
-//     return false;  
-//   }  
-//
-//   panels[index].scrollIntoView({  
-//     behavior: options.behavior || "smooth",  
-//     block: "nearest",  
-//     inline: "start"  
-//   });  
-//
-//   updateAdminProgressPopoutModuleSwipeDots();  
-//
-//   if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {  
-//     window.requestAnimationFrame(updateAdminProgressPopoutModuleSwipeDots);  
-//   } else {  
-//     window.setTimeout(updateAdminProgressPopoutModuleSwipeDots, 0);  
-//   }  
-//
-//   return true;  
-// }  
-//
-V79_LEGACY_QUARANTINE_END: scrollAdminProgressPopoutModuleToIndex */
 
 function scrollAdminProgressPopoutModuleToIndex(moduleIndex, options = {}) {
   console.warn("V79.4 legacy admin popout swipe route is quarantined.", moduleIndex, options);
   return false;
 }
 
-/* V79_LEGACY_QUARANTINE_START: renderAdminProgressPopoutModuleSwipeDots
-   V79.4 reason: old popout swipe dots replaced by current individual module view.
-   Original implementation is line-commented for rollback; stub below keeps references safe.
-
-// function renderAdminProgressPopoutModuleSwipeDots(modules) {  
-//   const list = Array.isArray(modules) ? modules : [];  
-//
-//   if (list.length <= 1) {  
-//     return "";  
-//   }  
-//
-//   return `  
-//     <div class="m4l-progress-swipe-dots admin-progress-popout-module-dots" data-admin-popout-module-swipe-dots aria-label="Student progress modules">  
-//       ${list.map((module, index) => `  
-//         <button  
-//           type="button"  
-//           class="m4l-progress-swipe-dot admin-progress-popout-module-dot${index === 0 ? " is-active" : ""}"  
-//           data-progress-action="scroll-admin-popout-module"  
-//           data-progress-module-index="${index}"  
-//           aria-label="Show ${escapeForAttribute(module.modulename || `module ${index + 1}`)}"  
-//           aria-current="${index === 0 ? "true" : "false"}"  
-//         ></button>  
-//       `).join("")}  
-//     </div>  
-//   `;  
-// }  
-//
-V79_LEGACY_QUARANTINE_END: renderAdminProgressPopoutModuleSwipeDots */
 
 function renderAdminProgressPopoutModuleSwipeDots(modules) {
   return "";
 }
 
-/* V79_LEGACY_QUARANTINE_START: bindAdminProgressPopoutModuleSwipeControls
-   V79.4 reason: old popout swipe binding replaced by current individual module view.
-   Original implementation is line-commented for rollback; stub below keeps references safe.
-
-// function bindAdminProgressPopoutModuleSwipeControls() {  
-//   const track = getAdminProgressPopoutModuleSwipeTrack();  
-//
-//   if (!track) {  
-//     return false;  
-//   }  
-//
-//   if (track.dataset.adminPopoutModuleSwipeBound !== "true") {  
-//     track.dataset.adminPopoutModuleSwipeBound = "true";  
-//     let pendingFrame = 0;  
-//
-//     track.addEventListener("scroll", () => {  
-//       if (pendingFrame) return;  
-//
-//       pendingFrame = window.requestAnimationFrame(() => {  
-//         pendingFrame = 0;  
-//         updateAdminProgressPopoutModuleSwipeDots();  
-//       });  
-//     }, { passive: true });  
-//   }  
-//
-//   window.setTimeout(updateAdminProgressPopoutModuleSwipeDots, 0);  
-//   return true;  
-// }  
-//
-V79_LEGACY_QUARANTINE_END: bindAdminProgressPopoutModuleSwipeControls */
 
 function bindAdminProgressPopoutModuleSwipeControls() {
   return false;
 }
 
-/* V79_LEGACY_QUARANTINE_START: renderAdminStudentProgressPopoutRow
-   V79.4 reason: old popout row renderer replaced by current individual module view.
-   Original implementation is line-commented for rollback; stub below keeps references safe.
-
-// function renderAdminStudentProgressPopoutRow(row) {  
-//   const pending = progressPendingUpdates[row.studenttaskid] || {};  
-//
-//   const completeStatus = pending.completeStatus !== undefined  
-//     ? pending.completeStatus  
-//     : row.completestatus;  
-//
-//   const verifyStatus = pending.verifyStatus !== undefined  
-//     ? pending.verifyStatus  
-//     : row.verifystatus;  
-//
-//   const isComplete = isStatusOn(completeStatus);  
-//   const isVerified = isStatusOn(verifyStatus);  
-//
-//   return `  
-//     <div class="student-status-row admin-progress-popout-task-row">  
-//       <div class="student-status-name admin-progress-popout-task-name">${escapeHtml(row.taskname || "Untitled Task")}</div>  
-//
-//       <div  
-//         class="status-action task-status-control admin-progress-status-control admin-progress-complete-control is-admin-complete-override${isComplete ? " is-on" : ""}"  
-//         role="button"  
-//         tabindex="0"  
-//         data-progress-action="toggle-progress-pending-popout"  
-//         data-studenttaskid="${escapeForAttribute(row.studenttaskid)}"  
-//         data-field="completeStatus"  
-//         data-value="${isComplete ? "false" : "true"}"  
-//         aria-label="${isComplete ? "Mark incomplete" : "Mark complete"}: ${escapeForAttribute(row.taskname || "Task")}">  
-//         ${renderTaskStatusIndicator("complete", isComplete)}  
-//       </div>  
-//
-//       <div  
-//         class="status-action task-status-control admin-progress-status-control admin-progress-verify-control${isVerified ? " is-on" : ""}"  
-//         role="button"  
-//         tabindex="0"  
-//         data-progress-action="toggle-progress-pending-popout"  
-//         data-studenttaskid="${escapeForAttribute(row.studenttaskid)}"  
-//         data-field="verifyStatus"  
-//         data-value="${isVerified ? "false" : "true"}"  
-//         aria-label="${isVerified ? "Mark unverified" : "Mark verified"}: ${escapeForAttribute(row.taskname || "Task")}">  
-//         ${renderTaskStatusIndicator("verify", isVerified)}  
-//       </div>  
-//     </div>  
-//   `;  
-// }  
-//
-V79_LEGACY_QUARANTINE_END: renderAdminStudentProgressPopoutRow */
 
 function renderAdminStudentProgressPopoutRow(row) {
   console.warn("V79.4 legacy admin popout row renderer is quarantined.", row);
   return "";
 }
 
-/* V79_LEGACY_QUARANTINE_START: toggleProgressPendingForAdminPopout
-   V79.4 reason: old popout toggle route replaced by current individual module edit/save flow.
-   Original implementation is line-commented for rollback; stub below keeps references safe.
-
-// function toggleProgressPendingForAdminPopout(studenttaskid, field, value) {  
-//   if (!studenttaskid) return;  
-//
-//   if (!progressPendingUpdates[studenttaskid]) {  
-//     progressPendingUpdates[studenttaskid] = { studenttaskid };  
-//   }  
-//
-//   progressPendingUpdates[studenttaskid][field] = value ? "YES" : "";  
-//   updateProgressRowsStatusInMemory(studenttaskid, field, value);  
-//
-//   const updatedInPlace = updateAdminProgressStatusControls(  
-//     studenttaskid,  
-//     field,  
-//     value,  
-//     "toggle-progress-pending-popout"  
-//   );  
-//
-//   if (!updatedInPlace) {  
-//     renderAdminStudentProgressPopout(adminProgressPopoutRows, progressState.activePopoutStudentName);  
-//   }  
-// }  
-//
-V79_LEGACY_QUARANTINE_END: toggleProgressPendingForAdminPopout */
 
 function toggleProgressPendingForAdminPopout(studenttaskid, field, value) {
   console.warn("V79.4 legacy admin popout toggle route is quarantined.", studenttaskid, field, value);
   return false;
 }
 
-/* V79_LEGACY_QUARANTINE_START: closeAdminProgressStudentPopout
-   V79.4 reason: keep as a safe cleanup stub because current view switching still calls it.
-   Original implementation is line-commented for rollback; stub below keeps references safe.
-
-// function closeAdminProgressStudentPopout(options = {}) {  
-//   const popout = document.getElementById("admin-progress-student-popout");  
-//   if (!popout) return false;  
-//
-//   popout.classList.add("hidden");  
-//   popout.setAttribute("aria-hidden", "true");  
-//   document.body.classList.remove("admin-progress-popout-open");  
-//   progressState.activePopoutStudentId = "";  
-//   progressState.activePopoutStudentName = "";  
-//   adminProgressPopoutRows = [];  
-//
-//   if (!options.silent && Array.isArray(currentProgressRows) && currentProgressRows.length > 0) {  
-//     renderProgressTaskStudents(currentProgressRows);  
-//   }  
-//
-//   return true;  
-// }  
-//
-V79_LEGACY_QUARANTINE_END: closeAdminProgressStudentPopout */
 
 function closeAdminProgressStudentPopout(options = {}) {
   const popout = document.getElementById("admin-progress-student-popout");
@@ -6110,58 +5202,6 @@ function closeAdminProgressStudentPopout(options = {}) {
   return true;
 }
 
-/* V79_LEGACY_QUARANTINE_START: saveAdminProgressPopoutChanges
-   V79.4 reason: old popout save route replaced by current individual module edit/save flow.
-   Original implementation is line-commented for rollback; stub below keeps references safe.
-
-// async function saveAdminProgressPopoutChanges(button) {  
-//   const saveButton = button || document.querySelector("#admin-progress-student-popout .admin-progress-popout-save");  
-//   const originalText = saveButton ? saveButton.innerText : "Save";  
-//   const pendingCount = Object.keys(progressPendingUpdates || {}).length;  
-//
-//   if (pendingCount === 0) {  
-//     if (saveButton) {  
-//       saveButton.innerText = "Saved";  
-//       window.setTimeout(() => {  
-//         saveButton.innerText = originalText;  
-//       }, 900);  
-//     }  
-//     return false;  
-//   }  
-//
-//   if (saveButton) {  
-//     saveButton.disabled = true;  
-//     saveButton.innerText = "Saving...";  
-//   }  
-//
-//   const studentid = progressState.activePopoutStudentId;  
-//   const username = progressState.activePopoutStudentName;  
-//   const saved = await saveProgressPendingChanges({ reload: false, alert: false });  
-//
-//   if (saved) {  
-//     clearAdminProgressDashboardCache();  
-//     await loadProgressTaskStudents();  
-//     refreshAdminProgressDashboardCacheInBackground({ render: false });  
-//     if (studentid) {  
-//       await openAdminProgressStudentPopout(studentid, username);  
-//     }  
-//   }  
-//
-//   if (saveButton) {  
-//     saveButton.disabled = false;  
-//     saveButton.innerText = saved ? "Saved" : originalText;  
-//
-//     if (saved) {  
-//       window.setTimeout(() => {  
-//         saveButton.innerText = originalText;  
-//       }, 900);  
-//     }  
-//   }  
-//
-//   return saved;  
-// }  
-//
-V79_LEGACY_QUARANTINE_END: saveAdminProgressPopoutChanges */
 
 async function saveAdminProgressPopoutChanges(button) {
   console.warn("V79.4 legacy admin popout save route is quarantined.");
