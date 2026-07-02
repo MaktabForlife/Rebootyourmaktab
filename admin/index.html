@@ -7,7 +7,7 @@
 
   <!-- PWA: Admin install settings -->
   <!-- M4L v79.7: Admin index Progress HTML cleanup; quarantined legacy Progress sections removed. -->
-  <link rel="stylesheet" href="/styles.css?v=82" />
+  <link rel="stylesheet" href="/styles.css?v=82.1" />
   <link rel="manifest" href="/admin-manifest.json" />
   <link rel="apple-touch-icon" sizes="180x180" href="/admin-apple-touch-icon.png" />
   <link rel="icon" type="image/png" sizes="32x32" href="/admin-favicon-32x32.png" />
@@ -80,47 +80,38 @@
           data-home-swipe-track
           aria-label="Admin Home panels"
         >
-          <section class="home-swipe-panel home-swipe-panel--timetable" data-home-swipe-panel data-home-panel-index="0" aria-label="Zoom and timetable">
-            <button
-              id="admin-home-zoom-link-btn"
-              type="button"
-              class="zoom-link-button"
-              data-timetable-action="open-zoom"
-            >
-              <span class="zoom-link-button__icon" aria-hidden="true"></span>
-              <span class="zoom-link-button__text">Join Zoom Class</span>
-            </button>
+          <section class="home-swipe-panel home-swipe-panel--timetable" data-home-swipe-panel data-home-panel-index="0" aria-label="Home apps and timetable">
 
             <div class="home-cover-icon-grid" aria-label="Admin home app icons">
-              <button type="button" class="home-cover-icon-btn" data-cover-home-role="admin" data-cover-home-nav="progress">
-                <span class="home-cover-icon-tile" aria-hidden="true">
-                  <span class="home-cover-icon-glyph"></span>
-                </span>
-                <span class="home-cover-icon-label">Progress</span>
-              </button>
-              <button type="button" class="home-cover-icon-btn" data-cover-home-role="admin" data-cover-home-nav="resources">
-                <span class="home-cover-icon-tile" aria-hidden="true">
-                  <span class="home-cover-icon-glyph"></span>
-                </span>
-                <span class="home-cover-icon-label">Library</span>
-              </button>
               <button type="button" class="home-cover-icon-btn" data-cover-home-role="admin" data-cover-home-nav="attendance">
                 <span class="home-cover-icon-tile" aria-hidden="true">
                   <span class="home-cover-icon-glyph"></span>
                 </span>
                 <span class="home-cover-icon-label">Attendance</span>
               </button>
-              <button type="button" class="home-cover-icon-btn" data-cover-home-role="admin" data-cover-home-nav="admin">
-                <span class="home-cover-icon-tile" aria-hidden="true">
-                  <span class="home-cover-icon-glyph"></span>
-                </span>
-                <span class="home-cover-icon-label">Admin</span>
-              </button>
               <button type="button" class="home-cover-icon-btn" data-cover-home-role="admin" data-cover-home-nav="record">
                 <span class="home-cover-icon-tile" aria-hidden="true">
                   <span class="home-cover-icon-glyph"></span>
                 </span>
                 <span class="home-cover-icon-label">Record</span>
+              </button>
+              <button type="button" class="home-cover-icon-btn" data-cover-home-role="admin" data-cover-home-nav="library">
+                <span class="home-cover-icon-tile" aria-hidden="true">
+                  <span class="home-cover-icon-glyph"></span>
+                </span>
+                <span class="home-cover-icon-label">Library</span>
+              </button>
+              <button type="button" class="home-cover-icon-btn" data-cover-home-role="admin" data-cover-home-nav="progress">
+                <span class="home-cover-icon-tile" aria-hidden="true">
+                  <span class="home-cover-icon-glyph"></span>
+                </span>
+                <span class="home-cover-icon-label">Progress</span>
+              </button>
+              <button type="button" class="home-cover-icon-btn" data-cover-home-role="admin" data-cover-home-nav="admin">
+                <span class="home-cover-icon-tile" aria-hidden="true">
+                  <span class="home-cover-icon-glyph"></span>
+                </span>
+                <span class="home-cover-icon-label">Admin</span>
               </button>
             </div>
 
@@ -449,7 +440,7 @@
 <script src="/js/m4l-dom.js?v=11"></script>
 <script src="/app.js?v=69"></script>
 <script src="/js/m4l-auth.js?v=55"></script>
-<script src="/js/m4l-shell.js?v=82"></script>
+<script src="/js/m4l-shell.js?v=82.1"></script>
 <script src="/js/m4l-attendance.js?v=76.7.4"></script>
 <script src="/js/m4l-admin-academics.js?v=55"></script>
 <script src="/js/m4l-timetable.js?v=76.7.4"></script>
