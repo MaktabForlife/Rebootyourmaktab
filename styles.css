@@ -1,6 +1,6 @@
-/* M4L v82.1 - User band Zoom/menu + nav cleanup + Home cover-sheet refinements
+/* M4L v82.1.1 - User band profile/Zoom/menu labels + timetable refinements
    Baseline: V79.7 Progress cleanup.
-   Scope: user band Zoom/menu, Home cover-sheet icon refinements, Record Lesson nav order, and banner styling.
+   Scope: user band profile menu, labelled Zoom/menu actions, same-tab Zoom opening support, and timetable styling refinements.
    Protected: active Student/Admin Progress and Attendance layouts.
 */
 
@@ -70,7 +70,7 @@
   --bottom-nav-safe-area: env(safe-area-inset-bottom, 0px);
   --nav-rail-width: 92px;
   --top-nav-height: 70px;
-  --user-band-height: 58px;
+  --user-band-height: 64px;
   --user-band-safe-area-top: env(safe-area-inset-top, 0px);
   --swipe-dot-band-gap: 18px;
   --swipe-dot-bar-height: 24px;
@@ -488,7 +488,7 @@ button:active {
   }
 }
 
-/* Permanent authenticated user band - V82.1 */
+/* Permanent authenticated user band - V82.1.1 */
 .app-user-band {
   position: fixed;
   top: 0;
@@ -500,10 +500,10 @@ button:active {
   min-height: calc(var(--user-band-height) + var(--user-band-safe-area-top));
   padding: calc(7px + var(--user-band-safe-area-top)) max(14px, env(safe-area-inset-left, 0px)) 7px max(14px, env(safe-area-inset-right, 0px));
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(44px, 1fr);
+  grid-template-columns: minmax(0, 1fr) auto minmax(48px, 1fr);
   align-items: center;
   justify-content: stretch;
-  gap: 12px;
+  gap: 10px;
   background: var(--banner-color);
   color: var(--text);
   box-shadow: 0 5px 16px rgba(var(--black-rgb), 0.18);
@@ -514,23 +514,41 @@ button:active {
   display: none;
 }
 
-.app-user-band__identity-wrap {
+.app-user-band__identity-shell {
+  position: relative;
   min-width: 0;
+  justify-self: start;
+}
+
+.app-user-band__profile-btn {
+  appearance: none;
+  width: auto;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 44px;
+  margin: 0;
+  padding: 0;
   display: inline-flex;
   align-items: center;
-  justify-self: start;
   gap: 8px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   color: var(--text);
+  box-shadow: none;
+  font: inherit;
+  letter-spacing: 0;
+  text-align: left;
 }
 
 .app-user-band__identity-icon {
-  color: var(--text-muted);
+  color: var(--text);
 }
 
 .app-user-band__identity {
   min-width: 0;
   display: grid;
-  gap: 2px;
+  gap: 0;
   text-align: left;
 }
 
@@ -542,34 +560,45 @@ button:active {
   overflow-wrap: anywhere;
 }
 
-.app-user-band__level {
-  margin: 0;
-  color: var(--text);
-  opacity: 0.78;
-  font-size: 0.82rem;
-  font-weight: 550;
-  line-height: 1.1;
-}
-
 .app-user-band__zoom,
 .app-user-band__menu-btn {
-  width: 44px;
-  min-width: 44px;
-  height: 44px;
-  min-height: 44px;
+  appearance: none;
+  width: 48px;
+  min-width: 48px;
+  height: 50px;
+  min-height: 50px;
+  margin: 0;
   padding: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  display: inline-grid;
+  place-items: center;
+  align-content: center;
+  gap: 2px;
   border: 0;
-  border-radius: 999px;
+  border-radius: 0;
   background: transparent;
   color: var(--text);
   box-shadow: none;
+  font: inherit;
+  letter-spacing: 0;
 }
 
 .app-user-band__zoom {
   justify-self: center;
+}
+
+.app-user-band__zoom .app-icon,
+.app-user-band__menu-btn .app-icon {
+  width: 25px;
+  height: 25px;
+}
+
+.app-user-band__action-label {
+  display: block;
+  color: currentColor;
+  font-size: 0.56rem;
+  font-weight: 850;
+  line-height: 1;
+  letter-spacing: 0.06em;
 }
 
 .app-user-band__menu-shell {
@@ -578,7 +607,7 @@ button:active {
   display: inline-flex;
   align-items: center;
   justify-content: flex-end;
-  min-width: 44px;
+  min-width: 48px;
 }
 
 .app-user-band .icon-action-btn,
@@ -589,15 +618,13 @@ button:active {
   color: var(--text);
 }
 
+.app-user-profile-menu,
 .app-user-menu {
   position: absolute;
   top: calc(100% + 9px);
-  right: 0;
   z-index: 130;
   width: min(248px, 84vw);
   padding: 8px;
-  display: grid;
-  gap: 4px;
   border: 1px solid rgba(var(--primary-rgb), 0.18);
   border-radius: 18px;
   background: rgba(var(--white-rgb), 0.98);
@@ -605,8 +632,51 @@ button:active {
   text-align: left;
 }
 
+.app-user-profile-menu {
+  left: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.app-user-menu {
+  right: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.app-user-profile-menu.hidden,
 .app-user-menu.hidden {
   display: none;
+}
+
+.app-user-profile-menu__title {
+  margin: 0 0 4px;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.app-user-profile-menu__row {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+  color: var(--text);
+  font-size: 0.88rem;
+  line-height: 1.25;
+}
+
+.app-user-profile-menu__label {
+  color: var(--text-muted);
+  font-weight: 800;
+}
+
+.app-user-profile-menu__value {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-weight: 650;
 }
 
 .app-user-menu__item {
@@ -644,6 +714,9 @@ button:active {
   line-height: 1.1;
 }
 
+.app-user-band__profile-btn:active,
+.app-user-band__zoom:active,
+.app-user-band__menu-btn:active,
 .app-user-menu__item:active {
   transform: scale(0.98);
 }
@@ -653,11 +726,12 @@ button:active {
 }
 
 @media (hover: hover) and (pointer: fine) {
+  .app-user-band__profile-btn:hover,
   .app-user-band__zoom:hover,
   .app-user-band__menu-btn:hover,
   .app-user-menu__item:hover {
     color: var(--primary);
-    background: rgba(var(--primary-rgb), 0.08);
+    background: transparent;
     transform: translateY(-1px);
   }
 
@@ -669,24 +743,26 @@ button:active {
 
 @media (max-width: 767px) {
   .app-user-band {
-    left: 50%;
-    right: auto;
-    width: min(90%, calc(100vw - 20px));
-    padding-inline: 12px;
-    border-radius: 0 0 18px 18px;
-    transform: translateX(-50%) translateZ(0);
+    left: 0;
+    right: 0;
+    width: 100%;
+    max-width: none;
+    padding-inline: max(12px, env(safe-area-inset-left, 0px)) max(12px, env(safe-area-inset-right, 0px));
+    border-radius: 0;
+    transform: translateZ(0);
   }
 
   .app-user-band__name {
     font-size: clamp(0.98rem, 4vw, 1.26rem);
   }
 
-  .app-user-band__level {
-    font-size: 0.78rem;
+  .app-user-profile-menu {
+    left: 0;
+    width: min(248px, 86vw);
   }
 
   .app-user-menu {
-    right: -2px;
+    right: 0;
     width: min(248px, 86vw);
   }
 }
@@ -3371,12 +3447,20 @@ body.is-student-progress-section .app-shell {
 #student-home .timetable-card-header,
 #admin-home .timetable-card-header {
   margin: 0 0 6px;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: center;
 }
 
 #student-home .timetable-card-header h3,
 #admin-home .timetable-card-header h3 {
-  display: none;
+  display: block;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: clamp(0.92rem, 3.2vw, 1.05rem);
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: 0.04em;
+  text-align: left;
 }
 
 
@@ -3466,7 +3550,7 @@ body.is-student-progress-section .app-shell {
   padding: clamp(8px, 2.2vw, 12px);
   border: 0;
   border-radius: 18px;
-  background: var(--surface-soft);
+  background: var(--surface-chip);
   box-shadow: none;
 }
 
@@ -3538,7 +3622,7 @@ body.is-student-progress-section .app-shell {
   justify-content: center;
   padding: clamp(5px, 0.75vw, 8px) clamp(4px, 0.75vw, 9px);
   color: var(--text-strong);
-  background: var(--primary-light);
+  background: var(--surface-track);
   border: 0;
   border-radius: 999px;
   box-shadow: none;
@@ -3591,7 +3675,7 @@ body.is-student-progress-section .app-shell {
   grid-column: span var(--timetable-day-count, 5);
   min-height: clamp(36px, 10.8vw, 52px);
   padding: clamp(7px, 2vw, 10px) clamp(8px, 2.6vw, 14px);
-  background: var(--primary-lighter);
+  background: var(--surface-banner);
   border: 0;
   border-radius: 999px;
   box-shadow: none;
@@ -3642,7 +3726,7 @@ button.m4l-timetable-subject {
   max-width: 100%;
   min-width: 0;
   overflow: hidden;
-  background: var(--surface-soft);
+  background: var(--surface-chip);
   border: 0;
   border-radius: 18px;
 }
