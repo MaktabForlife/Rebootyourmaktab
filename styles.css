@@ -1,12 +1,7 @@
-/* M4L v79.7 - Progress CSS cleanup: quarantined legacy CSS removed
-   Baseline: V79.4 deployed successfully after Student/Admin CSS quarantine testing.
-   Scope: removed only CSS already inside legacy quarantine marker blocks.
-   Protected: active Student Progress grid/edit styles and active Admin Progress layouts.
-*/
-
-/* V79.7 cleanup summary
-   Removed previously quarantined Progress CSS blocks only.
-   Active Student/Admin Progress styles remain protected.
+/* M4L v82 - Home cover-sheet app icons + Record Lesson nav entry
+   Baseline: V79.7 Progress cleanup.
+   Scope: Home cover-sheet icon grid, shared cover-home icon styling, and Record Lesson nav icon support.
+   Protected: active Student/Admin Progress and Attendance layouts.
 */
 
 :root {
@@ -636,6 +631,113 @@ body.has-user-band .top-bar button[onclick="logout()"] {
   border: 1px solid rgba(var(--primary-rgb), 0.14);
   border-radius: 16px;
   box-shadow: 0 2px 5px rgba(var(--black-rgb), 0.08);
+}
+
+
+/* Home cover-sheet app icons - V82
+   Uses the same icon assets as the nav bar, supplied by m4l-shell.js via --cover-home-icon. */
+.home-cover-icon-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(72px, 1fr));
+  gap: 22px 16px;
+  width: min(100%, 430px);
+  margin: 12px auto 6px;
+  padding: 4px 8px 8px;
+  justify-items: center;
+  align-items: start;
+}
+
+.home-cover-icon-btn {
+  appearance: none;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+  align-content: start;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-muted);
+  box-shadow: none;
+  font: inherit;
+  letter-spacing: 0;
+  text-align: center;
+  touch-action: manipulation;
+}
+
+.home-cover-icon-btn:active {
+  transform: scale(0.97);
+}
+
+.home-cover-icon-tile {
+  width: 64px;
+  height: 64px;
+  min-width: 64px;
+  min-height: 64px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(var(--primary-rgb), 0.12);
+  border-radius: 18px;
+  background: var(--surface-card);
+  color: var(--primary);
+  box-shadow: 0 8px 18px rgba(var(--black-rgb), 0.12);
+}
+
+.home-cover-icon-glyph {
+  width: 30px;
+  height: 30px;
+  display: block;
+  background: currentColor;
+  -webkit-mask: var(--cover-home-icon) center / contain no-repeat;
+  mask: var(--cover-home-icon) center / contain no-repeat;
+}
+
+.home-cover-icon-label {
+  max-width: 82px;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.12;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .home-cover-icon-btn:hover {
+    color: var(--primary);
+    transform: translateY(-1px);
+  }
+
+  .home-cover-icon-btn:hover .home-cover-icon-tile {
+    box-shadow: 0 10px 22px rgba(var(--black-rgb), 0.15);
+  }
+}
+
+@media (max-width: 360px) {
+  .home-cover-icon-grid {
+    gap: 18px 12px;
+  }
+
+  .home-cover-icon-tile {
+    width: 58px;
+    height: 58px;
+    min-width: 58px;
+    min-height: 58px;
+    border-radius: 16px;
+  }
+
+  .home-cover-icon-glyph {
+    width: 28px;
+    height: 28px;
+  }
+
+  .home-cover-icon-label {
+    font-size: 0.72rem;
+  }
 }
 
 .dashboard-section {
