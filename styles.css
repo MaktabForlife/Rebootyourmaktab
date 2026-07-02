@@ -1,6 +1,6 @@
-/* M4L v82 - Home cover-sheet app icons + Record Lesson nav entry
+/* M4L v82.1 - User band Zoom/menu + nav cleanup + Home cover-sheet refinements
    Baseline: V79.7 Progress cleanup.
-   Scope: Home cover-sheet icon grid, shared cover-home icon styling, and Record Lesson nav icon support.
+   Scope: user band Zoom/menu, Home cover-sheet icon refinements, Record Lesson nav order, and banner styling.
    Protected: active Student/Admin Progress and Attendance layouts.
 */
 
@@ -397,6 +397,22 @@ button:active {
   --app-icon-url: url('/icons/studentedit.svg');
 }
 
+.app-icon-user {
+  --app-icon-url: url('/icons/user.svg');
+}
+
+.app-icon-zoom {
+  --app-icon-url: url('/icons/zoom.svg');
+}
+
+.app-icon-menu {
+  --app-icon-url: url('/icons/menu.svg');
+}
+
+.app-icon-record {
+  --app-icon-url: url('/icons/navrecord.svg');
+}
+
 .icon-action-btn,
 .home-icon-btn,
 .back-icon-btn,
@@ -472,7 +488,7 @@ button:active {
   }
 }
 
-/* Permanent authenticated user band */
+/* Permanent authenticated user band - V82.1 */
 .app-user-band {
   position: fixed;
   top: 0;
@@ -483,18 +499,32 @@ button:active {
   max-width: none;
   min-height: calc(var(--user-band-height) + var(--user-band-safe-area-top));
   padding: calc(7px + var(--user-band-safe-area-top)) max(14px, env(safe-area-inset-left, 0px)) 7px max(14px, env(safe-area-inset-right, 0px));
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(44px, 1fr);
   align-items: center;
-  justify-content: space-between;
-  gap: 14px;
+  justify-content: stretch;
+  gap: 12px;
   background: var(--banner-color);
-  color: #FFFFFF;
+  color: var(--text);
   box-shadow: 0 5px 16px rgba(var(--black-rgb), 0.18);
   transform: translateZ(0);
 }
 
 .app-user-band.hidden {
   display: none;
+}
+
+.app-user-band__identity-wrap {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  gap: 8px;
+  color: var(--text);
+}
+
+.app-user-band__identity-icon {
+  color: var(--text-muted);
 }
 
 .app-user-band__identity {
@@ -506,37 +536,49 @@ button:active {
 
 .app-user-band__name {
   margin: 0;
-  color: #FFFFFF;
-  font-size: clamp(1.08rem, 4.4vw, 1.55rem);
+  color: var(--text);
+  font-size: clamp(1.02rem, 4.1vw, 1.46rem);
   line-height: 1.05;
+  overflow-wrap: anywhere;
 }
 
 .app-user-band__level {
   margin: 0;
-  color: rgba(var(--white-rgb), 0.86);
-  font-size: 0.86rem;
-  font-weight: 500;
+  color: var(--text);
+  opacity: 0.78;
+  font-size: 0.82rem;
+  font-weight: 550;
+  line-height: 1.1;
 }
 
-.app-user-band__logout {
-  width: 58px;
-  min-width: 58px;
-  height: auto;
-  min-height: 48px;
+.app-user-band__zoom,
+.app-user-band__menu-btn {
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  min-height: 44px;
+  padding: 0;
   display: inline-flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
-  color: #FFFFFF;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text);
+  box-shadow: none;
 }
 
-.app-user-band__logout-label {
-  display: block;
-  color: currentColor;
-  font-size: 0.68rem;
-  font-weight: 800;
-  line-height: 1;
+.app-user-band__zoom {
+  justify-self: center;
+}
+
+.app-user-band__menu-shell {
+  position: relative;
+  justify-self: end;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 44px;
 }
 
 .app-user-band .icon-action-btn,
@@ -544,7 +586,109 @@ button:active {
 .app-user-band .home-icon-btn,
 .app-user-band .back-icon-btn,
 .app-user-band button {
-  color: #FFFFFF;
+  color: var(--text);
+}
+
+.app-user-menu {
+  position: absolute;
+  top: calc(100% + 9px);
+  right: 0;
+  z-index: 130;
+  width: min(248px, 84vw);
+  padding: 8px;
+  display: grid;
+  gap: 4px;
+  border: 1px solid rgba(var(--primary-rgb), 0.18);
+  border-radius: 18px;
+  background: rgba(var(--white-rgb), 0.98);
+  box-shadow: 0 14px 32px rgba(var(--black-rgb), 0.18);
+  text-align: left;
+}
+
+.app-user-menu.hidden {
+  display: none;
+}
+
+.app-user-menu__item {
+  width: 100%;
+  min-height: 44px;
+  margin: 0;
+  padding: 9px 10px;
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--text);
+  box-shadow: none;
+  font-size: 0.92rem;
+  font-weight: 750;
+  letter-spacing: 0;
+  text-align: left;
+}
+
+.app-user-menu__item-icon {
+  width: 22px;
+  height: 22px;
+  display: block;
+  background: currentColor;
+  -webkit-mask: var(--app-menu-icon) center / contain no-repeat;
+  mask: var(--app-menu-icon) center / contain no-repeat;
+}
+
+.app-user-menu__item-label {
+  min-width: 0;
+  color: currentColor;
+  line-height: 1.1;
+}
+
+.app-user-menu__item:active {
+  transform: scale(0.98);
+}
+
+.app-user-menu__item[data-app-menu-action="logout"] {
+  color: var(--danger);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .app-user-band__zoom:hover,
+  .app-user-band__menu-btn:hover,
+  .app-user-menu__item:hover {
+    color: var(--primary);
+    background: rgba(var(--primary-rgb), 0.08);
+    transform: translateY(-1px);
+  }
+
+  .app-user-menu__item[data-app-menu-action="logout"]:hover {
+    color: var(--danger);
+    background: var(--danger-bg);
+  }
+}
+
+@media (max-width: 767px) {
+  .app-user-band {
+    left: 50%;
+    right: auto;
+    width: min(90%, calc(100vw - 20px));
+    padding-inline: 12px;
+    border-radius: 0 0 18px 18px;
+    transform: translateX(-50%) translateZ(0);
+  }
+
+  .app-user-band__name {
+    font-size: clamp(0.98rem, 4vw, 1.26rem);
+  }
+
+  .app-user-band__level {
+    font-size: 0.78rem;
+  }
+
+  .app-user-menu {
+    right: -2px;
+    width: min(248px, 86vw);
+  }
 }
 
 body.has-user-band .app-shell {
@@ -2847,6 +2991,13 @@ body.is-student-progress-section .app-shell {
 .student-home-panel > * {
   min-width: 0;
   max-width: 100%;
+}
+
+
+/* V82.1: Zoom is now a compact user-band action, not a large Home card button. */
+#student-home .home-swipe-panel--timetable > .zoom-link-button,
+#admin-home .home-swipe-panel--timetable > .zoom-link-button {
+  display: none;
 }
 
 /* Home native scroll panels - V67.1 */
