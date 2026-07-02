@@ -1,7 +1,9 @@
-/* M4L v69 - Shell / Navigation / User Band module.
-   Owns Home native scroll dot binding; /js/m4l-swipe.js is no longer required. */
+/* M4L v80 - Shell / Navigation / User Band module.
+   Owns Home native scroll dot binding and app browser-back history handling.
+   /js/m4l-swipe.js is no longer required. */
 
 function showScreen(screenId) {
+  const previousScreenId = typeof getActiveScreenId === "function" ? getActiveScreenId() : "";
   let didShow = false;
 
   if (window.M4LDom && typeof window.M4LDom.safeShowScreen === "function") {
@@ -50,9 +52,317 @@ function showScreen(screenId) {
     scheduleAdminHomeTimetableLoad();
   }
 
+  if (typeof recordM4LAppHistoryScreen === "function") {
+    recordM4LAppHistoryScreen(screenId, { from: previousScreenId });
+  }
+
   return true;
 }
 
+
+
+/* =========================
+   APP BROWSER BACK HISTORY - V80
+   Keeps Android/Samsung/iPhone browser Back inside the app where possible.
+========================= */
+
+const M4L_APP_HISTORY_FLAG = "maktab4life";
+const M4L_APP_HISTORY_VERSION = 80;
+const M4L_APP_HISTORY_EXIT_WINDOW_MS = 1800;
+
+let m4lAppHistoryBound = false;
+let m4lAppHistoryHandlingPopState = false;
+let m4lAppHistoryExitArmed = false;
+let m4lAppHistoryLastExitPromptAt = 0;
+
+function isM4LAppHistorySupported() {
+  return typeof window !== "undefined" &&
+    window.history &&
+    typeof window.history.pushState === "function" &&
+    typeof window.history.replaceState === "function";
+}
+
+function getM4LAppHistoryCurrentState() {
+  return isM4LAppHistorySupported() ? (window.history.state || null) : null;
+}
+
+function isM4LAppHistoryState(candidate) {
+  return !!candidate && candidate.app === M4L_APP_HISTORY_FLAG;
+}
+
+function getM4LAppHomeScreenId(roleValue) {
+  const role = String(roleValue || (typeof getBottomNavRole === "function" ? getBottomNavRole() : "") || "").toLowerCase();
+  return role === "admin" ? "admin-home" : "student-home";
+}
+
+function isM4LAppHomeScreen(screenId) {
+  const id = String(screenId || "");
+  return id === "student-home" || id === "admin-home";
+}
+
+function isM4LAppAuthScreen(screenId) {
+  return String(screenId || "") === "auth-screen";
+}
+
+function isM4LAppLayerScreen(screenId) {
+  return String(screenId || "") === "pdf-viewer-screen";
+}
+
+function getM4LAppHistoryRole() {
+  return typeof getBottomNavRole === "function" ? String(getBottomNavRole() || "") : "";
+}
+
+function getM4LAppHistoryToken() {
+  if (typeof state !== "undefined" && state && state.token) {
+    return String(state.token || "");
+  }
+
+  try {
+    return String(localStorage.getItem("maktab_token") || "");
+  } catch (error) {
+    return "";
+  }
+}
+
+function getM4LAppHistoryStateForScreen(screenId, options = {}) {
+  const id = String(screenId || "");
+  const role = getM4LAppHistoryRole();
+  const kind = isM4LAppLayerScreen(id)
+    ? "layer"
+    : (isM4LAppHomeScreen(id) ? "home" : (isM4LAppAuthScreen(id) ? "auth" : "screen"));
+
+  const stateData = {
+    app: M4L_APP_HISTORY_FLAG,
+    version: M4L_APP_HISTORY_VERSION,
+    screenId: id,
+    role,
+    kind
+  };
+
+  if (kind === "layer") {
+    const from = String(options.from || "");
+    stateData.returnTo = from && from !== id ? from : getM4LAppHomeScreenId(role);
+  }
+
+  if (options.guard === true) {
+    stateData.guard = true;
+  }
+
+  return stateData;
+}
+
+function bindM4LAppHistoryBackHandler() {
+  if (m4lAppHistoryBound === true) return true;
+  if (!isM4LAppHistorySupported() || typeof window.addEventListener !== "function") return false;
+
+  m4lAppHistoryBound = true;
+  window.addEventListener("popstate", handleM4LAppHistoryPopState);
+  return true;
+}
+
+function replaceM4LAppHistoryState(screenId, options = {}) {
+  if (!isM4LAppHistorySupported()) return false;
+  window.history.replaceState(getM4LAppHistoryStateForScreen(screenId, options), "", window.location.href);
+  return true;
+}
+
+function pushM4LAppHistoryState(screenId, options = {}) {
+  if (!isM4LAppHistorySupported()) return false;
+  window.history.pushState(getM4LAppHistoryStateForScreen(screenId, options), "", window.location.href);
+  return true;
+}
+
+function ensureM4LAppHomeHistory(screenId) {
+  const id = String(screenId || getM4LAppHomeScreenId());
+  const currentState = getM4LAppHistoryCurrentState();
+
+  if (isM4LAppHistoryState(currentState) &&
+      currentState.screenId === id &&
+      currentState.kind === "home" &&
+      currentState.guard === true) {
+    return true;
+  }
+
+  replaceM4LAppHistoryState(id);
+  pushM4LAppHistoryState(id, { guard: true });
+  return true;
+}
+
+function shouldSkipM4LAppHistoryDuplicate(screenId) {
+  const currentState = getM4LAppHistoryCurrentState();
+  if (!isM4LAppHistoryState(currentState)) return false;
+
+  return currentState.screenId === String(screenId || "") &&
+    currentState.kind !== "layer" &&
+    currentState.guard !== true;
+}
+
+function recordM4LAppHistoryScreen(screenId, options = {}) {
+  const id = String(screenId || "");
+
+  if (!id || !isM4LAppHistorySupported()) return false;
+  bindM4LAppHistoryBackHandler();
+
+  if (m4lAppHistoryHandlingPopState === true) {
+    return false;
+  }
+
+  if (isM4LAppAuthScreen(id)) {
+    replaceM4LAppHistoryState(id);
+    return true;
+  }
+
+  if (!getM4LAppHistoryToken()) {
+    return false;
+  }
+
+  const currentState = getM4LAppHistoryCurrentState();
+
+  // If an in-app close button closes a temporary layer, replace the layer entry
+  // instead of pushing a new duplicate return screen. This prevents Back from
+  // reopening the resource that was just closed.
+  if (isM4LAppHistoryState(currentState) &&
+      currentState.kind === "layer" &&
+      String(currentState.returnTo || "") === id) {
+    replaceM4LAppHistoryState(id);
+    return true;
+  }
+
+  if (isM4LAppHomeScreen(id)) {
+    ensureM4LAppHomeHistory(id);
+    return true;
+  }
+
+  if (shouldSkipM4LAppHistoryDuplicate(id)) {
+    return false;
+  }
+
+  pushM4LAppHistoryState(id, { from: options.from });
+  return true;
+}
+
+function showM4LAppBackExitHint() {
+  if (!document || !document.body) return false;
+
+  let hint = document.getElementById("m4l-back-exit-hint");
+  if (!hint) {
+    hint = document.createElement("div");
+    hint.id = "m4l-back-exit-hint";
+    hint.setAttribute("role", "status");
+    hint.setAttribute("aria-live", "polite");
+    hint.style.position = "fixed";
+    hint.style.left = "50%";
+    hint.style.bottom = "calc(var(--bottom-nav-height, 76px) + var(--bottom-nav-safe-area, 0px) + 14px)";
+    hint.style.transform = "translateX(-50%)";
+    hint.style.zIndex = "9999";
+    hint.style.maxWidth = "min(92vw, 360px)";
+    hint.style.padding = "10px 14px";
+    hint.style.borderRadius = "999px";
+    hint.style.background = "rgba(34, 43, 23, 0.92)";
+    hint.style.color = "#fff";
+    hint.style.font = "600 0.9rem system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+    hint.style.textAlign = "center";
+    hint.style.boxShadow = "0 8px 20px rgba(0, 0, 0, 0.20)";
+    hint.style.pointerEvents = "none";
+    hint.style.opacity = "0";
+    hint.style.transition = "opacity 160ms ease";
+    document.body.appendChild(hint);
+  }
+
+  hint.textContent = "Press Back again to exit";
+  hint.style.opacity = "1";
+
+  window.clearTimeout(showM4LAppBackExitHint.hideTimer || 0);
+  showM4LAppBackExitHint.hideTimer = window.setTimeout(() => {
+    const activeHint = document.getElementById("m4l-back-exit-hint");
+    if (activeHint) activeHint.style.opacity = "0";
+  }, 1500);
+
+  return true;
+}
+
+function handleM4LAppHomeBackAttempt(targetScreenId) {
+  const now = Date.now();
+
+  if (now - m4lAppHistoryLastExitPromptAt <= M4L_APP_HISTORY_EXIT_WINDOW_MS) {
+    m4lAppHistoryExitArmed = true;
+    window.history.back();
+    return true;
+  }
+
+  m4lAppHistoryLastExitPromptAt = now;
+  showM4LAppBackExitHint();
+  pushM4LAppHistoryState(targetScreenId || getM4LAppHomeScreenId(), { guard: true });
+  return true;
+}
+
+function handleM4LAppHistoryPopState(event) {
+  if (m4lAppHistoryExitArmed === true) {
+    m4lAppHistoryExitArmed = false;
+    return;
+  }
+
+  const targetState = event ? event.state : null;
+
+  if (!isM4LAppHistoryState(targetState)) {
+    return;
+  }
+
+  const targetScreenId = String(targetState.screenId || getM4LAppHomeScreenId(targetState.role));
+  const activeScreenId = typeof getActiveScreenId === "function" ? getActiveScreenId() : "";
+
+  if (targetState.kind === "home" && isM4LAppHomeScreen(activeScreenId)) {
+    handleM4LAppHomeBackAttempt(targetScreenId);
+    return;
+  }
+
+  if (!document.getElementById(targetScreenId)) {
+    return;
+  }
+
+  m4lAppHistoryHandlingPopState = true;
+  try {
+    showScreen(targetScreenId);
+  } finally {
+    m4lAppHistoryHandlingPopState = false;
+  }
+}
+
+function closeM4LAppHistoryLayer(returnToScreenId) {
+  const currentState = getM4LAppHistoryCurrentState();
+  const target = String(returnToScreenId || (isM4LAppHistoryState(currentState) ? currentState.returnTo : "") || getM4LAppHomeScreenId());
+
+  if (isM4LAppHistoryState(currentState) && currentState.kind === "layer") {
+    window.history.back();
+    return true;
+  }
+
+  if (target && typeof showScreen === "function") {
+    showScreen(target);
+    return true;
+  }
+
+  return false;
+}
+
+function initM4LAppHistory() {
+  bindM4LAppHistoryBackHandler();
+
+  const activeScreenId = typeof getActiveScreenId === "function" ? getActiveScreenId() : "";
+  if (activeScreenId) {
+    recordM4LAppHistoryScreen(activeScreenId);
+  }
+
+  return true;
+}
+
+if (typeof document !== "undefined") {
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initM4LAppHistory, { once: true });
+  } else {
+    initM4LAppHistory();
+  }
+}
 
 
 let homeNativeScrollResizeHandlerBound = false;
@@ -1304,5 +1614,14 @@ window.M4LShell = {
   refreshCurrentResourceView: typeof refreshCurrentResourceView === "function" ? refreshCurrentResourceView : undefined,
   getStudentResourceViewModeSafe: typeof getStudentResourceViewModeSafe === "function" ? getStudentResourceViewModeSafe : undefined,
   isOptionalFunctionLoaded: typeof isOptionalFunctionLoaded === "function" ? isOptionalFunctionLoaded : undefined,
-  getUserBandRefreshAction: typeof getUserBandRefreshAction === "function" ? getUserBandRefreshAction : undefined
+  getUserBandRefreshAction: typeof getUserBandRefreshAction === "function" ? getUserBandRefreshAction : undefined,
+  recordAppHistoryScreen: typeof recordM4LAppHistoryScreen === "function" ? recordM4LAppHistoryScreen : undefined,
+  closeAppHistoryLayer: typeof closeM4LAppHistoryLayer === "function" ? closeM4LAppHistoryLayer : undefined,
+  initAppHistory: typeof initM4LAppHistory === "function" ? initM4LAppHistory : undefined
+};
+
+window.M4LAppHistory = {
+  recordScreen: typeof recordM4LAppHistoryScreen === "function" ? recordM4LAppHistoryScreen : undefined,
+  closeLayer: typeof closeM4LAppHistoryLayer === "function" ? closeM4LAppHistoryLayer : undefined,
+  init: typeof initM4LAppHistory === "function" ? initM4LAppHistory : undefined
 };
