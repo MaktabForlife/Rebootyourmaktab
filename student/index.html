@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <!-- PWA: Student install settings -->
-  <link rel="stylesheet" href="/styles.css?v=79.3" />
+  <link rel="stylesheet" href="/styles.css?v=79.4" />
   <link rel="manifest" href="/student-manifest.json" />
   <link rel="apple-touch-icon" sizes="180x180" href="/student-apple-touch-icon.png" />
   <link rel="icon" type="image/png" sizes="32x32" href="/student-favicon-32x32.png" />
@@ -164,6 +164,9 @@
   </div>
 </section>
 
+<!-- V79_LEGACY_QUARANTINE_START: progress-tasks-screen
+     Reason: old Student Progress task drilldown screen replaced by the V78+ module-card grid inside progress-subjects-screen.
+     Safe rollback: remove these comment markers to restore the old support section.
 <section id="progress-tasks-screen" class="screen student-theme">
   <div class="nav-header">
     <h2 id="progress-tasks-title">Tasks</h2>
@@ -174,6 +177,7 @@
     <p class="helper-text">Loading tasks...</p>
   </div>
 </section>
+V79_LEGACY_QUARANTINE_END: progress-tasks-screen -->
 <!-- PDF VIEWER -->
     <section id="pdf-viewer-screen" class="screen student-theme">
       <div class="nav-header pdf-viewer-header">
@@ -212,7 +216,7 @@
 <script src="/js/m4l-shell.js?v=80a"></script>
 <script src="/js/m4l-timetable.js?v=76.7.4"></script>
 <script src="/js/m4l-resources.js?v=72.1"></script>
-<script src="/js/m4l-progress.js?v=79.3"></script>
+<script src="/js/m4l-progress.js?v=79.4"></script>
 </body>
 </html>
 
