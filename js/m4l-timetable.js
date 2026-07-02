@@ -1,4 +1,4 @@
-/* M4L v76.7.4 - Timetable board + bounded Home top stack
+/* M4L v82.1.1 - Timetable board + bounded Home top stack
    Load after /app.js, /js/m4l-auth.js, and /js/m4l-shell.js.
    This is a classic script, not type=module, so existing global function calls remain safe
    while the app is split gradually.
@@ -823,7 +823,7 @@ function ensureAdminHomePanel() {
       <section class="home-swipe-panel home-swipe-panel--timetable" aria-label="Timetable">
         <section class="timetable-card">
           <div class="timetable-card-header">
-            <h3>Timetable</h3>
+            <h3>Reboot Your Maktab</h3>
           </div>
           <div id="admin-home-timetable-content">
             <p class="helper-text">Loading timetable...</p>
@@ -937,19 +937,25 @@ async function refreshStudentHomeTimetable(button) {
   });
 }
 
-function openTimetableZoomLink(link) {
+function openTimetableZoomLink(link, options = {}) {
   const rawLink = normalizeTimetableText(link || globalTimetableZoomLink);
 
   if (!rawLink) {
     alert("Zoom link has not been added yet.");
-    return;
+    return false;
   }
 
   const targetLink = /^https?:\/\//i.test(rawLink)
     ? rawLink
     : `https://${rawLink}`;
 
+  if (options.sameTab === true) {
+    window.location.assign(targetLink);
+    return true;
+  }
+
   window.open(targetLink, "_blank", "noopener,noreferrer");
+  return true;
 }
 
 function openStudentTimetableZoom() {
