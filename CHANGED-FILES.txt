@@ -4,6 +4,7 @@ DELETE-FILES.txt
 README.md
 RELEASE-NOTES.md
 UPDATE-TODO.md
+account/index.html
 backend/package-lock.json
 backend/package.json
 backend/src/programs/management-model.js
@@ -26,8 +27,10 @@ js/m4l-program-builder.js
 js/m4l-program-management.js
 js/m4l-program-timetable.js
 js/m4l-timezones.js
+js/version.json
 programs/index.html
 programs/manage.html
 programs/timetable.html
 scripts/program-builder-preview.mjs
 scripts/program-timetable-fixtures.mjs
+version.json
