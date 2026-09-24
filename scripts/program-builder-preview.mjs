@@ -1,3 +1,4 @@
+import { academySubjectService } from '../backend/src/programs/academy-subjects.js';
 /* M4L V105.2 - Local-only preview with synthetic data; no Google or Worker calls. */
 import http from "node:http";
 import { readFile } from "node:fs/promises";
@@ -9,6 +10,18 @@ import { timetableFixture } from './program-timetable-fixtures.mjs';
 import { timetableService } from '../backend/src/programs/timetable-service.js';
 import { timetableCoordinator } from '../backend/src/programs/timetable-coordination.js';
 const fixture=timetableFixture();
+// Demonstrate review of a pre-V105.3.1.1 Global link without changing its dependants.
+fixture.shared.subjects[0].Legacy=true;
+const academyReceipts=[], academySource={sourceId:'preview-reboot-sheet',revision:'preview-reboot-v1',subjects:[{SourceSubjectID:'REBOOT-TF',SubjectName:'Tafseer',Active:true},{SourceSubjectID:'REBOOT-AR',SubjectName:'Arabic',Active:true},{SourceSubjectID:'REBOOT-FQ',SubjectName:'Fiqh',Active:true}]};
+let academyPending=null,academyFailure='';
+const academyRepository={
+  load:async()=>({subjects:structuredClone(fixture.shared.subjects.filter(r=>!r.Legacy)),tables:{AcademySubjectOperations:structuredClone(academyReceipts)}}),
+  prepare:async()=>{},rebootSubjects:async()=>structuredClone(academySource),
+  plan:(_data,subjects,receipt)=>({subjects,receipt}),
+  apply:async plan=>{const fail=academyFailure;academyFailure='';if(fail==='before')throw new Error('Preview catalogue failure');fixture.shared.subjects.push(...structuredClone(plan.subjects));academyReceipts.push(structuredClone(plan.receipt));if(fail==='after')throw new Error('Preview catalogue lost response');}
+};
+const academyService=academySubjectService(academyRepository);
+const academyCoordinator=timetableCoordinator({get:async()=>academyPending,set:async value=>{academyPending=value;},clear:async()=>{academyPending=null;}},async()=>({user:{accountid:'PREVIEW'},service:academyService}));
 const ttService=timetableService(fixture.repository,fixture.program);
 const ttCoordinator=timetableCoordinator(fixture.journal,async()=>({user:{accountid:'PREVIEW'},service:ttService}));
 await ttCoordinator.run('save',{id:fixture.program.id,revision:'',draft:fixture.draft,operationId:crypto.randomUUID()},'preview');
@@ -44,7 +57,7 @@ const server = http.createServer(async (req,res) => {
       for await (const chunk of req) { raw += chunk; if (raw.length > 65536) throw new Error("Request too large"); }
       const body = JSON.parse(raw || "{}");
       const action = url.pathname.split("/").pop();
-      const result = url.pathname === '/api/admin/platform/global/subject/save' ? (()=>{const subject={SubjectID:`GSUBJ-${crypto.randomUUID()}`,SubjectName:body.subjectName,Active:true};fixture.shared.subjects.push(subject);return {subject};})() : url.pathname.startsWith('/api/admin/platform/program-timetable/') ? (['save','publish','prepare','recover','manage-save'].includes(action) ? await ttCoordinator.run(action,body,'preview') : {coordinatorAvailable:true,...await ttService.read(action,body)})
+      const result = url.pathname.startsWith('/api/admin/platform/academy-subjects/') ? (['save','recover'].includes(action)?await academyCoordinator.run(action,body,'preview'):await academyService.read(action)) : url.pathname.startsWith('/api/admin/platform/program-timetable/') ? (['save','publish','prepare','recover','manage-save'].includes(action) ? await ttCoordinator.run(action,body,'preview') : {coordinatorAvailable:true,...await ttService.read(action,body)})
         : url.pathname === "/api/account/session" ? { account:{ uniqueid:"preview" } }
         : action === "list" ? await service.list()
         : action === "create" ? await service.create(body,user)
@@ -52,6 +65,7 @@ const server = http.createServer(async (req,res) => {
         : await service.readiness(body.id, action === "prepare");
       res.writeHead(200, { "Content-Type":"application/json" }); res.end(JSON.stringify({ success:true,...result })); return;
     }
+    if (url.pathname === "/__preview/catalogue-fail") {academyFailure=url.searchParams.get('mode')||'after';res.writeHead(200);res.end('Next catalogue save will fail once.');return;}
     if (url.pathname === "/__preview/fail") { failNextSave = true; fixture.failNext(url.searchParams.get("mode") || "before"); res.writeHead(200); res.end("Next save will fail once."); return; }
     if (url.pathname === "/js/m4l-config.js") {
       res.writeHead(200, { "Content-Type":"text/javascript" });

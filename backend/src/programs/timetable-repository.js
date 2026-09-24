@@ -1,3 +1,4 @@
+import { academySubjectRepository } from './academy-subjects.js';
 /* V105.2 — all timetable writes are planned inside the per-Program coordinator. */
 import { batchReadGoogleSheetValues, batchUpdateGoogleSpreadsheet, readGoogleSpreadsheetSheetProperties } from '../lib/google-sheets.js';
 import { readPlatformSheet } from '../lib/platform-sheet.js';
@@ -10,6 +11,14 @@ export function timetableRepository(env, program) {
   const target={spreadsheetId:program.spreadsheetId};
   const properties=()=>readGoogleSpreadsheetSheetProperties(env,{...target,includeGrid:true});
   const read=names=>batchReadGoogleSheetValues(env,names.map(name=>`'${name}'!A:ZZ`),target);
+  async function subjectReferences(data) {
+    const {subjects}=await academySubjectRepository(env).load();
+    const academy=subjects.map(r=>({SubjectID:r.SubjectID,SubjectName:r.SubjectName,Active:active(r.Active),Legacy:false}));
+    const links=data?.tables?.ProgramSubjects||[];
+    const legacyIds=links.filter(r=>!academy.some(s=>s.SubjectID===r.SubjectID)).map(r=>r.SubjectID);
+    const legacy=legacyIds.length?await readPlatformSheet(env,'GlobalSubjectList'):[];
+    return [...academy,...[...new Set(legacyIds)].map(id=>{const row=legacy.find(s=>s.SubjectID===id);return {SubjectID:id,SubjectName:row?.SubjectName||id,Active:Boolean(row)&&active(row.Active),Legacy:true};})];
+  }
   return {
     async prepare() {
       const sheets=await properties(), existing=Object.keys(TIMETABLE_HEADERS).filter(name=>sheets.some(s=>s.title===name));
@@ -35,17 +44,17 @@ export function timetableRepository(env, program) {
       if(tables.ProgramManagementState?.length)Object.assign(tables,managementState(data,program).snapshot);
       return data;
     },
-    async managementReferences() {
-      const [subjects,accounts,access]=await Promise.all(['GlobalSubjectList','UserAccounts','UserCourseAccess'].map(name=>readPlatformSheet(env,name)));
+    async managementReferences(data) {
+      const [subjects,accounts,access]=await Promise.all([subjectReferences(data),readPlatformSheet(env,'UserAccounts'),readPlatformSheet(env,'UserCourseAccess')]);
       assertUnique(subjects,'SubjectID','Shared subjects');assertUnique(accounts,'AccountID','Accounts');
       return {
-        subjects:subjects.map(r=>({SubjectID:r.SubjectID,SubjectName:r.SubjectName,Active:active(r.Active)})),
+        subjects,
         accounts:accounts.map(r=>({AccountID:r.AccountID,DisplayName:r.DisplayName,Active:active(r.Active)})),
         grantedTeachers:accounts.filter(r=>active(r.Active)&&access.some(a=>a.AccountID===r.AccountID&&a.CourseID===program.id&&active(a.Active)&&['TEACHER','SENIOR','ADMIN'].includes(a.Role))).map(r=>({AccountID:r.AccountID}))
       };
     },
     async catalog(data) {
-      const [subjects,accounts,access]=await Promise.all(['GlobalSubjectList','UserAccounts','UserCourseAccess'].map(name=>readPlatformSheet(env,name)));
+      const [subjects,accounts,access]=await Promise.all([subjectReferences(data),readPlatformSheet(env,'UserAccounts'),readPlatformSheet(env,'UserCourseAccess')]);
       assertUnique(subjects,'SubjectID','Shared subjects'); assertUnique(accounts,'AccountID','Accounts');
       const t=data.tables;
       assertUnique(t.ProgramSubjects||[],'SubjectID','Program subject links');

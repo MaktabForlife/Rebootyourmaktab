@@ -1,3 +1,12 @@
+## V105.3.1.1 acceptance
+
+- [x] Separate Academy curriculum catalogue from Global Course subjects.
+- [x] Create and link subjects in the same management row.
+- [x] Reviewed import of Reboot names, duplicate reuse, source mappings and recovery.
+- [x] Explicit mapping of legacy Program links with dependent records preserved.
+- [ ] User acceptance with Development workbooks through management screens.
+- [ ] Later: full shared-catalogue rename/archive governance and live Reboot migration.
+
 # V105.3.1 — Development acceptance
 
 The management screens and Johannesburg-default timezone dropdowns are implemented. Live acceptance is pending.

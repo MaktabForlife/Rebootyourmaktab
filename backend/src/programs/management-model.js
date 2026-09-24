@@ -25,7 +25,7 @@ export function managementState(data, program) {
   return {snapshot,revision:latest?.Revision||'',sequence:Number(latest?.Sequence||0)};
 }
 export async function managementView(data, repository, program) {
-  const current=managementState(data,program), shared=await repository.managementReferences();
+  const current=managementState(data,program), shared=await repository.managementReferences(data);
   const rows=Object.fromEntries(Object.entries(MANAGEMENT_KINDS).map(([kind,{table}])=>[kind,current.snapshot[table].map(r=>({...r}))]));
   // Existing central teaching grants remain usable; explicit Program assignments override them.
   for(const teacher of shared.grantedTeachers) if(!rows.teachers.some(r=>r.AccountID===teacher.AccountID)) rows.teachers.push({AccountID:teacher.AccountID,Active:true});
@@ -64,7 +64,10 @@ export function applyManagementChange(current, input, shared, program) {
   if(input.kind==='subjects'){
     record.SubjectID=text('SubjectID','Shared subject',100);
     if(!shared.subjects.some(s=>s.SubjectID===record.SubjectID&&(!record.Active||active(s.Active))))throw problem('Choose an active shared Academy subject.');
-    if(previous&&previous.SubjectID!==record.SubjectID)throw problem('A saved subject link cannot be changed. Archive it and add another.');
+    const chosen=shared.subjects.find(s=>s.SubjectID===record.SubjectID);
+    const oldSubject=previous&&shared.subjects.find(s=>s.SubjectID===previous.SubjectID);
+    if(chosen?.Legacy&&(!previous||previous.SubjectID!==record.SubjectID))throw problem('Choose an Academy curriculum subject. Global course subjects cannot be added here.');
+    if(previous&&previous.SubjectID!==record.SubjectID&&!oldSubject?.Legacy)throw problem('A saved Academy subject link cannot be changed. Archive it and add another.');
     if(rows.some(r=>r.ProgramSubjectID!==id&&r.SubjectID===record.SubjectID))throw problem('This subject is already linked. Edit or reactivate its existing row.');
   }
   if(input.kind==='modules'){

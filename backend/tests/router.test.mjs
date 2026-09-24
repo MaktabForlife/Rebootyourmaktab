@@ -4,6 +4,7 @@ import { ROUTE_PATHS } from "../src/router.js";
 import worker from "../src/worker.js";
 
 const expectedPaths = [
+  ...["get", "import-preview", "save", "recover"].map(action => `/api/admin/platform/academy-subjects/${action}`),
   ...["get", "prepare", "save", "validate", "preview", "publish", "history", "recover", "manage-get", "manage-save"].map(action => `/api/admin/platform/program-timetable/${action}`),
   ...["list", "create", "save", "readiness", "prepare"].map(action => `/api/admin/platform/programs/${action}`),
   "/api/account/check",
@@ -129,7 +130,7 @@ assert.equal(root.status, 200);
 assert.deepEqual(await root.json(), {
   success: true,
   service: "rebootworker",
-  version: "105.3.1"
+  version: "105.3.1.1"
 });
 
 const preflight = await worker.fetch(new Request("https://worker.test/api/login", {

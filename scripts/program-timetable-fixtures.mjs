@@ -22,7 +22,7 @@ export function timetableFixture(){
   const repository={
     prepare:async()=>{prepared=true;},
     load:async()=>({prepared,tables:structuredClone(tables)}),
-    managementReferences:async()=>structuredClone(shared),
+    managementReferences:async data=>({...structuredClone(shared),subjects:structuredClone(shared.subjects.filter(r=>!r.Legacy||managementState(data||{tables},program).snapshot.ProgramSubjects.some(s=>s.SubjectID===r.SubjectID)))}),
     catalog:async()=>{
       if(!tables.ProgramManagementState.length)return structuredClone(catalog);
       const t=managementState({tables},program).snapshot;

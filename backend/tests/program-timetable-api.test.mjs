@@ -1,3 +1,4 @@
+import { academySubjectRepository, academySubjectService } from '../src/programs/academy-subjects.js';
 import { timetableCoordinator } from '../src/programs/timetable-coordination.js';
 import { timetableService } from '../src/programs/timetable-service.js';
 import { timetableRepository } from '../src/programs/timetable-repository.js';
@@ -30,7 +31,7 @@ book(platformId, {
   PlatformAuditLog: [PLATFORM_SHEET_HEADERS.PlatformAuditLog]
 });
 book(targetId, { Setup: [["Development only"]] });
-book(legacyId, { StudentRecords: [["Legacy records must remain unchanged"]] });
+book(legacyId, { SubjectList:[['SubjectID','SubjectName','Active'],['REBOOT-AR','Arabic',true],['REBOOT-TF','Tafseer',true],['REBOOT-DUP','  ARABIC  ',true],['REBOOT-OLD','Old subject',false]], StudentRecords: [["Legacy records must remain unchanged"]] });
 books.get(platformId).find(sheet => sheet.title === "UserAccounts").rows.push(["ACCOUNT2", "Local Admin", "LOCAL-LINK", true, hash, true]);
 books.get(platformId).find(sheet => sheet.title === "UserCourseAccess").rows.push(["ACCESS2", "ACCOUNT2", "REBOOT", "ADMIN", true, true, "", "", "", "", "", "", "", "LOCAL-ADMIN"]);
 const table = (id, title) => books.get(id).find(sheet => sheet.title === title).rows;
@@ -117,13 +118,18 @@ const binding={getByName(name){names.push(name);if(!coordinators.has(name)){
  const journal={get:async()=>journals.get(name)||null,set:async p=>journals.set(name,structuredClone(p)),clear:async()=>journals.delete(name)};
  coordinators.set(name,timetableCoordinator(journal,async(id,authorization)=>{
   const fresh=createRequestEnvironment(env);const user=await timetableUser(new Request('https://test.invalid',{headers:{Authorization:authorization}}),fresh);
+  if(name.endsWith(':academy-subjects'))return {user,service:academySubjectService(academySubjectRepository(fresh))};
   const program=await timetableProgram(fresh,id);return {user,service:timetableService(timetableRepository(fresh,program),program)};
  }));}
- return {async run(action,body,auth){try{return {success:true,...await coordinators.get(name).run(action,body,auth)};}catch(e){return {success:false,status:e.publicMessage?e.status:503,error:e.publicMessage||'Uncertain write'};}}};
+ return {async catalogRun(action,body,auth){return this.run(action,body,auth);},async run(action,body,auth){try{return {success:true,...await coordinators.get(name).run(action,body,auth)};}catch(e){return {success:false,status:e.publicMessage?e.status:503,error:e.publicMessage||'Uncertain write'};}}};
 }};
 async function tt(action,body={},auth=token,expected=200,method='POST'){
  const response=await worker.fetch(new Request(`https://worker.test/api/admin/platform/program-timetable/${action}`,{method,headers:{'Content-Type':'application/json',...(auth?{Authorization:`Bearer ${auth}`}:{})},...(method==='POST'?{body:typeof body==='string'?body:JSON.stringify({id:input.id,...body})}:{})}),env);
  const result=await response.json();assert.equal(response.status,expected,JSON.stringify(result));assert.equal(response.headers.get('Cache-Control'),'no-store');return result;
+}
+async function academy(action,body={},auth=token,expected=200){
+ const response=await worker.fetch(new Request(`https://worker.test/api/admin/platform/academy-subjects/${action}`,{method:'POST',headers:{'Content-Type':'application/json',...(auth?{Authorization:`Bearer ${auth}`}:{})},body:JSON.stringify(body)}),env);
+ const result=await response.json();assert.equal(response.status,expected,JSON.stringify(result));return result;
 }
 const change=(revision,draft=f.draft)=>({revision,draft:structuredClone(draft),operationId:crypto.randomUUID()});
 try{
@@ -203,6 +209,48 @@ try{
  await saveRow('teachers',{AccountID:'ACCOUNT2',Active:false},false);
  assert(!(await tt('preview',{draft:managedDraft})).valid);
  assert.equal((await tt('history')).publications[0].snapshot.rules[0].moduleName,'Demo module');
+ // Academy catalogue is distinct from Global course subjects and reads no Reboot data on normal load.
+ for(const action of ['get','import-preview','save','recover']) {
+   for(const auth of [legacyToken,studentToken,centralAdminToken])await academy(action,{},auth,403);
+   await academy(action,{},'',401);
+ }
+ const globalBefore=structuredClone(table(platformId,'GlobalSubjectList'));
+ assert.deepEqual((await academy('get')).subjects,[]);
+ management=await tt('manage-get');assert.equal(management.sharedSubjects[0].Legacy,true);
+ await tt('manage-save',edit('subjects',{ProgramSubjectID:'PS-WRONG',SubjectID:'TAFSEER',Active:true}),token,400);
+ let review=await academy('import-preview');assert.equal(review.subjects.length,4);
+ const staleImport={mode:'import',sourceIds:['REBOOT-AR'],sourceRevision:review.revision,operationId:crypto.randomUUID()};
+ table(legacyId,'SubjectList')[1][1]='Changed name';await academy('save',staleImport,token,409);table(legacyId,'SubjectList')[1][1]='Arabic';
+ await academy('save',{...staleImport,sourceIds:['REBOOT-OLD']},token,400);
+ const importInput={...staleImport,sourceIds:['REBOOT-AR','REBOOT-DUP','REBOOT-TF']};
+ const imported=await academy('save',importInput);assert.equal(imported.imported,2);assert.equal(imported.reused,1);
+ assert.equal((await academy('get')).subjects.length,2);
+ assert((await academy('save',importInput)).replayed);
+ assert.equal(table(platformId,'AcademySubjectOperations').length,2);
+ const importMappings=JSON.parse(table(platformId,'AcademySubjectOperations')[1][6]);
+ assert.equal(importMappings[0].SubjectID,importMappings[1].SubjectID);
+ // Name matching ignores case/whitespace. Concurrent creates resolve to one canonical subject.
+ const creates=await Promise.all(['Usul','  USUL '].map(subjectName=>academy('save',{mode:'create',subjectName,operationId:crypto.randomUUID()})));
+ assert.equal(creates[0].subject.SubjectID,creates[1].subject.SubjectID);
+ const lost={mode:'create',subjectName:'Fiqh',operationId:crypto.randomUUID()};
+ loseResponse=true;await academy('save',lost,token,503);
+ const count=table(platformId,'AcademySubjectList').length;
+ assert((await academy('save',lost)).replayed);assert.equal(table(platformId,'AcademySubjectList').length,count);
+ const beforeFail={mode:'create',subjectName:'History',operationId:crypto.randomUUID()};
+ failWrite=true;await academy('save',beforeFail,token,503);
+ await academy('save',{mode:'create',subjectName:'Other',operationId:crypto.randomUUID()},token,409);
+ table(platformId,'UserAccounts')[1][13]='';await academy('recover',{},token,401);table(platformId,'UserAccounts')[1][13]='GLOBAL_ADMIN';
+ await academy('recover');assert((await academy('save',beforeFail)).replayed);
+ // Explicit legacy mapping keeps the ProgramSubjectID and all dependent levels/modules/history.
+ management=await tt('manage-get');const beforeModules=structuredClone(management.rows.modules),beforeLevels=structuredClone(management.rows.levels),beforeHistory=await tt('history');
+ const tafseer=(await academy('get')).subjects.find(r=>r.SubjectName==='Tafseer');
+ await saveRow('subjects',{ProgramSubjectID:'PS-TAFSEER',SubjectID:tafseer.SubjectID,Active:true},false);
+ assert.deepEqual(management.rows.modules,beforeModules);assert.deepEqual(management.rows.levels,beforeLevels);
+ assert.deepEqual(await tt('history'),beforeHistory);assert(!management.sharedSubjects.some(r=>r.Legacy));
+ assert((await tt('get')).catalog.subjects.some(r=>r.id==='PS-TAFSEER'&&r.name==='Tafseer'));
+ await tt('manage-save',edit('subjects',{ProgramSubjectID:'PS-TAFSEER',SubjectID:creates[0].subject.SubjectID,Active:true},false),token,400);
+ assert.deepEqual(table(platformId,'GlobalSubjectList'),globalBefore);
+ console.log('Academy subjects: isolated catalogue, reviewed imports, duplicate reuse, concurrency, retry/recovery, authority, legacy mapping and immutable history passed.');
  assert.deepEqual(books.get(legacyId),originalLegacy);
  assert.deepEqual(table(platformId,'CourseRegistry')[1],originalRegistryRow);
  console.log('Program timetable API: authority, body bounds, Sheets preparation, atomic revisions/publications/receipts, retries, recovery, canonical coordinator keys, reference validation and Reboot isolation passed.');

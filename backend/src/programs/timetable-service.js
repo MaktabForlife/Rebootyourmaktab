@@ -47,7 +47,7 @@ export function timetableService(repository,program) {
         if(program.status!=='DRAFT')throw problem('Archived Programs cannot change their records.',409);
         const data=await repository.load();
         if(!data.prepared)throw problem('Prepare the management tables first.',409);
-        const current=managementState(data,program),shared=await repository.managementReferences();
+        const current=managementState(data,program),shared=await repository.managementReferences(data);
         if(input.revision!==current.revision||input.referenceRevision!==await payloadHash(shared))throw problem('Program data or Academy references changed. Your edits are kept; reload before saving.',409);
         const {snapshot,record}=applyManagementChange(current,input,shared,program);
         const snapshotJSON=JSON.stringify(snapshot);

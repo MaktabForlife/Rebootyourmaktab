@@ -27,7 +27,11 @@ const batchOperational = batchCallSites.filter(item => !(
 // every existing operational path within its original V104.4 budget.
 const programReads = directOperational.filter(item => item.file === "programs/sheets-repository.js");
 assert.equal(programReads.length, 1, "Program setup must keep a single direct-read adapter boundary");
-const legacyDirect = directOperational.filter(item => item.file !== "programs/sheets-repository.js");
+// V105.3.1.1 reads Reboot names only for an explicit import preview/confirmation.
+// Normal Program reads use the new catalogue batch adapter, never Reboot SubjectList.
+const importReads = directOperational.filter(item => item.file === "programs/academy-subjects.js");
+assert.equal(importReads.length, 1, "Academy subject import must keep one explicit source-read boundary");
+const legacyDirect = directOperational.filter(item => !["programs/sheets-repository.js", "programs/academy-subjects.js"].includes(item.file));
 const directFiles = new Set(legacyDirect.map(item => item.file));
 
 assert.ok(
