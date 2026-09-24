@@ -249,6 +249,19 @@ try{
  assert.deepEqual(await tt('history'),beforeHistory);assert(!management.sharedSubjects.some(r=>r.Legacy));
  assert((await tt('get')).catalog.subjects.some(r=>r.id==='PS-TAFSEER'&&r.name==='Tafseer'));
  await tt('manage-save',edit('subjects',{ProgramSubjectID:'PS-TAFSEER',SubjectID:creates[0].subject.SubjectID,Active:true},false),token,400);
+ // The Program step must expose imported catalogue subjects in the grid, including old imports.
+ management=await tt('manage-get');
+ const bulkInput={operationId:crypto.randomUUID(),kind:'subject-import',record:{subjectIds:imported.subjects.map(r=>r.SubjectID)},revision:management.revision,referenceRevision:management.referenceRevision};
+ loseResponse=true;await tt('manage-save',bulkInput,token,503);
+ const bulkResult=await tt('manage-save',bulkInput);assert(bulkResult.replayed);
+ assert.deepEqual(bulkResult.record,{added:1,alreadyLinked:1,archived:0});
+ management=await tt('manage-get');assert.equal(management.rows.subjects.length,2);
+ assert.deepEqual(management.rows.modules,beforeModules);assert.deepEqual(management.rows.levels,beforeLevels);
+ assert.deepEqual(await tt('history'),beforeHistory);
+ const repeated=await tt('manage-save',{...bulkInput,operationId:crypto.randomUUID(),revision:management.revision,referenceRevision:management.referenceRevision});
+ assert.deepEqual(repeated.record,{added:0,alreadyLinked:2,archived:0});
+ assert.equal((await tt('manage-get')).rows.subjects.length,2);
+ assert.equal((await academy('recover')).recovered,false);
  assert.deepEqual(table(platformId,'GlobalSubjectList'),globalBefore);
  console.log('Academy subjects: isolated catalogue, reviewed imports, duplicate reuse, concurrency, retry/recovery, authority, legacy mapping and immutable history passed.');
  assert.deepEqual(books.get(legacyId),originalLegacy);

@@ -34,6 +34,19 @@ export async function managementView(data, repository, program) {
   return {program,prepared:data.prepared,revision:current.revision,referenceRevision,rows,sharedSubjects:shared.subjects,accounts:shared.accounts};
 }
 export function applyManagementChange(current, input, shared, program) {
+  if(input.kind==='subject-import') {
+    const ids=input.record?.subjectIds;
+    if(!Array.isArray(ids)||!ids.length||ids.length>250||ids.some(id=>typeof id!=='string'||!id||id.length>100))throw problem('Select between 1 and 250 Academy subjects.');
+    const snapshot=structuredClone(current.snapshot),record={added:0,alreadyLinked:0,archived:0};
+    for(const id of new Set(ids)) {
+      if(!shared.subjects.some(s=>s.SubjectID===id&&!s.Legacy&&active(s.Active)))throw problem('An imported subject is unavailable. Review the Reboot list again.');
+      const existing=snapshot.ProgramSubjects.find(r=>r.SubjectID===id);
+      if(existing){record.alreadyLinked++;if(!active(existing.Active))record.archived++;continue;}
+      snapshot.ProgramSubjects.push({ProgramSubjectID:`PS-${crypto.randomUUID()}`,CourseID:program.id,SubjectID:id,Active:true});
+      record.added++;
+    }
+    return {snapshot,record};
+  }
   const spec=MANAGEMENT_KINDS[input.kind];
   if(!spec||!input.record||typeof input.record!=='object'||Array.isArray(input.record)) throw problem('Choose a valid management row.');
   const source=input.record, snapshot=structuredClone(current.snapshot), rows=snapshot[spec.table];

@@ -1,4 +1,4 @@
-/* V105.3.1.1 — compact Program records, explicit row saves and retry-safe edits. */
+/* V105.3.1.2 — compact Program records, explicit row saves and retry-safe edits. */
 (() => {
   'use strict';
   const $=id=>document.getElementById(id), esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -28,7 +28,7 @@
     $('pm-reload').disabled=state.busy;$('pm-recover').disabled=state.busy;$('pm-retry').disabled=state.busy;
     $('pm-import-preview').disabled=locked||!editable||Boolean(state.edit);
     $('pm-import-save').disabled=state.busy||Boolean(state.pending)||Boolean(state.edit)||!editable||(!state.importPreview&&!state.importPending);
-    $('pm-import-save').textContent=state.importPending?'Retry same import':'Import selected names';
+    $('pm-import-save').textContent=state.importPending?'Retry same import':'Import and add to this Program';
     $('pm-catalogue-recover').disabled=state.busy;
     $('pm-import-list').disabled=locked;
     $('pm-pending').hidden=!state.pending;
@@ -69,6 +69,7 @@
     try{state.pending=JSON.parse(sessionStorage.getItem(storageKey)||'null');}catch{sessionStorage.removeItem(storageKey);}
     if(state.pending){state.kind=state.pending.kind;state.edit={creating:state.pending.body.creating,originalId:state.pending.body.record[defs[state.kind].key],originalSubjectID:state.pending.originalSubjectID,record:structuredClone(state.pending.body.record)};}
     try{state.importPending=JSON.parse(sessionStorage.getItem(storageKey+':import')||'null');}catch{sessionStorage.removeItem(storageKey+':import');}
+    if(state.importPending&&!state.importPending.catalogue)state.importPending={catalogue:state.importPending}; // Preserve pre-fix retry identifiers.
     render();message(!state.data.prepared?'Prepare management tables once to begin. Existing Program records are preserved.':!state.data.coordinatorAvailable?'Saving needs the Program coordinator binding.':state.importPending?'An earlier subject import needs confirmation. Open Reboot import and retry.':state.pending?'An earlier save needs confirmation. Retry the same change.':'Ready. Add or edit a row, then save it.');
   }
   function keepPending(){sessionStorage.setItem(storageKey,JSON.stringify(state.pending));}
@@ -109,23 +110,43 @@
   $('pm-recover').onclick=()=>work(async()=>{if(state.pending?.createSubject&&!state.pending.linkStarted){await api('recover',{},true);await save();return;}await api('recover');if(state.pending){sessionStorage.removeItem(storageKey);state.pending=null;}if(state.edit){state.data.revision='stale';render();message('Recovery completed. Your edited row is kept; download it and reload before reapplying changes.');}else await load();});
   $('pm-import-preview').onclick=()=>work(async()=>{
     state.importPreview=await api('import-preview',{},true);
-    $('pm-import-list').innerHTML=state.importPreview.subjects.map(r=>`<label><input type="checkbox" value="${esc(r.SourceSubjectID)}" ${!r.Active?'disabled':''}> <span>${esc(r.SubjectName)}</span><small>${!r.Active?'Archived — unavailable':r.existing?'Already in Academy catalogue':'New Academy subject'}</small></label>`).join('')||'<p>No subjects found in Reboot.</p>';
-    message('Select the Reboot names to copy. Existing Academy names will be reused.');
+    $('pm-import-list').innerHTML=state.importPreview.subjects.map(r=>`<label><input type="checkbox" value="${esc(r.SourceSubjectID)}" ${!r.Active?'disabled':''}> <span>${esc(r.SubjectName)}</span><small>${!r.Active?'Archived — unavailable':r.existing?(state.data.rows.subjects.some(s=>s.SubjectID===r.existing.SubjectID)?'Already in this Program':'In Academy catalogue — add to this Program'):'New Academy subject'}</small></label>`).join('')||'<p>No subjects found in Reboot.</p>';
+    message('Select the subjects to add to this Program. Existing names and Program links will be reused.');
   });
-  $('pm-import-save').onclick=()=>work(async()=>{
+  function keepImport(){sessionStorage.setItem(storageKey+':import',JSON.stringify(state.importPending));}
+  function clearImport(){sessionStorage.removeItem(storageKey+':import');state.importPending=null;state.importPreview=null;$('pm-import-list').innerHTML='';}
+  async function importSubjects(){
     if(!state.importPending){
       const sourceIds=[...$('pm-import-list').querySelectorAll('input:checked')].map(e=>e.value);
       if(!sourceIds.length)throw new Error('Select at least one Reboot subject.');
-      state.importPending={mode:'import',sourceIds,sourceRevision:state.importPreview.revision,operationId:crypto.randomUUID()};
-      sessionStorage.setItem(storageKey+':import',JSON.stringify(state.importPending));
+      state.importPending={catalogue:{mode:'import',sourceIds,sourceRevision:state.importPreview.revision,operationId:crypto.randomUUID()}};
+      keepImport();
     }
     try{
-      const result=await api('save',state.importPending,true);
-      sessionStorage.removeItem(storageKey+':import');state.importPending=null;state.importPreview=null;$('pm-import-list').innerHTML='';
-      await load();message(`${result.imported} subject names imported; ${result.reused} existing names reused. Use Add subject to choose which belong to this Program.`);
-    }catch(error){if(error.status&&error.status<500){sessionStorage.removeItem(storageKey+':import');state.importPending=null;state.importPreview=null;$('pm-import-list').innerHTML='';}throw error;}
+      const pending=state.importPending;
+      if(!pending.catalogueResult){pending.catalogueResult=await api('save',pending.catalogue,true);keepImport();}
+      if(!pending.link){
+        // Only append missing links to a fresh snapshot. Later edits still fail the revision check.
+        const latest=await api('manage-get');
+        pending.link={kind:'subject-import',record:{subjectIds:[...new Set(pending.catalogueResult.subjects.map(s=>s.SubjectID))]},revision:latest.revision,referenceRevision:latest.referenceRevision,operationId:crypto.randomUUID()};
+        keepImport();
+      }
+      const result=await api('manage-save',pending.link),summary=result.record;
+      clearImport();state.kind='subjects';state.search='';$('pm-search').value='';
+      await load();message(`${summary.added} ${summary.added===1?'subject':'subjects'} added to this Program; ${summary.alreadyLinked} already linked.${summary.archived?` ${summary.archived} existing links remain archived; use Edit to reactivate them.`:''}`);
+    }catch(error){
+      if(error.status&&error.status<500){
+        const catalogueSaved=Boolean(state.importPending?.catalogueResult);clearImport();
+        if(catalogueSaved)error.message+=' The names are saved in the Academy catalogue. Review and select them again to finish adding them to this Program.';
+      }
+      throw error;
+    }
+  }
+  $('pm-import-save').onclick=()=>work(importSubjects);
+  $('pm-catalogue-recover').onclick=()=>work(async()=>{
+    const result=await api('recover',{},true);
+    message((result.recovered?'An interrupted catalogue save was completed.':'No interrupted catalogue save was found.')+' Recovery does not add subjects to this Program. '+(state.importPending?'Choose Retry same import to finish adding your subjects.':state.pending?'Choose Retry same change to finish your pending save.':'Review Reboot subjects, select names, then choose Import and add to this Program.'));
   });
-  $('pm-catalogue-recover').onclick=()=>work(async()=>{await api('recover',{},true);message('Subject catalogue recovery completed. Retry your pending save/import, or review the Reboot list again.');});
   document.addEventListener('keydown',event=>{if((event.ctrlKey||event.metaKey)&&event.key==='Enter'&&state.edit&&!state.busy&&!state.pending){event.preventDefault();void work(save);}});
   window.addEventListener('beforeunload',event=>{if(state.edit||state.pending||state.importPending){event.preventDefault();event.returnValue='';}});
   void work(load);

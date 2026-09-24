@@ -1,3 +1,11 @@
+# V105.3.1.2 — Reboot import adds subjects to the Program
+
+Fixes reviewed imports stopping at the Academy catalogue. **Import and add to this Program** now saves missing names and adds missing Program links in one screen flow. Repeating an import reuses names and skips existing links, including names imported by V105.3.1.1. Archived links stay archived. Interrupted imports retain separate catalogue and Program retry receipts.
+
+Catalogue recovery now distinguishes an interrupted save from no pending save, and explains that recovery does not import or attach subjects. Deploy matching Development frontend and Worker. No new bindings, migrations or manual spreadsheet changes are required. [Use and verification](docs/V105.3.1.2-SUBJECT-IMPORT-FIX.md).
+
+---
+
 # V105.3.1.1 — Academy curriculum subjects
 
 Adds a separate shared Academy curriculum catalogue and a single Add subject flow for selecting or creating a subject. Administrators can review and import Reboot subject names, reuse duplicates, and explicitly map old Global-based Program links while preserving their levels, modules and published history. Reboot and Global Course records remain unchanged.

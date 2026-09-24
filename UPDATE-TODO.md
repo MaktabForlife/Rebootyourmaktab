@@ -1,3 +1,11 @@
+## V105.3.1.2 acceptance
+
+- [x] Import selected Reboot names directly into the Program subject grid.
+- [x] Reuse catalogue names and skip existing Program links; preserve archived links.
+- [x] Keep both import phases retryable after interrupted saves and reloads.
+- [x] Explain what recovery does and distinguish no interrupted save.
+- [ ] User acceptance: reselect previously imported Fiqh, Aqaaid and History in Alimiyah and confirm each appears once after reload.
+
 ## V105.3.1.1 acceptance
 
 - [x] Separate Academy curriculum catalogue from Global Course subjects.
