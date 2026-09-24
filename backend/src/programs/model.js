@@ -5,7 +5,7 @@ export const DEFINITION_HEADERS = Object.freeze([
 ]);
 export const IDENTITY_HEADERS = Object.freeze(["CourseID", "SchemaVersion"]);
 export const CAPABILITIES = Object.freeze({
-  configuration: true, timetable: true, membership: false, curriculum: false,
+  configuration: true, timetable: true, management: true, membership: true, curriculum: false,
   library: false, attendance: false, progress: false, planner: false
 });
 export const clean = value => String(value ?? "").trim();

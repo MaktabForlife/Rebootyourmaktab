@@ -1,5 +1,6 @@
+import { managementState, managementView, applyManagementChange } from './management-model.js';
 import { problem } from './model.js';
-import { TIMETABLE_SCHEMA, emptyDraft, normalizeDraft, validateTimetable, boundedJSON, publishedOccurrences } from './timetable-model.js';
+import { TIMETABLE_SCHEMA, payloadHash, emptyDraft, normalizeDraft, validateTimetable, boundedJSON, publishedOccurrences } from './timetable-model.js';
 export function timetableService(repository,program) {
   function state(data) {
     if (!data.prepared) throw problem('Prepare the timetable tables first.',409);
@@ -24,6 +25,7 @@ export function timetableService(repository,program) {
     prepare:()=>repository.prepare(),
     async read(action,input={}) {
       const data=await repository.load();
+      if(action==='manage-get')return managementView(data,repository,program);
       if (!data.prepared) return {program,prepared:false,revision:'',draft:emptyDraft(program.timezone),catalog:await repository.catalog(data),publications:[],currentPublicationId:''};
       const current=state(data);
       if (action==='history') return {publications:current.publications.map(publication),currentPublicationId:current.currentPublicationId};
@@ -41,6 +43,22 @@ export function timetableService(repository,program) {
       return {...JSON.parse(row.ResultJSON),replayed:true};
     },
     async plan(action,input,user,hash) {
+      if(action==='manage-save') {
+        if(program.status!=='DRAFT')throw problem('Archived Programs cannot change their records.',409);
+        const data=await repository.load();
+        if(!data.prepared)throw problem('Prepare the management tables first.',409);
+        const current=managementState(data,program),shared=await repository.managementReferences();
+        if(input.revision!==current.revision||input.referenceRevision!==await payloadHash(shared))throw problem('Program data or Academy references changed. Your edits are kept; reload before saving.',409);
+        const {snapshot,record}=applyManagementChange(current,input,shared,program);
+        const snapshotJSON=JSON.stringify(snapshot);
+        if(snapshotJSON.length>40000)throw problem('This Program has reached the current management storage limit. No changes were saved.');
+        const revision=crypto.randomUUID(),timestamp=new Date().toISOString(),result={revision,record};
+        const records=[
+          {table:'ProgramManagementState',record:{Revision:revision,CourseID:program.id,Sequence:current.sequence+1,SnapshotJSON:snapshotJSON,ModifiedDate:timestamp,ModifiedByAccountID:user.accountid}},
+          {table:'ProgramTimetableOperations',record:{OperationID:input.operationId,PayloadHash:hash,ResultJSON:boundedJSON(result),DateStamp:timestamp,AccountID:user.accountid,Action:`manage-${input.kind}`}}
+        ];
+        return {plan:repository.plan(data,records),result};
+      }
       if (!['save','publish'].includes(action)) throw problem('Unknown timetable change.');
       if (program.status!=='DRAFT') throw problem('Archived Programs cannot change their timetable.',409);
       const data=await repository.load(), current=state(data);

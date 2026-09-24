@@ -127,7 +127,7 @@ async function tt(action,body={},auth=token,expected=200,method='POST'){
 }
 const change=(revision,draft=f.draft)=>({revision,draft:structuredClone(draft),operationId:crypto.randomUUID()});
 try{
- for(const action of ['get','prepare','save','validate','preview','publish','history','recover']){
+ for(const action of ['get','prepare','save','validate','preview','publish','history','recover','manage-get','manage-save']){
   for(const auth of [legacyToken,studentToken,centralAdminToken])await tt(action,{},auth,403);
   await tt(action,{},'',401);
  }
@@ -163,6 +163,46 @@ try{
  const simultaneous=await Promise.all(attempts.map(body=>worker.fetch(new Request('https://worker.test/api/admin/platform/program-timetable/publish',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({id:input.id,...body})}),env)));
  assert.deepEqual(simultaneous.map(r=>r.status).sort(),[200,409]);
  assert.equal(table(targetId,'ProgramTimetablePublications').length,4);
+ // Management rows flow through the same authorised coordinator as publication.
+ let management=await tt('manage-get');
+ assert.equal(management.rows.modules[0].Name,'Demo module');
+ assert(!JSON.stringify(management.accounts).includes('PINHash'));
+ const edit=(kind,record,creating=true)=>({kind,record,creating,revision:management.revision,referenceRevision:management.referenceRevision,operationId:crypto.randomUUID()});
+ const saveRow=async(kind,record,creating=true)=>{const result=await tt('manage-save',edit(kind,record,creating));management=await tt('manage-get');return result;};
+ await saveRow('classes',{ClassID:'CLS-TEST',Name:'Evening class',AcademicYear:'2026',Active:true});
+ assert((await tt('get')).catalog.classes.some(r=>r.id==='CLS-TEST'));
+ const stale=edit('classes',{ClassID:'CLS-STALE',Name:'Stale',Active:true});
+ await saveRow('levels',{LevelID:'LVL-TEST',ProgramSubjectID:'PS-TAFSEER',Name:'Introductory',SortOrder:1,Active:true});
+ await tt('manage-save',stale,token,409);
+ await saveRow('modules',{ProgramModuleID:'MOD-TEST',ProgramSubjectID:'PS-TAFSEER',LevelID:'',Name:'No level module',SortOrder:2,Active:true});
+ await tt('manage-save',edit('modules',{ProgramModuleID:'MOD-WRONG',ProgramSubjectID:'PS-TAFSEER',LevelID:'MISSING',Name:'Wrong level',Active:true}),token,400);
+ await saveRow('modules',{ProgramModuleID:'MOD-LEVEL',ProgramSubjectID:'PS-TAFSEER',LevelID:'LVL-TEST',Name:'Level module',SortOrder:3,Active:true});
+ await tt('manage-save',edit('levels',{LevelID:'LVL-TEST',ProgramSubjectID:'PS-TAFSEER',Name:'Introductory',SortOrder:1,Active:false},false),token,400);
+ // Assign an existing account without mutating any central privileges.
+ const centralAccessBefore=structuredClone(table(platformId,'UserCourseAccess'));
+ await saveRow('teachers',{AccountID:'ACCOUNT2',Active:true});
+ assert((await tt('get')).catalog.teachers.some(r=>r.id==='ACCOUNT2'));
+ assert.deepEqual(table(platformId,'UserCourseAccess'),centralAccessBefore);
+ await saveRow('enrollments',{EnrollmentID:'ENR-TEST',ClassID:'CLS-TEST',AccountID:'ACCOUNT2',StartDate:'2026-09-01',EndDate:'',Active:true});
+ await tt('manage-save',edit('enrollments',{EnrollmentID:'ENR-OVERLAP',ClassID:'CLS-TEST',AccountID:'ACCOUNT2',StartDate:'2026-09-24',EndDate:'',Active:true}),token,400);
+ await tt('manage-save',edit('enrollments',{EnrollmentID:'ENR-BAD-DATE',ClassID:'CLS-TEST',AccountID:'ACCOUNT2',StartDate:'2026-02-30',EndDate:'',Active:true}),token,400);
+ await tt('manage-save',edit('classes',{ClassID:'CLS-TEST',Name:'Evening class',AcademicYear:'2026',Active:false},false),token,400);
+ const managedDraft=structuredClone(f.draft);managedDraft.rules[0].moduleId='MOD-TEST';managedDraft.rules[0].classIds=['CLS-TEST'];managedDraft.rules[0].teacherId='ACCOUNT2';
+ assert((await tt('preview',{draft:managedDraft})).valid);
+ // A lost response preserves the exact change and produces one management revision.
+ const lostManagement=edit('classes',{ClassID:'CLS-RETRY',Name:'Retry class',AcademicYear:'',Active:true});
+ loseResponse=true;await tt('manage-save',lostManagement,token,503);
+ const revisionCount=table(targetId,'ProgramManagementState').length;
+ assert((await tt('manage-save',lostManagement)).replayed);
+ assert.equal(table(targetId,'ProgramManagementState').length,revisionCount);
+ management=await tt('manage-get');
+ // A changed central account blocks stale reference choices.
+ const revokedReference=edit('teachers',{AccountID:'ACCOUNT1',Active:true});
+ table(platformId,'UserAccounts')[2][5]=false;await tt('manage-save',revokedReference,token,409);table(platformId,'UserAccounts')[2][5]=true;
+ management=await tt('manage-get');
+ await saveRow('teachers',{AccountID:'ACCOUNT2',Active:false},false);
+ assert(!(await tt('preview',{draft:managedDraft})).valid);
+ assert.equal((await tt('history')).publications[0].snapshot.rules[0].moduleName,'Demo module');
  assert.deepEqual(books.get(legacyId),originalLegacy);
  assert.deepEqual(table(platformId,'CourseRegistry')[1],originalRegistryRow);
  console.log('Program timetable API: authority, body bounds, Sheets preparation, atomic revisions/publications/receipts, retries, recovery, canonical coordinator keys, reference validation and Reboot isolation passed.');

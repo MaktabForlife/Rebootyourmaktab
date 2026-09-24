@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Program management · Maktabhelper</title><link rel="icon" href="/admin-favicon-32x32.png"><link rel="stylesheet" href="/css/m4l-program-builder.css?v=105.3.1"><link rel="stylesheet" href="/css/m4l-program-management.css?v=105.3.1"></head>
+<body>
+<header class="pb-header"><a class="pb-brand" href="/programs/"><img src="/logo.png" alt="">Maktabhelper <span>/ Programs</span></a><span class="pb-version">V105.3.1 · Management</span></header>
+<main id="pm-main"><div class="pb-heading"><div><p class="pb-eyebrow">﷽ &nbsp; Program administration</p><h1 id="pm-title">Program management</h1><p>Add your teaching data here, then build the timetable.</p></div><a id="pm-timetable" href="/programs/">Open timetable →</a></div>
+<p id="pm-message" class="pb-message" role="status" aria-live="polite">Checking your account…</p>
+<div class="pm-actions"><a href="/programs/">← Program setup</a><button id="pm-reload" class="pb-secondary">↻ Reload</button><button id="pm-recover" class="pb-secondary">Recover interrupted change</button><button id="pm-prepare" hidden>Prepare management tables</button></div>
+<div id="pm-pending" class="pb-refresh-warning" hidden><span>A save could not be confirmed. Your row is kept; retry the same change.</span><button id="pm-retry">Retry same change</button></div>
+<div id="pm-discard-warning" class="pb-refresh-warning" hidden><span>Your unsaved row will be replaced by the latest saved records. Download a copy if you need to keep your edits.</span><button id="pm-export" class="pb-secondary">Download row</button><button id="pm-keep" class="pb-secondary">Keep editing</button><button id="pm-discard">Discard and reload</button></div>
+<section id="pm-workspace" class="pm-card" hidden>
+<nav id="pm-tabs" class="pm-tabs" aria-label="Program management sections"></nav>
+<div class="pb-toolbar"><label class="pb-search">Search rows<input id="pm-search" type="search" placeholder="Find a row…"></label><span id="pm-count" class="pb-count"></span><button id="pm-add">＋ Add row</button></div>
+<p id="pm-help" class="pb-grid-help"></p>
+<fieldset id="pm-editor"><legend class="pb-sr-only">Program records</legend><div class="pm-scroll" tabindex="0" aria-label="Management grid; scroll horizontally for more columns"><table class="pm-grid"><caption id="pm-caption" class="pb-sr-only"></caption><thead id="pm-head"></thead><tbody id="pm-rows"></tbody></table></div></fieldset>
+<details id="pm-shared" class="pm-shared" hidden><summary>Subject missing from the Academy list?</summary><p>A new shared subject is available to all Programs. Use an existing name where possible.</p><form id="pm-subject-form"><label>Shared subject name<input id="pm-subject-name" maxlength="160" required placeholder="For example, Tafseer"></label><button id="pm-subject-save" type="submit">Add shared subject</button></form></details>
+</section>
+<p class="pb-note">Use existing Academy accounts for teachers and learners. These assignments prepare this Program; teaching and student access open in later stages. Archiving keeps records and published timetable history.</p>
+</main><script src="/js/m4l-config.js?v=102.4"></script><script src="/js/m4l-program-management.js?v=105.3.1"></script></body></html>

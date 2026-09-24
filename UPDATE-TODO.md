@@ -1,15 +1,13 @@
-# V105.2 — Development acceptance still to do
+# V105.3.1 — Development acceptance
 
-The timetable implementation and local package are ready for review. No live deployment, spreadsheet reference population or real publication has been performed.
+The management screens and Johannesburg-default timezone dropdowns are implemented. Live acceptance is pending.
 
-1. Complete the still-pending V105.1 Development setup acceptance and retain backups.
-2. Apply the V105.2 overlay over V105.1, or the cumulative overlay over Development V104.5.4.
-3. Deploy matching Worker/frontend to Development with `PROGRAM_TIMETABLE_COORDINATOR` and its SQLite class migration. Verify health `105.2.0` and the V105.2 account/program pages.
-4. Confirm the real Aalimiya spreadsheet mapping/identity and backend Editor access. Prepare the timetable’s empty tables through the app.
-5. Enter verified minimal shared-subject, Program module, class and central teacher-grant references; confirm the real timetable timezone/dates. Keep demonstration data local.
-6. Validate, preview and publish one module lesson shared by two classes. Verify draft isolation, current publication, historical labels, class/teacher conflicts and known dated learner conflicts.
-7. Use two Development administrator sessions to verify stale edits, simultaneous publication and recovery. Keep all writers to this workbook on one coordinator namespace; do not manually alter state/history/receipt rows.
-8. Verify local ADMIN/teacher/student denial, role revocation and deployed Reboot regression. Complete the supported browser/device/accessibility beta checks.
-9. Record V105.2 acceptance. Next: V105.3 membership/roles/classes; then V105.4 curriculum/library. History “Qa” and Usul details are still pending user input for real curriculum setup.
+1. Verify the live Pages project remains on `main`; use only the separate `maktab-development` Pages project and `devrebootworker` for testing.
+2. Deploy matching V105.3.1 frontend/Worker, retaining existing credentials and coordinator binding.
+3. Complete Aalimiya Program preparation and click **Manage Program → Prepare management tables**.
+4. Through management screens, link shared subjects, optionally add levels, add modules/classes, assign existing teachers and add dated learner memberships. No manual Sheet entry is needed.
+5. Finish V105.2 timetable acceptance using the saved records: combined classes, save/reload, preview, publication, conflicts, exceptions and immutable history.
+6. Complete real-data access, recovery, mobile and regression checks. See the setup guide for the management-history storage contract and rollback limits.
+7. Next: broader account/role provisioning, full curriculum/library (V105.4), teaching tools (V105.5), Academy/student integration (V105.6), beta (V105.7), Reboot migration (V106).
 
-[Setup and recovery](docs/V105.2-PROGRAM-TIMETABLE.md) · [Detailed checklist](docs/V105.2-IMPLEMENTATION-CHECKLIST.md) · [Verification](docs/V105.2-VERIFICATION.md)
+[Setup and acceptance](docs/V105.3.1-PROGRAM-MANAGEMENT.md) · [Verification](docs/V105.3.1-VERIFICATION.md)

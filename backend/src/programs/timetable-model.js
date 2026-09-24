@@ -2,6 +2,7 @@
 import { problem } from "./model.js";
 export const TIMETABLE_SCHEMA = "105.2";
 export const TIMETABLE_HEADERS = Object.freeze({
+  ProgramManagementState: ["Revision","CourseID","Sequence","SnapshotJSON","ModifiedDate","ModifiedByAccountID"],
   ProgramSubjects: ["ProgramSubjectID", "CourseID", "SubjectID", "Active"],
   ProgramLevels: ["LevelID", "ProgramSubjectID", "Name", "SortOrder", "Active"],
   ProgramModules: ["ProgramModuleID", "ProgramSubjectID", "LevelID", "Name", "SortOrder", "Active"],

@@ -3,6 +3,7 @@ import { batchReadGoogleSheetValues, batchUpdateGoogleSpreadsheet, readGoogleSpr
 import { readPlatformSheet } from '../lib/platform-sheet.js';
 import { isActivePlatformValue as active } from '../lib/platform-schema.js';
 import { parseTable, assertUnique, problem, clean } from './model.js';
+import { managementState } from './management-model.js';
 import { TIMETABLE_HEADERS } from './timetable-model.js';
 export const cells = values => ({ values:values.map(value=>({ userEnteredValue:typeof value==='boolean'?{boolValue:value}:typeof value==='number'?{numberValue:value}:{stringValue:String(value??'')} })) });
 export function timetableRepository(env, program) {
@@ -30,7 +31,18 @@ export function timetableRepository(env, program) {
       const raw=present.length?await read(present):[];
       const tables=Object.fromEntries(present.map((name,i)=>[name,parseTable(raw[i],TIMETABLE_HEADERS[name],name)]));
       for (const name of present) assertUnique(tables[name],TIMETABLE_HEADERS[name][0],name);
-      return {prepared:present.length===names.length,tables,sheets};
+      const data={prepared:present.length===names.length,tables,sheets};
+      if(tables.ProgramManagementState?.length)Object.assign(tables,managementState(data,program).snapshot);
+      return data;
+    },
+    async managementReferences() {
+      const [subjects,accounts,access]=await Promise.all(['GlobalSubjectList','UserAccounts','UserCourseAccess'].map(name=>readPlatformSheet(env,name)));
+      assertUnique(subjects,'SubjectID','Shared subjects');assertUnique(accounts,'AccountID','Accounts');
+      return {
+        subjects:subjects.map(r=>({SubjectID:r.SubjectID,SubjectName:r.SubjectName,Active:active(r.Active)})),
+        accounts:accounts.map(r=>({AccountID:r.AccountID,DisplayName:r.DisplayName,Active:active(r.Active)})),
+        grantedTeachers:accounts.filter(r=>active(r.Active)&&access.some(a=>a.AccountID===r.AccountID&&a.CourseID===program.id&&active(a.Active)&&['TEACHER','SENIOR','ADMIN'].includes(a.Role))).map(r=>({AccountID:r.AccountID}))
+      };
     },
     async catalog(data) {
       const [subjects,accounts,access]=await Promise.all(['GlobalSubjectList','UserAccounts','UserCourseAccess'].map(name=>readPlatformSheet(env,name)));
@@ -42,7 +54,7 @@ export function timetableRepository(env, program) {
         levels:(t.ProgramLevels||[]).map(row=>({id:row.LevelID,programSubjectId:row.ProgramSubjectID,name:row.Name,active:active(row.Active)})),
         modules:(t.ProgramModules||[]).map(row=>({id:row.ProgramModuleID,programSubjectId:row.ProgramSubjectID,levelId:row.LevelID,name:row.Name,active:active(row.Active)})),
         classes:(t.ProgramClasses||[]).map(row=>({id:row.ClassID,courseId:row.CourseID,name:row.Name,academicYear:row.AcademicYear,active:active(row.Active)})),
-        teachers:accounts.filter(row=>active(row.Active)&&access.some(a=>a.AccountID===row.AccountID&&a.CourseID===program.id&&active(a.Active)&&['TEACHER','SENIOR','ADMIN'].includes(a.Role))).map(row=>({id:row.AccountID,name:row.DisplayName,active:true})),
+        teachers:accounts.filter(row=>active(row.Active)&&((t.ProgramTeachers||[]).some(a=>a.AccountID===row.AccountID) ? active(t.ProgramTeachers.find(a=>a.AccountID===row.AccountID).Active) : access.some(a=>a.AccountID===row.AccountID&&a.CourseID===program.id&&active(a.Active)&&['TEACHER','SENIOR','ADMIN'].includes(a.Role)))).map(row=>({id:row.AccountID,name:row.DisplayName,active:true})),
         enrollments:(t.ProgramEnrollments||[]).map(row=>({id:row.EnrollmentID,courseId:row.CourseID,classId:row.ClassID,accountId:row.AccountID,startDate:row.StartDate,endDate:row.EndDate,active:active(row.Active)}))
       };
     },

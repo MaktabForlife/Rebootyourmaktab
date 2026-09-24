@@ -1,3 +1,11 @@
+# V105.3.1 — Program management screens
+
+Adds compact management grids for shared subject links, optional levels, modules, classes, teacher assignments and dated learner memberships. Saved rows feed the timetable directly. Includes Johannesburg-default timezone dropdowns, archive/reactivation, stale-edit checks and retry-safe management history. Existing Academy accounts are reused; central privileges and live Reboot data are unchanged.
+
+Deploy matching frontend and Worker to the separate Development projects, then open **Manage Program → Prepare management tables**. No new Worker binding is needed. [Setup and acceptance](docs/V105.3.1-PROGRAM-MANAGEMENT.md) explains the new management snapshot reader and rollback constraints.
+
+---
+
 # Maktab4Life V105.2 — Program timetable builder
 
 Version **105.2.0** extends V105.1 Program setup with a compact timetable grid, combined class audiences, recurring and one-off module lessons, dated exceptions, conflict checks, a linked weekly preview and explicit publication history.

@@ -160,7 +160,7 @@ import { json } from "./lib/http.js";
 import { createRequestEnvironment } from "./lib/request-context.js";
 
 const ROUTES = new Map([
-  ...["get", "prepare", "save", "validate", "preview", "publish", "history", "recover"].map(action => [
+  ...["get", "prepare", "save", "validate", "preview", "publish", "history", "recover", "manage-get", "manage-save"].map(action => [
     `/api/admin/platform/program-timetable/${action}`, workerRoute("program-timetable", programTimetableEndpoint(action))
   ]),
   ...["list", "create", "save", "readiness", "prepare"].map(action => [

@@ -17,7 +17,7 @@ export function timetableCoordinator(journal, open) {
       if (!pending) await journal.set({kind:'prepare'});
       await service.prepare(); await journal.clear(); return {prepared:true};
     }
-    if (!['save','publish'].includes(action)) throw problem('Unknown timetable change.');
+    if (!['save','publish','manage-save'].includes(action)) throw problem('Unknown timetable change.');
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(input.operationId||'')) throw problem('This change needs a valid retry identifier.');
     const hash=await payloadHash({action,input});
     if (pending) {

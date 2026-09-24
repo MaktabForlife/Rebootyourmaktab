@@ -3,6 +3,7 @@
   'use strict';
   const $=id=>document.getElementById(id), esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const id=new URLSearchParams(location.search).get('program'), storageKey=`m4l-timetable-pending:${id}`;
+  $('tt-management').href=`/programs/manage.html?program=${encodeURIComponent(id)}`;
   const state={calendarView:null,data:null,draft:null,baseline:'',busy:false,pending:null,preview:null,history:[]};
   const time=value=>String(value||'').replace(':','h'), inputTime=value=>value.trim().replace(/^(\d{2})(\d{2})$/,'$1:$2').replace(/[hH]/,':');
   const dirty=()=>state.draft&&JSON.stringify(state.draft)!==state.baseline;
@@ -36,6 +37,7 @@
   const field=(row,key,type='text')=>`<input aria-label="${esc({startDate:'First date',endDate:'Last date',startTime:'Start time',endTime:'End time',originalDate:'Original date',date:'New date'}[key]||key)} · ${esc(rowLabel(row.id))}" data-field="${key}" type="${type}" value="${esc(key.endsWith('Time')?time(row[key]):row[key])}" ${key.endsWith('Time')?'placeholder="13h00" maxlength="5" inputmode="numeric"':''}>`;
   function render(){
     const c=state.data.catalog;
+    $('tt-timezone').innerHTML=window.M4L_TIMEZONES.options(state.draft.timezone);
     for(const name of ['timezone','startDate','endDate']) $(`tt-${name}`).value=state.draft[name];
     $('tt-title').textContent=`${state.data.program.name} · Timetable`;
     $('tt-live-state').textContent=state.data.currentPublicationId?`Published · Version ${state.data.publications.find(p=>p.id===state.data.currentPublicationId)?.version||'—'}`:'No published timetable';
@@ -44,10 +46,11 @@
     controls();
   }
   async function load(){const result=await api('get');state.data=result;state.draft=structuredClone(result.draft);state.baseline=JSON.stringify(result.draft);state.preview=null;
+    if(!result.revision&&!state.draft.timezone)state.draft.timezone=window.M4L_TIMEZONES.defaultZone;
     try{state.pending=JSON.parse(sessionStorage.getItem(storageKey)||'null');}catch{state.pending=null;}
     if(state.pending){state.draft=structuredClone(state.pending.body.draft);}
     $('tt-workspace').hidden=!result.prepared;$('tt-prepare').hidden=result.prepared;$('tt-preview-panel').hidden=true;$('tt-validation').hidden=true;
-    render();message(!result.prepared?'Prepare the empty timetable tables to begin.':!result.coordinatorAvailable?'Saving is unavailable until the backend coordinator is configured.':!result.catalog.modules.length?'No modules yet. Add the minimal Program subject, module, class and teacher references described in the V105.2 setup guide.':'Draft loaded. Edit lessons, validate, then preview before publishing.');}
+    render();message(!result.prepared?'Prepare the empty timetable tables to begin.':!result.coordinatorAvailable?'Saving is unavailable until the backend coordinator is configured.':!result.catalog.modules.length?'No modules yet. Open Program management to add subjects, modules, classes and teachers.':'Draft loaded. Edit lessons, validate, then preview before publishing.');}
   function clearPending(){state.pending=null;sessionStorage.removeItem(storageKey);}
   async function mutate(action){
     if(!state.pending){state.pending={action,body:{revision:state.data.revision,draft:structuredClone(state.draft),operationId:crypto.randomUUID()}};sessionStorage.setItem(storageKey,JSON.stringify(state.pending));}
