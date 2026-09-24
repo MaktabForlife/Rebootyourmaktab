@@ -1,0 +1,270 @@
+import { academySubjectRepository, academySubjectService } from '../src/programs/academy-subjects.js';
+import { timetableCoordinator } from '../src/programs/timetable-coordination.js';
+import { timetableService } from '../src/programs/timetable-service.js';
+import { timetableRepository } from '../src/programs/timetable-repository.js';
+import { timetableProgram,timetableUser } from '../src/programs/timetable-context.js';
+import { createRequestEnvironment } from '../src/lib/request-context.js';
+import { TIMETABLE_HEADERS } from '../src/programs/timetable-model.js';
+import { timetableFixture } from '../../scripts/program-timetable-fixtures.mjs';
+import assert from "node:assert/strict";
+import nodeWorker from "../src/worker.js";
+let worker=nodeWorker;
+let runtime;
+const useRuntime=process.env.M4L_RUNTIME_BUNDLE || process.argv[2];
+import { createSaltedPinHash, createSessionToken } from "../src/lib/auth.js";
+import { PLATFORM_SHEET_HEADERS } from "../src/lib/platform-schema.js";
+import { DEFINITION_HEADERS, IDENTITY_HEADERS, PROGRAM_SCHEMA } from "../src/programs/model.js";
+import { resolveActiveCourseRegistration } from "../src/lib/platform-sheet.js";
+
+const platformId = "test-platform-programs";
+const targetId = "test-aalimiya-programs";
+const legacyId = "test-reboot-programs";
+const books = new Map();
+function book(id, tables) {
+  books.set(id, Object.entries(tables).map(([title, rows], sheetId) => ({ title, sheetId, rows: structuredClone(rows) })));
+}
+const hash = await createSaltedPinHash("2468", "program-pin-secret");
+book(platformId, {
+  CourseRegistry: [PLATFORM_SHEET_HEADERS.CourseRegistry, ["REBOOT", "Reboot", legacyId, true, "104.5.4"]],
+  UserAccounts: [PLATFORM_SHEET_HEADERS.UserAccounts, ["ACCOUNT1", "Platform Admin", "ADMIN-LINK", true, hash, true, "", "", "", "", "", "", "", "GLOBAL_ADMIN"]],
+  UserCourseAccess: [PLATFORM_SHEET_HEADERS.UserCourseAccess],
+  PlatformAuditLog: [PLATFORM_SHEET_HEADERS.PlatformAuditLog]
+});
+book(targetId, { Setup: [["Development only"]] });
+book(legacyId, { SubjectList:[['SubjectID','SubjectName','Active'],['REBOOT-AR','Arabic',true],['REBOOT-TF','Tafseer',true],['REBOOT-DUP','  ARABIC  ',true],['REBOOT-OLD','Old subject',false]], StudentRecords: [["Legacy records must remain unchanged"]] });
+books.get(platformId).find(sheet => sheet.title === "UserAccounts").rows.push(["ACCOUNT2", "Local Admin", "LOCAL-LINK", true, hash, true]);
+books.get(platformId).find(sheet => sheet.title === "UserCourseAccess").rows.push(["ACCESS2", "ACCOUNT2", "REBOOT", "ADMIN", true, true, "", "", "", "", "", "", "", "LOCAL-ADMIN"]);
+const table = (id, title) => books.get(id).find(sheet => sheet.title === title).rows;
+const originalLegacy = structuredClone(books.get(legacyId));
+const originalRegistryRow = structuredClone(table(platformId, "CourseRegistry")[1]);
+const keyPair = await crypto.subtle.generateKey({ name: "RSASSA-PKCS1-v1_5", modulusLength: 2048, publicExponent: new Uint8Array([1,0,1]), hash: "SHA-256" }, true, ["sign", "verify"]);
+const privateBytes = new Uint8Array(await crypto.subtle.exportKey("pkcs8", keyPair.privateKey));
+const env = { PLATFORM_SPREADSHEET_ID: platformId, GOOGLE_SPREADSHEET_ID: legacyId, SESSION_SECRET: "program-session-secret",
+  GOOGLE_SERVICE_ACCOUNT_JSON: JSON.stringify({ type:"service_account", client_email:"program-test@example.iam.gserviceaccount.com", private_key_id:"program-test-key", private_key:`-----BEGIN PRIVATE KEY-----\n${Buffer.from(privateBytes).toString("base64")}\n-----END PRIVATE KEY-----` }) };
+const token = await createSessionToken({ type:"account", accountid:"ACCOUNT1", uniqueid:"ADMIN-LINK", username:"Platform Admin", role:"GLOBAL_ADMIN", scope:"PLATFORM", authrow:2, credentialHash:hash }, env);
+const centralAdminToken = await createSessionToken({ type:"account", accountid:"ACCOUNT2", uniqueid:"LOCAL-LINK", role:"ADMIN", scope:"COURSE", authrow:3, credentialHash:hash, accessrow:2, accessid:"ACCESS2", courseid:"REBOOT", courserecordid:"LOCAL-ADMIN" }, env);
+const legacyToken = await createSessionToken({ type:"admin", role:"ADMIN" }, env);
+const studentToken = await createSessionToken({ type:"student", role:"STUDENT" }, env);
+let writes = 0;
+let reads = 0;
+let failWrite = false;
+let loseResponse = false;
+let denyTarget = false;
+const originalFetch = globalThis.fetch;
+globalThis.fetch = async (url, init = {}) => {
+  const parsed = new URL(url);
+  const result = value => new Response(JSON.stringify(value), { status:200 });
+  if (parsed.hostname === "oauth2.googleapis.com") return result({ access_token:"program-test-access", expires_in:3600 });
+  assert.equal(parsed.hostname, "sheets.googleapis.com");
+  const match = /^\/v4\/spreadsheets\/([^/:]+)(.*)$/.exec(parsed.pathname);
+  const [, id, suffix] = match;
+  if (!books.has(id) || (denyTarget && id === targetId)) return new Response(JSON.stringify({ error:{ message:"Test access denied" } }), { status:403 });
+  const sheets = books.get(id);
+  if (!init.method || init.method === "GET") reads++;
+  const rangeValues = range => {
+    const [title, span] = range.replaceAll("'", "").split("!");
+    const values = sheets.find(sheet => sheet.title === title)?.rows;
+    assert.ok(values, `Unexpected missing range ${range}`);
+    const rowMatch = /[A-Z]+(\d+):[A-Z]+(\d+)/.exec(span);
+    return structuredClone(rowMatch ? values.slice(Number(rowMatch[1]) - 1, Number(rowMatch[2])) : values);
+  };
+  if (suffix === "") return result({ sheets:sheets.map(({ sheetId, title }) => ({ properties:{ sheetId,title } })) });
+  if (suffix.startsWith("/values/")) return result({ values:rangeValues(decodeURIComponent(suffix.slice(8))) });
+  if (suffix === "/values:batchGet") return result({ valueRanges:parsed.searchParams.getAll("ranges").map(range => ({ values:rangeValues(range) })) });
+  assert.equal(suffix, ":batchUpdate");
+  writes++;
+  if (failWrite) { failWrite = false; return new Response(JSON.stringify({ error:{ message:"Injected write failure" } }), { status:500 }); }
+  const next = structuredClone(sheets);
+  for (const request of JSON.parse(init.body).requests) {
+    if (request.addSheet) {
+      const { sheetId, title } = request.addSheet.properties;
+      assert.ok(!next.some(sheet => sheet.sheetId === sheetId || sheet.title === title));
+      next.push({ sheetId,title,rows:[] }); continue;
+    }
+    const update = request.updateCells || request.appendCells;
+    const target = next.find(sheet => sheet.sheetId === (update.sheetId ?? update.start.sheetId));
+    assert.ok(target);
+    const rows = update.rows.map(row => row.values.map(cell => Object.values(cell.userEnteredValue)[0]));
+    if (request.appendCells) target.rows.push(...rows);
+    else rows.forEach((row, i) => { target.rows[update.start.rowIndex + i] = row; });
+  }
+  books.set(id, next);
+  if (loseResponse) { loseResponse = false; throw new Error("Connection closed after successful commit"); }
+  return result({ replies:[] });
+};
+async function call(action, body = {}, auth = token, expected = 200, method = "POST") {
+  const response = await worker.fetch(new Request(`https://worker.test/api/admin/platform/programs/${action}`, {
+    method, headers: { "Content-Type":"application/json", ...(auth ? { Authorization:`Bearer ${auth}` } : {}) },
+    ...(method === "POST" ? { body: typeof body === "string" ? body : JSON.stringify(body) } : {})
+  }), env);
+  const result = await response.json();
+  assert.equal(response.status, expected, JSON.stringify(result));
+  assert.equal(response.headers.get("Cache-Control"), "no-store");
+  return result;
+}
+
+if (useRuntime) {
+  const { Miniflare, convertV4MiniflareOptions, Response:RuntimeResponse }=await import('miniflare');
+  runtime=new Miniflare(convertV4MiniflareOptions({modules:true,scriptPath:useRuntime,modulesRoot:(await import('node:path')).dirname(useRuntime),compatibilityDate:'2026-06-01',bindings:env,
+    durableObjects:{PROGRAM_TIMETABLE_COORDINATOR:{className:'ProgramTimetableCoordinator',useSQLite:true}},
+    outboundService:async request=>{const response=await globalThis.fetch(request.url,{method:request.method,headers:request.headers,...(request.method==='GET'?{}:{body:await request.text()})});return new RuntimeResponse(await response.text(),{status:response.status,headers:Object.fromEntries(response.headers)});}}));
+  await runtime.ready;
+  worker={fetch:async request=>runtime.dispatchFetch(request.url,{method:request.method,headers:Object.fromEntries(request.headers),...(request.method==='GET'?{}:{body:await request.text()})})};
+}
+const f=timetableFixture();
+const input={id:f.program.id,name:'Aalimiya',spreadsheetId:targetId,durationYears:4,timezone:'Asia/Riyadh',status:'DRAFT'};
+const journals=new Map(),coordinators=new Map(),names=[];
+const binding={getByName(name){names.push(name);if(!coordinators.has(name)){
+ const journal={get:async()=>journals.get(name)||null,set:async p=>journals.set(name,structuredClone(p)),clear:async()=>journals.delete(name)};
+ coordinators.set(name,timetableCoordinator(journal,async(id,authorization)=>{
+  const fresh=createRequestEnvironment(env);const user=await timetableUser(new Request('https://test.invalid',{headers:{Authorization:authorization}}),fresh);
+  if(name.endsWith(':academy-subjects'))return {user,service:academySubjectService(academySubjectRepository(fresh))};
+  const program=await timetableProgram(fresh,id);return {user,service:timetableService(timetableRepository(fresh,program),program)};
+ }));}
+ return {async catalogRun(action,body,auth){return this.run(action,body,auth);},async run(action,body,auth){try{return {success:true,...await coordinators.get(name).run(action,body,auth)};}catch(e){return {success:false,status:e.publicMessage?e.status:503,error:e.publicMessage||'Uncertain write'};}}};
+}};
+async function tt(action,body={},auth=token,expected=200,method='POST'){
+ const response=await worker.fetch(new Request(`https://worker.test/api/admin/platform/program-timetable/${action}`,{method,headers:{'Content-Type':'application/json',...(auth?{Authorization:`Bearer ${auth}`}:{})},...(method==='POST'?{body:typeof body==='string'?body:JSON.stringify({id:input.id,...body})}:{})}),env);
+ const result=await response.json();assert.equal(response.status,expected,JSON.stringify(result));assert.equal(response.headers.get('Cache-Control'),'no-store');return result;
+}
+async function academy(action,body={},auth=token,expected=200){
+ const response=await worker.fetch(new Request(`https://worker.test/api/admin/platform/academy-subjects/${action}`,{method:'POST',headers:{'Content-Type':'application/json',...(auth?{Authorization:`Bearer ${auth}`}:{})},body:JSON.stringify(body)}),env);
+ const result=await response.json();assert.equal(response.status,expected,JSON.stringify(result));return result;
+}
+const change=(revision,draft=f.draft)=>({revision,draft:structuredClone(draft),operationId:crypto.randomUUID()});
+try{
+ for(const action of ['get','prepare','save','validate','preview','publish','history','recover','manage-get','manage-save']){
+  for(const auth of [legacyToken,studentToken,centralAdminToken])await tt(action,{},auth,403);
+  await tt(action,{},'',401);
+ }
+ assert.equal(writes,0);
+ await tt('get',{},token,405,'GET');await tt('get','bad',token,400);await tt('save','x'.repeat(65537),token,413);await tt('get',{id:'REBOOT'},token,400);
+ await call('create',input);await call('prepare',{id:input.id});
+ books.get(platformId).push({title:'GlobalSubjectList',sheetId:20,rows:[PLATFORM_SHEET_HEADERS.GlobalSubjectList,['TAFSEER','Tafseer',true]]});
+ let loaded=await tt('get');assert.equal(loaded.prepared,false);assert.equal(loaded.coordinatorAvailable,Boolean(useRuntime));
+ if(!useRuntime)await tt('prepare',{},token,503);env.PROGRAM_TIMETABLE_COORDINATOR=binding;
+ loseResponse=true;await tt('prepare',{},token,503);if(!useRuntime)assert.equal(journals.size,1);
+ await tt('recover');assert.equal(journals.size,0);const before=writes;await tt('prepare');assert.equal(writes,before,'Preparation is idempotent');
+ for(const [name,rows] of Object.entries({ProgramSubjects:[['PS-TAFSEER',input.id,'TAFSEER',true]],ProgramModules:[['MOD-DEMO','PS-TAFSEER','','Demo module',1,true]],ProgramClasses:[['CLASS-1',input.id,'Year 1','2026',true],['CLASS-2',input.id,'Year 2','2026',true]]}))table(targetId,name).push(...rows);
+ table(platformId,'UserAccounts').push(['TEACHER-1','Demo Teacher','TEACHER-LINK',false,'',true]);
+ table(platformId,'UserCourseAccess').push(['ACCESS-TEACHER','TEACHER-1',input.id,'TEACHER',true]);
+ loaded=await tt('get');assert.equal(loaded.prepared,true);assert.equal(loaded.catalog.modules.length,1);assert.equal(loaded.catalog.teachers.length,1);
+ assert((await tt('preview',{draft:f.draft})).valid);
+ let saved=await tt('save',change(''));assert.equal(table(targetId,'ProgramTimetableState').length,2);assert.equal(table(targetId,'ProgramTimetablePublications').length,1);
+ const publishInput=change(saved.revision);let pub=await tt('publish',publishInput);assert.equal(pub.version,1);assert.equal(table(targetId,'ProgramTimetableState').length,3);
+ assert((await tt('publish',publishInput)).replayed);assert.equal(table(targetId,'ProgramTimetablePublications').length,2);
+ assert.equal((await tt('history')).publications[0].occurrences.length,4);
+ await tt('save',change(saved.revision),token,409);
+ // Canonical ID selects the same coordinator regardless of request casing.
+ await tt('prepare',{id:input.id.toLowerCase()});if(!useRuntime)assert.equal(new Set(names).size,1);
+ const another=change(pub.revision);loseResponse=true;await tt('publish',another,token,503);assert.equal(table(targetId,'ProgramTimetablePublications').length,3);
+ const beforeRecovery=writes;const recovered=await tt('recover');assert.equal(recovered.version,2);assert.equal(writes,beforeRecovery);assert.equal(journals.size,0);
+ // Refuse duplicate headers/IDs and changed identity without writes.
+ table(targetId,'ProgramModules').push([...table(targetId,'ProgramModules')[1]]);await tt('get',{},token,409);table(targetId,'ProgramModules').pop();
+ table(targetId,'ProgramIdentity')[1][0]='OTHER';await tt('get',{},token,409);table(targetId,'ProgramIdentity')[1][0]=input.id;
+ // Teacher authority removed since preview blocks publication.
+ table(platformId,'UserCourseAccess').at(-1)[4]=false;await tt('publish',change(recovered.revision),token,409);table(platformId,'UserCourseAccess').at(-1)[4]=true;
+ table(platformId,'UserAccounts')[1][13]='';await tt('get',{},token,401);table(platformId,'UserAccounts')[1][13]='GLOBAL_ADMIN';
+ const attempts=[change(recovered.revision),change(recovered.revision)];
+ const simultaneous=await Promise.all(attempts.map(body=>worker.fetch(new Request('https://worker.test/api/admin/platform/program-timetable/publish',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({id:input.id,...body})}),env)));
+ assert.deepEqual(simultaneous.map(r=>r.status).sort(),[200,409]);
+ assert.equal(table(targetId,'ProgramTimetablePublications').length,4);
+ // Management rows flow through the same authorised coordinator as publication.
+ let management=await tt('manage-get');
+ assert.equal(management.rows.modules[0].Name,'Demo module');
+ assert(!JSON.stringify(management.accounts).includes('PINHash'));
+ const edit=(kind,record,creating=true)=>({kind,record,creating,revision:management.revision,referenceRevision:management.referenceRevision,operationId:crypto.randomUUID()});
+ const saveRow=async(kind,record,creating=true)=>{const result=await tt('manage-save',edit(kind,record,creating));management=await tt('manage-get');return result;};
+ await saveRow('classes',{ClassID:'CLS-TEST',Name:'Evening class',AcademicYear:'2026',Active:true});
+ assert((await tt('get')).catalog.classes.some(r=>r.id==='CLS-TEST'));
+ const stale=edit('classes',{ClassID:'CLS-STALE',Name:'Stale',Active:true});
+ await saveRow('levels',{LevelID:'LVL-TEST',ProgramSubjectID:'PS-TAFSEER',Name:'Introductory',SortOrder:1,Active:true});
+ await tt('manage-save',stale,token,409);
+ await saveRow('modules',{ProgramModuleID:'MOD-TEST',ProgramSubjectID:'PS-TAFSEER',LevelID:'',Name:'No level module',SortOrder:2,Active:true});
+ await tt('manage-save',edit('modules',{ProgramModuleID:'MOD-WRONG',ProgramSubjectID:'PS-TAFSEER',LevelID:'MISSING',Name:'Wrong level',Active:true}),token,400);
+ await saveRow('modules',{ProgramModuleID:'MOD-LEVEL',ProgramSubjectID:'PS-TAFSEER',LevelID:'LVL-TEST',Name:'Level module',SortOrder:3,Active:true});
+ await tt('manage-save',edit('levels',{LevelID:'LVL-TEST',ProgramSubjectID:'PS-TAFSEER',Name:'Introductory',SortOrder:1,Active:false},false),token,400);
+ // Assign an existing account without mutating any central privileges.
+ const centralAccessBefore=structuredClone(table(platformId,'UserCourseAccess'));
+ await saveRow('teachers',{AccountID:'ACCOUNT2',Active:true});
+ assert((await tt('get')).catalog.teachers.some(r=>r.id==='ACCOUNT2'));
+ assert.deepEqual(table(platformId,'UserCourseAccess'),centralAccessBefore);
+ await saveRow('enrollments',{EnrollmentID:'ENR-TEST',ClassID:'CLS-TEST',AccountID:'ACCOUNT2',StartDate:'2026-09-01',EndDate:'',Active:true});
+ await tt('manage-save',edit('enrollments',{EnrollmentID:'ENR-OVERLAP',ClassID:'CLS-TEST',AccountID:'ACCOUNT2',StartDate:'2026-09-24',EndDate:'',Active:true}),token,400);
+ await tt('manage-save',edit('enrollments',{EnrollmentID:'ENR-BAD-DATE',ClassID:'CLS-TEST',AccountID:'ACCOUNT2',StartDate:'2026-02-30',EndDate:'',Active:true}),token,400);
+ await tt('manage-save',edit('classes',{ClassID:'CLS-TEST',Name:'Evening class',AcademicYear:'2026',Active:false},false),token,400);
+ const managedDraft=structuredClone(f.draft);managedDraft.rules[0].moduleId='MOD-TEST';managedDraft.rules[0].classIds=['CLS-TEST'];managedDraft.rules[0].teacherId='ACCOUNT2';
+ assert((await tt('preview',{draft:managedDraft})).valid);
+ // A lost response preserves the exact change and produces one management revision.
+ const lostManagement=edit('classes',{ClassID:'CLS-RETRY',Name:'Retry class',AcademicYear:'',Active:true});
+ loseResponse=true;await tt('manage-save',lostManagement,token,503);
+ const revisionCount=table(targetId,'ProgramManagementState').length;
+ assert((await tt('manage-save',lostManagement)).replayed);
+ assert.equal(table(targetId,'ProgramManagementState').length,revisionCount);
+ management=await tt('manage-get');
+ // A changed central account blocks stale reference choices.
+ const revokedReference=edit('teachers',{AccountID:'ACCOUNT1',Active:true});
+ table(platformId,'UserAccounts')[2][5]=false;await tt('manage-save',revokedReference,token,409);table(platformId,'UserAccounts')[2][5]=true;
+ management=await tt('manage-get');
+ await saveRow('teachers',{AccountID:'ACCOUNT2',Active:false},false);
+ assert(!(await tt('preview',{draft:managedDraft})).valid);
+ assert.equal((await tt('history')).publications[0].snapshot.rules[0].moduleName,'Demo module');
+ // Academy catalogue is distinct from Global course subjects and reads no Reboot data on normal load.
+ for(const action of ['get','import-preview','save','recover']) {
+   for(const auth of [legacyToken,studentToken,centralAdminToken])await academy(action,{},auth,403);
+   await academy(action,{},'',401);
+ }
+ const globalBefore=structuredClone(table(platformId,'GlobalSubjectList'));
+ assert.deepEqual((await academy('get')).subjects,[]);
+ management=await tt('manage-get');assert.equal(management.sharedSubjects[0].Legacy,true);
+ await tt('manage-save',edit('subjects',{ProgramSubjectID:'PS-WRONG',SubjectID:'TAFSEER',Active:true}),token,400);
+ let review=await academy('import-preview');assert.equal(review.subjects.length,4);
+ const staleImport={mode:'import',sourceIds:['REBOOT-AR'],sourceRevision:review.revision,operationId:crypto.randomUUID()};
+ table(legacyId,'SubjectList')[1][1]='Changed name';await academy('save',staleImport,token,409);table(legacyId,'SubjectList')[1][1]='Arabic';
+ await academy('save',{...staleImport,sourceIds:['REBOOT-OLD']},token,400);
+ const importInput={...staleImport,sourceIds:['REBOOT-AR','REBOOT-DUP','REBOOT-TF']};
+ const imported=await academy('save',importInput);assert.equal(imported.imported,2);assert.equal(imported.reused,1);
+ assert.equal((await academy('get')).subjects.length,2);
+ assert((await academy('save',importInput)).replayed);
+ assert.equal(table(platformId,'AcademySubjectOperations').length,2);
+ const importMappings=JSON.parse(table(platformId,'AcademySubjectOperations')[1][6]);
+ assert.equal(importMappings[0].SubjectID,importMappings[1].SubjectID);
+ // Name matching ignores case/whitespace. Concurrent creates resolve to one canonical subject.
+ const creates=await Promise.all(['Usul','  USUL '].map(subjectName=>academy('save',{mode:'create',subjectName,operationId:crypto.randomUUID()})));
+ assert.equal(creates[0].subject.SubjectID,creates[1].subject.SubjectID);
+ const lost={mode:'create',subjectName:'Fiqh',operationId:crypto.randomUUID()};
+ loseResponse=true;await academy('save',lost,token,503);
+ const count=table(platformId,'AcademySubjectList').length;
+ assert((await academy('save',lost)).replayed);assert.equal(table(platformId,'AcademySubjectList').length,count);
+ const beforeFail={mode:'create',subjectName:'History',operationId:crypto.randomUUID()};
+ failWrite=true;await academy('save',beforeFail,token,503);
+ await academy('save',{mode:'create',subjectName:'Other',operationId:crypto.randomUUID()},token,409);
+ table(platformId,'UserAccounts')[1][13]='';await academy('recover',{},token,401);table(platformId,'UserAccounts')[1][13]='GLOBAL_ADMIN';
+ await academy('recover');assert((await academy('save',beforeFail)).replayed);
+ // Explicit legacy mapping keeps the ProgramSubjectID and all dependent levels/modules/history.
+ management=await tt('manage-get');const beforeModules=structuredClone(management.rows.modules),beforeLevels=structuredClone(management.rows.levels),beforeHistory=await tt('history');
+ const tafseer=(await academy('get')).subjects.find(r=>r.SubjectName==='Tafseer');
+ await saveRow('subjects',{ProgramSubjectID:'PS-TAFSEER',SubjectID:tafseer.SubjectID,Active:true},false);
+ assert.deepEqual(management.rows.modules,beforeModules);assert.deepEqual(management.rows.levels,beforeLevels);
+ assert.deepEqual(await tt('history'),beforeHistory);assert(!management.sharedSubjects.some(r=>r.Legacy));
+ assert((await tt('get')).catalog.subjects.some(r=>r.id==='PS-TAFSEER'&&r.name==='Tafseer'));
+ await tt('manage-save',edit('subjects',{ProgramSubjectID:'PS-TAFSEER',SubjectID:creates[0].subject.SubjectID,Active:true},false),token,400);
+ // The Program step must expose imported catalogue subjects in the grid, including old imports.
+ management=await tt('manage-get');
+ const bulkInput={operationId:crypto.randomUUID(),kind:'subject-import',record:{subjectIds:imported.subjects.map(r=>r.SubjectID)},revision:management.revision,referenceRevision:management.referenceRevision};
+ loseResponse=true;await tt('manage-save',bulkInput,token,503);
+ const bulkResult=await tt('manage-save',bulkInput);assert(bulkResult.replayed);
+ assert.deepEqual(bulkResult.record,{added:1,alreadyLinked:1,archived:0});
+ management=await tt('manage-get');assert.equal(management.rows.subjects.length,2);
+ assert.deepEqual(management.rows.modules,beforeModules);assert.deepEqual(management.rows.levels,beforeLevels);
+ assert.deepEqual(await tt('history'),beforeHistory);
+ const repeated=await tt('manage-save',{...bulkInput,operationId:crypto.randomUUID(),revision:management.revision,referenceRevision:management.referenceRevision});
+ assert.deepEqual(repeated.record,{added:0,alreadyLinked:2,archived:0});
+ assert.equal((await tt('manage-get')).rows.subjects.length,2);
+ assert.equal((await academy('recover')).recovered,false);
+ assert.deepEqual(table(platformId,'GlobalSubjectList'),globalBefore);
+ console.log('Academy subjects: isolated catalogue, reviewed imports, duplicate reuse, concurrency, retry/recovery, authority, legacy mapping and immutable history passed.');
+ assert.deepEqual(books.get(legacyId),originalLegacy);
+ assert.deepEqual(table(platformId,'CourseRegistry')[1],originalRegistryRow);
+ console.log('Program timetable API: authority, body bounds, Sheets preparation, atomic revisions/publications/receipts, retries, recovery, canonical coordinator keys, reference validation and Reboot isolation passed.');
+}finally{if(runtime)await runtime.dispose();globalThis.fetch=originalFetch;}

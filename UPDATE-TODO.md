@@ -1,42 +1,38 @@
-# V104.5.4 UPDATE TODO — Course / Academy Timetable UI Refinement
+## V105.3.1.3 acceptance
 
-## Apply / deploy
+- [x] Combined curriculum overview with desktop rows and mobile cards.
+- [x] Keep optional levels, subjects without modules, and archived rows visible.
+- [x] Derive timetable relationships and date-aware, distinct learner lists.
+- [x] Open module editing and creation from the overview; preserve pending import recovery.
+- [ ] User acceptance on Development with actual curriculum and a phone.
 
-1. Apply this changed-files-only V104.5.4 overlay to the completed **V104.5.3** source tree.
-2. Deploy Worker and Pages/app assets together.
-3. Confirm Worker health `/` reports `104.5.4`.
-4. Confirm Account UI displays `V104.5.4` and the updated Account/Admin asset cache versions load.
-5. **Do not run Prepare Scheduling.** Platform schema remains `102.0.12`; V104.5.4 has no Sheet migration.
+## V105.3.1.2 acceptance
 
-## Courses acceptance
+- [x] Import selected Reboot names directly into the Program subject grid.
+- [x] Reuse catalogue names and skip existing Program links; preserve archived links.
+- [x] Keep both import phases retryable after interrupted saves and reloads.
+- [x] Explain what recovery does and distinguish no interrupted save.
+- [ ] User acceptance: reselect previously imported Fiqh, Aqaaid and History in Alimiyah and confirm each appears once after reload.
 
-6. Open Global Curriculum → Courses. Confirm saved published Courses show a visible but disabled berry Publish button.
-7. Revise a saved Course. Before the main Save, confirm Publish stays visible but disabled. Save the Course; confirm Publish becomes enabled when the saved revision is otherwise eligible.
-8. Confirm an inactive saved Course, a saved Course without a schedule, and an ONGOING Course without a valid saved Publish window each retain a disabled Publish button.
-9. Confirm a brand-new unsaved `+ Add Course` draft does not show Publish until it has been saved and receives a RunID.
-10. Confirm DERIVED action reads **Exception** on one line; EXPLICIT continues to read **Sessions**.
-11. Open a recurring Schedule. Confirm new Start/End fields are blank and display `--h--`.
-12. Confirm the old top-right `+ Another Time Slot` button is gone and **+ Add another time slot** appears beneath the rows at lower left.
-13. Confirm each schedule row uses the Lucide trash/delete icon rather than an X.
+## V105.3.1.1 acceptance
 
-## Academy acceptance
+- [x] Separate Academy curriculum catalogue from Global Course subjects.
+- [x] Create and link subjects in the same management row.
+- [x] Reviewed import of Reboot names, duplicate reuse, source mappings and recovery.
+- [x] Explicit mapping of legacy Program links with dependent records preserved.
+- [ ] User acceptance with Development workbooks through management screens.
+- [ ] Later: full shared-catalogue rename/archive governance and live Reboot migration.
 
-14. Confirm published Hifz DERIVED sessions appear on the expected recurring days in Academy.
-15. Confirm an EXPLICIT Course whose Course Name differs from its Global Subject uses **Course Name** as the large pill title (for example `History of the Quran`, not `Tafseer & Tadabbur`).
-16. Confirm cancelled/rescheduled explicit occurrences retain the Course Name.
-17. Confirm large detailed pills centre their text.
-18. During an actually current session with authorised Zoom access, confirm the **entire pill** becomes the purple Zoom action and displays the link icon beside `Zoom`.
-19. Confirm cancelled sessions never become an active Zoom link.
+# V105.3.1 — Development acceptance
 
-## Regression
+The management screens and Johannesburg-default timezone dropdowns are implemented. Live acceptance is pending.
 
-20. Run `cd backend && npm test`; expected result: **68/68** backend test files passed.
-21. Run `node tests/v10454-course-calendar-ui.test.mjs`.
-22. Confirm `node tests/v10453-ongoing-derived-window.test.mjs` remains green.
-23. Confirm V104.3 request-read deduplication remains green.
-24. Confirm V104.4 read audit remains **23 direct-read call sites across 17 files / 15 batch-read call sites**.
-25. Smoke-test central account login, Academy timetable, one EXPLICIT Course, one DERIVED Course, Attendance and one Program timetable path.
+1. Verify the live Pages project remains on `main`; use only the separate `maktab-development` Pages project and `devrebootworker` for testing.
+2. Deploy matching V105.3.1 frontend/Worker, retaining existing credentials and coordinator binding.
+3. Complete Aalimiya Program preparation and click **Manage Program → Prepare management tables**.
+4. Through management screens, link shared subjects, optionally add levels, add modules/classes, assign existing teachers and add dated learner memberships. No manual Sheet entry is needed.
+5. Finish V105.2 timetable acceptance using the saved records: combined classes, save/reload, preview, publication, conflicts, exceptions and immutable history.
+6. Complete real-data access, recovery, mobile and regression checks. See the setup guide for the management-history storage contract and rollback limits.
+7. Next: broader account/role provisioning, full curriculum/library (V105.4), teaching tools (V105.5), Academy/student integration (V105.6), beta (V105.7), Reboot migration (V106).
 
-## Rollback
-
-26. V104.5.4 is code/UI-only. Rollback to V104.5.3 requires restoring the V104.5.3 code/assets only; the Platform workbook remains at schema `102.0.12` and does not need restoration.
+[Setup and acceptance](docs/V105.3.1-PROGRAM-MANAGEMENT.md) · [Verification](docs/V105.3.1-VERIFICATION.md)

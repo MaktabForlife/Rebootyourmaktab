@@ -1,5 +1,5 @@
-/* M4L V104.5.4 - Derived-by-default Global Courses on the completed V104 read-optimised foundation.
-   Wrangler bundles this entry point and its imported modules into one Worker.
+/* M4L V105.2 - Program timetable building alongside existing Reboot and Global Course paths.
+   The Cloudflare runtime entrypoint exports this fetch handler and the coordinator.
 */
 import { corsResponse, json } from "./lib/http.js";
 import { routeRequest } from "./router.js";
@@ -17,7 +17,7 @@ export default {
         return json({
           success: true,
           service: "rebootworker",
-          version: "104.5.4"
+          version: "105.3.1.3"
         });
       }
 

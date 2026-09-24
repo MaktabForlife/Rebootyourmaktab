@@ -1,0 +1,44 @@
+{
+  "release": "105.1.0",
+  "baselineCommit": "5938c988cb5b589e1637b08f5c68c41115f2a0b7",
+  "branch": "feature/v105.1-program-setup",
+  "verificationDate": "2026-09-22",
+  "backendTestFiles": {
+    "passed": 69,
+    "total": 69,
+    "command": "node backend/tests/run-all.mjs"
+  },
+  "syntax": {
+    "files": 167,
+    "passed": 167,
+    "failures": []
+  },
+  "postSuiteChecks": [
+    "program-builder.test.mjs passed after final service refinement",
+    "node --check for revised service and frontend passed",
+    "git diff --check passed"
+  ],
+  "browserChecks": [
+    "create",
+    "edit",
+    "keyboard save",
+    "failed save retains edits",
+    "discard",
+    "search/status filter",
+    "prepare/readiness",
+    "inline refresh keep/discard",
+    "390px horizontal grid"
+  ],
+  "legacyReadBudget": {
+    "directCalls": 23,
+    "files": 17,
+    "minimumBatchCalls": 15
+  },
+  "newProgramAdapterDirectCalls": 1,
+  "programListMockSheetReads": 4,
+  "liveDeployed": false,
+  "realAalimiyaRegistered": false,
+  "realBackendSharingVerified": false,
+  "concurrentMutationsSupported": false,
+  "notes": "One setup editor at a time. Mock and local preview verification does not prove live integration or capacity."
+}

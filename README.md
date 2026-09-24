@@ -1,30 +1,49 @@
-# Maktab4Life V104.5.4
+# V105.3.1.3 — Responsive curriculum overview
 
-V104.5.4 refines the Global Course and Academy timetable UI on top of the completed V104.5.3 derived/explicit scheduling model.
+Program management now opens with a combined Subject, Level, Module, Classes, Teachers and Learners overview. Each module occupies one compact desktop row and becomes a labelled card on mobile. Subjects and levels awaiting modules remain visible with an Add module action; existing modules open their editor. The six individual management sections also use mobile cards.
 
-## What changed
+Classes and teachers reflect the saved timetable draft. Expand learner counts to see distinct learners whose memberships cover a scheduled lesson date, excluding cancelled lessons. Missing or invalid timetable data is labelled rather than presented as an empty roster. [Details and acceptance](docs/V105.3.1.3-RESPONSIVE-OVERVIEW.md).
 
-- Academy Global Course pills use **Course Name** as the primary label for both DERIVED and EXPLICIT publications.
-- Published Hifz DERIVED occurrences remain regression-protected in the Academy day calendar.
-- Detailed/large timetable pills centre their content.
-- A current authorised Zoom session uses the full purple Zoom-colour pill, with the supplied link icon beside `Zoom`.
-- Saved Courses always show the inline Publish control; when ineligible it is visible but disabled with a reason tooltip.
-- DERIVED action label is `Exception` (singular).
-- New recurring Start/End fields are blank and show `--h--`.
-- `+ Add another time slot` moves beneath the schedule rows.
-- Time-slot deletion uses the supplied Lucide `trash-2` icon.
+---
 
-## Compatibility
+# V105.3.1.2 — Reboot import adds subjects to the Program
 
-Platform schema remains **102.0.12** with **19 tabs**. **Do not run Prepare Scheduling again** for V104.5.4. There are no Sheet columns, access rules, Course modes, data ownership or Program Builder changes.
+Fixes reviewed imports stopping at the Academy catalogue. **Import and add to this Program** now saves missing names and adds missing Program links in one screen flow. Repeating an import reuses names and skips existing links, including names imported by V105.3.1.1. Archived links stay archived. Interrupted imports retain separate catalogue and Program retry receipts.
 
-V104.3 request-local read deduplication, V104.4 read budgets and V104.5.3 authoritative ONGOING draft publication windows remain intact.
+Catalogue recovery now distinguishes an interrupted save from no pending save, and explains that recovery does not import or attach subjects. Deploy matching Development frontend and Worker. No new bindings, migrations or manual spreadsheet changes are required. [Use and verification](docs/V105.3.1.2-SUBJECT-IMPORT-FIX.md).
 
-See `docs/V104.5.4-IMPLEMENTATION-CHECKLIST.md`, `docs/V104.5.4-COURSE-ACADEMY-UI-REFINEMENT.md`, and `UPDATE-TODO.md`.
+---
 
-## Final verification
+# V105.3.1.1 — Academy curriculum subjects
 
-- Backend regression: **68/68 test files passed**.
-- Repository JS/MJS syntax: **160/160 files passed**.
-- V104.4 read audit: **23 direct-read call sites across 17 files; 15 batch-read call sites**.
-- V104.3 request-level read deduplication: passed.
+Adds a separate shared Academy curriculum catalogue and a single Add subject flow for selecting or creating a subject. Administrators can review and import Reboot subject names, reuse duplicates, and explicitly map old Global-based Program links while preserving their levels, modules and published history. Reboot and Global Course records remain unchanged.
+
+Catalogue preparation is automatic on the first create/import; no new Worker binding or Cloudflare migration is needed. [Setup, retry and acceptance](docs/V105.3.1.1-ACADEMY-SUBJECTS.md) includes the two-workbook save behavior and rollback limitations.
+
+---
+
+# V105.3.1 — Program management screens
+
+Adds compact management grids for shared subject links, optional levels, modules, classes, teacher assignments and dated learner memberships. Saved rows feed the timetable directly. Includes Johannesburg-default timezone dropdowns, archive/reactivation, stale-edit checks and retry-safe management history. Existing Academy accounts are reused; central privileges and live Reboot data are unchanged.
+
+Deploy matching frontend and Worker to the separate Development projects, then open **Manage Program → Prepare management tables**. No new Worker binding is needed. [Setup and acceptance](docs/V105.3.1-PROGRAM-MANAGEMENT.md) explains the new management snapshot reader and rollback constraints.
+
+---
+
+# Maktab4Life V105.2 — Program timetable builder
+
+Version **105.2.0** extends V105.1 Program setup with a compact timetable grid, combined class audiences, recurring and one-off module lessons, dated exceptions, conflict checks, a linked weekly preview and explicit publication history.
+
+Open `/programs/` as a central GLOBAL_ADMIN, select a saved new Program and choose **Open timetable**. Saving a draft leaves the published timetable unchanged. Timetable writes use a per-Program coordinator, durable recovery intent, immutable revisions and retry receipts; canonical data remains in Google Sheets. New Programs remain inactive for teaching, with Academy/student integration coming in V105.6.
+
+- [Timetable setup, use and recovery](docs/V105.2-PROGRAM-TIMETABLE.md)
+- [Implementation and live acceptance checklist](docs/V105.2-IMPLEMENTATION-CHECKLIST.md)
+- [Schema and API contracts](docs/V105.2-SCHEMA-CONTRACTS.md)
+- [Verification and screenshots](docs/V105.2-VERIFICATION.md)
+- [V105.1 Program setup prerequisites](docs/V105.1-PROGRAM-SETUP.md)
+
+This package is locally verified, **not deployed or live-accepted**. The Worker runtime entrypoint and Durable Object binding/migration must accompany the frontend. Minimal verified curriculum/class/teacher references are required for a real timetable. Full membership and curriculum editors remain V105.3/V105.4. V105.1 Program configuration changes still use one setup editor at a time; timetable edits are coordinated in V105.2.
+
+Run `node scripts/program-builder-preview.mjs` and open `http://127.0.0.1:8105/programs/` for a synthetic local demonstration. No Google or cloud writes occur in the preview. The sample timetable link is available from Aalimiya’s Details panel. All preview data is reset when the preview server restarts.
+
+Sequence: V105 Builder on Sheets → V106 Reboot migration on Sheets → later D1 migration → realistic capacity acceptance → wider rollout.

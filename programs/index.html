@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<!-- M4L V105.1 - Compact Program setup workspace. -->
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="robots" content="noindex,nofollow" />
+  <meta name="theme-color" content="#72477b" />
+  <title>Programs · Maktabhelper</title>
+  <link rel="icon" href="/admin-favicon-32x32.png" />
+  <link rel="stylesheet" href="/css/m4l-program-builder.css?v=105.2" />
+</head>
+<body>
+  <header class="pb-header">
+    <a id="academy-link" href="/account/" class="pb-brand"><img src="/logo.png" alt="" />Maktabhelper <span>/ Academy</span></a>
+    <span class="pb-version">V105.3.1.3 · Program setup</span>
+  </header>
+  <main id="program-builder">
+    <div class="pb-heading"><div><p class="pb-eyebrow">﷽ &nbsp; Academy administration</p><h1>Programs</h1>
+      <p>Set up a Program, connect its spreadsheet and check what is ready.</p></div><span class="pb-phase">1 <span>Setup</span> <i>→</i> 2 <span>Management</span> <i>→</i> 3 <span>Timetable</span></span></div>
+    <p id="program-message" class="pb-message" role="status" aria-live="polite">Checking your account…</p>
+    <div id="program-refresh-warning" class="pb-refresh-warning" role="alert" hidden>
+      <span>You have unsaved changes. Keep editing or discard them to load the latest Programs.</span>
+      <button id="program-keep-editing" type="button" class="pb-secondary">Keep editing</button>
+      <button id="program-discard-refresh" type="button">Discard and refresh</button>
+    </div>
+    <button id="program-retry" type="button" class="pb-secondary" hidden>Try again</button>
+    <section id="program-workspace" hidden aria-label="Program setup">
+      <div class="pb-toolbar">
+        <label class="pb-search"><span>Search Programs</span><input id="program-search" type="search" placeholder="Find a Program…" /></label>
+        <label class="pb-filter"><span>Status</span><select id="program-filter"><option value="">All statuses</option><option value="DRAFT">Draft</option><option value="ARCHIVED">Archived</option><option value="ACTIVE">Active</option><option value="INACTIVE">Inactive</option></select></label>
+        <span id="program-count" class="pb-count"></span>
+        <button id="program-refresh" type="button" class="pb-secondary">↻ Refresh</button>
+        <button id="program-add" type="button">＋ New Program</button>
+      </div>
+      <p class="pb-grid-help" id="program-grid-help">Edit a cell, then save its row. Tab moves between fields. Ctrl/⌘ + Enter saves the current row.</p>
+      <div class="pb-grid-scroll" tabindex="0" aria-label="Program table; scroll horizontally for more columns">
+        <table class="pb-grid" aria-describedby="program-grid-help"><caption class="pb-sr-only">Program configuration</caption>
+          <thead><tr><th scope="col">#</th><th scope="col">Program</th><th scope="col">Years</th><th scope="col">Timezone</th><th scope="col">Status</th><th scope="col">Spreadsheet</th><th scope="col">Changes</th></tr></thead>
+          <tbody id="program-rows"></tbody>
+        </table>
+      </div>
+      <div class="pb-footer"><span>Levels are optional and independent of years.</span><span>Drafts are never visible to learners.</span></div>
+      <section id="program-detail" class="pb-detail" aria-label="Selected Program details" hidden></section>
+      <aside class="pb-note"><strong>Teaching opens in later V105 stages.</strong> New Programs stay inactive while teaching and student access are being built. Existing Programs continue in their current workspaces.</aside>
+    </section>
+  </main>
+  <script src="/js/m4l-config.js?v=102.4"></script>
+  <script src="/js/m4l-timezones.js?v=105.3.1.3"></script>
+  <script src="/js/m4l-program-builder.js?v=105.3.1.3"></script>
+</body>
+</html>

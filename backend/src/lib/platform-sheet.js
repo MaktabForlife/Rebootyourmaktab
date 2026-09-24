@@ -1,4 +1,4 @@
-/* M4L V102.5 - Fail-closed central course and global-subject access helpers. */
+/* M4L V105.1 - Keep generic Program setup out of legacy course routing. */
 
 import { batchReadGoogleSheetValues, readGoogleSheetValues } from "./google-sheets.js";
 import {
@@ -77,6 +77,9 @@ export async function resolveActiveCourseRegistration(env, courseId) {
   }
 
   const course = matches[0];
+  if (String(course.SchemaVersion || "").includes("-program")) {
+    throw new Error("Program teaching is not enabled in this release");
+  }
   if (!isActivePlatformValue(course.Active)) {
     throw new Error("Course is inactive");
   }

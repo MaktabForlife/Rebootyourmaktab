@@ -1,0 +1,64 @@
+{
+  "release": "105.2.0",
+  "baselineCommit": "5938c988cb5b589e1637b08f5c68c41115f2a0b7",
+  "overlayBaseline": "V105.1 local package",
+  "branch": "feature/v105.2-program-timetable",
+  "verificationDate": "2026-09-24",
+  "backendTestFiles": {
+    "passed": 71,
+    "total": 71,
+    "command": "node backend/tests/run-all.mjs"
+  },
+  "syntax": {
+    "files": 179,
+    "passed": 179,
+    "failures": []
+  },
+  "cloudflareLocalRuntime": {
+    "passed": true,
+    "wrangler": "4.136.3",
+    "workerd": "1.20260921.1",
+    "rpcAndSqliteJournal": true,
+    "syntheticGoogleTransport": true,
+    "simultaneousPublish": true,
+    "uncertainCommitRecovery": true,
+    "actualObjectEvictionTested": false
+  },
+  "workerDryRun": {
+    "passed": true,
+    "environment": "development",
+    "deployed": false
+  },
+  "browserChecks": [
+    "combined classes",
+    "preview then explicit publish",
+    "draft/publication isolation",
+    "failed save retains edits and retries",
+    "cancellation preview",
+    "calendar-to-grid focus",
+    "keyboard save and 1300 time entry",
+    "overlap blocks publication",
+    "discard and reload",
+    "390px contained layout"
+  ],
+  "legacyReadBudget": {
+    "directCalls": 23,
+    "files": 17
+  },
+  "programSetupDirectCalls": 1,
+  "batchReadCalls": 16,
+  "liveDeployed": false,
+  "realAalimiyaRegistered": false,
+  "realBackendSharingVerified": false,
+  "concurrentTimetableMutationsSupported": true,
+  "concurrentProgramConfigurationSupported": false,
+  "knownLimitations": [
+    "GLOBAL_ADMIN only in this stage",
+    "Minimal verified references required before real publication",
+    "Cross-Program conflicts deferred",
+    "Student/Academy integration V105.6",
+    "Full membership/curriculum management V105.3/V105.4",
+    "No 60-user capacity claim",
+    "No direct manual state/history/receipt row changes while coordinator operates"
+  ]
+}

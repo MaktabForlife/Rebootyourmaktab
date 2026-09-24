@@ -1,3 +1,4 @@
+/* M4L V105.1 - Preserve legacy budgets; account for the isolated setup adapter. */
 import assert from "node:assert/strict";
 import { readFile, readdir } from "node:fs/promises";
 import path from "node:path";
@@ -22,11 +23,20 @@ const directOperational = directCallSites.filter(item => !(
 const batchOperational = batchCallSites.filter(item => !(
   item.file === "lib/google-sheets.js" && item.line.includes("function batchReadGoogleSheetValues")
 ));
-const directFiles = new Set(directOperational.map(item => item.file));
+// V105.1 adds one isolated repository for explicit administrator setup. Keep
+// every existing operational path within its original V104.4 budget.
+const programReads = directOperational.filter(item => item.file === "programs/sheets-repository.js");
+assert.equal(programReads.length, 1, "Program setup must keep a single direct-read adapter boundary");
+// V105.3.1.1 reads Reboot names only for an explicit import preview/confirmation.
+// Normal Program reads use the new catalogue batch adapter, never Reboot SubjectList.
+const importReads = directOperational.filter(item => item.file === "programs/academy-subjects.js");
+assert.equal(importReads.length, 1, "Academy subject import must keep one explicit source-read boundary");
+const legacyDirect = directOperational.filter(item => !["programs/sheets-repository.js", "programs/academy-subjects.js"].includes(item.file));
+const directFiles = new Set(legacyDirect.map(item => item.file));
 
 assert.ok(
-  directOperational.length <= 23,
-  `V104.4 guardrail: direct Google Sheets read call sites increased above the V104.3 final optimisation baseline (found ${directOperational.length}, budget 23)`
+  legacyDirect.length <= 23,
+  `V104.4 guardrail: direct Google Sheets read call sites increased above the V104.3 final optimisation baseline (found ${legacyDirect.length}, budget 23)`
 );
 assert.ok(
   directFiles.size <= 17,
@@ -38,7 +48,7 @@ assert.ok(
 );
 
 console.log(
-  `V104.4 read-path audit passed: ${directOperational.length} direct call sites across ${directFiles.size} files; ${batchOperational.length} batch-read call sites.`
+  `V104.4 read-path audit passed: ${legacyDirect.length} legacy direct call sites across ${directFiles.size} files plus ${programReads.length} isolated Program setup call; ${batchOperational.length} batch-read call sites.`
 );
 
 async function listJavaScriptFiles(directory) {

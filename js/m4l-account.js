@@ -1,4 +1,4 @@
-/* M4L V103.1.0.5 - V103.1.0.4 rolling seven-day Academy timetable loading retained on the Courses release. */
+/* M4L V105.1 - Add the platform Program setup entry; retain Academy behavior. */
 (function () {
   "use strict";
 
@@ -181,6 +181,7 @@
   }
 
   function renderContextView() {
+    byId("program-builder-link")?.classList.toggle("hidden", state.context?.role !== "GLOBAL_ADMIN");
     byId("context-account-name").textContent = state.account?.displayName || "Account";
     byId("current-course").textContent = state.context?.courseName || "M4L Platform";
     byId("current-scope").textContent = contextScopeLabel(state.context?.scope);
