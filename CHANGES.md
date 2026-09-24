@@ -1,3 +1,11 @@
+# V105.3.1.3 — Responsive curriculum overview
+
+Program management now opens with a combined Subject, Level, Module, Classes, Teachers and Learners overview. Each module occupies one compact desktop row and becomes a labelled card on mobile. Subjects and levels awaiting modules remain visible with an Add module action; existing modules open their editor. The six individual management sections also use mobile cards.
+
+Classes and teachers reflect the saved timetable draft. Expand learner counts to see distinct learners whose memberships cover a scheduled lesson date, excluding cancelled lessons. Missing or invalid timetable data is labelled rather than presented as an empty roster. [Details and acceptance](docs/V105.3.1.3-RESPONSIVE-OVERVIEW.md).
+
+---
+
 # V105.3.1.2 — Reboot import adds subjects to the Program
 
 Fixes reviewed imports stopping at the Academy catalogue. **Import and add to this Program** now saves missing names and adds missing Program links in one screen flow. Repeating an import reuses names and skips existing links, including names imported by V105.3.1.1. Archived links stay archived. Interrupted imports retain separate catalogue and Program retry receipts.

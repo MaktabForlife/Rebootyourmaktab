@@ -1,3 +1,11 @@
+## V105.3.1.3 acceptance
+
+- [x] Combined curriculum overview with desktop rows and mobile cards.
+- [x] Keep optional levels, subjects without modules, and archived rows visible.
+- [x] Derive timetable relationships and date-aware, distinct learner lists.
+- [x] Open module editing and creation from the overview; preserve pending import recovery.
+- [ ] User acceptance on Development with actual curriculum and a phone.
+
 ## V105.3.1.2 acceptance
 
 - [x] Import selected Reboot names directly into the Program subject grid.

@@ -1,0 +1,15 @@
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import vm from 'node:vm';
+const sandbox={window:{}};vm.runInNewContext(await readFile(new URL('../../js/m4l-program-overview.js',import.meta.url),'utf8'),sandbox);
+const data={sharedSubjects:[{SubjectID:'TF',SubjectName:'Tafseer'},{SubjectID:'FQ',SubjectName:'Fiqh'}],accounts:[{AccountID:'T',DisplayName:'Teacher'},{AccountID:'L',DisplayName:'Learner'},{AccountID:'FUTURE',DisplayName:'Future learner'}],rows:{subjects:[{ProgramSubjectID:'PS-T',SubjectID:'TF',Active:true},{ProgramSubjectID:'PS-F',SubjectID:'FQ',Active:true}],levels:[{LevelID:'L1',ProgramSubjectID:'PS-T',Name:'L1',Active:true},{LevelID:'L2',ProgramSubjectID:'PS-T',Name:'L2',Active:true}],modules:[{ProgramModuleID:'M1',ProgramSubjectID:'PS-T',LevelID:'L1',Name:'Module one',Active:true},{ProgramModuleID:'M2',ProgramSubjectID:'PS-T',LevelID:'',Name:'Module two',Active:true}],classes:[{ClassID:'C1',Name:'Year 1'},{ClassID:'C2',Name:'Year 2'}],enrollments:[{AccountID:'L',ClassID:'C1',Active:true,StartDate:'2026-01-01',EndDate:''},{AccountID:'L',ClassID:'C2',Active:true,StartDate:'2026-01-01',EndDate:''},{AccountID:'FUTURE',ClassID:'C1',Active:true,StartDate:'2027-01-01',EndDate:''},{AccountID:'OLD',ClassID:'C1',Active:true,StartDate:'2025-01-01',EndDate:'2025-12-31'},{AccountID:'ARCHIVED',ClassID:'C1',Active:false,StartDate:'2026-01-01',EndDate:''}]}};
+const timetable={draft:{rules:[{moduleId:'M1',classIds:['C1','C2'],teacherId:'T'},{moduleId:'M1',classIds:['C1'],teacherId:'T'}]}};
+const preview={issues:[],occurrences:[{moduleId:'M1',classIds:['C1','C2'],date:'2026-09-24',status:'SCHEDULED'}]};
+const before=JSON.stringify(data),build=()=>JSON.parse(JSON.stringify(sandbox.window.M4L_PROGRAM_OVERVIEW.build(data,timetable,preview)));
+let result=build();assert.equal(result.length,4);assert.deepEqual(result[0].classes,['Year 1','Year 2']);assert.deepEqual(result[0].teachers,['Teacher']);assert.deepEqual(result[0].learners,[{id:'L',name:'Learner'}]);assert.equal(result[1].level,'No level');assert.equal(result[2].level,'L2');assert.equal(result[2].module,'');assert.equal(result[3].subject,'Fiqh');assert.equal(JSON.stringify(data),before);
+preview.occurrences[0].status='CANCELLED';assert.equal(build()[0].learners.length,0);
+preview.issues.push({message:'Invalid draft'});assert.equal(build()[0].rosterReady,false);
+assert.equal(sandbox.window.M4L_PROGRAM_OVERVIEW.build(data,null,null)[0].rosterReady,false);
+data.rows.modules.push({ProgramModuleID:'M3',ProgramSubjectID:'MISSING',LevelID:'UNKNOWN',Name:'Needs repair',Active:true});assert.equal(build().at(-1).subject,'Unavailable subject');assert.equal(build().at(-1).level,'Unavailable level');
+data.rows.subjects[0].Active=false;assert.equal(build()[0].archived,true);
+console.log('Program overview: optional levels, empty subjects/levels, draft relationships, membership dates, combined-class deduplication, cancellations, unavailable data and archived records passed.');
