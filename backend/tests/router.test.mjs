@@ -1,8 +1,11 @@
+/* M4L V105.1 - Program routes and release health metadata. */
 import assert from "node:assert/strict";
 import { ROUTE_PATHS } from "../src/router.js";
 import worker from "../src/worker.js";
 
 const expectedPaths = [
+  ...["get", "prepare", "save", "validate", "preview", "publish", "history", "recover"].map(action => `/api/admin/platform/program-timetable/${action}`),
+  ...["list", "create", "save", "readiness", "prepare"].map(action => `/api/admin/platform/programs/${action}`),
   "/api/account/check",
   "/api/account/setup-pin",
   "/api/account/login",
@@ -126,7 +129,7 @@ assert.equal(root.status, 200);
 assert.deepEqual(await root.json(), {
   success: true,
   service: "rebootworker",
-  version: "104.5.4"
+  version: "105.2.0"
 });
 
 const preflight = await worker.fetch(new Request("https://worker.test/api/login", {

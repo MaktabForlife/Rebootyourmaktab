@@ -1,3 +1,4 @@
+/* M4L V105.2 - Program setup is a Worker-native service. */
 export const BACKEND_APPS_SCRIPT = "apps-script";
 export const BACKEND_GOOGLE_SHEETS = "google-sheets";
 export const BACKEND_WORKER = "worker";
@@ -47,6 +48,8 @@ const FEATURE_DEFINITIONS = Object.freeze({
   "platform-identity-link": defineFixedFeature(BACKEND_WORKER),
   "platform-global-management": defineFixedFeature(BACKEND_WORKER),
   "platform-global-timetable": defineFixedFeature(BACKEND_WORKER),
+  "program-builder": defineFixedFeature(BACKEND_WORKER),
+  "program-timetable": defineFixedFeature(BACKEND_WORKER),
   "account-auth": defineFixedFeature(BACKEND_WORKER),
   "academy-timetable": defineFixedFeature(BACKEND_WORKER),
   "academy-calendar": defineFixedFeature(BACKEND_WORKER),

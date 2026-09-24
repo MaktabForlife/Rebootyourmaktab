@@ -1,0 +1,6 @@
+# Local dependency/runtime output; never include these in release ZIPs.
+node_modules/
+.wrangler/
+.dev.vars
+.dev.vars.*
+.DS_Store

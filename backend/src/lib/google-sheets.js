@@ -227,7 +227,7 @@ export async function readGoogleSpreadsheetSheetProperties(env, target = {}) {
   const url = [
     "https://sheets.googleapis.com/v4/spreadsheets/",
     encodeURIComponent(spreadsheetId),
-    "?fields=sheets(properties(sheetId,title))"
+    target.includeGrid ? "?fields=sheets(properties(sheetId,title,gridProperties(rowCount)))" : "?fields=sheets(properties(sheetId,title))"
   ].join("");
   const response = await fetchGoogleSheetsReadWithRetry(url, {
     method: "GET",
@@ -239,7 +239,8 @@ export async function readGoogleSpreadsheetSheetProperties(env, target = {}) {
   const data = await parseGoogleSheetsResponse(response);
   return (Array.isArray(data.sheets) ? data.sheets : []).map(sheet => ({
     sheetId: Number(sheet?.properties?.sheetId),
-    title: String(sheet?.properties?.title || "").trim()
+    title: String(sheet?.properties?.title || "").trim(),
+    ...(target.includeGrid ? { rowCount: Number(sheet?.properties?.gridProperties?.rowCount) || 1000 } : {})
   })).filter(sheet => Number.isInteger(sheet.sheetId) && sheet.title);
 }
 

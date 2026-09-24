@@ -1,3 +1,23 @@
+# V105.2 — Program timetable builder (105.2.0)
+
+Adds module lessons with optional levels, one or multiple class audiences, recurring/one-off patterns, cancellation/move exceptions and a bounded publication window. The compact grid offers keyboard saving, teacher/class/known-learner conflict feedback, linked weekly preview and explicit immutable publication history.
+
+Canonical data remains in Sheets. Timetable saves and publication use a per-Program Durable Object coordinator with fresh authority checks, a durable pending intent, atomic Sheets revision/snapshot/receipt writes and retry-safe recovery. Append-only state revisions prevent delayed old writes from replacing a newer draft or published pointer. Existing Reboot and Global Course paths remain isolated.
+
+This is a local implementation package; Development deployment and real-data acceptance remain pending. Deploy the new runtime entrypoint and coordinator binding/migration with the frontend. Full membership/curriculum management remains V105.3/V105.4 and student Academy integration remains V105.6. See [verification](docs/V105.2-VERIFICATION.md) and [setup/recovery](docs/V105.2-PROGRAM-TIMETABLE.md).
+
+---
+
+# V105.1 — Program setup (105.1.0)
+
+Adds a platform-only Program registration/configuration grid and recoverable spreadsheet preparation on the V104.5.4 baseline. Reuses CourseRegistry and central accounts. Duration and optional timezone are separate from curriculum levels. New Programs remain inactive; mappings cannot be changed from this screen.
+
+Includes service/repository boundaries, atomic Platform registry/definition/audit writes, sequential stale-edit checks, preserved failed input, keyboard saving and responsive grid controls. Setup currently requires a single editor; simultaneous request coordination remains outstanding.
+
+Local verification: 69/69 backend test files and 167/167 syntax checks passed. No live deployment or Aalimiya registration has been performed. See [setup/recovery](docs/V105.1-PROGRAM-SETUP.md) and [stage acceptance](docs/V105.1-IMPLEMENTATION-CHECKLIST.md).
+
+---
+
 # V104.5.4 Release Notes — Course / Academy Timetable UI Refinement
 
 V104.5.4 is a code/UI-only refinement on V104.5.3. Platform schema remains `102.0.12`; **no migration is required**.

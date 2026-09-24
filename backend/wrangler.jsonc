@@ -1,6 +1,6 @@
 {
   "name": "rebootworker",
-  "main": "src/worker.js",
+  "main": "src/worker-runtime.js",
   "compatibility_date": "2026-06-01",
   "keep_vars": true,
   "r2_buckets": [
@@ -27,7 +27,15 @@
             "period": 60
           }
         }
-      ]
+      ],
+      "durable_objects": {
+        "bindings": [
+          {
+            "name": "PROGRAM_TIMETABLE_COORDINATOR",
+            "class_name": "ProgramTimetableCoordinator"
+          }
+        ]
+      }
     }
   },
   "ratelimits": [
@@ -38,6 +46,22 @@
         "limit": 5,
         "period": 60
       }
+    }
+  ],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "PROGRAM_TIMETABLE_COORDINATOR",
+        "class_name": "ProgramTimetableCoordinator"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1052-program-timetable",
+      "new_sqlite_classes": [
+        "ProgramTimetableCoordinator"
+      ]
     }
   ]
 }
