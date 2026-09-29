@@ -1,3 +1,4 @@
+import { normalizeZoomLink } from './zoom-links.js';
 import { problem, clean } from './model.js';
 import { payloadHash, validDate } from './timetable-model.js';
 import { isActivePlatformValue as active } from '../lib/platform-schema.js';
@@ -122,7 +123,10 @@ export function applyManagementChange(current, input, shared, program) {
     const selected=snapshot.ProgramLevels.find(r=>r.LevelID===record.LevelID);
     if(selected&&!STANDARD_LEVELS.some(name=>name.toLowerCase()===clean(selected.Name).toLowerCase())&&previous?.LevelID!==selected.LevelID)throw problem('Choose a standard level. An existing custom level may be kept on its current module.');
   }
-  if(input.kind==='classes')record.AcademicYear=text('AcademicYear','Academic year',40,true);
+  if(input.kind==='classes'){
+    record.AcademicYear=text('AcademicYear','Academic year',40,true);
+    record.ZoomLink=normalizeZoomLink(Object.hasOwn(source,'ZoomLink')?source.ZoomLink:previous?.ZoomLink);
+  }
   if(input.kind==='enrollments'){
     record.ClassID=text('ClassID','Class',100);record.AccountID=text('AccountID','Learner',100);
     if(!snapshot.ProgramClasses.some(r=>r.ClassID===record.ClassID&&r.CourseID===program.id&&(!record.Active||active(r.Active))))throw problem('Choose an active class in this Program.');

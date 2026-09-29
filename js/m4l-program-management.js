@@ -9,13 +9,13 @@
     levels:{label:'Levels',singular:'level',key:'LevelID',prefix:'LVL',columns:[['ProgramSubjectID','Subject','programSubject'],['Name','Level name'],['SortOrder','Order','number'],['Active','Status','active']],help:'Levels are optional and belong to a subject within this Program. They do not represent academic years.'},
     modules:{label:'Modules',singular:'module',key:'ProgramModuleID',prefix:'MOD',columns:[['ProgramSubjectID','Subject','programSubject'],['LevelID','Level (optional)','level'],['Name','Module name'],['SortOrder','Order','number'],['Active','Availability','active']],help:'Choose an optional standard level and record progress separately for each class. Marking one class Completed keeps the module available to other classes. Assign teachers in the timetable.'},
     progress:{label:'Module progress',singular:'class status',key:'ProgressID',prefix:'MP',columns:[['ProgramModuleID','Module','module'],['ClassID','Class','class'],['Status','Class status','progress']],help:'Track each class separately: Active = studying, Inactive = not currently studying, Completed = finished. Completing a module for one class does not change its availability or timetable.'},
-    classes:{label:'Classes',singular:'class',key:'ClassID',prefix:'CLS',columns:[['Name','Class name'],['AcademicYear','Academic year (optional)'],['Active','Status','active']],help:'Create classes such as Year 1 and Year 2. They can learn a module together in one timetable lesson.'},
+    classes:{label:'Classes',singular:'class',key:'ClassID',prefix:'CLS',columns:[['Name','Class name'],['AcademicYear','Academic year (optional)'],['ZoomLink','Zoom link (optional)','url'],['Active','Status','active']],help:'Create classes such as Year 1 and Year 2. The class Zoom link is used for single-class lessons unless a lesson link is set. Combined classes require a shared lesson link.'},
     teachers:{label:'Teachers',singular:'teacher',key:'AccountID',columns:[['AccountID','Teacher','teacher'],['Active','Assignment','active']],help:'Choose users with an active Teacher, Senior or Admin role in this Program. Program assignments do not grant roles.'},
     enrollments:{label:'Class memberships',singular:'class membership',key:'EnrollmentID',prefix:'ENR',columns:[['AccountID','User','account'],['ClassID','Class','class'],['StartDate','From','date'],['EndDate','Through (optional)','date'],['Active','Status','active']],help:'Set inclusive membership dates. A blank end date means ongoing membership. These dates support learner-clash checks.'}
   };
   const tabs=[['overview','Overview'],['modules','Modules'],['subjects','Subjects'],['classes','Classes'],['profiles','User profiles']];
   const tabKind=kind=>({progress:'modules',levels:'modules',enrollments:'profiles',teachers:'profiles'})[kind]||kind;
-  const state={data:null,kind:'subjects',overview:true,timetable:null,preview:null,timetableError:false,edit:null,busy:false,pending:null,search:'',importPreview:null,importPending:null,expanded:new Set(),refreshWaiting:false,refreshTimer:null,profileAccountId:null};
+  const state={data:null,kind:new URLSearchParams(location.search).get('tab')==='classes'?'classes':'subjects',overview:new URLSearchParams(location.search).get('tab')!=='classes',timetable:null,preview:null,timetableError:false,edit:null,busy:false,pending:null,search:'',importPreview:null,importPending:null,expanded:new Set(),refreshWaiting:false,refreshTimer:null,profileAccountId:null};
   const message=(text,error=false)=>{$('pm-message').textContent=text;$('pm-message').classList.toggle('is-error',error);};
   async function api(action,body={},shared=false){
     const token=localStorage.getItem('m4l_account_token');if(!token)throw Object.assign(new Error('Sign in through your personal Academy account link, then open Programs.'),{status:401,retryable:false});
@@ -68,12 +68,16 @@
     return null;
   }
   function display(row,[key,label,type]){if(type==='level'&&!row.LevelID)return 'No level';const values=choices(type,row);return values?values.find(v=>v.id===String(key==='Active'?active(row[key]):row[key]))?.name||row[key]||'—':row[key]===undefined||row[key]===null||row[key]===''?'—':row[key];}
+  function displayCell(row,col){
+    if(col[2]==='url'&&row[col[0]])try{const url=new URL(row[col[0]]);if(url.protocol==='https:'&&!url.username&&!url.password)return `<a href="${esc(url.href)}" target="_blank" rel="noopener noreferrer">Open Zoom</a>`;}catch{}
+    return esc(display(row,col));
+  }
   function cell(row,col){const [key,label,type]=col,values=choices(type,row),value=key==='Active'?String(active(row[key])):String(row[key]??'');
     const fixed=(state.kind==='enrollments'&&key==='AccountID'&&Boolean(state.profileAccountId))||!state.edit.creating&&((state.kind==='progress'&&['ProgramModuleID','ClassID'].includes(key))||(state.kind==='subjects'&&key==='SubjectID'&&!state.data.sharedSubjects.find(s=>s.SubjectID===state.edit.originalSubjectID)?.Legacy)||(state.kind==='teachers'&&key==='AccountID'));
     if(values){let available=values.filter(v=>v.active===undefined||active(v.active)||v.id===value);if(type==='subject'&&!fixed)available.push({id:'__new__',name:'＋ Create a new subject…'});if(value&&!available.some(v=>v.id===value))available.push({id:value,name:`Unavailable: ${value}`});
       return `<select data-field="${key}" aria-label="${esc(label)}" ${fixed?'disabled':''}>${['active','progress'].includes(type)?'':`<option value="">${type==='level'?'No level':'Choose…'}</option>`}${available.map(v=>`<option value="${esc(v.id)}" ${v.id===value?'selected':''}>${esc(v.name)}${v.active!==undefined&&!active(v.active)?' (inactive)':''}</option>`).join('')}</select>${type==='subject'&&value==='__new__'?`<label class="pm-new-subject">New subject name<input data-field="NewSubjectName" aria-label="New subject name" maxlength="160" placeholder="For example, Tafseer" value="${esc(row.NewSubjectName||'')}"></label>`:''}`;
     }
-    return `<input data-field="${key}" aria-label="${esc(label)}" type="${type==='date'?'date':type==='number'?'number':'text'}" value="${esc(value)}" ${type==='number'?'min="0" max="9999" step="1"':'maxlength="160"'}>`;
+    return `<input data-field="${key}" aria-label="${esc(label)}" type="${type==='date'?'date':type==='number'?'number':type==='url'?'url':'text'}" value="${esc(value)}" ${type==='number'?'min="0" max="9999" step="1"':type==='url'?'maxlength="2048" placeholder="https://…"':'maxlength="160"'}>`;
   }
   function progressClasses(row){
     if(!row.classProgress.length)return '<span class="pm-muted">Not scheduled</span>';
@@ -184,7 +188,7 @@
     const filtered=records.filter(r=>rowEdit&&r[def.key]===rowEdit.originalId||edit?.kind==='progress'&&r.ProgramModuleID===edit.record.ProgramModuleID||def.columns.some(c=>String(display(r,c)).toLowerCase().includes(state.search.toLowerCase())));
     $('pm-count').textContent=`${filtered.length} of ${records.length} rows`;
     $('pm-rows').innerHTML=filtered.map((r,i)=>{const editing=rowEdit&&(rowEdit.creating?r===rowEdit.record:r[def.key]===rowEdit.originalId),row=editing?rowEdit.record:r;
-      return `<tr class="${editing||edit?.kind==='progress'&&r.ProgramModuleID===edit.record.ProgramModuleID?'is-editing':''}"><td>${i+1}</td>${columns.map(c=>`<td data-label="${esc(c[1])}">${c[0]==='__progress'?moduleProgressCell(row,edit):editing?cell(row,c):esc(display(row,c))}</td>`).join('')}<td data-label="Changes">${editing?'<button type="button" data-save>Save</button><button type="button" data-cancel class="pb-secondary">Cancel</button>':`<button type="button" data-edit="${esc(r[def.key])}" class="pb-secondary" ${state.edit?'disabled':''}>Edit</button>`}</td></tr>`;
+      return `<tr class="${editing||edit?.kind==='progress'&&r.ProgramModuleID===edit.record.ProgramModuleID?'is-editing':''}"><td>${i+1}</td>${columns.map(c=>`<td data-label="${esc(c[1])}">${c[0]==='__progress'?moduleProgressCell(row,edit):editing?cell(row,c):displayCell(row,c)}</td>`).join('')}<td data-label="Changes">${editing?'<button type="button" data-save>Save</button><button type="button" data-cancel class="pb-secondary">Cancel</button>':`<button type="button" data-edit="${esc(r[def.key])}" class="pb-secondary" ${state.edit?'disabled':''}>Edit</button>`}</td></tr>`;
     }).join('')||`<tr><td colspan="${columns.length+2}" class="pm-empty">No ${def.label.toLowerCase()} yet. Add your first ${def.singular}.</td></tr>`;controls();
   }
   async function load(){state.data=await api('manage-get',{includeOverview:true});state.data.rows.progress||=[];

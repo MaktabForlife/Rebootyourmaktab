@@ -8,7 +8,7 @@ export function timetableFixture(){
     classes:[{id:'CLASS-1',courseId:program.id,name:'Year 1 · Demo',academicYear:'2026',active:true},{id:'CLASS-2',courseId:program.id,name:'Year 2 · Demo',academicYear:'2026',active:true}],
     teachers:[{id:'TEACHER-1',name:'Demo teacher A',active:true},{id:'TEACHER-2',name:'Demo teacher B',active:true}],
     enrollments:[{id:'ENR-1',courseId:program.id,classId:'CLASS-1',accountId:'LEARNER-DEMO',startDate:'2026-01-01',endDate:'',active:true},{id:'ENR-2',courseId:program.id,classId:'CLASS-2',accountId:'LEARNER-DEMO',startDate:'2026-01-01',endDate:'',active:true}]};
-  const draft={timezone:'Asia/Riyadh',startDate:'2026-09-21',endDate:'2026-10-04',rules:[{id:'RULE-DEMO',kind:'RECURRING',moduleId:'MOD-DEMO',teacherId:'TEACHER-1',classIds:['CLASS-1','CLASS-2'],weekdays:[1,3],startDate:'2026-09-21',endDate:'2026-10-04',startTime:'13:00',endTime:'14:00'}],exceptions:[]};
+  const draft={timezone:'Asia/Riyadh',startDate:'2026-09-21',endDate:'2026-10-04',rules:[{id:'RULE-DEMO',kind:'RECURRING',zoomLink:'https://example.zoom.us/j/123456789',moduleId:'MOD-DEMO',teacherId:'TEACHER-1',classIds:['CLASS-1','CLASS-2'],weekdays:[1,3],startDate:'2026-09-21',endDate:'2026-10-04',startTime:'13:00',endTime:'14:00'}],exceptions:[]};
   const tables=Object.fromEntries(Object.keys(TIMETABLE_HEADERS).map(name=>[name,[]]));
   Object.assign(tables,{
     ProgramSubjects:catalog.subjects.map(r=>({ProgramSubjectID:r.id,CourseID:program.id,SubjectID:r.subjectId,Active:r.active})),
@@ -30,7 +30,7 @@ export function timetableFixture(){
         subjects:t.ProgramSubjects.map(r=>({id:r.ProgramSubjectID,courseId:r.CourseID,subjectId:r.SubjectID,name:shared.subjects.find(s=>s.SubjectID===r.SubjectID)?.SubjectName,active:r.Active})),
         levels:t.ProgramLevels.map(r=>({id:r.LevelID,programSubjectId:r.ProgramSubjectID,name:r.Name,active:r.Active})),
         modules:t.ProgramModules.map(r=>({id:r.ProgramModuleID,programSubjectId:r.ProgramSubjectID,levelId:r.LevelID,name:r.Name,active:r.Active})),
-        classes:t.ProgramClasses.map(r=>({id:r.ClassID,courseId:r.CourseID,name:r.Name,academicYear:r.AcademicYear,active:r.Active})),
+        classes:t.ProgramClasses.map(r=>({id:r.ClassID,courseId:r.CourseID,name:r.Name,academicYear:r.AcademicYear,zoomLink:r.ZoomLink||'',active:r.Active})),
         teachers:shared.accounts.filter(a=>a.Active&&shared.grantedTeachers.some(r=>r.AccountID===a.AccountID)).map(r=>({id:r.AccountID,name:r.DisplayName,active:true})),
         enrollments:t.ProgramEnrollments.map(r=>({id:r.EnrollmentID,courseId:r.CourseID,classId:r.ClassID,accountId:r.AccountID,startDate:r.StartDate,endDate:r.EndDate,active:r.Active}))
       };

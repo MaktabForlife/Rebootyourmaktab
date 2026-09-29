@@ -1,3 +1,9 @@
+# V105.3.2.3 — Class and lesson Zoom links
+
+Set a default Zoom link in Classes and an override in each timetable lesson. A lesson link takes priority. A single-class lesson falls back to its class link; combined classes require one shared lesson link before publication. Preview and published history show the selected link. [Storage and acceptance](docs/V105.3.2.3-ZOOM-LINKS.md).
+
+Development only; user acceptance remains open.
+
 # V105.3.2.2 — Weekly timetable corrections
 
 Program timetable rows now repeat weekly without lesson dates or a Pattern column. The grid starts with Module, followed by Classes, Teacher, Weekdays, Start and End. Teachers are optional; time entry accepts 845 as 08h45. Choose one effective date when publishing: the current version remains in effect until its replacement starts. Earlier published snapshots stay unchanged. [Details and acceptance](docs/V105.3.2.2-WEEKLY-TIMETABLE.md).

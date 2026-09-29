@@ -12,7 +12,7 @@ const elementIds=new Set([...markup.matchAll(/id="([^"]+)"/g)].map(m=>m[1]));
 const elements=new Map(),storage=new Map(),requests=[];
 let failing=0,failReadAfterSave=false,serviceFailure=null,holdDelays=false;const delays=[],scheduled=[],readFailures=[];
 function element(id){assert(elementIds.has(id),`Missing HTML element ${id}`);if(!elements.has(id))elements.set(id,{hidden:false,disabled:false,value:'',textContent:'',innerHTML:'',listeners:{},classList:{toggle(){}},querySelectorAll:()=>[],querySelector:()=>null,addEventListener(type,fn){this.listeners[type]=fn;}});return elements.get(id);}
-const context={console,URLSearchParams,structuredClone,crypto,setTimeout:(fn,ms)=>{if(ms>=1000){delays.push(ms);if(holdDelays){scheduled.push({fn,ms});return scheduled.length;}return setTimeout(fn,0);}return setTimeout(fn,ms);},location:{search:'?program='+f.program.id},localStorage:{getItem:()=> 'token'},sessionStorage:{getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)},document:{getElementById:element,addEventListener(){}},window:{M4L_CONFIG:{API_BASE:''},M4L_PROGRAM_OVERVIEW:{build:()=>[]},addEventListener(){}},fetch:async(url,options)=>{
+const context={console,URL,URLSearchParams,structuredClone,crypto,setTimeout:(fn,ms)=>{if(ms>=1000){delays.push(ms);if(holdDelays){scheduled.push({fn,ms});return scheduled.length;}return setTimeout(fn,0);}return setTimeout(fn,ms);},location:{search:'?program='+f.program.id},localStorage:{getItem:()=> 'token'},sessionStorage:{getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)},document:{getElementById:element,addEventListener(){}},window:{M4L_CONFIG:{API_BASE:''},M4L_PROGRAM_OVERVIEW:{build:()=>[]},addEventListener(){}},fetch:async(url,options)=>{
   const action=url.split('/').at(-1),body=JSON.parse(options.body);requests.push({action,body});
   try{
     if(action==='manage-get'&&readFailures.length){const error=readFailures.shift();return {ok:false,status:503,json:async()=>({success:false,error:'Simulated read failure',...error})};}
@@ -46,7 +46,8 @@ assert.equal(element('pm-caption').textContent,'Modules');
 assert.match(element('pm-rows').innerHTML,/value="Maariful Quran · Demo module"/);
 await clickRow({'data-cancel':true});
 element('pm-tabs').onclick({target:{closest:()=>({dataset:{tab:'classes'}})}});
-element('pm-add').onclick();input('Name','Preserved draft');
+element('pm-add').onclick();input('Name','Preserved draft');input('ZoomLink','https://zoom.us/j/555?pwd=class');
+assert.match(element('pm-rows').innerHTML,/data-field="ZoomLink"/);assert.match(element('pm-head').innerHTML,/Zoom link/);
 // Browse Learners without losing or saving the Classes draft.
 element('pm-tabs').onclick({target:{closest:()=>({dataset:{tab:'profiles'}})}});
 assert.equal(element('pm-caption').textContent,'User profiles');assert.equal(element('pm-draft-notice').hidden,false);
@@ -56,9 +57,10 @@ element('pm-return').onclick();assert.match(element('pm-rows').innerHTML,/Preser
 await element('pm-reload').onclick();assert.match(element('pm-rows').innerHTML,/Preserved draft/);
 assert.match(element('pm-message').textContent,/unsaved entry is kept/);
 failing=1;await clickRow({'data-save':true});
-let rows=(await service.read('manage-get')).rows.classes;const saved=rows.find(r=>r.Name==='Preserved draft');assert(saved);
+let rows=(await service.read('manage-get')).rows.classes;const saved=rows.find(r=>r.Name==='Preserved draft');assert(saved);assert.equal(saved.ZoomLink,'https://zoom.us/j/555?pwd=class');
 let writes=requests.filter(r=>r.action==='manage-save');assert.equal(writes.at(-1).body.operationId,writes.at(-2).body.operationId);
 assert.equal(rows.filter(r=>r.Name==='Preserved draft').length,1);
+assert.match(element('pm-rows').innerHTML,/href="https:\/\/zoom.us\/j\/555\?pwd=class"/);
 // Independent fields are merged automatically, even after refreshing with a draft.
 await clickRow({edit:saved.ClassID});input('Name','My new name');await external({...saved,AcademicYear:'2027'});
 await element('pm-reload').onclick();await clickRow({'data-save':true});

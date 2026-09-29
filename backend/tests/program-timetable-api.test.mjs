@@ -166,6 +166,7 @@ try{
  table(platformId,'UserCourseAccess').push(['ACCESS-TEACHER','TEACHER-1',input.id,'TEACHER',true]);
  loaded=await tt('get');assert.equal(loaded.prepared,true);assert.equal(loaded.catalog.modules.length,1);assert.equal(loaded.catalog.teachers.length,1);
  assert((await tt('preview',{draft:f.draft})).valid);
+ const noSharedZoom=structuredClone(f.draft);noSharedZoom.rules[0].zoomLink='';assert.equal((await tt('preview',{draft:noSharedZoom})).valid,false);
  let saved=await tt('save',change(''));assert.equal(table(targetId,'ProgramTimetableState').length,2);assert.equal(table(targetId,'ProgramTimetablePublications').length,1);
  const publishInput=change(saved.revision);let pub=await tt('publish',publishInput);assert.equal(pub.version,1);assert.equal(table(targetId,'ProgramTimetableState').length,3);
  assert((await tt('publish',publishInput)).replayed);assert.equal(table(targetId,'ProgramTimetablePublications').length,2);
@@ -199,7 +200,9 @@ try{
  assert(!JSON.stringify(management.accounts).includes('PINHash'));
  const edit=(kind,record,creating=true)=>({kind,record,creating,revision:management.revision,referenceRevision:management.referenceRevision,operationId:crypto.randomUUID()});
  const saveRow=async(kind,record,creating=true)=>{const result=await tt('manage-save',edit(kind,record,creating));management=await tt('manage-get');assert(Object.values(management.rowRevisions[kind]).includes(result.rowRevision),'Save acknowledgement includes the committed row revision');return result;};
- await saveRow('classes',{ClassID:'CLS-TEST',Name:'Evening class',AcademicYear:'2026',Active:true});
+ await saveRow('classes',{ClassID:'CLS-TEST',Name:'Evening class',AcademicYear:'2026',ZoomLink:'https://zoom.us/j/777?pwd=class',Active:true});
+ assert.equal((await tt('get')).catalog.classes.find(r=>r.id==='CLS-TEST').zoomLink,'https://zoom.us/j/777?pwd=class');
+ await tt('manage-save',edit('classes',{ClassID:'CLS-UNSAFE',Name:'Invalid link',ZoomLink:'javascript:alert(1)',Active:true}),token,400);
  assert((await tt('get')).catalog.classes.some(r=>r.id==='CLS-TEST'));
  const stale=edit('classes',{ClassID:'CLS-STALE',Name:'Stale',Active:true});
  await saveRow('levels',{LevelID:'LVL-TEST',ProgramSubjectID:'PS-TAFSEER',Name:'Beginner',SortOrder:1,Active:true});
@@ -239,8 +242,8 @@ try{
  await tt('manage-save',edit('enrollments',{EnrollmentID:'ENR-OVERLAP',ClassID:'CLS-TEST',AccountID:'ACCOUNT2',StartDate:'2026-09-24',EndDate:'',Active:true}),token,400);
  await tt('manage-save',edit('enrollments',{EnrollmentID:'ENR-BAD-DATE',ClassID:'CLS-TEST',AccountID:'ACCOUNT2',StartDate:'2026-02-30',EndDate:'',Active:true}),token,400);
  await tt('manage-save',edit('classes',{ClassID:'CLS-TEST',Name:'Evening class',AcademicYear:'2026',Active:false},false),token,400);
- const managedDraft=structuredClone(f.draft);managedDraft.rules[0].moduleId='MOD-TEST';managedDraft.rules[0].classIds=['CLS-TEST'];managedDraft.rules[0].teacherId='ACCOUNT2';
- assert((await tt('preview',{draft:managedDraft})).valid);
+ const managedDraft=structuredClone(f.draft);managedDraft.rules[0].moduleId='MOD-TEST';managedDraft.rules[0].classIds=['CLS-TEST'];managedDraft.rules[0].teacherId='ACCOUNT2';managedDraft.rules[0].zoomLink='';
+ assert((await tt('preview',{draft:managedDraft})).valid);assert.equal((await tt('preview',{draft:managedDraft})).occurrences[0].zoomLink,'https://zoom.us/j/777?pwd=class');
  // A lost response preserves the exact change and produces one management revision.
  const lostManagement=edit('classes',{ClassID:'CLS-RETRY',Name:'Retry class',AcademicYear:'',Active:true});
  loseResponse=true;await tt('manage-save',lostManagement,token,503);
@@ -410,6 +413,7 @@ try{
  assert.equal(future.currentPublicationId,activeBefore.id);
  assert.deepEqual((await tt('published')).publication.snapshot,activeBefore.snapshot);
  const futureView=(await tt('published',{date:effectiveFrom})).publication;
+ assert.equal(futureView.occurrences[0].zoomLink,'https://zoom.us/j/777?pwd=class');assert.equal(futureView.occurrences[0].zoomSource,'CLASS');
  assert.equal(futureView.id,future.publicationId);assert.equal(futureView.occurrences[0].teacherId,'');assert.equal(futureView.occurrences[0].startTime,'08:45');
  assert.equal((await tt('published',{date:'2099-12-31'})).publication.id,future.publicationId);
  console.log('Weekly runtime API: optional teacher, future publication, current/history preservation and no expiry passed.');

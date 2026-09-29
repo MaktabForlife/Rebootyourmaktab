@@ -86,7 +86,10 @@ export function timetableService(repository,program,now=()=>new Date()) {
       if (input.revision!==current.revision) throw problem('Another administrator changed this timetable. Your edits are kept; load the latest draft before reapplying them.',409);
       const legacySave=action==='save'&&input.draft&&input.draft.format===undefined;
       if(!legacySave&&current.conversion?.required&&input.convertLegacy!==true)throw problem('Review the older dated items and choose Use weekly lessons before saving. The original draft remains saved.',409);
-      const draft=legacySave?normalizeDatedDraft(input.draft):normalizeWeeklyDraft(input.draft);
+      // Cached editors do not know this field; omission must not erase a saved lesson link.
+      const draftInput={...input.draft,rules:Array.isArray(input.draft?.rules)?input.draft.rules.map(row=>row&&({...row,zoomLink:Object.hasOwn(row,'zoomLink')?row.zoomLink:current.draft.rules.find(r=>r.id===row.id)?.zoomLink||''})):input.draft?.rules};
+      const draft=legacySave?normalizeDatedDraft(draftInput):normalizeWeeklyDraft(draftInput);
+      if(legacySave)for(const row of draft.rules)row.zoomLink=draftInput.rules.find(r=>r.id===row.id)?.zoomLink||'';
       let validation,effectiveFrom;
       if (action==='publish') {
         effectiveFrom=input.effectiveFrom||current.today;

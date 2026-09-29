@@ -1,4 +1,5 @@
 /* Ongoing weekly patterns; calendar dates belong to publication, not lesson rules. */
+import { normalizeZoomLink,lessonZoom } from './zoom-links.js';
 import { problem } from './model.js';
 import { boundedJSON, validDate, normalizeDraft as normalizeDatedDraft, publishedOccurrences as datedOccurrences } from './timetable-model.js';
 export const WEEKLY_SCHEMA='105.3.2.2-weekly';
@@ -18,7 +19,7 @@ export function normalizeWeeklyDraft(input){
   draft.rules=input.rules.map(row=>{
     if(!row||!/^RULE-[\w-]{1,80}$/.test(row.id||''))throw problem('Each lesson needs a stable rule ID.');
     if(row.startDate||row.endDate||row.kind==='EXPLICIT')throw problem('Weekly lessons use weekdays and times. Dates are chosen only when publishing.');
-    return {id:row.id,moduleId:text(row.moduleId),teacherId:text(row.teacherId),classIds:Array.isArray(row.classIds)?row.classIds.map(text):[],weekdays:Array.isArray(row.weekdays)?row.weekdays.slice():[],startTime:normalizeTime(row.startTime),endTime:normalizeTime(row.endTime)};
+    return {id:row.id,moduleId:text(row.moduleId),teacherId:text(row.teacherId),classIds:Array.isArray(row.classIds)?row.classIds.map(text):[],weekdays:Array.isArray(row.weekdays)?row.weekdays.slice():[],startTime:normalizeTime(row.startTime),endTime:normalizeTime(row.endTime),zoomLink:text(row.zoomLink)};
   });
   if(new Set(draft.rules.map(r=>r.id)).size!==draft.rules.length)throw problem('Lesson IDs must be unique.');
   boundedJSON(draft);return draft;
@@ -26,7 +27,8 @@ export function normalizeWeeklyDraft(input){
 export function readWeeklyDraft(input){
   if(input.format===WEEKLY_SCHEMA)return {draft:normalizeWeeklyDraft(input),conversion:null};
   const old=normalizeDatedDraft(input),oneOffCount=old.rules.filter(r=>r.kind==='EXPLICIT').length;
-  const draft={...emptyWeeklyDraft(old.timezone),rules:old.rules.filter(r=>r.kind!=='EXPLICIT').map(({startDate,endDate,kind,...rule})=>rule)};
+  for(const row of old.rules)if(Object.hasOwn(input.rules.find(r=>r.id===row.id),'zoomLink'))row.zoomLink=text(input.rules.find(r=>r.id===row.id).zoomLink);
+  const draft={...emptyWeeklyDraft(old.timezone),rules:old.rules.filter(r=>r.kind!=='EXPLICIT').map(({startDate,endDate,kind,...rule})=>({...rule,zoomLink:text(input.rules.find(r=>r.id===rule.id)?.zoomLink)}))};
   return {draft:normalizeWeeklyDraft(draft),conversion:{required:Boolean(oneOffCount||old.exceptions.length),oneOffCount,exceptionCount:old.exceptions.length,originalDraft:old}};
 }
 function index(rows,label){
@@ -40,7 +42,7 @@ function hasWeekday(start,end,weekday){
   return first<=end;
 }
 export function weeklyPattern(rules){
-  return rules.flatMap(r=>r.weekdays.map(weekday=>({anchor:`${r.id}@${weekday}`,ruleId:r.id,weekday,moduleId:r.moduleId,subjectName:r.subjectName,moduleName:r.moduleName,levelName:r.levelName,classIds:r.classIds,classNames:r.classNames,teacherId:r.teacherId,teacherName:r.teacherName,startTime:r.startTime,endTime:r.endTime,status:'SCHEDULED'})))
+  return rules.flatMap(r=>r.weekdays.map(weekday=>({anchor:`${r.id}@${weekday}`,ruleId:r.id,weekday,moduleId:r.moduleId,subjectName:r.subjectName,moduleName:r.moduleName,levelName:r.levelName,classIds:r.classIds,classNames:r.classNames,teacherId:r.teacherId,teacherName:r.teacherName,startTime:r.startTime,endTime:r.endTime,zoomLink:r.effectiveZoomLink||'',zoomSource:r.zoomSource||'NONE',status:'SCHEDULED'})))
     .sort((a,b)=>(a.weekday+6)%7-(b.weekday+6)%7||a.startTime.localeCompare(b.startTime)||a.ruleId.localeCompare(b.ruleId));
 }
 export function validateWeeklyTimetable(input,catalog,program,fromDate){
@@ -58,7 +60,9 @@ export function validateWeeklyTimetable(input,catalog,program,fromDate){
     if(row.teacherId&&(!teachers.get(row.teacherId)?.active||!text(teachers.get(row.teacherId)?.name)))issue(row.id,'teacherId','Select an authorised active teacher.');
     if(!validTime(row.startTime)||!validTime(row.endTime)||row.startTime>=row.endTime)issue(row.id,'time','Use a same-day time range with the end after the start.');
     if(!row.weekdays.length||new Set(row.weekdays).size!==row.weekdays.length||row.weekdays.some(d=>!Number.isInteger(d)||d<0||d>6))issue(row.id,'weekdays','Choose at least one weekday without duplicates.');
-    if(before===issues.length)linked.push({...row,programSubjectId:subject.id,subjectId:subject.subjectId,levelId:module.levelId||'',subjectName:subject.name,moduleName:module.name,levelName:level?.name||'',classNames:row.classIds.map(id=>classes.get(id).name),teacherName:row.teacherId?teachers.get(row.teacherId).name:''});
+    let zoom={zoomLink:'',zoomSource:'NONE'};
+    try{zoom=lessonZoom(row,classes);}catch(error){issue(row.id,'zoomLink',error.message);}
+    if(before===issues.length)linked.push({...row,zoomLink:normalizeZoomLink(row.zoomLink),effectiveZoomLink:zoom.zoomLink,zoomSource:zoom.zoomSource,programSubjectId:subject.id,subjectId:subject.subjectId,levelId:module.levelId||'',subjectName:subject.name,moduleName:module.name,levelName:level?.name||'',classNames:row.classIds.map(id=>classes.get(id).name),teacherName:row.teacherId?teachers.get(row.teacherId).name:''});
   }
   const enrollments=(catalog.enrollments||[]).filter(e=>e.active);
   for(const e of enrollments)if(e.courseId!==program.id||!classes.has(e.classId)||!e.accountId||!validDate(e.startDate)||(e.endDate&&(!validDate(e.endDate)||e.endDate<e.startDate)))issue('','enrollments','Repair invalid class membership dates before publishing.');

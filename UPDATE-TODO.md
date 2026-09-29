@@ -1,3 +1,15 @@
+## V105.3.2.3 acceptance
+
+- [x] Optional class default Zoom link in Classes; lesson override in the timetable grid.
+- [x] Lesson link takes priority; single-class lessons fall back to their class link.
+- [x] Combined-class lessons require a shared lesson link before publication; unfinished drafts can still save.
+- [x] Safe HTTPS meeting links, explicit clearing, preserved cached-editor fields and stable retries.
+- [x] Published snapshots retain their selected link until replaced by a new publication.
+- [x] 81 regression files, development build and local Cloudflare runtime checks pass.
+- [ ] User acceptance: real class/lesson links, combined-class validation, preview/history links and desktop/mobile layout.
+
+See [Zoom links](docs/V105.3.2.3-ZOOM-LINKS.md). Earlier acceptance items remain open.
+
 ## V105.3.2.2 acceptance
 
 - [x] Ongoing weekly rows; remove Pattern, lesson dates, date window and exceptions from the editor.
