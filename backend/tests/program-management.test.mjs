@@ -86,3 +86,40 @@ f.shared.grantedTeachers=f.shared.grantedTeachers.filter(r=>r.AccountID!=='TEACH
 await assert.rejects(coordinator.run('manage-save',input({AccountID:'TEACHER-1',Active:true},'teachers',false),'token'),/needs an active Teacher/);
 await coordinator.run('manage-save',input({AccountID:'TEACHER-1',Active:false},'teachers',false),'token');
 console.log('Teacher eligibility: current program role required; revoked assignments can still be archived.');
+
+// Standard levels belong to a subject, are created with their module, and reuse a stable identity.
+const levels=timetableFixture(),ls=timetableService(levels.repository,levels.program);
+const lc=timetableCoordinator(levels.journal,async()=>({service:ls,user:{accountid:'ADMIN'}}));
+const levelRequest=async(record,creating=true)=>{const view=await ls.read('manage-get');return {id:levels.program.id,operationId:crypto.randomUUID(),kind:'modules',creating,record,baseRowRevision:view.rowRevisions.modules[record.ProgramModuleID]||view.emptyRowRevision};};
+const moduleRecord=(id,level='standard:Beginner',subject='PS-TAFSEER')=>({ProgramModuleID:id,ProgramSubjectID:subject,Name:id,LevelID:level,Active:true});
+const atomic=await levelRequest(moduleRecord('MOD-STANDARD'));levels.failNext('after');
+await assert.rejects(lc.run('manage-save',atomic,'token'),/Injected/);
+const acknowledgement=await lc.run('manage-save',atomic,'token');assert(acknowledgement.replayed);assert.equal(acknowledgement.level.Name,'Beginner');
+const stableLevelId=acknowledgement.record.LevelID;assert.equal(acknowledgement.level.LevelID,stableLevelId);
+await lc.run('manage-save',await levelRequest(moduleRecord('MOD-REUSE')),'token');
+let levelView=await ls.read('manage-get');assert.equal(levelView.rows.levels.length,1);assert(levelView.rows.modules.filter(m=>m.ProgramModuleID!=='MOD-DEMO').every(m=>m.LevelID===stableLevelId));
+await lc.run('manage-save',await levelRequest(moduleRecord('MOD-OPTIONAL','')),'token');
+for(const invalid of ['standard:Expert','standard:beginner','standard:'])await assert.rejects(lc.run('manage-save',await levelRequest(moduleRecord('MOD-INVALID',invalid)),'token'),/Choose Beginner/);
+const snapshot=managementState(await levels.repository.load(),levels.program).snapshot;
+snapshot.ProgramSubjects.push({ProgramSubjectID:'PS-ARABIC',SubjectID:'ARABIC',CourseID:levels.program.id,Active:true});
+const scoped=applyManagementChange({snapshot},{kind:'modules',creating:true,record:moduleRecord('MOD-ARABIC','standard:Beginner','PS-ARABIC')},levels.shared,levels.program);
+assert.notEqual(scoped.record.LevelID,stableLevelId);assert.equal(scoped.snapshot.ProgramLevels.length,2);
+// Existing custom links stay intact; a new module cannot choose a custom level.
+snapshot.ProgramLevels.push({LevelID:'LVL-LEGACY',ProgramSubjectID:'PS-TAFSEER',Name:'Foundation year',Active:true});
+snapshot.ProgramModules[0].LevelID='LVL-LEGACY';
+let legacy=applyManagementChange({snapshot},{kind:'modules',creating:false,record:{...snapshot.ProgramModules[0],Name:'Edited legacy module'}},levels.shared,levels.program);
+assert.equal(legacy.record.LevelID,'LVL-LEGACY');assert.deepEqual(legacy.snapshot.ProgramLevels,snapshot.ProgramLevels);
+assert.throws(()=>applyManagementChange({snapshot},{kind:'modules',creating:true,record:moduleRecord('MOD-CUSTOM','LVL-LEGACY')},levels.shared,levels.program),/standard level/);
+legacy=applyManagementChange({snapshot},{kind:'modules',creating:false,record:{...snapshot.ProgramModules[0],LevelID:'standard:Intermediate'}},levels.shared,levels.program);
+assert(legacy.snapshot.ProgramLevels.some(l=>l.LevelID==='LVL-LEGACY'),'Explicit replacement keeps historical level records');
+const inactive=structuredClone(snapshot);inactive.ProgramLevels[0].Active=false;
+const reactivated=applyManagementChange({snapshot:inactive},{kind:'modules',creating:true,record:moduleRecord('MOD-REACTIVATE')},levels.shared,levels.program);
+assert.equal(reactivated.record.LevelID,stableLevelId);assert.equal(reactivated.snapshot.ProgramLevels[0].Active,true);
+const duplicate=structuredClone(snapshot);duplicate.ProgramLevels.push({...duplicate.ProgramLevels[0],LevelID:'LVL-DUP'});
+assert.throws(()=>applyManagementChange({snapshot:duplicate},{kind:'modules',creating:true,record:moduleRecord('MOD-DUP')},levels.shared,levels.program),/duplicate levels/);
+// Optional level records must not strand subject archival when the Levels tab is removed.
+const unused=structuredClone(scoped.snapshot);unused.ProgramModules=unused.ProgramModules.map(r=>({...r,Active:false}));
+const archivedSubject=applyManagementChange({snapshot:unused},{kind:'subjects',creating:false,record:{...unused.ProgramSubjects[0],Active:false}},levels.shared,levels.program);
+assert.equal(archivedSubject.record.Active,false);assert.deepEqual(archivedSubject.snapshot.ProgramLevels,unused.ProgramLevels);
+assert.throws(()=>applyManagementChange({snapshot:scoped.snapshot},{kind:'subjects',creating:false,record:{...scoped.snapshot.ProgramSubjects[0],Active:false}},levels.shared,levels.program),/active dependent/);
+console.log('Standard levels: atomic replay, reuse, optionality, subject scope, custom-link preservation, reactivation and subject archive passed.');

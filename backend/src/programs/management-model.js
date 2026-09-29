@@ -3,6 +3,7 @@ import { payloadHash, validDate } from './timetable-model.js';
 import { isActivePlatformValue as active } from '../lib/platform-schema.js';
 
 export const REFERENCE_TABLES = ['ProgramSubjects','ProgramLevels','ProgramModules','ProgramClasses','ProgramEnrollments'];
+export const STANDARD_LEVELS = ['Beginner','Intermediate','Advanced'];
 export const MANAGEMENT_KINDS = {
   subjects:{table:'ProgramSubjects',key:'ProgramSubjectID',prefix:'PS'},
   levels:{table:'ProgramLevels',key:'LevelID',prefix:'LVL'},
@@ -36,13 +37,13 @@ export function managementRowRevision(record) {
 export async function managementView(data, repository, program) {
   const current=managementState(data,program), shared=await repository.managementReferences(data);
   const rows=Object.fromEntries(Object.entries(MANAGEMENT_KINDS).map(([kind,{table}])=>[kind,current.snapshot[table].map(r=>({...r}))]));
-  // Existing central teaching grants remain usable; explicit Program assignments override them.
+  // Preserve legacy assignment records for old drafts; timetable eligibility comes from current roles.
   for(const teacher of shared.grantedTeachers) if(!rows.teachers.some(r=>r.AccountID===teacher.AccountID)) rows.teachers.push({AccountID:teacher.AccountID,Active:true});
   for(const kind of ['levels','modules'])rows[kind].sort((a,b)=>Number(a.SortOrder||0)-Number(b.SortOrder||0));
   const referenceRevision=await payloadHash(shared);
   const rowRevisions={};
   for(const [kind,{table,key}] of Object.entries(MANAGEMENT_KINDS))rowRevisions[kind]=Object.fromEntries(await Promise.all(current.snapshot[table].map(async record=>[record[key],await managementRowRevision(record)])));
-  return {program,prepared:data.prepared,revision:current.revision,referenceRevision,rowRevisions,emptyRowRevision:await managementRowRevision(null),rows,sharedSubjects:shared.subjects,accounts:shared.accounts,eligibleTeacherIds:shared.grantedTeachers.map(r=>r.AccountID)};
+  return {program,prepared:data.prepared,revision:current.revision,referenceRevision,rowRevisions,emptyRowRevision:await managementRowRevision(null),rows,standardLevels:STANDARD_LEVELS,sharedSubjects:shared.subjects,accounts:shared.accounts,eligibleTeacherIds:shared.grantedTeachers.map(r=>r.AccountID)};
 }
 export function applyManagementChange(current, input, shared, program) {
   if(input.kind==='subject-import') {
@@ -107,7 +108,19 @@ export function applyManagementChange(current, input, shared, program) {
   }
   if(input.kind==='modules'){
     record.LevelID=text('LevelID','Level',100,true);
+    if(record.LevelID.startsWith('standard:')){
+      const name=record.LevelID.slice('standard:'.length),index=STANDARD_LEVELS.indexOf(name);
+      if(index<0)throw problem('Choose Beginner, Intermediate, Advanced, or no level.');
+      const matches=snapshot.ProgramLevels.filter(r=>r.ProgramSubjectID===record.ProgramSubjectID&&clean(r.Name).toLowerCase()===name.toLowerCase());
+      if(matches.length>1)throw problem('This subject has duplicate levels. Ask an administrator to review them.',409);
+      let level=matches[0];
+      if(!level){level={LevelID:`LVL-${crypto.randomUUID()}`,ProgramSubjectID:record.ProgramSubjectID,Name:name,SortOrder:index+1,Active:record.Active};snapshot.ProgramLevels.push(level);}
+      else if(record.Active)level.Active=true;
+      record.LevelID=level.LevelID;
+    }
     if(record.LevelID&&!snapshot.ProgramLevels.some(r=>r.LevelID===record.LevelID&&r.ProgramSubjectID===record.ProgramSubjectID&&(!record.Active||active(r.Active))))throw problem('The level must belong to this subject; leaving it blank is allowed.');
+    const selected=snapshot.ProgramLevels.find(r=>r.LevelID===record.LevelID);
+    if(selected&&!STANDARD_LEVELS.some(name=>name.toLowerCase()===clean(selected.Name).toLowerCase())&&previous?.LevelID!==selected.LevelID)throw problem('Choose a standard level. An existing custom level may be kept on its current module.');
   }
   if(input.kind==='classes')record.AcademicYear=text('AcademicYear','Academic year',40,true);
   if(input.kind==='enrollments'){
@@ -123,7 +136,7 @@ export function applyManagementChange(current, input, shared, program) {
   if(record.Name&&rows.some(r=>r[spec.key]!==id&&clean(r.Name).toLowerCase()===record.Name.toLowerCase()&&(!record.ProgramSubjectID||r.ProgramSubjectID===record.ProgramSubjectID)))throw problem('That name already exists here. Edit its existing row.');
   if(input.kind==='levels'&&previous&&previous.ProgramSubjectID!==record.ProgramSubjectID&&snapshot.ProgramModules.some(r=>r.LevelID===id))throw problem('A level used by modules cannot move to another subject.');
   if(!record.Active){
-    const used=input.kind==='subjects'?[...snapshot.ProgramLevels,...snapshot.ProgramModules].some(r=>r.ProgramSubjectID===id&&active(r.Active))
+    const used=input.kind==='subjects'?snapshot.ProgramModules.some(r=>r.ProgramSubjectID===id&&active(r.Active))
       :input.kind==='levels'?snapshot.ProgramModules.some(r=>r.LevelID===id&&active(r.Active))
       :input.kind==='classes'?snapshot.ProgramEnrollments.some(r=>r.ClassID===id&&active(r.Active)):false;
     if(used)throw problem('Archive or move the active dependent rows first.');

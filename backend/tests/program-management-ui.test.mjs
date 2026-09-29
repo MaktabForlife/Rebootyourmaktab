@@ -7,9 +7,11 @@ import { timetableCoordinator } from '../src/programs/timetable-coordination.js'
 const source=await readFile(new URL('../../js/m4l-program-management.js',import.meta.url),'utf8');
 const f=timetableFixture(),service=timetableService(f.repository,f.program);
 const coordinator=timetableCoordinator(f.journal,async()=>({service,user:{accountid:'ADMIN'}}));
+const markup=await readFile(new URL('../../programs/manage.html',import.meta.url),'utf8');
+const elementIds=new Set([...markup.matchAll(/id="([^"]+)"/g)].map(m=>m[1]));
 const elements=new Map(),storage=new Map(),requests=[];
 let failing=0,failReadAfterSave=false,serviceFailure=null,holdDelays=false;const delays=[],scheduled=[],readFailures=[];
-function element(id){if(!elements.has(id))elements.set(id,{hidden:false,disabled:false,value:'',textContent:'',innerHTML:'',listeners:{},classList:{toggle(){}},querySelectorAll:()=>[],querySelector:()=>null,addEventListener(type,fn){this.listeners[type]=fn;}});return elements.get(id);}
+function element(id){assert(elementIds.has(id),`Missing HTML element ${id}`);if(!elements.has(id))elements.set(id,{hidden:false,disabled:false,value:'',textContent:'',innerHTML:'',listeners:{},classList:{toggle(){}},querySelectorAll:()=>[],querySelector:()=>null,addEventListener(type,fn){this.listeners[type]=fn;}});return elements.get(id);}
 const context={console,URLSearchParams,structuredClone,crypto,setTimeout:(fn,ms)=>{if(ms>=1000){delays.push(ms);if(holdDelays){scheduled.push({fn,ms});return scheduled.length;}return setTimeout(fn,0);}return setTimeout(fn,ms);},location:{search:'?program='+f.program.id},localStorage:{getItem:()=> 'token'},sessionStorage:{getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)},document:{getElementById:element,addEventListener(){}},window:{M4L_CONFIG:{API_BASE:''},M4L_PROGRAM_OVERVIEW:{build:()=>[]},addEventListener(){}},fetch:async(url,options)=>{
   const action=url.split('/').at(-1),body=JSON.parse(options.body);requests.push({action,body});
   try{
@@ -46,8 +48,8 @@ await clickRow({'data-cancel':true});
 element('pm-tabs').onclick({target:{closest:()=>({dataset:{tab:'classes'}})}});
 element('pm-add').onclick();input('Name','Preserved draft');
 // Browse Learners without losing or saving the Classes draft.
-element('pm-tabs').onclick({target:{closest:()=>({dataset:{tab:'enrollments'}})}});
-assert.equal(element('pm-caption').textContent,'Learners');assert.equal(element('pm-draft-notice').hidden,false);
+element('pm-tabs').onclick({target:{closest:()=>({dataset:{tab:'profiles'}})}});
+assert.equal(element('pm-caption').textContent,'User profiles');assert.equal(element('pm-draft-notice').hidden,false);
 assert.match(element('pm-rows').innerHTML,/Demo learner/);assert(!element('pm-rows').innerHTML.includes('Preserved draft'));
 assert.equal(element('pm-editor').disabled,true,'Other sections are readable while a draft is unfinished');
 element('pm-return').onclick();assert.match(element('pm-rows').innerHTML,/Preserved draft/);
@@ -90,14 +92,22 @@ assert.equal((await service.read('manage-get')).rows.classes.find(r=>r.ClassID==
 assert.equal(element('pm-pending').hidden,true);
 console.log('Management UI: post-save refresh failure and lost server acknowledgement recovery passed.');
 
-// Teachers see eligible accounts only; learner records remain accessible once the draft is saved.
-element('pm-tabs').onclick({target:{closest:()=>({dataset:{tab:'teachers'}})}});element('pm-add').onclick();
-assert.match(element('pm-rows').innerHTML,/Demo teacher A/);
-assert(!element('pm-rows').innerHTML.includes('Demo learner'),'A learner-only account is not a teaching candidate');
-await clickRow({'data-cancel':true});
-element('pm-tabs').onclick({target:{closest:()=>({dataset:{tab:'enrollments'}})}});
+// The public tabs are fixed; memberships remain accessible through a user profile.
+assert.deepEqual([...element('pm-tabs').innerHTML.matchAll(/data-tab="([^"]+)"[^>]*>([^<]+)<\/button>/g)].map(m=>[m[1],m[2]]),[['overview','Overview'],['modules','Modules'],['subjects','Subjects'],['classes','Classes'],['profiles','User profiles']]);
+assert(!element('pm-tabs').innerHTML.includes('<small>'));
+element('pm-tabs').onclick({target:{closest:()=>({dataset:{tab:'profiles'}})}});
+assert.match(element('pm-rows').innerHTML,/Teacher/);assert.match(element('pm-rows').innerHTML,/Student/);
+assert.equal(element('pm-add').hidden,true);
+await clickRow({userMemberships:'LEARNER-DEMO'});
+assert.equal(element('pm-caption').textContent,'Class memberships');
 assert.equal(element('pm-add').disabled,false);assert.equal(element('pm-editor').disabled,false);
-console.log('Management UI: collapsed hierarchy, single-request overview, accessible Learners and role-filtered teachers passed.');
+assert.match(element('pm-rows').innerHTML,/Year 1/);
+element('pm-add').onclick();input('StartDate','2027-01-01');
+assert.match(element('pm-rows').innerHTML,/data-field="AccountID"[^>]*disabled/);
+element('pm-profiles-back').onclick();assert.equal(element('pm-draft-notice').hidden,false);
+element('pm-return').onclick();assert.match(element('pm-rows').innerHTML,/2027-01-01/);
+await clickRow({'data-cancel':true});
+console.log('Management UI: five tabs, account roles and profile-scoped class membership editor passed.');
 
 // A rate-limit response pauses before retrying the same operation; access failures stay pending.
 element('pm-tabs').onclick({target:{closest:()=>({dataset:{tab:'classes'}})}});
@@ -109,8 +119,8 @@ await clickRow({edit:saved.ClassID});input('Name','Access restored');
 serviceFailure={code:'SHEETS_ACCESS_FAILED',retryable:false};const beforeAccess=requests.length;
 await clickRow({'data-save':true});assert.equal(element('pm-pending').hidden,false);
 assert.equal(requests.slice(beforeAccess).filter(r=>r.action==='recover').length,0,'Do not retry a configuration/access failure automatically');
-element('pm-tabs').onclick({target:{closest:()=>({dataset:{tab:'enrollments'}})}});
-assert.equal(element('pm-caption').textContent,'Learners');
+element('pm-tabs').onclick({target:{closest:()=>({dataset:{tab:'profiles'}})}});
+assert.equal(element('pm-caption').textContent,'User profiles');
 await element('pm-retry').onclick();
 assert.equal((await service.read('manage-get')).rows.classes.find(r=>r.ClassID===saved.ClassID).Name,'Access restored','Retry from another tab must still save the original kind');
 assert.equal(element('pm-caption').textContent,'Classes');
@@ -133,8 +143,8 @@ await clickRow({edit:saved.ClassID});input('Name','Next unsaved entry');
 const duringWait=requests.length;
 await element('pm-reload').onclick();await clickRow({'data-save':true});
 assert.equal(requests.length,duringWait,'Manual clicks do not defeat the quota cooldown');
-element('pm-tabs').onclick({target:{closest:()=>({dataset:{tab:'enrollments'}})}});
-assert.equal(element('pm-caption').textContent,'Learners');
+element('pm-tabs').onclick({target:{closest:()=>({dataset:{tab:'profiles'}})}});
+assert.equal(element('pm-caption').textContent,'User profiles');
 scheduled.shift().fn();await settled();
 assert.equal(element('pm-refresh-status').hidden,true);
 element('pm-return').onclick();assert.match(element('pm-rows').innerHTML,/Next unsaved entry/);
@@ -159,3 +169,59 @@ await element('pm-reload').onclick();assert.equal(scheduled.length,0);
 assert.match(element('pm-refresh-status').textContent,/Simulated read failure/);
 await element('pm-reload').onclick();
 console.log('Management UI: acknowledged row retained, read-only automatic recovery, preserved concurrent draft, cooldown and bounded retries passed.');
+
+// Standard levels save atomically with a module, including when the follow-up read is limited.
+element('pm-tabs').onclick({target:{closest:()=>({dataset:{tab:'modules'}})}});
+await clickRow({edit:'MOD-DEMO'});
+for(const name of ['Beginner','Intermediate','Advanced'])assert.match(element('pm-rows').innerHTML,new RegExp(`value="standard:${name}"`));
+assert.match(element('pm-rows').innerHTML,/>No level<\/option>/);
+input('LevelID','standard:Beginner');readFailures.push(quota);
+await clickRow({'data-save':true});
+assert.match(element('pm-rows').innerHTML,/<td data-label="Level \(optional\)">Beginner<\/td>/,'The acknowledged level name is available before refresh');
+assert(!element('pm-rows').innerHTML.includes('standard:Beginner'));
+scheduled.shift().fn();await settled();
+let management=await service.read('manage-get');
+assert.equal(management.rows.levels.length,1);assert.equal(management.rows.levels[0].Name,'Beginner');
+// Per-class progress is edited in the Modules row; module fields and other classes remain unchanged.
+await clickRow({progressModule:'MOD-DEMO'});
+assert.equal(element('pm-caption').textContent,'Modules');
+assert.match(element('pm-head').innerHTML,/>Class progress<\/th>/);
+assert.match(element('pm-rows').innerHTML,/Save status/);
+assert(!element('pm-rows').innerHTML.includes('data-field="Name"'));
+input('ClassID','CLASS-1');input('Status','COMPLETED');
+element('pm-tabs').onclick({target:{closest:()=>({dataset:{tab:'subjects'}})}});
+assert.equal(element('pm-draft-notice').hidden,false);
+element('pm-tabs').onclick({target:{closest:()=>({dataset:{tab:'modules'}})}});
+assert.match(element('pm-rows').innerHTML,/value="COMPLETED" selected/);
+vm.runInNewContext(source,context);await settled();
+assert.match(element('pm-rows').innerHTML,/value="COMPLETED" selected/,'Progress draft restored after browser reload');
+await clickRow({'data-save':true});
+await clickRow({progressModule:'MOD-DEMO'});
+assert(!element('pm-rows').innerHTML.includes('<option value="CLASS-1"'),'Add status excludes classes already recorded');
+input('ClassID','CLASS-2');input('Status','ACTIVE');await clickRow({'data-save':true});
+management=await service.read('manage-get');
+assert.equal(management.rows.progress.find(p=>p.ClassID==='CLASS-1').Status,'COMPLETED');
+assert.equal(management.rows.progress.find(p=>p.ClassID==='CLASS-2').Status,'ACTIVE');
+assert.equal(management.rows.modules[0].Active,true);
+await clickRow({progressModule:'MOD-DEMO',progressClass:'CLASS-1'});
+assert.match(element('pm-rows').innerHTML,/data-field="ClassID"[^>]*disabled/);
+input('Status','INACTIVE');await clickRow({'data-save':true});
+management=await service.read('manage-get');
+assert.equal(management.rows.progress.find(p=>p.ClassID==='CLASS-2').Status,'ACTIVE');
+// The Modules add action creates a module even after editing class progress.
+element('pm-add').onclick();assert.match(element('pm-rows').innerHTML,/data-field="Name"/);await clickRow({'data-cancel':true});
+console.log('Management UI: standard level acknowledgement, inline per-class status, protected identities, draft navigation and reload passed.');
+
+// Drafts from the removed sections can still be completed or cancelled after the upgrade.
+for(const [kind,record,destination] of [
+  ['levels',{LevelID:'LVL-OLD-DRAFT',ProgramSubjectID:'PS-TAFSEER',Name:'Unfinished old level',SortOrder:0,Active:true},'Modules'],
+  ['teachers',{AccountID:'TEACHER-1',Active:true},'User profiles']
+]){
+  storage.set(`m4l-management-pending:${f.program.id}:draft`,JSON.stringify({kind,edit:{record,creating:true,originalId:record.LevelID||record.AccountID}}));
+  vm.runInNewContext(source,context);await settled();
+  assert.match(element('pm-section-note').textContent,/earlier unfinished entry is kept/);
+  assert.equal(element('pm-add').hidden,true);
+  assert(!element('pm-tabs').innerHTML.includes(`data-tab="${kind}"`));
+  await clickRow({'data-cancel':true});assert.equal(element('pm-caption').textContent,destination);
+}
+console.log('Management UI: upgrade retains drafts from removed sections without restoring their tabs.');

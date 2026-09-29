@@ -1,3 +1,17 @@
+## V105.3.1.8 acceptance
+
+- [x] Five tabs, in order: Overview, Modules, Subjects, Classes, User profiles; no heading counts.
+- [x] Optional standard levels selected and saved with Modules; preserve existing custom links.
+- [x] Inline per-class Active / Inactive / Completed module status; no separate progress tab.
+- [x] Remove the Teachers tab; timetable candidates come from active program teaching roles.
+- [x] Existing academy user directory, current program roles and profile-scoped class memberships.
+- [x] Preserve drafts from older removed sections; retain save/retry/conflict behavior.
+- [x] 76 regression files, development bundle and local Cloudflare runtime checks pass with synthetic data.
+- [ ] User acceptance: verify five-tab layout, optional levels, independent class statuses, memberships and desktop/mobile presentation on Development.
+- [ ] Complete testing of the prior refresh/recovery changes; this patch does not mark earlier user testing complete.
+
+V105.3.2: shared academy profiles, editing and multiple roles across programs. V105.3.3: timetable development. V105.4: library/resources. V105.5: student/program integration, tasks and permanent student module-completion history. See [patch notes](docs/V105.3.1.8-MANAGEMENT-TABS.md).
+
 ## V105.3.1.7 acceptance
 
 - [x] Restore module rows immediately inside expanded subjects/levels.
@@ -8,7 +22,7 @@
 - [x] Bound retry attempts and reduce request-local spreadsheet reads.
 - [ ] User acceptance: save, observe any temporary refresh delay, keep editing, and confirm automatic recovery, restored module rows and V105.3.1.7 labels.
 
-Future requirements: optional levels selected from Beginner / Intermediate / Advanced; individual student module-completion history in V105.5. See [refresh fix and roadmap notes](docs/V105.3.1.7-REFRESH-RECOVERY.md).
+Standard optional levels are implemented in V105.3.1.8. Individual student module-completion history remains planned for V105.5. See [refresh fix and roadmap notes](docs/V105.3.1.7-REFRESH-RECOVERY.md).
 
 ## V105.3.1.6 acceptance
 

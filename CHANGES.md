@@ -1,3 +1,9 @@
+# V105.3.1.8 — Consolidated management tabs
+
+The management screen now has five tabs in this order: **Overview, Modules, Subjects, Classes, User profiles**. Tab headings no longer include record counts. Modules includes optional standard levels and a class-progress column; teacher selection belongs to the timetable. [Details and acceptance](docs/V105.3.1.8-MANAGEMENT-TABS.md).
+
+User profiles lists existing academy users, their current program roles and class memberships. Full profile editing and multi-program role assignment remain V105.3.2. Development only; user acceptance is pending.
+
 # V105.3.1.7 — Refresh recovery and module rows
 
 Subject names and their level/module counts now line up in columns. Opening a subject or level shows modules as rows, with their class, teacher, learner and action columns. Subjects and levels remain collapsed by default.

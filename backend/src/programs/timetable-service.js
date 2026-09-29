@@ -71,6 +71,7 @@ export function timetableService(repository,program) {
         const snapshotJSON=JSON.stringify(snapshot);
         if(snapshotJSON.length>40000)throw problem('This Program has reached the current management storage limit. No changes were saved.');
         const revision=crypto.randomUUID(),timestamp=new Date().toISOString(),result={revision,record,...(spec?{rowRevision:await managementRowRevision(record)}:{})};
+        if(input.kind==='modules'&&record.LevelID)result.level=snapshot.ProgramLevels.find(r=>r.LevelID===record.LevelID);
         const records=[
           {table:'ProgramManagementState',record:{Revision:revision,CourseID:program.id,Sequence:current.sequence+1,SnapshotJSON:snapshotJSON,ModifiedDate:timestamp,ModifiedByAccountID:user.accountid}},
           {table:'ProgramTimetableOperations',record:{OperationID:input.operationId,PayloadHash:hash,ResultJSON:boundedJSON(result),DateStamp:timestamp,AccountID:user.accountid,Action:`manage-${input.kind}`}}

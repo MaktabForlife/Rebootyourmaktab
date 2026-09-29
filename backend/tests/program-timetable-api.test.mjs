@@ -187,7 +187,7 @@ try{
  await saveRow('classes',{ClassID:'CLS-TEST',Name:'Evening class',AcademicYear:'2026',Active:true});
  assert((await tt('get')).catalog.classes.some(r=>r.id==='CLS-TEST'));
  const stale=edit('classes',{ClassID:'CLS-STALE',Name:'Stale',Active:true});
- await saveRow('levels',{LevelID:'LVL-TEST',ProgramSubjectID:'PS-TAFSEER',Name:'Introductory',SortOrder:1,Active:true});
+ await saveRow('levels',{LevelID:'LVL-TEST',ProgramSubjectID:'PS-TAFSEER',Name:'Beginner',SortOrder:1,Active:true});
  await tt('manage-save',stale,token,409);
  // New clients compare the actual row, so unrelated edits no longer block additions.
  const independent={...stale,operationId:crypto.randomUUID(),baseRowRevision:management.emptyRowRevision};
@@ -201,13 +201,18 @@ try{
  await saveRow('modules',{ProgramModuleID:'MOD-TEST',ProgramSubjectID:'PS-TAFSEER',LevelID:'',Name:'No level module',SortOrder:2,Active:true});
  await tt('manage-save',edit('modules',{ProgramModuleID:'MOD-WRONG',ProgramSubjectID:'PS-TAFSEER',LevelID:'MISSING',Name:'Wrong level',Active:true}),token,400);
  await saveRow('modules',{ProgramModuleID:'MOD-LEVEL',ProgramSubjectID:'PS-TAFSEER',LevelID:'LVL-TEST',Name:'Level module',SortOrder:3,Active:true});
- await tt('manage-save',edit('levels',{LevelID:'LVL-TEST',ProgramSubjectID:'PS-TAFSEER',Name:'Introductory',SortOrder:1,Active:false},false),token,400);
+ await tt('manage-save',edit('levels',{LevelID:'LVL-TEST',ProgramSubjectID:'PS-TAFSEER',Name:'Beginner',SortOrder:1,Active:false},false),token,400);
+ const standard=await saveRow('modules',{ProgramModuleID:'MOD-STANDARD',ProgramSubjectID:'PS-TAFSEER',LevelID:'standard:Advanced',Name:'Advanced module',SortOrder:4,Active:true});
+ assert.equal(standard.level.Name,'Advanced');assert.equal(standard.level.LevelID,standard.record.LevelID);
+ assert(management.rows.levels.some(l=>l.LevelID===standard.level.LevelID));
  // Assign an existing account without mutating any central privileges.
  // An Admin role in another program and platform administration alone are not teaching grants here.
  await tt('manage-save',edit('teachers',{AccountID:'ACCOUNT2',Active:true}),token,400);
  await tt('manage-save',edit('teachers',{AccountID:'ACCOUNT1',Active:true}),token,400);
  table(platformId,'UserCourseAccess').push(['ACCESS-PROGRAM-TEACHER','ACCOUNT2',input.id,'TEACHER',true]);
  management=await tt('manage-get');assert(management.eligibleTeacherIds.includes('ACCOUNT2'));
+ assert.deepEqual(management.accounts.find(a=>a.AccountID==='ACCOUNT2').Roles,['TEACHER']);
+ assert(!management.accounts.find(a=>a.AccountID==='ACCOUNT1').Roles.includes('ADMIN'),'Platform administration is not a program role');
  const centralAccessBefore=structuredClone(table(platformId,'UserCourseAccess'));
  await saveRow('teachers',{AccountID:'ACCOUNT2',Active:true});
  assert((await tt('get')).catalog.teachers.some(r=>r.id==='ACCOUNT2'));
@@ -233,7 +238,7 @@ try{
  table(platformId,'UserAccounts')[2][5]=false;await tt('manage-save',revokedReference,token,400);table(platformId,'UserAccounts')[2][5]=true;
  management=await tt('manage-get');
  await saveRow('teachers',{AccountID:'ACCOUNT2',Active:false},false);
- assert(!(await tt('preview',{draft:managedDraft})).valid);
+ assert((await tt('preview',{draft:managedDraft})).valid,'A legacy assignment flag no longer overrides the active program teaching role');
  assert.equal((await tt('history')).publications[0].snapshot.rules[0].moduleName,'Demo module');
  // Academy catalogue is distinct from Global course subjects and reads no Reboot data on normal load.
  for(const action of ['get','import-preview','save','recover']) {

@@ -1,4 +1,4 @@
-/* V105.3.1.7 — preserve drafts, recover interrupted saves and review genuine conflicts. */
+/* V105.3.1.8 — preserve drafts, recover interrupted saves and review genuine conflicts. */
 (() => {
   'use strict';
   const $=id=>document.getElementById(id), esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -7,13 +7,15 @@
   const defs={
     subjects:{label:'Subjects',singular:'subject',key:'ProgramSubjectID',prefix:'PS',columns:[['SubjectID','Academy subject','subject'],['Active','Status','active']],help:'Choose an Academy subject or create a new name. Levels and modules belong to this Program.'},
     levels:{label:'Levels',singular:'level',key:'LevelID',prefix:'LVL',columns:[['ProgramSubjectID','Subject','programSubject'],['Name','Level name'],['SortOrder','Order','number'],['Active','Status','active']],help:'Levels are optional and belong to a subject within this Program. They do not represent academic years.'},
-    modules:{label:'Modules',singular:'module',key:'ProgramModuleID',prefix:'MOD',columns:[['ProgramSubjectID','Subject','programSubject'],['LevelID','Level (optional)','level'],['Name','Module name'],['SortOrder','Order','number'],['Active','Availability','active']],help:'A module is the unit used in the timetable. Level is optional. Availability controls reuse; record completion for each class in Module progress.'},
+    modules:{label:'Modules',singular:'module',key:'ProgramModuleID',prefix:'MOD',columns:[['ProgramSubjectID','Subject','programSubject'],['LevelID','Level (optional)','level'],['Name','Module name'],['SortOrder','Order','number'],['Active','Availability','active']],help:'Choose an optional standard level and record progress separately for each class. Marking one class Completed keeps the module available to other classes. Assign teachers in the timetable.'},
     progress:{label:'Module progress',singular:'class status',key:'ProgressID',prefix:'MP',columns:[['ProgramModuleID','Module','module'],['ClassID','Class','class'],['Status','Class status','progress']],help:'Track each class separately: Active = studying, Inactive = not currently studying, Completed = finished. Completing a module for one class does not change its availability or timetable.'},
     classes:{label:'Classes',singular:'class',key:'ClassID',prefix:'CLS',columns:[['Name','Class name'],['AcademicYear','Academic year (optional)'],['Active','Status','active']],help:'Create classes such as Year 1 and Year 2. They can learn a module together in one timetable lesson.'},
     teachers:{label:'Teachers',singular:'teacher',key:'AccountID',columns:[['AccountID','Teacher','teacher'],['Active','Assignment','active']],help:'Choose users with an active Teacher, Senior or Admin role in this Program. Program assignments do not grant roles.'},
-    enrollments:{label:'Learners',singular:'learner',key:'EnrollmentID',prefix:'ENR',columns:[['AccountID','Learner','account'],['ClassID','Class','class'],['StartDate','From','date'],['EndDate','Through (optional)','date'],['Active','Status','active']],help:'Set inclusive membership dates. A blank end date means ongoing membership. These dates support learner-clash checks.'}
+    enrollments:{label:'Class memberships',singular:'class membership',key:'EnrollmentID',prefix:'ENR',columns:[['AccountID','User','account'],['ClassID','Class','class'],['StartDate','From','date'],['EndDate','Through (optional)','date'],['Active','Status','active']],help:'Set inclusive membership dates. A blank end date means ongoing membership. These dates support learner-clash checks.'}
   };
-  const state={data:null,kind:'subjects',overview:true,timetable:null,preview:null,timetableError:false,edit:null,busy:false,pending:null,search:'',importPreview:null,importPending:null,expanded:new Set(),refreshWaiting:false,refreshTimer:null};
+  const tabs=[['overview','Overview'],['modules','Modules'],['subjects','Subjects'],['classes','Classes'],['profiles','User profiles']];
+  const tabKind=kind=>({progress:'modules',levels:'modules',enrollments:'profiles',teachers:'profiles'})[kind]||kind;
+  const state={data:null,kind:'subjects',overview:true,timetable:null,preview:null,timetableError:false,edit:null,busy:false,pending:null,search:'',importPreview:null,importPending:null,expanded:new Set(),refreshWaiting:false,refreshTimer:null,profileAccountId:null};
   const message=(text,error=false)=>{$('pm-message').textContent=text;$('pm-message').classList.toggle('is-error',error);};
   async function api(action,body={},shared=false){
     const token=localStorage.getItem('m4l_account_token');if(!token)throw Object.assign(new Error('Sign in through your personal Academy account link, then open Programs.'),{status:401,retryable:false});
@@ -43,6 +45,8 @@
       for(const id of ['pm-reload','pm-recover','pm-retry','pm-prepare','pm-import-preview','pm-import-save','pm-catalogue-recover','pm-use-mine','pm-use-saved'])$(id).disabled=true;
     }
     $('pm-rows').querySelectorAll('[data-save]').forEach(button=>{button.disabled=locked||state.refreshWaiting;});
+    $('pm-rows').querySelectorAll('[data-progress-module]').forEach(button=>{button.disabled=locked||!editable||Boolean(state.edit);});
+    $('pm-profiles-back').disabled=state.busy;
   }
   async function work(fn){if(state.busy||state.refreshWaiting)return;state.busy=true;controls();try{await fn();}catch(error){message(error.message,true);}finally{state.busy=false;controls();}}
   function choices(type,row){const data=state.data;
@@ -51,15 +55,21 @@
     if(type==='active')return [{id:'true',name:'Active'},{id:'false',name:'Archived'}];
     if(type==='subject')return data.sharedSubjects.filter(r=>!r.Legacy||r.SubjectID===row.SubjectID).slice().sort((a,b)=>a.SubjectName.localeCompare(b.SubjectName)).map(r=>({id:r.SubjectID,name:r.SubjectName+(r.Legacy?' — Review needed':''),active:r.Active}));
     if(type==='programSubject')return data.rows.subjects.map(r=>({id:r.ProgramSubjectID,name:data.sharedSubjects.find(s=>s.SubjectID===r.SubjectID)?.SubjectName||r.SubjectID,active:active(r.Active)&&data.sharedSubjects.some(s=>s.SubjectID===r.SubjectID&&active(s.Active))}));
-    if(type==='level')return data.rows.levels.filter(r=>r.ProgramSubjectID===row.ProgramSubjectID).map(r=>({id:r.LevelID,name:r.Name,active:r.Active}));
+    if(type==='level'){
+      const levels=data.rows.levels.filter(r=>r.ProgramSubjectID===row.ProgramSubjectID);
+      const values=(data.standardLevels||['Beginner','Intermediate','Advanced']).map(name=>{const level=levels.find(r=>active(r.Active)&&String(r.Name||'').trim().toLowerCase()===name.toLowerCase());return {id:level?.LevelID||`standard:${name}`,name};});
+      const previous=levels.find(r=>r.LevelID===row.LevelID);
+      if(previous&&!values.some(v=>v.id===previous.LevelID))values.push({id:previous.LevelID,name:`${previous.Name} — existing level`,active:previous.Active});
+      return values;
+    }
     if(type==='teacher')return data.accounts.filter(r=>(data.eligibleTeacherIds||[]).includes(r.AccountID)||r.AccountID===row.AccountID).map(r=>({id:r.AccountID,name:r.DisplayName+((data.eligibleTeacherIds||[]).includes(r.AccountID)?'':' — role required'),active:active(r.Active)&&(data.eligibleTeacherIds||[]).includes(r.AccountID)}));
     if(type==='account')return data.accounts.map(r=>({id:r.AccountID,name:r.DisplayName,active:r.Active}));
-    if(type==='class')return data.rows.classes.map(r=>({id:r.ClassID,name:r.Name,active:r.Active}));
+    if(type==='class')return data.rows.classes.filter(r=>state.kind!=='progress'||!state.edit?.creating||!data.rows.progress.some(p=>p.ProgramModuleID===row.ProgramModuleID&&p.ClassID===r.ClassID)).map(r=>({id:r.ClassID,name:r.Name,active:r.Active}));
     return null;
   }
-  function display(row,[key,label,type]){const values=choices(type,row);return values?values.find(v=>v.id===String(key==='Active'?active(row[key]):row[key]))?.name||row[key]||'—':row[key]===undefined||row[key]===null||row[key]===''?'—':row[key];}
+  function display(row,[key,label,type]){if(type==='level'&&!row.LevelID)return 'No level';const values=choices(type,row);return values?values.find(v=>v.id===String(key==='Active'?active(row[key]):row[key]))?.name||row[key]||'—':row[key]===undefined||row[key]===null||row[key]===''?'—':row[key];}
   function cell(row,col){const [key,label,type]=col,values=choices(type,row),value=key==='Active'?String(active(row[key])):String(row[key]??'');
-    const fixed=!state.edit.creating&&((state.kind==='progress'&&['ProgramModuleID','ClassID'].includes(key))||(state.kind==='subjects'&&key==='SubjectID'&&!state.data.sharedSubjects.find(s=>s.SubjectID===state.edit.originalSubjectID)?.Legacy)||(state.kind==='teachers'&&key==='AccountID'));
+    const fixed=(state.kind==='enrollments'&&key==='AccountID'&&Boolean(state.profileAccountId))||!state.edit.creating&&((state.kind==='progress'&&['ProgramModuleID','ClassID'].includes(key))||(state.kind==='subjects'&&key==='SubjectID'&&!state.data.sharedSubjects.find(s=>s.SubjectID===state.edit.originalSubjectID)?.Legacy)||(state.kind==='teachers'&&key==='AccountID'));
     if(values){let available=values.filter(v=>v.active===undefined||active(v.active)||v.id===value);if(type==='subject'&&!fixed)available.push({id:'__new__',name:'＋ Create a new subject…'});if(value&&!available.some(v=>v.id===value))available.push({id:value,name:`Unavailable: ${value}`});
       return `<select data-field="${key}" aria-label="${esc(label)}" ${fixed?'disabled':''}>${['active','progress'].includes(type)?'':`<option value="">${type==='level'?'No level':'Choose…'}</option>`}${available.map(v=>`<option value="${esc(v.id)}" ${v.id===value?'selected':''}>${esc(v.name)}${v.active!==undefined&&!active(v.active)?' (inactive)':''}</option>`).join('')}</select>${type==='subject'&&value==='__new__'?`<label class="pm-new-subject">New subject name<input data-field="NewSubjectName" aria-label="New subject name" maxlength="160" placeholder="For example, Tafseer" value="${esc(row.NewSubjectName||'')}"></label>`:''}`;
     }
@@ -86,6 +96,36 @@
     }).join('')||'<p class="pm-empty">No matching subjects. Use Subjects to add names, then add modules.</p>';
   }
   function visibleEdit(){return !state.overview&&state.edit&&(state.edit.kind||state.kind)===state.kind?state.edit:null;}
+  function beginProgress(moduleId,classId=''){
+    if(!classId&&!state.data.rows.classes.some(c=>active(c.Active)&&!state.data.rows.progress.some(p=>p.ProgramModuleID===moduleId&&p.ClassID===c.ClassID)))classId=state.data.rows.progress.find(p=>p.ProgramModuleID===moduleId)?.ClassID||'';
+    const previous=state.data.rows.progress.find(r=>r.ProgramModuleID===moduleId&&r.ClassID===classId),id=previous?.ProgressID||`MP-${crypto.randomUUID()}`;
+    state.overview=false;state.kind='progress';state.search='';$('pm-search').value='';
+    state.edit={kind:'progress',record:previous?{...previous}:{ProgressID:id,ProgramModuleID:moduleId,ClassID:classId,Status:'ACTIVE'},creating:!previous,originalId:id};
+    render();$('pm-rows').querySelector('[data-field=ClassID]')?.focus();
+  }
+  function moduleProgressCell(row,edit){
+    if(edit?.kind==='modules'&&edit.creating&&row.ProgramModuleID===edit.originalId)return '<span class="pm-muted">Save this module before adding class progress.</span>';
+    const progress=state.data.rows.progress.filter(r=>r.ProgramModuleID===row.ProgramModuleID);
+    const labels={ACTIVE:'Active',INACTIVE:'Inactive',COMPLETED:'Completed'};
+    const list=progress.map(p=>`<div class="pm-class-progress"><span>${esc(state.data.rows.classes.find(c=>c.ClassID===p.ClassID)?.Name||p.ClassID)}</span><button type="button" class="pb-secondary pm-progress-status ${p.Status==='COMPLETED'?'is-completed':''}" data-progress-module="${esc(row.ProgramModuleID)}" data-progress-class="${esc(p.ClassID)}">${labels[p.Status]}</button></div>`).join('');
+    if(edit?.kind==='progress'&&edit.record.ProgramModuleID===row.ProgramModuleID)return `${list}<div class="pm-progress-editor"><label>Class${cell(edit.record,['ClassID','Class','class'])}</label><label>Status${cell(edit.record,['Status','Class status','progress'])}</label><div><button type="button" data-save>Save status</button><button type="button" data-cancel class="pb-secondary">Cancel</button></div></div>`;
+    const available=state.data.rows.classes.some(c=>active(c.Active)&&!progress.some(p=>p.ClassID===c.ClassID));
+    return `<div class="pm-progress-list">${list||'<span class="pm-muted">No class status recorded.</span>'}${available?`<button type="button" class="pb-secondary" data-progress-module="${esc(row.ProgramModuleID)}">Add class status</button>`:!progress.length?'<small class="pm-muted">Add an active class in Classes first.</small>':''}</div>`;
+  }
+  function renderProfiles(){
+    const records=state.data.accounts,search=state.search.trim().toLowerCase();
+    const roles=account=>(account.Roles||[]).map(role=>({STUDENT:'Student',TEACHER:'Teacher',SENIOR:'Senior',ADMIN:'Admin'})[role]||role);
+    const filtered=records.filter(account=>[account.DisplayName,account.AccountID,...roles(account)].some(value=>String(value).toLowerCase().includes(search)));
+    $('pm-caption').textContent='User profiles';$('pm-help').textContent='Academy users and their roles in this Program. Open Class memberships to add or update their class membership dates.';
+    $('pm-section-note').textContent='Profile creation, profile editing and role assignment across Programs are planned for V105.3.2.';$('pm-section-note').hidden=false;
+    $('pm-count').textContent=`${filtered.length} of ${records.length} users`;
+    $('pm-head').innerHTML='<tr><th scope="col">User</th><th scope="col">Account status</th><th scope="col">Roles in this Program</th><th scope="col">Classes</th><th scope="col">Actions</th></tr>';
+    $('pm-rows').innerHTML=filtered.map(account=>{
+      const memberships=state.data.rows.enrollments.filter(r=>r.AccountID===account.AccountID&&active(r.Active));
+      const classes=[...new Set(memberships.map(r=>state.data.rows.classes.find(c=>c.ClassID===r.ClassID)?.Name||r.ClassID))];
+      return `<tr><td data-label="User">${esc(account.DisplayName)}</td><td data-label="Account status">${active(account.Active)?'Active':'Archived'}</td><td data-label="Roles in this Program">${roles(account).map(esc).join(', ')||'No program roles'}</td><td data-label="Classes">${classes.map(esc).join(', ')||'No class memberships'}</td><td data-label="Actions"><button type="button" class="pb-secondary" data-user-memberships="${esc(account.AccountID)}">Class memberships</button></td></tr>`;
+    }).join('')||'<tr><td colspan="5" class="pm-empty">No matching Academy users.</td></tr>';
+  }
   function rememberDraft(){
     if(state.edit)sessionStorage.setItem(storageKey+':draft',JSON.stringify({kind:state.edit.kind||state.kind,edit:state.edit}));
     else sessionStorage.removeItem(storageKey+':draft');
@@ -117,25 +157,34 @@
     if('Active' in merged)merged.Active=active(merged.Active);
     edit.record=merged;edit.baseRecord=structuredClone(currentRecord);edit.baseRowRevision=rowRevision;delete edit.conflict;return true;
   }
-  function render(){baseline();rememberDraft();renderConflict();if(!state.data){controls();return;}const def=defs[state.kind],edit=visibleEdit();
+  function render(){baseline();rememberDraft();renderConflict();if(!state.data){controls();return;}
+    const moduleMode=['modules','progress'].includes(state.kind),gridKind=moduleMode?'modules':state.kind,def=defs[gridKind],edit=visibleEdit();
     $('pm-title').textContent=`${state.data.program.name} · Management`;
     $('pm-timetable').href=`/programs/timetable.html?program=${encodeURIComponent(programId)}`;
     $('pm-workspace').hidden=!state.data.prepared;$('pm-prepare').hidden=state.data.prepared;
-    $('pm-tabs').innerHTML=`<button type="button" data-tab="overview" aria-current="${state.overview}">Overview</button>`+Object.entries(defs).map(([key,d])=>`<button type="button" data-tab="${key}" aria-current="${!state.overview&&key===state.kind}">${d.label} <small>${state.data.rows[key].length}</small></button>`).join('');
+    $('pm-tabs').innerHTML=tabs.map(([key,label])=>`<button type="button" data-tab="${key}" aria-current="${state.overview?key==='overview':key===tabKind(state.kind)}">${label}</button>`).join('');
     $('pm-overview').hidden=!state.overview;$('pm-editor').hidden=state.overview;
-    if(state.overview){$('pm-section-note').hidden=true;$('pm-shared').hidden=true;$('pm-legacy').hidden=true;$('pm-add').textContent='＋ Add module';renderOverview();controls();return;}
-    $('pm-help').textContent=def.help+' Ctrl/⌘ + Enter saves the edited row.';$('pm-caption').textContent=def.label;$('pm-add').textContent=`＋ Add ${def.singular}`;$('pm-shared').hidden=state.kind!=='subjects';$('pm-legacy').hidden=state.kind!=='subjects'||!state.data.sharedSubjects.some(s=>s.Legacy);
+    $('pm-add').hidden=!state.overview&&['profiles','teachers','levels'].includes(state.kind);
+    $('pm-profiles-back').hidden=state.overview||state.kind!=='enrollments';
+    $('pm-shared').hidden=state.overview||state.kind!=='subjects';$('pm-legacy').hidden=state.overview||state.kind!=='subjects'||!state.data.sharedSubjects.some(s=>s.Legacy);
+    $('pm-section-note').hidden=true;
+    if(state.overview){$('pm-add').textContent='＋ Add module';renderOverview();controls();return;}
+    if(state.kind==='profiles'){renderProfiles();controls();return;}
+    $('pm-help').textContent=def.help+' Ctrl/⌘ + Enter saves the edited row.';$('pm-caption').textContent=def.label;$('pm-add').textContent=`＋ Add ${def.singular}`;
     let notice='';
-    if(state.kind==='teachers'&&!state.data.eligibleTeacherIds?.length)notice='No users currently have a Teacher, Senior or Admin role in this Program. Role assignment will be available in User Profile (V105.3.2).';
-    if(state.kind==='enrollments')notice=!state.data.rows.classes.some(r=>active(r.Active))?'Add an active class in Classes before enrolling a learner.':!state.data.accounts.some(r=>active(r.Active))?'No active Academy users are available to enrol.':'Enrol existing Academy users in classes here. User profiles and role assignment are planned for V105.3.2.';
+    if(state.kind==='enrollments')notice=`Class memberships for ${state.data.accounts.find(a=>a.AccountID===state.profileAccountId)?.DisplayName||'this user'}. `+(!state.data.rows.classes.some(r=>active(r.Active))?'Add an active class in Classes first.':'Class membership does not grant a program role.');
+    if(['teachers','levels'].includes(state.kind))notice='Your earlier unfinished entry is kept. Finish or cancel it to return to the updated tabs.';
     $('pm-section-note').textContent=notice;$('pm-section-note').hidden=!notice;
-    $('pm-head').innerHTML=`<tr><th scope="col">#</th>${def.columns.map(c=>`<th scope="col">${c[1]}</th>`).join('')}<th scope="col">Changes</th></tr>`;
-    const records=state.data.rows[state.kind].map(r=>({...r}));if(edit&&(edit.creating||!records.some(r=>r[def.key]===edit.originalId)))records.push(edit.record);
-    const filtered=records.filter(r=>edit&&r[def.key]===edit.originalId||def.columns.some(c=>String(display(r,c)).toLowerCase().includes(state.search.toLowerCase())));
+    const columns=moduleMode?[...def.columns,['__progress','Class progress']]:def.columns;
+    $('pm-head').innerHTML=`<tr><th scope="col">#</th>${columns.map(c=>`<th scope="col">${c[1]}</th>`).join('')}<th scope="col">Changes</th></tr>`;
+    const records=state.data.rows[gridKind].filter(r=>gridKind!=='enrollments'||!state.profileAccountId||r.AccountID===state.profileAccountId).map(r=>({...r}));
+    const rowEdit=edit&&edit.kind===gridKind?edit:null;
+    if(rowEdit&&(rowEdit.creating||!records.some(r=>r[def.key]===rowEdit.originalId)))records.push(rowEdit.record);
+    const filtered=records.filter(r=>rowEdit&&r[def.key]===rowEdit.originalId||edit?.kind==='progress'&&r.ProgramModuleID===edit.record.ProgramModuleID||def.columns.some(c=>String(display(r,c)).toLowerCase().includes(state.search.toLowerCase())));
     $('pm-count').textContent=`${filtered.length} of ${records.length} rows`;
-    $('pm-rows').innerHTML=filtered.map((r,i)=>{const editing=edit&&(edit.creating?r===edit.record:r[def.key]===edit.originalId),row=editing?edit.record:r;
-      return `<tr class="${editing?'is-editing':''}"><td>${i+1}</td>${def.columns.map(c=>`<td data-label="${esc(c[1])}">${editing?cell(row,c):esc(display(row,c))}</td>`).join('')}<td data-label="Changes">${editing?'<button type="button" data-save>Save</button><button type="button" data-cancel class="pb-secondary">Cancel</button>':`<button type="button" data-edit="${esc(r[def.key])}" class="pb-secondary" ${edit?'disabled':''}>Edit</button>`}</td></tr>`;
-    }).join('')||`<tr><td colspan="${def.columns.length+2}" class="pm-empty">No ${def.label.toLowerCase()} yet. Add your first ${def.singular}.</td></tr>`;controls();
+    $('pm-rows').innerHTML=filtered.map((r,i)=>{const editing=rowEdit&&(rowEdit.creating?r===rowEdit.record:r[def.key]===rowEdit.originalId),row=editing?rowEdit.record:r;
+      return `<tr class="${editing||edit?.kind==='progress'&&r.ProgramModuleID===edit.record.ProgramModuleID?'is-editing':''}"><td>${i+1}</td>${columns.map(c=>`<td data-label="${esc(c[1])}">${c[0]==='__progress'?moduleProgressCell(row,edit):editing?cell(row,c):esc(display(row,c))}</td>`).join('')}<td data-label="Changes">${editing?'<button type="button" data-save>Save</button><button type="button" data-cancel class="pb-secondary">Cancel</button>':`<button type="button" data-edit="${esc(r[def.key])}" class="pb-secondary" ${state.edit?'disabled':''}>Edit</button>`}</td></tr>`;
+    }).join('')||`<tr><td colspan="${columns.length+2}" class="pm-empty">No ${def.label.toLowerCase()} yet. Add your first ${def.singular}.</td></tr>`;controls();
   }
   async function load(){state.data=await api('manage-get',{includeOverview:true});state.data.rows.progress||=[];
     state.timetable=null;state.preview=null;state.timetableError=false;
@@ -148,6 +197,7 @@
     try{state.importPending=JSON.parse(sessionStorage.getItem(storageKey+':import')||'null');}catch{sessionStorage.removeItem(storageKey+':import');}
     if(state.importPending&&!state.dataLoaded){state.overview=false;state.kind='subjects';}state.dataLoaded=true;
     if(state.importPending&&!state.importPending.catalogue)state.importPending={catalogue:state.importPending}; // Preserve pre-fix retry identifiers.
+    if(state.edit?.kind==='enrollments')state.profileAccountId=state.edit.record.AccountID;
     render();message(!state.data.prepared?'Prepare management tables once to begin. Existing Program records are preserved.':!state.data.coordinatorAvailable?'Saving needs the Program coordinator binding.':state.importPending?'An earlier subject import needs confirmation. Open Reboot import and retry.':state.pending?'An earlier save needs confirmation. Retry the same change.':state.edit?'Records refreshed. Your unsaved entry is kept.': 'Ready. Add or edit a row, then save it.');
   }
   async function refresh({savedMessage='',attempt=0}={}){
@@ -182,6 +232,7 @@
     if(!def||!record||!result.rowRevision)return;
     const rows=state.data.rows[kind],index=rows.findIndex(row=>row[def.key]===record[def.key]);
     if(index<0)rows.push(record);else rows[index]=record;
+    if(result.level){const levels=state.data.rows.levels,index=levels.findIndex(r=>r.LevelID===result.level.LevelID);if(index<0)levels.push(result.level);else levels[index]=result.level;}
     state.data.revision=result.revision;
     state.data.rowRevisions[kind][record[def.key]]=result.rowRevision;
   }
@@ -206,7 +257,7 @@
       }
       const kind=state.pending.kind,result=await api('manage-save',state.pending.body);
       sessionStorage.removeItem(storageKey);state.pending=null;state.edit=null;rememberDraft();
-      showConfirmedRow(result,kind);render();
+      showConfirmedRow(result,kind);if(['levels','teachers'].includes(state.kind))state.kind=tabKind(state.kind);render();
       await refresh({savedMessage:state.kind==='progress'?'Class module status saved. Other classes and timetable lessons are unchanged.':'Row saved. It is now available to the timetable.'});
     }catch(error){
       if(!state.pending){render();throw new Error('Your row was saved, but the latest records could not be loaded. '+error.message);}
@@ -233,9 +284,10 @@
       throw error;
     }
   }
-  $('pm-add').onclick=()=>{if(state.edit||state.busy||state.pending||state.importPending)return;if(state.overview){state.overview=false;state.kind='modules';}const def=defs[state.kind],record=Object.fromEntries(def.columns.map(([key])=>[key,key==='Active'?true:key==='Status'?'ACTIVE':key==='SortOrder'?0:'']));if(def.prefix)record[def.key]=`${def.prefix}-${crypto.randomUUID()}`;state.edit={record,creating:true,originalId:record[def.key]};state.search='';$('pm-search').value='';render();$('pm-rows').querySelector('input,select')?.focus();};
+  $('pm-add').onclick=()=>{if(state.edit||state.busy||state.pending||state.importPending)return;if(state.overview||state.kind==='progress'){state.overview=false;state.kind='modules';}if(!defs[state.kind]||['teachers','levels'].includes(state.kind))return;const def=defs[state.kind],record=Object.fromEntries(def.columns.map(([key])=>[key,key==='Active'?true:key==='Status'?'ACTIVE':key==='SortOrder'?0:'']));if(state.kind==='enrollments')record.AccountID=state.profileAccountId||'';if(def.prefix)record[def.key]=`${def.prefix}-${crypto.randomUUID()}`;state.edit={record,creating:true,originalId:record[def.key]};state.search='';$('pm-search').value='';render();$('pm-rows').querySelector('input,select')?.focus();};
   $('pm-return').onclick=()=>{state.overview=false;state.kind=state.edit?.kind||'subjects';state.search='';$('pm-search').value='';render();};
-  $('pm-tabs').onclick=event=>{const key=event.target.closest('[data-tab]')?.dataset.tab;if(!key||state.busy)return;state.overview=key==='overview';if(!state.overview)state.kind=key;state.search='';$('pm-search').value='';render();};
+  $('pm-tabs').onclick=event=>{const key=event.target.closest('[data-tab]')?.dataset.tab;if(!tabs.some(([id])=>id===key)||state.busy)return;state.overview=key==='overview';if(!state.overview)state.kind=state.edit&&tabKind(state.edit.kind)===key?state.edit.kind:key;state.search='';$('pm-search').value='';render();};
+  $('pm-profiles-back').onclick=()=>{if(state.busy)return;state.overview=false;state.kind='profiles';state.search='';$('pm-search').value='';render();};
   $('pm-overview').addEventListener('toggle',event=>{
     const key=event.target.dataset.rollup;if(!key)return;
     if(event.target.open)state.expanded.add(key);else state.expanded.delete(key);
@@ -243,16 +295,20 @@
   $('pm-overview').onclick=event=>{
     const button=event.target.closest('button');if(!button||state.busy||state.edit||state.pending||state.importPending)return;
     state.overview=false;state.kind=button.dataset.progressModule?'progress':'modules';state.search='';$('pm-search').value='';
-    if(button.dataset.progressModule){
-      const moduleId=button.dataset.progressModule,classId=button.dataset.progressClass||'',previous=state.data.rows.progress.find(r=>r.ProgramModuleID===moduleId&&r.ClassID===classId),id=previous?.ProgressID||`MP-${crypto.randomUUID()}`;
-      state.edit={record:previous?{...previous}:{ProgressID:id,ProgramModuleID:moduleId,ClassID:classId,Status:'ACTIVE'},creating:!previous,originalId:id};
-    }
+    if(button.dataset.progressModule){beginProgress(button.dataset.progressModule,button.dataset.progressClass||'');return;}
     else if(button.dataset.moduleEdit){const row=state.data.rows.modules.find(r=>r.ProgramModuleID===button.dataset.moduleEdit);state.edit={record:{...row,Active:active(row.Active)},creating:false,originalId:row.ProgramModuleID};}
-    else if(button.dataset.moduleAdd){const id=`MOD-${crypto.randomUUID()}`;state.edit={record:{ProgramModuleID:id,ProgramSubjectID:button.dataset.moduleAdd,LevelID:button.dataset.level||'',Name:'',SortOrder:0,Active:true},creating:true,originalId:id};}
+    else if(button.dataset.moduleAdd){const id=`MOD-${crypto.randomUUID()}`;state.edit={record:{ProgramModuleID:id,ProgramSubjectID:button.dataset.moduleAdd,LevelID:choices('level',{ProgramSubjectID:button.dataset.moduleAdd}).some(l=>l.id===button.dataset.level)?button.dataset.level:'',Name:'',SortOrder:0,Active:true},creating:true,originalId:id};}
     render();$('pm-rows').querySelector(state.kind==='progress'?'[data-field=Status]':'[data-field=Name]')?.focus();
   };
   $('pm-search').oninput=event=>{state.search=event.target.value;render();};
-  $('pm-rows').onclick=event=>{if(state.busy||state.pending||state.importPending||state.edit&&!visibleEdit())return;const button=event.target.closest('button');if(!button)return;if(button.hasAttribute('data-save'))void work(save);else if(button.hasAttribute('data-cancel')){state.edit=null;render();message('Unsaved row changes discarded.');}else if(button.dataset.edit&&!state.edit){const row=state.data.rows[state.kind].find(r=>r[defs[state.kind].key]===button.dataset.edit);state.edit={record:{...row,Active:active(row.Active)},creating:false,originalId:button.dataset.edit,originalSubjectID:row.SubjectID};render();}};
+  $('pm-rows').onclick=event=>{
+    if(state.busy||state.pending||state.importPending||state.edit&&!visibleEdit())return;const button=event.target.closest('button');if(!button)return;
+    if(button.hasAttribute('data-save'))void work(save);
+    else if(button.hasAttribute('data-cancel')){state.edit=null;if(['progress','levels','teachers'].includes(state.kind))state.kind=tabKind(state.kind);render();message('Unsaved row changes discarded.');}
+    else if(button.dataset.progressModule&&!state.edit)beginProgress(button.dataset.progressModule,button.dataset.progressClass||'');
+    else if(button.dataset.userMemberships&&!state.edit){state.profileAccountId=button.dataset.userMemberships;state.kind='enrollments';state.search='';$('pm-search').value='';render();}
+    else if(button.dataset.edit&&!state.edit){if(state.kind==='progress')state.kind='modules';const def=defs[state.kind],row=state.data.rows[state.kind]?.find(r=>r[def.key]===button.dataset.edit);if(!row)return;state.edit={record:{...row,Active:active(row.Active)},creating:false,originalId:button.dataset.edit,originalSubjectID:row.SubjectID};render();}
+  };
   $('pm-rows').addEventListener('input',event=>{const key=event.target.dataset.field;if(key&&visibleEdit()&&!state.busy&&!state.pending){state.edit.record[key]=key==='Active'?event.target.value==='true':event.target.value;rememberDraft();if(state.edit.conflict)renderConflict();}});
   $('pm-rows').addEventListener('change',event=>{const key=event.target.dataset.field;if(!key||!visibleEdit()||state.busy||state.pending)return;state.edit.record[key]=key==='Active'?event.target.value==='true':event.target.value;rememberDraft();if(key==='SubjectID'){render();$('pm-rows').querySelector('[data-field=NewSubjectName]')?.focus();}if(key==='ProgramSubjectID'&&state.kind==='modules'){state.edit.record.LevelID='';render();}});
   $('pm-prepare').onclick=()=>work(async()=>{await api('prepare');await refresh();});
