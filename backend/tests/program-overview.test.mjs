@@ -12,4 +12,9 @@ preview.issues.push({message:'Invalid draft'});assert.equal(build()[0].rosterRea
 assert.equal(sandbox.window.M4L_PROGRAM_OVERVIEW.build(data,null,null)[0].rosterReady,false);
 data.rows.modules.push({ProgramModuleID:'M3',ProgramSubjectID:'MISSING',LevelID:'UNKNOWN',Name:'Needs repair',Active:true});assert.equal(build().at(-1).subject,'Unavailable subject');assert.equal(build().at(-1).level,'Unavailable level');
 data.rows.subjects[0].Active=false;assert.equal(build()[0].archived,true);
+data.rows.progress=[{ProgressID:'MP-1',ProgramModuleID:'M1',ClassID:'C1',Status:'COMPLETED'},{ProgressID:'MP-2',ProgramModuleID:'M1',ClassID:'C2',Status:'ACTIVE'}];
+assert.deepEqual(build()[0].classProgress.map(c=>c.label),['Completed','Active']);
+const noLessons=JSON.parse(JSON.stringify(sandbox.window.M4L_PROGRAM_OVERVIEW.build(data,{draft:{rules:[]}},null)));
+assert.deepEqual(noLessons[0].classProgress.map(c=>c.label),['Completed','Active']);
+assert.equal(noLessons[0].hasLessons,false);
 console.log('Program overview: optional levels, empty subjects/levels, draft relationships, membership dates, combined-class deduplication, cancellations, unavailable data and archived records passed.');

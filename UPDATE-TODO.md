@@ -1,3 +1,11 @@
+## V105.3.1.4 acceptance
+
+- [x] Per-class Active / Inactive / Completed module progress.
+- [x] Overview status actions and desktop/mobile progress editor.
+- [x] Preserve module availability, other classes and timetable history.
+- [x] Validate duplicate/reference/status cases, retries, stale edits and old snapshots.
+- [ ] User acceptance: complete a module for one real class, reload, and confirm another class remains independent.
+
 ## V105.3.1.3 acceptance
 
 - [x] Combined curriculum overview with desktop rows and mobile cards.

@@ -9,6 +9,7 @@ export const MANAGEMENT_KINDS = {
   modules:{table:'ProgramModules',key:'ProgramModuleID',prefix:'MOD'},
   classes:{table:'ProgramClasses',key:'ClassID',prefix:'CLS'},
   enrollments:{table:'ProgramEnrollments',key:'EnrollmentID',prefix:'ENR'},
+  progress:{table:'ProgramModuleProgress',key:'ProgressID',prefix:'MP'},
   teachers:{table:'ProgramTeachers',key:'AccountID',prefix:''}
 };
 export function managementState(data, program) {
@@ -18,10 +19,14 @@ export function managementState(data, program) {
   const latest=entries.reduce((a,b)=>!a||Number(b.Sequence)>Number(a.Sequence)?b:a,null);
   let snapshot=Object.fromEntries([...REFERENCE_TABLES,'ProgramTeachers'].map(name=>[name,data.tables[name]||[]]));
   if(latest){try{snapshot=JSON.parse(latest.SnapshotJSON);}catch{throw problem('Program management history is unreadable.',409);}}
+  // Earlier snapshots have no class/module progress; upgrade in memory without touching Sheets.
+  if(!Object.hasOwn(snapshot,'ProgramModuleProgress'))snapshot.ProgramModuleProgress=[];
   for(const {table,key} of Object.values(MANAGEMENT_KINDS)) {
     if(!Array.isArray(snapshot[table])||snapshot[table].some(r=>!clean(r[key]))||new Set(snapshot[table].map(r=>r[key])).size!==snapshot[table].length) throw problem(`${table} has invalid or duplicate records.`,409);
   }
-  for(const name of ['ProgramSubjects','ProgramClasses','ProgramEnrollments'])if(snapshot[name].some(r=>r.CourseID!==program.id))throw problem('A management row belongs to another Program.',409);
+  for(const name of ['ProgramSubjects','ProgramClasses','ProgramEnrollments','ProgramModuleProgress'])if(snapshot[name].some(r=>r.CourseID!==program.id))throw problem('A management row belongs to another Program.',409);
+  const progress=snapshot.ProgramModuleProgress;
+  if(progress.some(r=>!clean(r.ProgramModuleID)||!clean(r.ClassID)||!['ACTIVE','INACTIVE','COMPLETED'].includes(r.Status))||new Set(progress.map(r=>JSON.stringify([r.ProgramModuleID,r.ClassID]))).size!==progress.length)throw problem('Module progress has invalid or duplicate records.',409);
   return {snapshot,revision:latest?.Revision||'',sequence:Number(latest?.Sequence||0)};
 }
 export async function managementView(data, repository, program) {
@@ -57,6 +62,17 @@ export function applyManagementChange(current, input, shared, program) {
   // Editing an existing imported reference may preserve its historical identifier.
   if(input.creating===true&&previous) throw problem('This row already exists. Reload before editing it.',409);
   if(input.creating!==true&&!previous&&input.kind!=='teachers') throw problem('This row no longer exists. Reload before editing it.',409);
+  if(input.kind==='progress') {
+    if(!['ACTIVE','INACTIVE','COMPLETED'].includes(source.Status))throw problem('Choose Active, Inactive or Completed for this class.');
+    const module=snapshot.ProgramModules.find(r=>r.ProgramModuleID===source.ProgramModuleID),klass=snapshot.ProgramClasses.find(r=>r.ClassID===source.ClassID&&r.CourseID===program.id);
+    if(!module||!klass)throw problem('Choose a module and class from this Program.');
+    if(previous&&(previous.ProgramModuleID!==module.ProgramModuleID||previous.ClassID!==klass.ClassID))throw problem('A saved progress record cannot move to another class or module.');
+    if(rows.some(r=>r.ProgressID!==id&&r.ProgramModuleID===module.ProgramModuleID&&r.ClassID===klass.ClassID))throw problem('This class already has a status for this module. Edit its existing progress record.',409);
+    if(source.Status==='ACTIVE'&&(!active(module.Active)||!active(klass.Active)))throw problem('Reactivate the module and class before marking their progress Active.');
+    const record={ProgressID:id,CourseID:program.id,ProgramModuleID:module.ProgramModuleID,ClassID:klass.ClassID,Status:source.Status};
+    if(previous)rows[rows.indexOf(previous)]=record;else rows.push(record);
+    return {snapshot,record};
+  }
   if(typeof source.Active!=='boolean') throw problem('Choose Active or Archived.');
   const record={[spec.key]:id,Active:source.Active};
   const text=(name,label,max=160,optional=false)=>{

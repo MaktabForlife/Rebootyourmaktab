@@ -262,6 +262,16 @@ try{
  assert.deepEqual(repeated.record,{added:0,alreadyLinked:2,archived:0});
  assert.equal((await tt('manage-get')).rows.subjects.length,2);
  assert.equal((await academy('recover')).recovered,false);
+ // Completion is class-specific and does not mutate curriculum, lessons or publications.
+ management=await tt('manage-get');
+ const progressBefore={modules:structuredClone(management.rows.modules),history:await tt('history'),draft:(await tt('get')).draft};
+ const classIDs=management.rows.classes.slice(0,2).map(r=>r.ClassID),moduleID=management.rows.modules[0].ProgramModuleID;
+ await saveRow('progress',{ProgressID:'MP-API-1',ProgramModuleID:moduleID,ClassID:classIDs[0],Status:'COMPLETED'});
+ await saveRow('progress',{ProgressID:'MP-API-2',ProgramModuleID:moduleID,ClassID:classIDs[1],Status:'ACTIVE'});
+ assert.deepEqual(management.rows.progress.map(r=>r.Status),['COMPLETED','ACTIVE']);
+ await tt('manage-save',edit('progress',{ProgressID:'MP-DUP',ProgramModuleID:moduleID,ClassID:classIDs[0],Status:'COMPLETED'}),token,409);
+ assert.deepEqual(management.rows.modules,progressBefore.modules);
+ assert.deepEqual(await tt('history'),progressBefore.history);assert.deepEqual((await tt('get')).draft,progressBefore.draft);
  assert.deepEqual(table(platformId,'GlobalSubjectList'),globalBefore);
  console.log('Academy subjects: isolated catalogue, reviewed imports, duplicate reuse, concurrency, retry/recovery, authority, legacy mapping and immutable history passed.');
  assert.deepEqual(books.get(legacyId),originalLegacy);

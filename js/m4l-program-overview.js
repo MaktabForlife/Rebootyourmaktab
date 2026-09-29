@@ -10,7 +10,8 @@
     const classes=new Map(rows.classes.map(r=>[r.ClassID,r]));
     const make=(subject,module,level)=>{
       const rules=(timetable?.draft.rules||[]).filter(r=>r.moduleId===module?.ProgramModuleID);
-      const classIds=[...new Set(rules.flatMap(r=>r.classIds))],teacherIds=[...new Set(rules.map(r=>r.teacherId).filter(Boolean))];
+      const progress=(rows.progress||[]).filter(r=>r.ProgramModuleID===module?.ProgramModuleID);
+      const classIds=[...new Set([...rules.flatMap(r=>r.classIds),...progress.map(r=>r.ClassID)])],teacherIds=[...new Set(rules.map(r=>r.teacherId).filter(Boolean))];
       const occurrences=(preview?.occurrences||[]).filter(r=>r.moduleId===module?.ProgramModuleID&&r.status!=='CANCELLED');
       // A learner is counted once, even when they belong to two combined classes.
       const learnerIds=new Set();
@@ -20,6 +21,7 @@
       return {subjectId:subject?.ProgramSubjectID||module?.ProgramSubjectID||'',moduleId:module?.ProgramModuleID||'',levelId:level?.LevelID||module?.LevelID||'',
         subject:names.get(subject?.SubjectID)||'Unavailable subject',level:level?.Name||(module?.LevelID?'Unavailable level':'No level'),module:module?.Name||'',
         archived:!active(subject?.Active)||(module&&!active(module.Active))||(level&&!active(level.Active)),
+        classProgress:classIds.map(id=>{const record=progress.find(r=>r.ClassID===id),status=record?.Status||'';return {id,name:classes.get(id)?.Name||'Unavailable class',status,label:({ACTIVE:'Active',INACTIVE:'Inactive',COMPLETED:'Completed'})[status]||'Not recorded'};}),
         classes:classIds.map(id=>classes.get(id)?.Name||'Unavailable class'),teachers:teacherIds.map(id=>accounts.get(id)||'Unavailable teacher'),
         learners:[...learnerIds].map(id=>({id,name:accounts.get(id)||'Unavailable learner'})),
         rosterReady:Boolean(timetable)&&(!rules.length||Boolean(preview)&&!preview.issues?.length),hasLessons:rules.length>0};

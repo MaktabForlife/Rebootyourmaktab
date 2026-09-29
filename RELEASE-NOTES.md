@@ -1,3 +1,11 @@
+# V105.3.1.4 — Per-class module completion
+
+Add Active, Inactive and Completed statuses for each class/module pair. Overview shows a status beside each class; selecting it opens the progress editor. A new Module progress section supports records even before a lesson is scheduled. Existing classes show Not recorded until explicitly saved.
+
+Module availability, other classes, timetable lessons and publication history remain unchanged by completion. Progress uses the existing coordinated management snapshot and retry mechanism, without new spreadsheet tabs or bindings. [Use and verification](docs/V105.3.1.4-MODULE-PROGRESS.md).
+
+---
+
 # V105.3.1.3 — Responsive curriculum overview
 
 Program management now opens with a combined Subject, Level, Module, Classes, Teachers and Learners overview. Each module occupies one compact desktop row and becomes a labelled card on mobile. Subjects and levels awaiting modules remain visible with an Add module action; existing modules open their editor. The six individual management sections also use mobile cards.
