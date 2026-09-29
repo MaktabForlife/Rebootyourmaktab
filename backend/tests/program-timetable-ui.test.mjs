@@ -100,3 +100,16 @@ await click('tt-history');element('tt-history-list').onclick({target:{dataset:{h
 element('tt-history-list').onclick({target:{dataset:{reuse:newest.PublicationID}}});await settled();
 local=JSON.parse(storage.get(`m4l-timetable-draft:${f.program.id}`));assert.equal(local.draft.breaks[0].label,'Morning break');assert.equal(local.draft.layout.rowHeights['10:15|10:30'],120);
 console.log('Timetable UI: breaks and layout inputs persist in immutable publications and copied drafts.');
+
+// View selection is presentation-only, including published history and a saved session.
+context.window.M4L_TIMETABLE_BLOCKS={model:()=>({}),html:()=>'<svg>Time-positioned blocks</svg>',canvases:()=>[]};
+vm.runInNewContext(source,context);await settled();await click('tt-preview');
+assert.equal(element('tt-view').value,'table');
+const draftBeforeView=storage.get(`m4l-timetable-draft:${f.program.id}`),requestsBeforeView=requests.length,saveStateBeforeView=element('tt-save-state').textContent;
+element('tt-view').value='blocks';element('tt-view').onchange();await settled();
+assert.match(element('tt-calendar').innerHTML,/Time-positioned blocks/);assert.equal(element('tt-adjust').hidden,true);assert.equal(element('tt-view-note').hidden,false);
+assert.equal(storage.get(`m4l-timetable-draft:${f.program.id}`),draftBeforeView);assert.equal(requests.length,requestsBeforeView);assert.equal(element('tt-save-state').textContent,saveStateBeforeView);
+vm.runInNewContext(source,context);await settled();assert.equal(element('tt-view').value,'blocks');
+await click('tt-history');element('tt-history-list').onclick({target:{dataset:{history:newest.PublicationID}}});assert.match(element('tt-calendar').innerHTML,/Time-positioned blocks/);assert.equal(element('tt-publish-options').hidden,true);
+element('tt-view').value='table';element('tt-view').onchange();assert.match(element('tt-calendar').innerHTML,/Lesson Zoom/);assert.equal(element('tt-view-note').hidden,true);assert.equal(element('tt-adjust').hidden,true,'Published table remains read-only');
+console.log('Timetable view switch: no writes or draft changes, original table restored, session preference and published history passed.');

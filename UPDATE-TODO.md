@@ -1,3 +1,11 @@
+# V105.3.3.2 — Blocks trial acceptance
+
+- [x] Separate Blocks view with exact time positions, rounded corners and retained lesson details/links.
+- [x] Gaps, overlap lanes, shared entries, class filtering and selected-view PNG/PDF exports.
+- [x] Keep original Table default and renderer intact; session switch does not change drafts or publications.
+- [x] 84 regression files, browser checks, PDF visual/link checks and development build.
+- [ ] Compare Blocks and Table on real timetables; check device downloads/sharing and mobile readability.
+
 # V105.3.3.1 — Development acceptance
 
 - [x] Login-link popup, row Save icons without toolbar Save row, separate policy save.

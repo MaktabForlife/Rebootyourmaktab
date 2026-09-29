@@ -1,3 +1,9 @@
+# V105.3.3.2 — Optional timetable blocks
+
+Choose **View → Blocks (trial)** in the timetable preview or published history for rounded lesson blocks positioned by exact start/end times. Each block retains its name/link, teacher and classes. Gaps and overlapping lessons are visible; image and PDF exports follow the selected view. The original **Table** remains the default and is available immediately for comparison or rollback. [Scope and verification](docs/V105.3.3.2-BLOCKS-PREVIEW.md).
+
+Development only. 84 regression files, browser interactions, PDF visual/link checks and the Worker build pass; user acceptance remains open.
+
 # V105.3.3.1 — Review corrections
 
 Timetables now use a chronological grid with merged double sessions and shared entries. Add breaks directly, adjust widths/heights/alignment, and edit lessons or breaks from the preview. Layouts and breaks are retained in saved drafts and published versions. User actions show the personal login link; individual saves use row icons, and Classes/timetable show full Zoom URLs. [Scope, validation and acceptance](docs/V105.3.3.1-REVIEW-FIXES.md).
