@@ -1,3 +1,14 @@
+# V105.3.3.1 — Development acceptance
+
+- [x] Login-link popup, row Save icons without toolbar Save row, separate policy save.
+- [x] Full clickable Zoom URLs in Classes and timetable builder.
+- [x] Common time grid, vertical double sessions, matching shared cells and visible gaps.
+- [x] Standalone breaks, conflict validation, and class-filter visibility.
+- [x] Layout controls and entry editing from preview, retained in drafts/publications/reuse.
+- [x] Regression tests, local Worker runtime, synthetic browser checks and PDF visual/link checks.
+- [ ] User acceptance of merged grid, break workflow, editing and device downloads/sharing.
+- [ ] Earlier access/enrolment acceptance and staged legacy migration remain open.
+
 # V105.3.3 — Development acceptance
 
 - [x] Multi-user and multi-cell drafts; Save all and row Save icons; preserve edits and stable retries.

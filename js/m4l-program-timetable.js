@@ -3,7 +3,7 @@
   const $=id=>document.getElementById(id),esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const id=new URLSearchParams(location.search).get('program'),storageKey=`m4l-timetable-pending:${id}`,draftKey=`m4l-timetable-draft:${id}`,format='105.3.2.2-weekly';
   const days=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-  const state={data:null,draft:null,baseline:'',busy:false,pending:null,preview:null,history:[],calendarView:null,conversion:null,converted:false,effectiveFrom:''};
+  const state={data:null,draft:null,baseline:'',busy:false,pending:null,preview:null,history:[],calendarView:null,conversion:null,converted:false,effectiveFrom:'',adjusting:false};
   const inputTime=value=>value.trim().replace(/^(\d{1,2})(\d{2})$/,'$1:$2').replace(/[hH]/,':').replace(/^(\d):(\d{2})$/,'0$1:$2');
   const time=value=>inputTime(String(value||'')).replace(':','h');
   const dirty=()=>Boolean(state.draft)&&JSON.stringify(state.draft)!==state.baseline;
@@ -22,6 +22,8 @@
   function controls(){
     const locked=state.busy||Boolean(state.pending),needsReview=state.conversion?.required&&!state.converted,ready=state.data?.prepared&&state.data?.coordinatorAvailable&&state.data?.program.status==='DRAFT'&&!needsReview;
     $('tt-editor').disabled=locked||!ready;
+    $('tt-layout').disabled=locked||!ready||Boolean(state.calendarView?.history);$('tt-adjust').disabled=locked||!ready;
+    $('tt-entry-form').querySelectorAll?.('button,input,select').forEach(el=>{el.disabled=locked;});
     for(const name of ['save','validate','preview'])$(`tt-${name}`).disabled=locked||!ready;
     $('tt-save').disabled||=!dirty();$('tt-publish').disabled=locked||!ready||!state.preview?.valid;
     $('tt-effective-from').disabled=locked;
@@ -35,20 +37,24 @@
   function invalidate(){exportGeneration++;exportPages=null;exportFiles=null;state.preview=null;$('tt-publish-options').hidden=true;$('tt-preview-panel').hidden=true;$('tt-validation').hidden=true;remember();controls();}
   function options(rows,selected,empty='Choose…'){return `<option value="">${esc(empty)}</option>`+rows.map(row=>`<option value="${esc(row.id)}" ${row.id===selected?'selected':''}>${esc(row.name)}</option>`).join('')+(selected&&!rows.some(r=>r.id===selected)?`<option selected value="${esc(selected)}">Unavailable: ${esc(selected)}</option>`:'');}
   function modules(){const c=state.data.catalog;return [...c.subjects.filter(s=>s.active).map(s=>({id:'subject:'+s.id,name:s.name+' · Subject only'})),...c.modules.filter(m=>m.active).map(m=>{const s=c.subjects.find(s=>s.id===m.programSubjectId),l=c.levels.find(l=>l.id===m.levelId);return {id:m.id,name:`${m.name} · ${s?.name||'Missing subject'}${l?` / ${l.name}`:''}`};})];}
-  const rowLabel=ruleId=>{const n=state.draft.rules.findIndex(r=>r.id===ruleId);return n<0?'Timetable':`Lesson ${n+1}`;};
+  const rowLabel=ruleId=>{const b=(state.draft.breaks||[]).findIndex(r=>r.id===ruleId);if(b>=0)return `Break ${b+1}`;const n=state.draft.rules.findIndex(r=>r.id===ruleId);return n<0?'Timetable':`Lesson ${n+1}`;};
   const anchorLabel=anchor=>{const [ruleId,day]=anchor.split('@');return `${rowLabel(ruleId)} · ${days[Number(day)]||day}`;};
   const classNames=row=>row.classIds.map(id=>state.data.catalog.classes.find(c=>c.id===id)?.name||`Unavailable: ${id}`).join(', ')||'Choose classes';
   function safeZoom(value){if(typeof value!=='string'||value.length>2048||/[\u0000-\u001f\u007f]/.test(value))return '';try{const url=new URL(value);return url.protocol==='https:'&&!url.username&&!url.password?url.href:'';}catch{return '';}}
-  const zoomAnchor=(link,label='Open Zoom')=>safeZoom(link)?`<a href="${esc(safeZoom(link))}" target="_blank" rel="noopener noreferrer">${esc(label)}</a>`:'';
+  const zoomAnchor=(link,label=link)=>safeZoom(link)?`<a href="${esc(safeZoom(link))}" target="_blank" rel="noopener noreferrer">${esc(label)}</a>`:'';
   function zoomDefault(row){
     if(row.zoomLink)return safeZoom(row.zoomLink)?`Lesson link · ${zoomAnchor(row.zoomLink)}`:'Enter a valid https:// Zoom link';
     if(row.classIds.length>1)return 'Required for combined classes';
     const cls=state.data.catalog.classes.find(c=>c.id===row.classIds[0]);
-    return cls?.zoomLink?`Class link · ${zoomAnchor(cls.zoomLink,cls.name)||'Unavailable'}`:'No class link set';
+    return cls?.zoomLink?`Class link · ${zoomAnchor(cls.zoomLink)||'Unavailable'}`:'No class link set';
   }
   const zoomField=row=>`<input type="url" data-field="zoomLink" aria-label="Zoom link · ${esc(rowLabel(row.id))}" value="${esc(row.zoomLink||'')}" placeholder="${row.classIds.length>1?'Shared lesson link required':'Use class link if blank'}" aria-required="${row.classIds.length>1}" maxlength="2048"><small class="tt-zoom-default">${zoomDefault(row)}</small>`;
-  const zoomDisplay=row=>zoomAnchor(row.zoomLink,row.zoomSource==='CLASS'?'Class Zoom':'Lesson Zoom')||'<span class="tt-scope">No Zoom link</span>';
+  const zoomDisplay=row=>zoomAnchor(row.zoomLink)||'<span class="tt-scope">No Zoom link</span>';
   const field=(row,key)=>`<input aria-label="${key==='startTime'?'Start':'End'} time · ${esc(rowLabel(row.id))}" data-field="${key}" value="${esc(time(row[key]))}" placeholder="13h00" maxlength="5" inputmode="numeric">`;
+  const dayChoices=(row,prefix='')=>`<div class="tt-days">${[1,2,3,4,5,6,0].map(n=>`<label>${days[n].slice(0,2)}<input type="checkbox" ${prefix?'name="weekday" value="'+n+'"':'data-day="'+n+'"'} aria-label="${days[n]} · ${esc(row.label||rowLabel(row.id))}" ${row.weekdays.includes(n)?'checked':''}></label>`).join('')}</div>`;
+  function renderBreaks(){
+    $('tt-breaks').innerHTML=(state.draft.breaks||[]).map(row=>`<tr data-row="${esc(row.id)}"><td><input data-field="label" aria-label="Break label" maxlength="80" value="${esc(row.label)}"></td><td>${dayChoices(row)}</td><td>${field(row,'startTime')}</td><td>${field(row,'endTime')}</td><td><button type="button" data-remove="${esc(row.id)}" class="pb-secondary" aria-label="Remove ${esc(row.label)}">×</button></td></tr>`).join('')||'<tr><td colspan="5" class="tt-empty">No breaks added.</td></tr>';
+  }
   function render(){
     const c=state.data.catalog;$('tt-timezone').innerHTML=window.M4L_TIMEZONES.options(state.draft.timezone);$('tt-timezone').value=state.draft.timezone;$('tt-title').textContent=`${state.data.program.name} · Timetable`;
     $('tt-teachers-note').hidden=c.teachers.length>0;
@@ -56,6 +62,7 @@
     const current=state.data.publications.find(p=>p.id===state.data.currentPublicationId),scheduled=state.data.publications.filter(p=>p.status==='SCHEDULED');
     $('tt-live-state').textContent=(current?`In effect · Version ${current.version}`:'No timetable in effect')+scheduled.map(p=>` · Version ${p.version} from ${p.effectiveFrom}`).join('');
     $('tt-rules').innerHTML=state.draft.rules.map((row,i)=>`<tr data-row="${esc(row.id)}"><td><select data-field="moduleId" aria-label="Module for lesson ${i+1}">${options(modules(),row.moduleId||(row.programSubjectId?'subject:'+row.programSubjectId:''))}</select></td><td><details><summary>${esc(classNames(row))}</summary>${c.classes.filter(c=>c.active||row.classIds.includes(c.id)).map(cls=>`<label class="tt-class-choice"><input type="checkbox" data-class="${esc(cls.id)}" ${row.classIds.includes(cls.id)?'checked':''}>${esc(cls.name)}${cls.active?'':' (inactive)'}</label>`).join('')}${row.classIds.filter(id=>!c.classes.some(c=>c.id===id)).map(id=>`<label class="tt-class-choice"><input type="checkbox" data-class="${esc(id)}" checked>Unavailable: ${esc(id)}</label>`).join('')}</details></td><td><select data-field="teacherId" aria-label="Teacher for lesson ${i+1}">${options(c.teachers,row.teacherId,'Not assigned (optional)')}</select></td><td><div class="tt-days">${[1,2,3,4,5,6,0].map(n=>`<label>${days[n].slice(0,2)}<input type="checkbox" data-day="${n}" aria-label="${days[n]} for lesson ${i+1}" ${row.weekdays.includes(n)?'checked':''}></label>`).join('')}</div></td><td>${field(row,'startTime')}</td><td>${field(row,'endTime')}</td><td class="tt-zoom-cell">${zoomField(row)}</td><td><button type="button" data-remove="${esc(row.id)}" class="pb-secondary" aria-label="Remove lesson ${i+1}">×</button></td></tr>`).join('')||'<tr><td colspan="8" class="tt-empty">Add a subject or module lesson to start your weekly timetable.</td></tr>';
+    renderBreaks();
     $('tt-effective-from').value=state.effectiveFrom||state.data.today;$('tt-effective-from').min=state.data.today;
     $('tt-effective-note').textContent=`The new timetable applies from this date in ${state.data.effectiveTimezone}. The current version continues until then; there is no end date.`;
     controls();
@@ -85,8 +92,8 @@
     const bad=new Set([...(result.issues||[]).map(i=>i.rowId),...(result.conflicts||[]).flatMap(c=>c.rowIds)]);document.querySelectorAll('[data-row]').forEach(row=>row.classList.toggle('tt-row-bad',bad.has(row.dataset.row)));
   }
   function showOccurrences(result,title,history=false){
-    state.calendarView={...result,history};$('tt-preview-panel').hidden=false;$('tt-preview-title').textContent=title;
-    const weekly=result.pattern==='WEEKLY';$('tt-preview-note').textContent=`${result.occurrences.length} ${weekly?'lessons each week':'dated occurrences'} · ${result.snapshot?.timezone||state.draft.timezone}${history?` · Published snapshot${result.effectiveFrom?' · Effective '+result.effectiveFrom:''}`:' · Repeats weekly until a newer version takes effect'}`;
+    state.calendarView={...result,history};if(history)state.adjusting=false;$('tt-adjust').setAttribute?.('aria-expanded',String(state.adjusting));$('tt-adjust').hidden=history;$('tt-layout').hidden=!state.adjusting;$('tt-preview-panel').hidden=false;$('tt-preview-title').textContent=title;
+    const weekly=result.pattern==='WEEKLY';$('tt-preview-note').textContent=`${result.occurrences.filter(r=>r.kind!=='BREAK').length} lessons${result.occurrences.some(r=>r.kind==='BREAK')?' · '+result.occurrences.filter(r=>r.kind==='BREAK').length+' breaks':''} ${weekly?'each week':'in this publication'} · ${result.snapshot?.timezone||state.draft.timezone}${history?` · Published snapshot${result.effectiveFrom?' · Effective '+result.effectiveFrom:''}`:' · Repeats weekly until a newer version takes effect'}`;
     $('tt-occurrences').innerHTML=result.occurrences.map(r=>`<tr class="${r.status==='CANCELLED'?'tt-cancelled':''}"><td>${esc(weekly?days[r.weekday]:r.date)}</td><td>${esc(time(r.startTime))}–${esc(time(r.endTime))}</td><td>${zoomAnchor(r.zoomLink,r.moduleName||r.subjectName)||esc(r.moduleName||r.subjectName)}<small>${esc(r.subjectName)}${r.levelName?' / '+esc(r.levelName):''}</small></td><td>${r.classNames.map(esc).join(', ')}</td><td>${esc(r.teacherName||'Not assigned')}</td><td>${zoomDisplay(r)}</td><td>${esc(r.status.toLowerCase())}</td></tr>`).join('');
     const classes=new Map();result.occurrences.forEach(r=>r.classIds.forEach((id,i)=>classes.set(id,r.classNames[i])));
     $('tt-preview-class').innerHTML=options([...classes].map(([id,name])=>({id,name})),'','All classes');
@@ -96,10 +103,11 @@
   let exportGeneration=0,exportPages=null,exportFiles=null;
   const presentation=window.M4L_TIMETABLE_PRESENTATION;
   const logo=new Image();logo.src='/logo.png';
-  function renderPresentation(){
+  function renderPresentation(refreshLayout=true){
     const result=state.calendarView;if(!result)return;
-    const model=presentation.model(result,{programName:state.data.program.name,classId:$('tt-preview-class').value,effectiveFrom:state.effectiveFrom||state.data.today,history:result.history});
-    $('tt-calendar').hidden=false;$('tt-calendar').innerHTML=presentation.html(model);
+    const model=presentation.model(result,{programName:state.data.program.name,classId:$('tt-preview-class').value,effectiveFrom:state.effectiveFrom||state.data.today,history:result.history,layout:result.history?undefined:state.draft.layout});
+    $('tt-calendar').hidden=false;$('tt-calendar').innerHTML=presentation.html(model,{editable:state.adjusting&&!result.history});
+    if(refreshLayout)renderLayout(model);
     exportPages=null;exportFiles=null;const generation=++exportGeneration;
     $('tt-share-image').disabled=$('tt-download-image').disabled=$('tt-download-pdf').disabled=true;
     $('tt-export-note').textContent='Preparing export…';
@@ -126,11 +134,55 @@
   $('tt-download-pdf').onclick=()=>work(async()=>{if(exportPages)downloadFile(new Blob([await presentation.pdf(exportPages,window.PDFLib)],{type:'application/pdf'}),'timetable.pdf');});
   $('tt-class-links').href=`/programs/manage.html?program=${encodeURIComponent(id)}&tab=classes`;
   $('tt-management').href=`/programs/manage.html?program=${encodeURIComponent(id)}`;
-  $('tt-calendar').onclick=event=>{const ruleId=event.target.closest('[data-focus-rule]')?.dataset.focusRule;if(!ruleId||state.calendarView.history)return;const row=[...document.querySelectorAll('#tt-rules tr')].find(r=>r.dataset.row===ruleId);if(row){row.scrollIntoView({block:'center',inline:'start'});row.querySelector('select')?.focus();}};
+  function renderLayout(model){
+    if(!state.adjusting||state.calendarView?.history)return;
+    const layout={alignment:'center',mergeShared:true,columnWidths:{},rowHeights:{},...state.draft.layout};
+    $('tt-alignment').value=layout.alignment;$('tt-merge').checked=layout.mergeShared;
+    $('tt-widths').innerHTML=[{id:'time',label:'Time'},...model.columns].map(c=>`<label>${esc(c.label)}<input type="number" min="100" max="600" step="10" data-width="${esc(c.id)}" value="${layout.columnWidths[c.id]||(c.id==='time'?180:360)}"></label>`).join('');
+    $('tt-heights').innerHTML=model.rows.map(row=>`<label>${esc(row.label)}<input type="number" min="60" max="300" step="10" data-height="${esc(row.key)}" value="${layout.rowHeights[row.key]||70}"></label>`).join('');
+  }
+  function layoutChanged(refreshControls=false){
+    if(state.preview){state.preview.draft=structuredClone(state.draft);if(state.preview.snapshot)state.preview.snapshot.layout=structuredClone(state.draft.layout);}
+    remember();controls();renderPresentation(refreshControls);message('Layout updated in the draft. Save the draft or publish to keep it.');
+  }
+  $('tt-adjust').onclick=()=>{if(state.busy||state.pending||state.calendarView?.history)return;state.adjusting=!state.adjusting;$('tt-layout').hidden=!state.adjusting;$('tt-adjust').setAttribute?.('aria-expanded',String(state.adjusting));renderPresentation();};
+  $('tt-layout').addEventListener('input',e=>{
+    if(state.busy||state.pending||state.calendarView?.history)return;
+    const el=e.target,layout=structuredClone(state.draft.layout||{alignment:'center',mergeShared:true,columnWidths:{},rowHeights:{}});
+    if(el.id==='tt-alignment')layout.alignment=el.value;
+    else if(el.id==='tt-merge')layout.mergeShared=el.checked;
+    else if(el.dataset.width!==undefined||el.dataset.height){const width=el.dataset.width!==undefined,min=width?100:60,max=width?600:300,value=Number(el.value);if(!Number.isInteger(value)||value<min||value>max){message(`Enter a whole number between ${min} and ${max}.`,true);return;}layout[width?'columnWidths':'rowHeights'][width?el.dataset.width:el.dataset.height]=value;}
+    else return;
+    state.draft.layout=layout;layoutChanged();
+  });
+  $('tt-layout-reset').onclick=()=>{if(state.busy||state.pending)return;state.draft.layout={alignment:'center',mergeShared:true,columnWidths:{},rowHeights:{}};layoutChanged(true);};
+  let entryEdit=null;
+  function openEntry(entry,isBreak,isNew=false){
+    if(state.busy||state.pending||state.calendarView?.history)return;
+    entryEdit={row:structuredClone(entry),isBreak,isNew};const c=state.data.catalog;
+    $('tt-entry-title').textContent=isBreak?'Edit break':'Edit lesson';$('tt-entry-error').textContent='';
+    $('tt-entry-fields').innerHTML=(isBreak?`<label>Label<input name="label" maxlength="80" value="${esc(entry.label)}"></label>`:`<label>Subject / Module<select name="moduleId">${options(modules(),entry.moduleId||(entry.programSubjectId?'subject:'+entry.programSubjectId:''))}</select></label><fieldset><legend>Classes</legend>${entry.classIds.filter(id=>!c.classes.some(c=>c.id===id)).map(id=>`<label><input type="checkbox" name="classId" value="${esc(id)}" checked>Unavailable: ${esc(id)}</label>`).join('')}${c.classes.filter(c=>c.active||entry.classIds.includes(c.id)).map(cls=>`<label><input type="checkbox" name="classId" value="${esc(cls.id)}" ${entry.classIds.includes(cls.id)?'checked':''}>${esc(cls.name)}</label>`).join('')}</fieldset><label>Teacher<select name="teacherId">${options(c.teachers,entry.teacherId,'Not assigned (optional)')}</select></label>`)+dayChoices(entry,'modal')+`<div class="tt-entry-times"><label>Start<input name="startTime" value="${esc(time(entry.startTime))}" placeholder="08h45" maxlength="5"></label><label>End<input name="endTime" value="${esc(time(entry.endTime))}" placeholder="09h15" maxlength="5"></label></div>`+(isBreak?'':`<label>Lesson Zoom link<input name="zoomLink" type="url" maxlength="2048" value="${esc(entry.zoomLink||'')}"></label><small>Optional for a single class; required for combined classes.</small>`);
+    $('tt-entry-dialog').showModal();
+  }
+  $('tt-entry-cancel').onclick=()=>{$('tt-entry-dialog').close();entryEdit=null;};
+  $('tt-entry-form').onsubmit=event=>{event.preventDefault();if(!entryEdit||state.busy||state.pending)return;
+    const form=new FormData($('tt-entry-form')),row={...entryEdit.row,weekdays:form.getAll('weekday').map(Number),startTime:inputTime(String(form.get('startTime')||'')),endTime:inputTime(String(form.get('endTime')||''))};
+    if(entryEdit.isBreak)row.label=String(form.get('label')||'').trim()||'Break';
+    else{const selected=String(form.get('moduleId')||'');row.moduleId=selected.startsWith('subject:')?'':selected;row.programSubjectId=selected.startsWith('subject:')?selected.slice(8):state.data.catalog.modules.find(m=>m.id===selected)?.programSubjectId||'';row.teacherId=String(form.get('teacherId')||'');row.classIds=form.getAll('classId');row.zoomLink=String(form.get('zoomLink')||'').trim();}
+    if(!/^([01]\d|2[0-3]):[0-5]\d$/.test(row.startTime)||!/^([01]\d|2[0-3]):[0-5]\d$/.test(row.endTime)||row.startTime>=row.endTime||!row.weekdays.length){$('tt-entry-error').textContent='Choose weekdays and valid times, with the end after the start.';return;}
+    const key=entryEdit.isBreak?'breaks':'rules';state.draft[key]||=[];if(entryEdit.isNew)state.draft[key].push(row);else state.draft[key]=state.draft[key].map(r=>r.id===row.id?row:r);
+    $('tt-entry-dialog').close();entryEdit=null;invalidate();render();
+    void work(async()=>{const result=await api('preview',{draft:state.draft,effectiveFrom:state.effectiveFrom||state.data.today});state.preview=result;showValidation(result);showOccurrences(result,'Weekly timetable preview');message(result.valid?'Entry updated and validated. Save the draft or publish to keep it.':'Entry kept in the draft. Resolve the listed issues before publishing.',!result.valid);});
+  };
+  $('tt-calendar').onclick=event=>{
+    const button=event.target.closest('button');if(!button||!state.adjusting||state.calendarView?.history)return;
+    if(button.dataset.gap){const [startTime,endTime]=button.dataset.gap.split('|');openEntry({id:`BREAK-${crypto.randomUUID()}`,label:'Break',startTime,endTime,weekdays:button.dataset.gapDays.split(',').map(Number)},true,true);return;}
+    const id=button.dataset.editEntry,entry=state.draft.rules.find(r=>r.id===id)||(state.draft.breaks||[]).find(r=>r.id===id);if(entry)openEntry(entry,id.startsWith('BREAK-'));
+  };
   $('tt-editor').addEventListener('input',event=>{
     const el=event.target;if(state.busy||state.pending)return;
     if(el.id==='tt-timezone')state.draft.timezone=el.value;
-    else {const row=state.draft.rules.find(r=>r.id===el.closest('[data-row]')?.dataset.row);if(!row)return;
+    else {const row=[...state.draft.rules,...(state.draft.breaks||[])].find(r=>r.id===el.closest('[data-row]')?.dataset.row);if(!row)return;
       if(el.dataset.field==='moduleId'){if(el.value.startsWith('subject:')){row.moduleId='';row.programSubjectId=el.value.slice(8);}else{row.moduleId=el.value;row.programSubjectId=state.data.catalog.modules.find(m=>m.id===el.value)?.programSubjectId||'';}}
       else if(el.dataset.field)row[el.dataset.field]=el.dataset.field.endsWith('Time')?inputTime(el.value):el.value;
       if(el.dataset.class){row.classIds=el.checked?[...new Set([...row.classIds,el.dataset.class])]:row.classIds.filter(id=>id!==el.dataset.class);el.closest('details').querySelector('summary').textContent=classNames(row);}
@@ -139,7 +191,8 @@
     }invalidate();
   });
   $('tt-editor').addEventListener('focusout',event=>{const el=event.target;if(el.dataset.field?.endsWith('Time')&&!state.busy&&!state.pending)el.value=time(inputTime(el.value));});
-  $('tt-editor').addEventListener('click',event=>{if(state.busy||state.pending)return;const remove=event.target.closest('[data-remove]');if(!remove)return;state.draft.rules=state.draft.rules.filter(r=>r.id!==remove.dataset.remove);invalidate();render();});
+  $('tt-editor').addEventListener('click',event=>{if(state.busy||state.pending)return;const remove=event.target.closest('[data-remove]');if(!remove)return;state.draft.rules=state.draft.rules.filter(r=>r.id!==remove.dataset.remove);if(state.draft.breaks)state.draft.breaks=state.draft.breaks.filter(r=>r.id!==remove.dataset.remove);invalidate();render();});
+  $('tt-add-break').onclick=()=>{state.draft.breaks||=[];state.draft.breaks.push({id:`BREAK-${crypto.randomUUID()}`,label:'Break',weekdays:[],startTime:'',endTime:''});invalidate();render();};
   $('tt-add').onclick=()=>{state.draft.rules.push({id:`RULE-${crypto.randomUUID()}`,moduleId:'',teacherId:'',classIds:[],weekdays:[],startTime:'',endTime:'',zoomLink:''});invalidate();render();};
   $('tt-effective-from').oninput=event=>{state.effectiveFrom=event.target.value;state.preview=null;exportGeneration++;exportPages=null;exportFiles=null;$('tt-share-image').disabled=$('tt-download-image').disabled=$('tt-download-pdf').disabled=true;$('tt-export-note').textContent='Preview again after changing the effective date.';remember();controls();message('Effective date changed. Preview again to check memberships for this date.');};
   $('tt-save').onclick=()=>work(()=>mutate('save'));$('tt-retry').onclick=()=>work(()=>mutate(state.pending.action));
@@ -160,7 +213,7 @@
       const latest=await api('get');state.data=latest;state.baseline=JSON.stringify(latest.draft);
       const snapshot=publication.snapshot;
       state.conversion=latest.conversion;state.converted=false;
-      state.draft=displayDraft(snapshot.format===format?{format,timezone:snapshot.timezone,rules:snapshot.rules.map(r=>({id:r.id,moduleId:r.moduleId,programSubjectId:r.programSubjectId||'',teacherId:r.teacherId,classIds:[...r.classIds],weekdays:[...r.weekdays],startTime:r.startTime,endTime:r.endTime,zoomLink:r.effectiveZoomLink||r.zoomLink||''}))}:snapshot);
+      state.draft=displayDraft(snapshot.format===format?{format,timezone:snapshot.timezone,...(snapshot.breaks?{breaks:structuredClone(snapshot.breaks)}:{}),...(snapshot.layout?{layout:structuredClone(snapshot.layout)}:{}),rules:snapshot.rules.map(r=>({id:r.id,moduleId:r.moduleId,programSubjectId:r.programSubjectId||'',teacherId:r.teacherId,classIds:[...r.classIds],weekdays:[...r.weekdays],startTime:r.startTime,endTime:r.endTime,zoomLink:r.effectiveZoomLink||r.zoomLink||''}))}:snapshot);
       state.effectiveFrom=latest.today;invalidate();render();
       message(`Version ${publication.version} copied into an editable draft. Preview and publish to create a new version.`);
     });

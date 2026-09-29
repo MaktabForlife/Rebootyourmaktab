@@ -60,7 +60,7 @@ edit('startTime','845');
 const summary={textContent:''},hint={innerHTML:''},row={dataset:{row:'RULE-DEMO'},querySelector:()=>hint};
 element('tt-editor').events.input({target:{dataset:{class:'CLASS-2'},checked:false,closest:selector=>selector==='details'?{querySelector:()=>summary}:row}});
 edit('zoomLink','');await click('tt-preview');
-assert.match(element('tt-occurrences').innerHTML,/href="https:\/\/zoom.us\/j\/111"/);assert.match(element('tt-occurrences').innerHTML,/Class Zoom/);
+assert.match(element('tt-occurrences').innerHTML,/href="https:\/\/zoom.us\/j\/111"/);assert.match(element('tt-occurrences').innerHTML,/>https:\/\/zoom.us\/j\/111<\/a>/);
 assert.equal(element('tt-publish').disabled,false);
 // Malformed links never become executable anchors in draft hints or previews.
 edit('zoomLink','javascript:alert(1)');await click('tt-preview');assert.equal(element('tt-publish').disabled,true);assert(!element('tt-occurrences').innerHTML.includes('href="javascript:'));
@@ -80,3 +80,23 @@ assert.match(element('tt-rules').innerHTML,/https:\/\/zoom.us\/j\/222\?pwd=test/
 await click('tt-preview');await click('tt-publish');
 assert.equal(f.tables.ProgramTimetablePublications.length,3);assert.deepEqual(f.tables.ProgramTimetablePublications[0],firstPublication);
 console.log('Timetable reuse: protected unfinished draft, preserved Zoom snapshot and new immutable publication passed.');
+
+// A break and visual settings survive saves, reloads and publication reuse.
+context.window.M4L_TIMETABLE_PRESENTATION.model=()=>({columns:[{id:1,label:'Monday'}],rows:[{key:'10:15|10:30',label:'10h15 - 10h30'}]});
+await click('tt-add-break');
+let local=JSON.parse(storage.get(`m4l-timetable-draft:${f.program.id}`)),breakId=local.draft.breaks[0].id;
+function editBreak(field,value){element('tt-editor').events.input({target:{dataset:{field},value,closest:()=>({dataset:{row:breakId}})}});}
+editBreak('label','Morning break');editBreak('startTime','1015');editBreak('endTime','1030');
+element('tt-editor').events.input({target:{dataset:{day:'1'},checked:true,closest:()=>({dataset:{row:breakId}})}});
+await click('tt-preview');assert.equal(element('tt-publish').disabled,false);assert.match(element('tt-calendar').innerHTML,/Lesson Zoom/);
+await click('tt-adjust');
+element('tt-layout').events.input({target:{id:'tt-alignment',value:'left',dataset:{}}});
+element('tt-layout').events.input({target:{id:'',value:'220',dataset:{width:'time'}}});
+element('tt-layout').events.input({target:{id:'',value:'120',dataset:{height:'10:15|10:30'}}});
+assert.equal(element('tt-save').disabled,false);
+await click('tt-publish');const newest=f.tables.ProgramTimetablePublications.at(-1),snap=JSON.parse(newest.SnapshotJSON);
+assert.equal(snap.breaks[0].label,'Morning break');assert.equal(snap.layout.columnWidths.time,220);assert.equal(snap.layout.alignment,'left');
+await click('tt-history');element('tt-history-list').onclick({target:{dataset:{history:newest.PublicationID}}});assert.equal(element('tt-adjust').hidden,true);
+element('tt-history-list').onclick({target:{dataset:{reuse:newest.PublicationID}}});await settled();
+local=JSON.parse(storage.get(`m4l-timetable-draft:${f.program.id}`));assert.equal(local.draft.breaks[0].label,'Morning break');assert.equal(local.draft.layout.rowHeights['10:15|10:30'],120);
+console.log('Timetable UI: breaks and layout inputs persist in immutable publications and copied drafts.');

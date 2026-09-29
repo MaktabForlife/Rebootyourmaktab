@@ -12,3 +12,24 @@ const filtered=presentation.model(source,{classId:'B',effectiveFrom:'2026-10-05'
 const cancelled=presentation.model({...source,occurrences:[{...a,status:'CANCELLED'}]});assert(!presentation.html(cancelled).includes('href='));
 for(const url of ['http://zoom.us/j/1','https://user:password@zoom.us/j/1','https://zoom.us/\n','javascript:alert(1)'])assert.equal(presentation.link(url),'');
 console.log('Timetable presentation: weekday/time grid, class filtering, draft/published labels, safe linked module names and cancelled lessons passed.');
+
+// Screenshot regression: one time axis, shared Assembly, two vertical double sessions.
+const item=(title,day,start,end,extra={})=>({...a,ruleId:`RULE-${title}-${day}`,moduleName:title,weekday:day,startTime:start,endTime:end,...extra});
+const assembly=[2,3,4].map(day=>item('Assembly',day,'07:30','07:45'));
+const double=[item('Quduri',2,'07:45','09:15'),item('Mishkaat',3,'07:45','09:15'),item('Quduri',4,'07:45','08:30'),item('Mishkaat',4,'08:30','09:15')];
+const breakRows=[2,3,4].map(day=>item('Break',day,'09:15','09:30',{kind:'BREAK',classIds:[],classNames:[],teacherName:'',zoomLink:''}));
+const screenshot={...source,occurrences:[...assembly,...double,...breakRows,item('Mishkaat',2,'09:30','10:00')]};
+const sm=presentation.model(screenshot),sg=presentation.grid(sm);
+assert.deepEqual(Array.from(sm.rows,r=>r.label),['07h30 - 07h45','07h45 - 08h30','08h30 - 09h15','09h15 - 09h30','09h30 - 10h00']);
+assert.equal(sg.find(c=>c.row===0).colSpan,3);assert.equal(sg.filter(c=>c.rowSpan===2).length,2);
+assert.equal(sg.find(c=>c.items[0]?.kind==='BREAK').colSpan,3);
+for(let y=0;y<sm.rows.length;y++)for(let x=0;x<sm.columns.length;x++)assert.equal(sg.filter(c=>c.row<=y&&y<c.row+c.rowSpan&&c.col<=x&&x<c.col+c.colSpan).length,1,'No holes or overlapping spans');
+assert.match(presentation.html(sm),/rowspan="2"/);assert.match(presentation.html(sm),/colspan="3"/);
+assert.match(presentation.html(sm,{editable:true}),/Edit lesson/);
+assert.equal(presentation.model(screenshot,{classId:'A'}).rows.length,5,'Breaks retained in class filter');
+const gap=presentation.model({...screenshot,occurrences:screenshot.occurrences.filter(r=>r.kind!=='BREAK')});assert.equal(gap.rows[3].cells.flat().length,0);assert.match(presentation.html(gap,{editable:true}),/data-gap="09:15\|09:30"/);
+const differentLinks=presentation.model({...source,occurrences:[assembly[0],{...assembly[1],zoomLink:'https://zoom.us/j/different'}]});assert.equal(presentation.grid(differentLinks).length,2);
+const differentIdentities=presentation.model({...source,occurrences:[{...assembly[0],moduleId:'A'},{...assembly[1],moduleId:'B'}]});assert.equal(presentation.grid(differentIdentities).length,2);
+const separated=presentation.model(screenshot,{layout:{mergeShared:false}});assert(presentation.grid(separated).every(c=>c.colSpan===1));
+const adjacent=presentation.model({...source,occurrences:[item('Same',2,'08:00','08:30'),item('Same',2,'08:30','09:00')]});assert(presentation.grid(adjacent).every(c=>c.rowSpan===1),'Distinct adjacent lessons are not a double session');
+console.log('Merged grid: chronological boundaries, shared entries, double sessions, safe identity/link merges, gaps and class-filtered breaks passed.');

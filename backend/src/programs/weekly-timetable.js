@@ -11,6 +11,20 @@ export function programToday(timezone,now=new Date()){
   catch {throw problem('Choose a valid Program timezone before publishing.');}
 }
 export const emptyWeeklyDraft=timezone=>({format:WEEKLY_SCHEMA,timezone:timezone||'',rules:[]});
+export function normalizeLayout(value={}){
+  if(!value||typeof value!=='object'||Array.isArray(value))throw problem('Invalid timetable layout.');
+  const sizes=(input,pattern,min,max)=>{
+    if(input===undefined)return {};
+    if(!input||typeof input!=='object'||Array.isArray(input)||Object.keys(input).length>240)throw problem('Invalid timetable layout sizes.');
+    return Object.fromEntries(Object.entries(input).map(([key,size])=>{
+      if(!pattern.test(key)||!Number.isInteger(size)||size<min||size>max)throw problem(`Layout sizes must be whole numbers between ${min} and ${max}.`);
+      return [key,size];
+    }));
+  };
+  if(value.alignment!==undefined&&!['left','center','right'].includes(value.alignment))throw problem('Choose left, centre or right alignment.');
+  if(value.mergeShared!==undefined&&typeof value.mergeShared!=='boolean')throw problem('Invalid shared-cell setting.');
+  return {alignment:value.alignment||'center',mergeShared:value.mergeShared!==false,columnWidths:sizes(value.columnWidths,/^(time|[0-6])$/,100,600),rowHeights:sizes(value.rowHeights,/^([01]\d|2[0-3]):[0-5]\d\|([01]\d|2[0-3]):[0-5]\d$/,60,300)};
+}
 export function normalizeWeeklyDraft(input){
   if(!input||input.format!==WEEKLY_SCHEMA||!Array.isArray(input.rules))throw problem('Refresh the timetable to use the ongoing weekly format. Your saved draft is kept.',409);
   if(input.rules.length>100)throw problem('Use at most 100 lesson rows.');
@@ -22,6 +36,16 @@ export function normalizeWeeklyDraft(input){
     return {id:row.id,moduleId:text(row.moduleId),programSubjectId:text(row.programSubjectId),teacherId:text(row.teacherId),classIds:Array.isArray(row.classIds)?row.classIds.map(text):[],weekdays:Array.isArray(row.weekdays)?row.weekdays.slice():[],startTime:normalizeTime(row.startTime),endTime:normalizeTime(row.endTime),zoomLink:text(row.zoomLink)};
   });
   if(new Set(draft.rules.map(r=>r.id)).size!==draft.rules.length)throw problem('Lesson IDs must be unique.');
+  if(input.breaks!==undefined){
+    if(!Array.isArray(input.breaks)||input.breaks.length>40)throw problem('Use at most 40 break rows.');
+    draft.breaks=input.breaks.map(row=>{
+      if(!row||!/^BREAK-[\w-]{1,80}$/.test(row.id||''))throw problem('Each break needs a stable ID.');
+      const label=text(row.label)||'Break';if(label.length>80)throw problem('Keep break labels within 80 characters.');
+      return {id:row.id,label,weekdays:Array.isArray(row.weekdays)?row.weekdays.slice():[],startTime:normalizeTime(row.startTime),endTime:normalizeTime(row.endTime)};
+    });
+    if(new Set(draft.breaks.map(r=>r.id)).size!==draft.breaks.length)throw problem('Break IDs must be unique.');
+  }
+  if(input.layout!==undefined)draft.layout=normalizeLayout(input.layout);
   boundedJSON(draft);return draft;
 }
 export function readWeeklyDraft(input){
@@ -41,8 +65,8 @@ function hasWeekday(start,end,weekday){
   const first=new Date(Date.parse(`${start}T00:00:00Z`)+((weekday-day+7)%7)*86400000).toISOString().slice(0,10);
   return first<=end;
 }
-export function weeklyPattern(rules){
-  return rules.flatMap(r=>r.weekdays.map(weekday=>({anchor:`${r.id}@${weekday}`,ruleId:r.id,weekday,moduleId:r.moduleId,programSubjectId:r.programSubjectId,subjectName:r.subjectName,moduleName:r.moduleName,levelName:r.levelName,classIds:r.classIds,classNames:r.classNames,teacherId:r.teacherId,teacherName:r.teacherName,startTime:r.startTime,endTime:r.endTime,zoomLink:r.effectiveZoomLink||'',zoomSource:r.zoomSource||'NONE',status:'SCHEDULED'})))
+export function weeklyPattern(rules,breaks=[]){
+  return [...rules,...breaks.map(b=>({...b,kind:'BREAK',moduleName:b.label,classIds:[],classNames:[]}))].flatMap(r=>r.weekdays.map(weekday=>({anchor:`${r.id}@${weekday}`,ruleId:r.id,kind:r.kind||'LESSON',weekday,moduleId:r.moduleId,programSubjectId:r.programSubjectId,subjectName:r.subjectName,moduleName:r.moduleName,levelName:r.levelName,classIds:r.classIds,classNames:r.classNames,teacherId:r.teacherId,teacherName:r.teacherName,startTime:r.startTime,endTime:r.endTime,zoomLink:r.effectiveZoomLink||'',zoomSource:r.zoomSource||'NONE',status:'SCHEDULED'})))
     .sort((a,b)=>(a.weekday+6)%7-(b.weekday+6)%7||a.startTime.localeCompare(b.startTime)||a.ruleId.localeCompare(b.ruleId));
 }
 export function validateWeeklyTimetable(input,catalog,program,fromDate){
@@ -65,10 +89,19 @@ export function validateWeeklyTimetable(input,catalog,program,fromDate){
     if(before===issues.length)linked.push({...row,zoomLink:normalizeZoomLink(row.zoomLink),effectiveZoomLink:zoom.zoomLink,zoomSource:zoom.zoomSource,programSubjectId:subject.id,subjectId:subject.subjectId,levelId:module?.levelId||'',subjectName:subject.name,moduleName:module?.name||subject.name,levelName:level?.name||'',classNames:row.classIds.map(id=>classes.get(id).name),teacherName:row.teacherId?teachers.get(row.teacherId).name:''});
   }
   const enrollments=(catalog.enrollments||[]).filter(e=>e.active);
+  for(const row of draft.breaks||[]){
+    if(!validTime(row.startTime)||!validTime(row.endTime)||row.startTime>=row.endTime)issue(row.id,'time','Use a same-day break with the end after the start.');
+    if(!row.weekdays.length||new Set(row.weekdays).size!==row.weekdays.length||row.weekdays.some(d=>!Number.isInteger(d)||d<0||d>6))issue(row.id,'weekdays','Choose at least one weekday for the break without duplicates.');
+  }
   for(const e of enrollments)if(e.courseId!==program.id||!classes.has(e.classId)||!e.accountId||!validDate(e.startDate)||(e.endDate&&(!validDate(e.endDate)||e.endDate<e.startDate)))issue('','enrollments','Repair invalid class membership dates before publishing.');
   if(issues.length)return {valid:false,issues,conflicts,occurrences:[],draft,pattern:'WEEKLY'};
   const asOf=fromDate||programToday(program.timezone||draft.timezone);
   if(!validDate(asOf))throw problem('Choose a valid effective date.');
+  const breaks=draft.breaks||[];
+  for(let i=0;i<breaks.length;i++)for(const row of [...linked,...breaks.slice(i+1)]){
+    const b=breaks[i],days=b.weekdays.filter(d=>row.weekdays.includes(d));
+    if(days.length&&b.startTime<row.endTime&&row.startTime<b.endTime)conflicts.push({left:`${b.id}@${days[0]}`,right:`${row.id}@${days[0]}`,rowIds:[b.id,row.id],weekdays:days,reasons:['Break overlaps another timetable entry']});
+  }
   for(let i=0;i<linked.length;i++)for(let j=i+1;j<linked.length;j++){
     const a=linked[i],b=linked[j],days=a.weekdays.filter(day=>b.weekdays.includes(day));
     if(!days.length||a.startTime>=b.endTime||b.startTime>=a.endTime)continue;
@@ -80,7 +113,7 @@ export function validateWeeklyTimetable(input,catalog,program,fromDate){
     if(reasons.length)conflicts.push({left:`${a.id}@${days[0]}`,right:`${b.id}@${days[0]}`,rowIds:[a.id,b.id],weekdays:days,reasons});
   }
   const snapshot={schema:WEEKLY_SCHEMA,programId:program.id,programName:program.name,...draft,rules:linked};boundedJSON(snapshot);
-  return {valid:!conflicts.length,issues,conflicts,draft,snapshot,pattern:'WEEKLY',asOf,occurrences:weeklyPattern(linked),warnings:['Conflict checks cover this Program and known class memberships. Cross-Program checks remain a later integration.']};
+  return {valid:!conflicts.length,issues,conflicts,draft,snapshot,pattern:'WEEKLY',asOf,occurrences:weeklyPattern(linked,breaks),warnings:['Conflict checks cover this Program and known class memberships. Cross-Program checks remain a later integration.']};
 }
 export function publicationRecord(row,program){
   let snapshot;try{snapshot=JSON.parse(row.SnapshotJSON);}catch{throw problem('A published timetable snapshot is damaged.',409);}
@@ -88,7 +121,7 @@ export function publicationRecord(row,program){
   const weekly=snapshot.schema===WEEKLY_SCHEMA,effectiveFrom=weekly?snapshot.effectiveFrom:snapshot.startDate;
   if(!validDate(effectiveFrom)||weekly&&snapshot.format!==WEEKLY_SCHEMA)throw problem('A published timetable has an invalid effective date or format.',409);
   // Labels and audiences come only from the immutable snapshot, never today's catalog.
-  return {id:row.PublicationID,version:Number(row.VersionNo),date:row.PublishedDate,by:row.PublishedByAccountID,effectiveFrom,pattern:weekly?'WEEKLY':'DATED',snapshot,occurrences:weekly?weeklyPattern(snapshot.rules):datedOccurrences(snapshot)};
+  return {id:row.PublicationID,version:Number(row.VersionNo),date:row.PublishedDate,by:row.PublishedByAccountID,effectiveFrom,pattern:weekly?'WEEKLY':'DATED',snapshot,occurrences:weekly?weeklyPattern(snapshot.rules,snapshot.breaks):datedOccurrences(snapshot)};
 }
 export function publicationSchedule(publications,asOf){
   if(!validDate(asOf))throw problem('Choose a valid timetable date.');

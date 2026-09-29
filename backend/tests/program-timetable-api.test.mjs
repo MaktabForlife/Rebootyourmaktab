@@ -423,6 +423,7 @@ try{
  // Future weekly publication with no teacher preserves today's immutable snapshot.
  const beforeWeekly=await tt('get'),activeBefore=(await tt('published')).publication;
  const weeklyDraft=structuredClone(managedDraft);weeklyDraft.rules[0].teacherId='';weeklyDraft.rules[0].startTime='08:45';weeklyDraft.rules[0].endTime='10:15';
+ weeklyDraft.breaks=[{id:'BREAK-RUNTIME',label:'Break',weekdays:[...weeklyDraft.rules[0].weekdays],startTime:'10:15',endTime:'10:30'}];weeklyDraft.layout={alignment:'center',mergeShared:true,columnWidths:{time:220},rowHeights:{'10:15|10:30':90}};
  assert((await tt('preview',{draft:weeklyDraft})).valid);
  const effectiveFrom=new Date(Date.parse(beforeWeekly.today+'T00:00:00Z')+7*86400000).toISOString().slice(0,10);
  const future=await tt('publish',{...change(beforeWeekly.revision,weeklyDraft),effectiveFrom});
@@ -432,6 +433,8 @@ try{
  assert.equal(futureView.occurrences[0].zoomLink,'https://zoom.us/j/777?pwd=class');assert.equal(futureView.occurrences[0].zoomSource,'CLASS');
  assert.equal(futureView.id,future.publicationId);assert.equal(futureView.occurrences[0].teacherId,'');assert.equal(futureView.occurrences[0].startTime,'08:45');
  assert.equal((await tt('published',{date:'2099-12-31'})).publication.id,future.publicationId);
+ assert.equal(futureView.snapshot.layout.columnWidths.time,220);assert.equal(futureView.snapshot.breaks[0].label,'Break');assert(futureView.occurrences.some(r=>r.kind==='BREAK'&&r.zoomLink===''));
+ assert.equal((await tt('get')).draft.layout.rowHeights['10:15|10:30'],90);
  console.log('Weekly runtime API: optional teacher, future publication, current/history preservation and no expiry passed.');
  assert.deepEqual(books.get(legacyId),originalLegacy);
  assert.deepEqual(table(platformId,'CourseRegistry')[1],originalRegistryRow);

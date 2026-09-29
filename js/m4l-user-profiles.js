@@ -17,9 +17,11 @@
     const locked=state.busy||state.waiting||Boolean(state.pending)||Boolean(state.conflict);
     $('up-save-all').disabled=locked||!changedEntries().some(e=>['profile','matrix-roles'].includes(e.mode));
     $('up-save').disabled=locked||!state.edit||!changed(state.edit);
-    $('up-save').textContent=state.edit?.mode==='matrix-policy'?'Save access setting':'Save row';
+    $('up-save').textContent='Save access setting';
+    $('up-save').hidden=state.edit?.mode!=='matrix-policy';
     const count=new Set(changedEntries().filter(e=>e.accountId).map(e=>e.accountId)).size;
     $('up-unsaved').textContent=count?`${count} users with unsaved entries`:'Choose cells to edit. Ctrl/⌘ + Enter saves all changed users.';
+    $('up-users').querySelectorAll?.('[data-user]').forEach(row=>{const id=row.dataset.user;if(changedEntries().some(e=>e.accountId===id)&&!row.querySelector('[data-save]'))row.querySelector('.up-actions')?.insertAdjacentHTML('beforeend',actionIcon('save',id,'Save this user',locked));});
     $('up-users').querySelectorAll?.('[data-save]').forEach(button=>{button.disabled=locked||!changedEntries().some(e=>e.accountId===button.dataset.save);});
   }
   const findEdit=(mode,accountId,scope)=>entries().find(e=>e.mode===mode&&e.accountId===accountId&&(!scope||e.scopeType===scope.type&&e.scopeId===scope.id));
@@ -38,7 +40,7 @@
     $('up-refresh').disabled=state.busy||state.waiting;$('up-add').disabled=!editable||!state.data?.prepared;
     $('up-retry').disabled=state.busy||state.waiting;$('up-pending').hidden=!state.pending;
     $('up-draft-notice').hidden=!entries().length;$('up-return').disabled=state.busy;
-    $('up-save').hidden=$('up-cancel').hidden=!edit;$('up-save').disabled=!editable||state.waiting||Boolean(state.conflict);$('up-cancel').disabled=state.busy||Boolean(state.pending);
+    $('up-cancel').hidden=!edit;$('up-save').disabled=!editable||state.waiting||Boolean(state.conflict);$('up-cancel').disabled=state.busy||Boolean(state.pending);
     $('up-conflict').hidden=!state.conflict||!edit;
     const describe=record=>edit?.mode==='profile'?`${record?.displayName||'Removed'} · ${record?.active?'Active':'Inactive'}`:edit?.mode==='matrix-policy'?record?.accessModel||'Unknown':roleNames(record?.roles||[])+(record?.accessModel?` · ${record.accessModel==='FREE'?'Free':'Paid'} setting`:'');
     if(state.conflict&&edit)$('up-comparison').innerHTML=`<table class="pm-grid"><thead><tr><th>Saved version</th><th>Your entry</th></tr></thead><tbody><tr><td>${esc(describe(state.conflict.currentRecord))}</td><td>${esc(describe(edit))}</td></tr></tbody></table>`;
@@ -61,7 +63,7 @@
       return `<tr data-user="${esc(a.accountId)}" class="${a.active?'':'up-account-inactive'} ${rowDirty?'is-editing':''} ${state.selected===a.accountId?'up-selected':''}"><td data-label="User name">${profileEdit?`<input data-name data-account="${esc(a.accountId)}" maxlength="160" aria-label="User name" value="${esc(profileEdit.displayName)}" ${!editable?'disabled':''}>`:`<button type="button" class="up-cell" data-profile="${esc(a.accountId)}" ${blocked||!state.data.prepared?'disabled':''}>${esc(a.displayName)}</button>`}${a.academyAdmin?'<small>Academy administrator</small>':''}</td><td data-label="Status">${profileEdit?`<select data-active data-account="${esc(a.accountId)}" aria-label="Account status" ${!editable?'disabled':''}><option value="true" ${profileEdit.active?'selected':''}>Active</option><option value="false" ${!profileEdit.active?'selected':''}>Inactive</option></select>`:`<button type="button" class="up-cell" data-profile="${esc(a.accountId)}" ${blocked||!state.data.prepared?'disabled':''}>${a.active?'Active':'Inactive'}</button>`}</td>${scopes.map(scope=>{
         const grant=a.assignments.find(g=>g.scopeType===scope.type&&g.scopeId===scope.id),editing=findEdit('matrix-roles',a.accountId,scope),roles=editing?editing.roles:grant?.roles||[];
         return `<td data-label="${esc(scope.name)}">${editing?`<fieldset class="up-role-choices"><legend>Roles for ${esc(a.displayName)} · ${esc(scope.name)}</legend><label><input type="checkbox" data-default-user data-account="${esc(a.accountId)}" data-scope="${esc(scopeKey(scope))}" ${roles.length?'':'checked'} ${!editable?'disabled':''}>User (default)</label>${state.data.roles.map(role=>`<label><input type="checkbox" data-role="${role}" ${roles.includes(role)?'checked':''} data-account="${esc(a.accountId)}" data-scope="${esc(scopeKey(scope))}" ${!editable?'disabled':''}>${labels[role]}</label>`).join('')}</fieldset>`:`<button type="button" class="up-cell" data-edit-scope="${esc(scopeKey(scope))}" data-account="${esc(a.accountId)}" ${blocked||!scope.prepared||!grant?'disabled':''}>${esc(roleNames(roles))} ▾</button>`}${grant?.reviewStatus==='REQUIRED'?'<small class="up-review">Confirm imported role</small>':''}</td>`;
-      }).join('')}<td data-label="Actions"><div class="up-actions">${actionIcon('view',a.accountId,'View profile',profileEdit?.creating)}${actionIcon('share',a.accountId,'Share sign-in link',profileEdit?.creating)}${actionIcon('copy',a.accountId,'Copy sign-in link',profileEdit?.creating)}${rowDirty?actionIcon('save',a.accountId,'Save this user',!editable||state.waiting||Boolean(state.conflict)||!changedEntries().some(e=>e.accountId===a.accountId)):''}</div>${rowDirty?'<small>Unsaved changes</small>':''}</td></tr>`;
+      }).join('')}<td data-label="Actions"><div class="up-actions">${actionIcon('view',a.accountId,'View login link',profileEdit?.creating)}${actionIcon('share',a.accountId,'Share sign-in link',profileEdit?.creating)}${actionIcon('copy',a.accountId,'Copy sign-in link',profileEdit?.creating)}${rowDirty?actionIcon('save',a.accountId,'Save this user',!editable||state.waiting||Boolean(state.conflict)||!changedEntries().some(e=>e.accountId===a.accountId)):''}</div>${rowDirty?'<small>Unsaved changes</small>':''}</td></tr>`;
     }).join('')||`<tr><td colspan="${scopes.length+3}" class="pm-empty">No matching users.</td></tr>`;
   }
   function schedule(error,callback,attempt,kind){
@@ -133,7 +135,7 @@
     const button=e.target.closest('button');if(!button||state.busy||state.pending)return;
     const {profile,editScope,account,link,view,share,copy,save:rowSave}=button.dataset;
     if(rowSave){void save(0,changedEntries().filter(e=>e.accountId===rowSave));return;}
-    if(view){showProfile(view);return;}
+    if(view){if(state.waiting){message('Wait for the spreadsheet service to recover before retrieving a sign-in link.',true);return;}await userLink(view,false,true);return;}
     if(share||copy){if(state.waiting){message('Wait for the spreadsheet service to recover before retrieving a sign-in link.',true);return;}await userLink(share||copy,Boolean(share));return;}
     if(link){state.busy=true;render();try{showLink((await api('link',{accountId:link})).loginPath);}catch(error){message(error.message,true);}finally{state.busy=false;render();}return;}
     if(profile){const a=state.data.accounts.find(a=>a.accountId===profile);if(a)startEdit({mode:'profile',accountId:a.accountId,creating:false,displayName:a.displayName,active:a.active,baseRevision:a.revision});}
@@ -164,19 +166,14 @@
     while(selected.length){if(!await save(0,selected.slice(0,20)))return;selected=changedEntries().filter(e=>['profile','matrix-roles'].includes(e.mode));}
   }
   $('up-save-all').onclick=()=>void saveAll();
-  function showProfile(accountId){
-    const account=state.data.accounts.find(a=>a.accountId===accountId);if(!account)return;
-    $('up-profile-title').textContent=account.displayName;
-    $('up-profile-body').innerHTML=`<p>${account.active?'Active':'Inactive'}${account.academyAdmin?' · Academy administrator':''}</p><dl>${account.assignments.map(grant=>`<dt>${esc(state.data.scopes.find(s=>s.type===grant.scopeType&&s.id===grant.scopeId)?.name||grant.scopeId)}</dt><dd>${esc(roleNames(grant.roles))}</dd>`).join('')}</dl><p>Showing saved profile details.</p>`;
-    $('up-profile-dialog').showModal();
-  }
   $('up-profile-close').onclick=()=>$('up-profile-dialog').close();
-  async function userLink(accountId,share){
+  async function userLink(accountId,share,view=false){
     state.busy=true;render();
     try{
       const {loginPath}=await api('link',{accountId});if(!/^\/account\/[A-Za-z0-9_-]+$/.test(loginPath))throw Error('The sign-in link is unavailable.');
       const url=location.origin+loginPath;showLink(loginPath);
-      if(share&&navigator.share){try{await navigator.share({title:'Academy sign-in',url});}catch(error){if(error.name!=='AbortError')message('The link is shown below; copy it to share.',true);}}
+      if(view){$('up-profile-title').textContent='Login link · '+(state.data.accounts.find(a=>a.accountId===accountId)?.displayName||'User');$('up-profile-body').innerHTML=`<p>Personal sign-in link</p><a href="${esc(url)}" target="_blank" rel="noopener noreferrer" style="overflow-wrap:anywhere">${esc(url)}</a>`;$('up-profile-dialog').showModal();}
+      else if(share&&navigator.share){try{await navigator.share({title:'Academy sign-in',url});}catch(error){if(error.name!=='AbortError')message('The link is shown below; copy it to share.',true);}}
       else if(navigator.clipboard?.writeText){await navigator.clipboard.writeText(url);message('Sign-in link copied.');}
       else message('Select and copy the sign-in link shown below.');
     }catch(error){message(error.message,true);}finally{state.busy=false;render();}

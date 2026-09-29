@@ -1,3 +1,9 @@
+# V105.3.3.1 — Review corrections
+
+Timetables now use a chronological grid with merged double sessions and shared entries. Add breaks directly, adjust widths/heights/alignment, and edit lessons or breaks from the preview. Layouts and breaks are retained in saved drafts and published versions. User actions show the personal login link; individual saves use row icons, and Classes/timetable show full Zoom URLs. [Scope, validation and acceptance](docs/V105.3.3.1-REVIEW-FIXES.md).
+
+Development only. Automated regression, local Worker, browser interactions and PDF checks completed; user acceptance and device share/download checks remain open.
+
 # V105.3.3 — User-profile editing and timetable completion
 
 Edit several users and role cells before saving, with **Save all**, optional row saves, profile popups and sign-in link actions. Newly created users stay at the top for the session. Confirmed program Teacher, Senior and Admin roles now supply the timetable teacher list.

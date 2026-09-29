@@ -10,6 +10,10 @@ import { timetableFixture } from './program-timetable-fixtures.mjs';
 import { readWeeklyDraft } from '../backend/src/programs/weekly-timetable.js';
 import { timetableService } from '../backend/src/programs/timetable-service.js';
 import { timetableCoordinator } from '../backend/src/programs/timetable-coordination.js';
+import {userProfilesFixture} from './user-profiles-fixtures.mjs';
+import {profileService} from '../backend/src/profiles/service.js';
+const profileFixture=userProfilesFixture(),profiles=profileService(profileFixture.repository),profileCoordinator=timetableCoordinator(profileFixture.journal,async()=>({service:profiles,user:profileFixture.authorize()}));
+await profileCoordinator.run('save',{mode:'matrix-prepare',operationId:crypto.randomUUID()},'preview');
 const fixture=timetableFixture();
 // Demonstrate review of a pre-V105.3.1.1 Global link without changing its dependants.
 fixture.shared.subjects[0].Legacy=true;
@@ -25,7 +29,14 @@ const academyService=academySubjectService(academyRepository);
 const academyCoordinator=timetableCoordinator({get:async()=>academyPending,set:async value=>{academyPending=value;},clear:async()=>{academyPending=null;}},async()=>({user:{accountid:'PREVIEW'},service:academyService}));
 const ttService=timetableService(fixture.repository,fixture.program);
 const ttCoordinator=timetableCoordinator(fixture.journal,async()=>({user:{accountid:'PREVIEW'},service:ttService}));
-await ttCoordinator.run('save',{id:fixture.program.id,revision:'',draft:readWeeklyDraft(fixture.draft).draft,operationId:crypto.randomUUID()},'preview');
+const demoDraft=readWeeklyDraft(fixture.draft).draft;
+if(process.env.PROGRAM_PREVIEW_TIMETABLE==='review'){
+  fixture.catalog.modules=[{id:'MOD-ASSEMBLY',programSubjectId:'PS-TAFSEER',name:'Assembly',active:true},{id:'MOD-QUDURI',programSubjectId:'PS-TAFSEER',name:'Quduri',active:true},{id:'MOD-MISHKAAT',programSubjectId:'PS-TAFSEER',name:'Mishkaat',active:true}];
+  const rule=(id,moduleId,weekdays,startTime,endTime)=>({id,moduleId,teacherId:'',classIds:['CLASS-1'],weekdays,startTime,endTime,zoomLink:'https://example.zoom.us/j/123?pwd=synthetic'});
+  demoDraft.rules=[rule('RULE-ASSEMBLY','MOD-ASSEMBLY',[2,3,4],'07:30','07:45'),rule('RULE-TUE','MOD-QUDURI',[2],'07:45','09:15'),rule('RULE-WED','MOD-MISHKAAT',[3],'07:45','09:15'),rule('RULE-THU1','MOD-QUDURI',[4],'07:45','08:30'),rule('RULE-THU2','MOD-MISHKAAT',[4],'08:30','09:15'),rule('RULE-LAST','MOD-MISHKAAT',[2],'09:30','10:00')];
+  demoDraft.breaks=[{id:'BREAK-DEMO',label:'Break',weekdays:[2,3,4],startTime:'09:15',endTime:'09:30'}];
+}
+await ttCoordinator.run('save',{id:fixture.program.id,revision:'',draft:demoDraft,operationId:crypto.randomUUID()},'preview');
 const root = fileURLToPath(new URL("../", import.meta.url));
 const id = "PRG-19da8d59-7eb0-41c3-949d-916f8d764f81";
 const registry = [
@@ -58,7 +69,7 @@ const server = http.createServer(async (req,res) => {
       for await (const chunk of req) { raw += chunk; if (raw.length > 65536) throw new Error("Request too large"); }
       const body = JSON.parse(raw || "{}");
       const action = url.pathname.split("/").pop();
-      const result = url.pathname.startsWith('/api/admin/platform/academy-subjects/') ? (['save','recover'].includes(action)?await academyCoordinator.run(action,body,'preview'):await academyService.read(action)) : url.pathname.startsWith('/api/admin/platform/program-timetable/') ? (['save','publish','prepare','recover','manage-save'].includes(action) ? await ttCoordinator.run(action,body,'preview') : {coordinatorAvailable:true,...await ttService.read(action,body)})
+      const result = url.pathname.startsWith('/api/admin/platform/user-profiles/') ? (['save','recover'].includes(action)?await profileCoordinator.run(action,body,'preview'):await profiles.read(action,body)) : url.pathname.startsWith('/api/admin/platform/academy-subjects/') ? (['save','recover'].includes(action)?await academyCoordinator.run(action,body,'preview'):await academyService.read(action)) : url.pathname.startsWith('/api/admin/platform/program-timetable/') ? (['save','publish','prepare','recover','manage-save'].includes(action) ? await ttCoordinator.run(action,body,'preview') : {coordinatorAvailable:true,...await ttService.read(action,body)})
         : url.pathname === "/api/account/session" ? { account:{ uniqueid:"preview" } }
         : action === "list" ? await service.list()
         : action === "create" ? await service.create(body,user)
@@ -73,8 +84,8 @@ const server = http.createServer(async (req,res) => {
       res.end('window.M4L_CONFIG={API_BASE:""}; localStorage.setItem("m4l_account_token","synthetic-preview-only");'); return;
     }
     if (url.pathname.startsWith("/account/")) { res.writeHead(200, { "Content-Type":"text/html" }); res.end('<p>Local preview only. <a href="/programs/">Return to Programs</a></p>'); return; }
-    const relative = url.pathname === "/" || url.pathname === "/programs/" ? "programs/index.html" : url.pathname.slice(1);
-    if (!["programs/index.html", "programs/timetable.html", "programs/manage.html", "css/m4l-program-management.css", "js/m4l-program-management.js", "js/m4l-program-overview.js", "css/m4l-program-timetable.css", "js/m4l-program-timetable.js", "css/m4l-program-builder.css", "js/m4l-program-builder.js", "js/m4l-timezones.js", "logo.png", "admin-favicon-32x32.png"].includes(relative)) { res.writeHead(404); res.end("Not found"); return; }
+    const relative = url.pathname === "/users/" ? "users/index.html" : url.pathname === "/" || url.pathname === "/programs/" ? "programs/index.html" : url.pathname.slice(1);
+    if (!["users/index.html", "css/m4l-user-profiles.css", "js/m4l-user-profiles.js", "js/m4l-timetable-presentation.js", "js/vendor/pdf-lib-1.17.1.min.js", "programs/index.html", "programs/timetable.html", "programs/manage.html", "css/m4l-program-management.css", "js/m4l-program-management.js", "js/m4l-program-overview.js", "css/m4l-program-timetable.css", "js/m4l-program-timetable.js", "css/m4l-program-builder.css", "js/m4l-program-builder.js", "js/m4l-timezones.js", "logo.png", "admin-favicon-32x32.png"].includes(relative)) { res.writeHead(404); res.end("Not found"); return; }
     let content = await readFile(path.join(root,relative));
     if (relative.endsWith(".html")) content = content.toString().replace('<body>', '<body><aside style="padding:8px 32px;background:#fff1cd;font-size:12px">LOCAL PREVIEW · Synthetic timetable, dates and people · <button type="button" id="preview-fail" style="padding:2px 6px" onclick="fetch(\'/__preview/fail\').then(()=>this.textContent=\'Next save will fail once\')">Fail next save</button></aside>');
     const mime = relative.endsWith(".html") ? "text/html" : relative.endsWith(".js") ? "text/javascript" : relative.endsWith(".css") ? "text/css" : "image/png";

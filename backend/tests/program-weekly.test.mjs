@@ -89,3 +89,24 @@ let subjectPreview=check(subjectOnly);assert(subjectPreview.valid);assert.equal(
 subjectOnly.rules[0].programSubjectId='MISSING';assert(!check(subjectOnly).valid);
 subjectOnly.rules[0].moduleId='MOD-DEMO';assert(!check(subjectOnly).valid,'A module cannot be paired with a different subject');
 console.log('Subject-only weekly lessons: active subject validation and stable subject reference passed.');
+
+// Breaks are standalone program-wide entries, with stable identities and no meeting.
+const withBreak=clone(draft);withBreak.breaks=[{id:'BREAK-ONE',label:'Morning break',weekdays:[1,3],startTime:'1400',endTime:'1415'}];
+withBreak.layout={alignment:'left',mergeShared:true,columnWidths:{time:200,1:400},rowHeights:{'14:00|14:15':80}};
+const preview=check(withBreak);assert(preview.valid);assert.equal(preview.occurrences.filter(r=>r.kind==='BREAK').length,2);
+const breakItem=preview.occurrences.find(r=>r.kind==='BREAK');assert.equal(breakItem.moduleName,'Morning break');assert.equal(breakItem.zoomLink,'');assert.deepEqual(breakItem.classIds,[]);
+const overlapping=clone(withBreak);overlapping.breaks[0].startTime='13:30';assert(!check(overlapping).valid);assert.match(check(overlapping).conflicts[0].reasons[0],/Break overlaps/);
+const badBreak=clone(withBreak);badBreak.breaks[0].weekdays=[];assert(!check(badBreak).valid);
+assert.throws(()=>normalizeWeeklyDraft({...withBreak,layout:{columnWidths:{time:0}}}),/Layout sizes/);
+assert.throws(()=>normalizeWeeklyDraft({...withBreak,layout:{alignment:'injected'}}),/alignment/);
+assert.throws(()=>normalizeWeeklyDraft({...withBreak,breaks:[...withBreak.breaks,...withBreak.breaks]}),/unique/);
+const savedBreak=await coordinator.run('publish',await input({draft:withBreak,effectiveFrom:'2026-10-08'}),'token');
+let saved=(await service.read('get')).draft;assert.equal(saved.breaks[0].startTime,'14:00');assert.deepEqual(saved.layout,preview.snapshot.layout);
+// Cached weekly editors cannot erase fields they do not know.
+await coordinator.run('save',await input(),'token');saved=(await service.read('get')).draft;assert.equal(saved.breaks.length,1);assert.deepEqual(saved.layout,preview.snapshot.layout);
+await assert.rejects(coordinator.run('save',await input({draft:f.draft}),'token'),/older editor cannot preserve/);
+const historyBreak=(await service.read('history')).publications.find(p=>p.id===savedBreak.publicationId);assert.equal(historyBreak.occurrences.filter(r=>r.kind==='BREAK').length,2);
+assert.deepEqual(historyBreak.snapshot.layout,preview.snapshot.layout);
+await coordinator.run('save',await input({draft:{...draft,breaks:[],layout:{}}}),'token');assert.equal((await service.read('get')).draft.breaks.length,0);
+assert.equal((await service.read('history')).publications.find(p=>p.id===savedBreak.publicationId).snapshot.breaks.length,1);
+console.log('Breaks and layout: validation, conflicts, persistence, cached-editor preservation and immutable publication passed.');

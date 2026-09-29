@@ -12,7 +12,7 @@
       const rules=(timetable?.draft.rules||[]).filter(r=>r.moduleId===module?.ProgramModuleID);
       const progress=(rows.progress||[]).filter(r=>r.ProgramModuleID===module?.ProgramModuleID);
       const classIds=[...new Set([...rules.flatMap(r=>r.classIds),...progress.map(r=>r.ClassID)])],teacherIds=[...new Set(rules.map(r=>r.teacherId).filter(Boolean))];
-      const occurrences=(preview?.occurrences||[]).filter(r=>r.moduleId===module?.ProgramModuleID&&r.status!=='CANCELLED');
+      const occurrences=(preview?.occurrences||[]).filter(r=>r.kind!=='BREAK'&&r.moduleId===module?.ProgramModuleID&&r.status!=='CANCELLED');
       // A learner is counted once, even when they belong to two combined classes.
       const learnerIds=new Set();
       for(const enrollment of rows.enrollments){

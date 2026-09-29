@@ -11,7 +11,7 @@ const f=userProfilesFixture(),service=profileService(f.repository),coordinator=t
 await coordinator.run('save',{mode:'matrix-prepare',operationId:crypto.randomUUID()},'token');
 const elements=new Map(),storage=new Map(),requests=[],timers=[];
 let afterSaveReadFailure=false,readFailure=null;
-function element(id){assert(ids.has(id),`Missing element ${id}`);if(!elements.has(id))elements.set(id,{hidden:false,disabled:false,value:'',textContent:'',innerHTML:'',classList:{toggle(){}},focus(){}});return elements.get(id);}
+function element(id){assert(ids.has(id),`Missing element ${id}`);if(!elements.has(id))elements.set(id,{hidden:false,disabled:false,value:'',textContent:'',innerHTML:'',classList:{toggle(){}},focus(){},showModal(){this.open=true;},close(){this.open=false;}});return elements.get(id);}
 const context={console,URLSearchParams,structuredClone,crypto,location:{search:'?program=PRG-DEMO&account=PERSON',host:'test.invalid',origin:'https://test.invalid'},document:{getElementById:element},localStorage:{getItem:()=> 'token'},sessionStorage:{getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)},window:{M4L_CONFIG:{API_BASE:''},addEventListener(){}},setTimeout:(fn,ms)=>{timers.push({fn,ms});return timers.length;},fetch:async(url,options)=>{
  const action=url.split('/').at(-1),body=JSON.parse(options.body);requests.push({action,body});
  if(action==='get'&&readFailure){const failure=readFailure;readFailure=null;return {ok:false,status:503,json:async()=>({success:false,error:'Temporary spreadsheet limit',...failure})};}
@@ -24,10 +24,10 @@ const context={console,URLSearchParams,structuredClone,crypto,location:{search:'
 const settled=async()=>{for(let i=0;i<8;i++)await new Promise(resolve=>setTimeout(resolve,2));};
 const click=async id=>{element(id).onclick();await settled();};
 const rowClick=async attrs=>{element('up-users').onclick({target:{closest:()=>({dataset:attrs})}});await settled();};
-const scopeClick=async attrs=>{if(attrs['data-save-roles'])return click('up-save');await rowClick({editScope:attrs.editScope,account:'PERSON'});};
+const scopeClick=async attrs=>{if(attrs['data-save-roles'])return rowClick({save:'PERSON'});await rowClick({editScope:attrs.editScope,account:'PERSON'});};
 const choose=(dataset,checked=true)=>element('up-users').onchange({target:{dataset,checked}});
 const name=value=>element('up-users').oninput({target:{dataset:{name:''},value}});
-const submit=async()=>click('up-save');
+const submit=async()=>element('up-save').hidden?click('up-save-all'):click('up-save');
 const editProfile=async()=>rowClick({profile:'PERSON'});
 const runTimer=async()=>{assert(timers.length);timers.shift().fn();await settled();};
 vm.runInNewContext(source,context);await settled();
@@ -104,3 +104,13 @@ await click('up-add');name('Zebra new user');await submit();
 assert(element('up-users').innerHTML.indexOf('Zebra new user')<element('up-users').innerHTML.indexOf('Batch owner'));
 await click('up-refresh');assert(element('up-users').innerHTML.indexOf('Zebra new user')<element('up-users').innerHTML.indexOf('Batch owner'));
 console.log('Profiles UI: multi-user Save all, row icons, cleaned headings and session-pinned new users passed.');
+
+await rowClick({view:'PERSON'});
+assert.equal(element('up-profile-dialog').open,true);
+assert.match(element('up-profile-title').textContent,/Login link/);
+assert.match(element('up-profile-body').innerHTML,/https:\/\/test.invalid\/account\//);
+assert(!element('up-profile-body').innerHTML.includes('saved profile details'));
+await click('up-profile-close');assert.equal(element('up-profile-dialog').open,false);
+await editProfile();assert.equal(element('up-save').hidden,true);
+assert(!markup.includes('>Save row<'));
+console.log('Profile actions: login link dialog and individual saves through row icons passed.');

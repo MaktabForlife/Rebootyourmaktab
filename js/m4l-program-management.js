@@ -69,7 +69,7 @@
   }
   function display(row,[key,label,type]){if(type==='level'&&!row.LevelID)return 'No level';const values=choices(type,row);return values?values.find(v=>v.id===String(key==='Active'?active(row[key]):row[key]))?.name||row[key]||'—':row[key]===undefined||row[key]===null||row[key]===''?'—':row[key];}
   function displayCell(row,col){
-    if(col[2]==='url'&&row[col[0]])try{const url=new URL(row[col[0]]);if(url.protocol==='https:'&&!url.username&&!url.password)return `<a href="${esc(url.href)}" target="_blank" rel="noopener noreferrer">Open Zoom</a>`;}catch{}
+    if(col[2]==='url'&&row[col[0]])try{const url=new URL(row[col[0]]);if(url.protocol==='https:'&&!url.username&&!url.password)return `<a href="${esc(url.href)}" target="_blank" rel="noopener noreferrer">${esc(url.href)}</a>`;}catch{}
     return esc(display(row,col));
   }
   function cell(row,col){const [key,label,type]=col,values=choices(type,row),value=key==='Active'?String(active(row[key])):String(row[key]??'');
