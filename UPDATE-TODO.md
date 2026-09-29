@@ -1,6 +1,7 @@
 ## V105.3.1.7 acceptance
 
 - [x] Restore module rows immediately inside expanded subjects/levels.
+- [x] Align subject names, level counts and module counts into consistent columns.
 
 - [x] Keep the acknowledged row visible and retry failed refresh reads automatically with quota cooldown.
 - [x] Preserve drafts and browsing during cooldown; never repeat a confirmed write for a read failure.

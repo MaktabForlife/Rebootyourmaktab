@@ -1,6 +1,6 @@
 # V105.3.1.7 — Refresh recovery and module rows
 
-Opening a subject or level now shows modules as rows, with their class, teacher, learner and action columns. Subjects and levels remain collapsed by default.
+Subject names and their level/module counts now line up in columns. Opening a subject or level shows modules as rows, with their class, teacher, learner and action columns. Subjects and levels remain collapsed by default.
 
 Confirmed saves now remain visible while a rate-limited refresh waits and retries automatically. Browsing and unsaved typing remain available; confirmed writes are never repeated by read recovery. Request-local metadata reuse and batched references reduce the measured management refresh from 13 to 9 upstream reads. [Fix and acceptance](docs/V105.3.1.7-REFRESH-RECOVERY.md).
 
