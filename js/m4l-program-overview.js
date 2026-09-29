@@ -37,5 +37,17 @@
     for(const module of rows.modules.filter(r=>!subjects.has(r.ProgramSubjectID)))result.push(make(null,module,levels.get(module.LevelID)));
     return result;
   }
-  window.M4L_PROGRAM_OVERVIEW={build};
+  function group(records){
+    const subjects=new Map();
+    for(const row of records){
+      if(!subjects.has(row.subjectId))subjects.set(row.subjectId,{id:row.subjectId,name:row.subject,levels:new Map(),modules:[],rows:[]});
+      const subject=subjects.get(row.subjectId);subject.rows.push(row);
+      if(row.levelId){
+        if(!subject.levels.has(row.levelId))subject.levels.set(row.levelId,{id:row.levelId,name:row.level,rows:[]});
+        subject.levels.get(row.levelId).rows.push(row);
+      }else if(row.moduleId)subject.modules.push(row);
+    }
+    return [...subjects.values()].map(subject=>({...subject,levels:[...subject.levels.values()]}));
+  }
+  window.M4L_PROGRAM_OVERVIEW={build,group};
 })();

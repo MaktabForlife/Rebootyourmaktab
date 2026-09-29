@@ -18,3 +18,10 @@ const noLessons=JSON.parse(JSON.stringify(sandbox.window.M4L_PROGRAM_OVERVIEW.bu
 assert.deepEqual(noLessons[0].classProgress.map(c=>c.label),['Completed','Active']);
 assert.equal(noLessons[0].hasLessons,false);
 console.log('Program overview: optional levels, empty subjects/levels, draft relationships, membership dates, combined-class deduplication, cancellations, unavailable data and archived records passed.');
+
+const grouped=JSON.parse(JSON.stringify(sandbox.window.M4L_PROGRAM_OVERVIEW.group(build())));
+assert.equal(grouped.length,3);assert.equal(grouped[0].levels.length,2);
+assert.equal(grouped[0].levels[0].rows[0].moduleId,'M1');
+assert.equal(grouped[0].modules[0].moduleId,'M2','Unlevelled modules sit directly below their subject');
+assert.equal(grouped[1].name,'Fiqh');assert.equal(grouped[2].levels[0].name,'Unavailable level');
+console.log('Overview grouping: optional/empty levels, unlevelled modules and broken references remain visible.');

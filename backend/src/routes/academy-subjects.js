@@ -3,6 +3,7 @@ import { timetableUser } from '../programs/timetable-context.js';
 import { getPlatformSpreadsheetId } from '../lib/platform-sheet.js';
 import { academySubjectRepository, academySubjectService } from '../programs/academy-subjects.js';
 import { problem } from '../programs/model.js';
+import { programFailure } from '../programs/errors.js';
 export function academySubjectsEndpoint(action) {
   return async(request,env)=>{
     if(request.method!=='POST')return json({success:false,error:'Use POST.'},405);
@@ -18,6 +19,6 @@ export function academySubjectsEndpoint(action) {
         return json(result,result.success?200:result.status||503);
       }
       return json({success:true,...await academySubjectService(academySubjectRepository(env)).read(action)});
-    }catch(error){return json({success:false,error:error.publicMessage||'Academy subjects could not be reached. Check backend spreadsheet access and retry.'},error.publicMessage?error.status:503);}
+    }catch(error){const result=programFailure(error,action,'catalogue');return json(result,result.status);}
   };
 }

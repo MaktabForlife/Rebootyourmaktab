@@ -42,7 +42,7 @@ export async function managementView(data, repository, program) {
   const referenceRevision=await payloadHash(shared);
   const rowRevisions={};
   for(const [kind,{table,key}] of Object.entries(MANAGEMENT_KINDS))rowRevisions[kind]=Object.fromEntries(await Promise.all(current.snapshot[table].map(async record=>[record[key],await managementRowRevision(record)])));
-  return {program,prepared:data.prepared,revision:current.revision,referenceRevision,rowRevisions,emptyRowRevision:await managementRowRevision(null),rows,sharedSubjects:shared.subjects,accounts:shared.accounts};
+  return {program,prepared:data.prepared,revision:current.revision,referenceRevision,rowRevisions,emptyRowRevision:await managementRowRevision(null),rows,sharedSubjects:shared.subjects,accounts:shared.accounts,eligibleTeacherIds:shared.grantedTeachers.map(r=>r.AccountID)};
 }
 export function applyManagementChange(current, input, shared, program) {
   if(input.kind==='subject-import') {
@@ -119,6 +119,7 @@ export function applyManagementChange(current, input, shared, program) {
     if(record.Active&&rows.some(r=>r.EnrollmentID!==id&&active(r.Active)&&r.ClassID===record.ClassID&&r.AccountID===record.AccountID&&r.StartDate<=(record.EndDate||'9999-12-31')&&record.StartDate<=(r.EndDate||'9999-12-31')))throw problem('This learner already has overlapping membership dates in this class.');
   }
   if(input.kind==='teachers'&&record.Active&&!shared.accounts.some(a=>a.AccountID===id&&active(a.Active)))throw problem('Choose an active Academy account.');
+  if(input.kind==='teachers'&&record.Active&&!shared.grantedTeachers.some(a=>a.AccountID===id))throw problem('This user needs an active Teacher, Senior or Admin role in this Program before being assigned to teach.');
   if(record.Name&&rows.some(r=>r[spec.key]!==id&&clean(r.Name).toLowerCase()===record.Name.toLowerCase()&&(!record.ProgramSubjectID||r.ProgramSubjectID===record.ProgramSubjectID)))throw problem('That name already exists here. Edit its existing row.');
   if(input.kind==='levels'&&previous&&previous.ProgramSubjectID!==record.ProgramSubjectID&&snapshot.ProgramModules.some(r=>r.LevelID===id))throw problem('A level used by modules cannot move to another subject.');
   if(!record.Active){

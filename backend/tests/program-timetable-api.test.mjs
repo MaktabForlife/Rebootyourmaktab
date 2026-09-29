@@ -1,3 +1,4 @@
+import { programFailure } from '../src/programs/errors.js';
 import { academySubjectRepository, academySubjectService } from '../src/programs/academy-subjects.js';
 import { timetableCoordinator } from '../src/programs/timetable-coordination.js';
 import { timetableService } from '../src/programs/timetable-service.js';
@@ -121,7 +122,7 @@ const binding={getByName(name){names.push(name);if(!coordinators.has(name)){
   if(name.endsWith(':academy-subjects'))return {user,service:academySubjectService(academySubjectRepository(fresh))};
   const program=await timetableProgram(fresh,id);return {user,service:timetableService(timetableRepository(fresh,program),program)};
  }));}
- return {async catalogRun(action,body,auth){return this.run(action,body,auth);},async run(action,body,auth){try{return {success:true,...await coordinators.get(name).run(action,body,auth)};}catch(e){return {success:false,...(e.code?{code:e.code,currentRecord:e.currentRecord,rowRevision:e.rowRevision}:{}),status:e.publicMessage?e.status:503,error:e.publicMessage||'Uncertain write'};}}};
+ return {async catalogRun(action,body,auth){return this.run(action,body,auth);},async run(action,body,auth){try{return {success:true,...await coordinators.get(name).run(action,body,auth)};}catch(e){return programFailure(e,action,'test-coordinator');}}};
 }};
 async function tt(action,body={},auth=token,expected=200,method='POST'){
  const response=await worker.fetch(new Request(`https://worker.test/api/admin/platform/program-timetable/${action}`,{method,headers:{'Content-Type':'application/json',...(auth?{Authorization:`Bearer ${auth}`}:{})},...(method==='POST'?{body:typeof body==='string'?body:JSON.stringify({id:input.id,...body})}:{})}),env);
@@ -171,6 +172,13 @@ try{
  assert.equal(table(targetId,'ProgramTimetablePublications').length,4);
  // Management rows flow through the same authorised coordinator as publication.
  let management=await tt('manage-get');
+ const combinedReadStart=reads,combined=await tt('manage-get',{includeOverview:true}),combinedReads=reads-combinedReadStart;
+ assert(combined.overview.timetable.draft);assert(combined.overview.preview);
+ const separateReadStart=reads;await tt('manage-get');await tt('get');await tt('preview',{draft:f.draft});
+ const separateReads=reads-separateReadStart;assert(combinedReads<separateReads,'Overview must reduce upstream reads');
+ denyTarget=true;const inaccessible=await tt('manage-get',{},token,503);denyTarget=false;
+ assert.equal(inaccessible.code,'SHEETS_ACCESS_FAILED');assert.equal(inaccessible.retryable,false);assert(inaccessible.reference);
+ console.log(`Management read budget: ${combinedReads} combined versus ${separateReads} separate reads.`);
  assert.equal(management.rows.modules[0].Name,'Demo module');
  assert(!JSON.stringify(management.accounts).includes('PINHash'));
  const edit=(kind,record,creating=true)=>({kind,record,creating,revision:management.revision,referenceRevision:management.referenceRevision,operationId:crypto.randomUUID()});
@@ -194,9 +202,17 @@ try{
  await saveRow('modules',{ProgramModuleID:'MOD-LEVEL',ProgramSubjectID:'PS-TAFSEER',LevelID:'LVL-TEST',Name:'Level module',SortOrder:3,Active:true});
  await tt('manage-save',edit('levels',{LevelID:'LVL-TEST',ProgramSubjectID:'PS-TAFSEER',Name:'Introductory',SortOrder:1,Active:false},false),token,400);
  // Assign an existing account without mutating any central privileges.
+ // An Admin role in another program and platform administration alone are not teaching grants here.
+ await tt('manage-save',edit('teachers',{AccountID:'ACCOUNT2',Active:true}),token,400);
+ await tt('manage-save',edit('teachers',{AccountID:'ACCOUNT1',Active:true}),token,400);
+ table(platformId,'UserCourseAccess').push(['ACCESS-PROGRAM-TEACHER','ACCOUNT2',input.id,'TEACHER',true]);
+ management=await tt('manage-get');assert(management.eligibleTeacherIds.includes('ACCOUNT2'));
  const centralAccessBefore=structuredClone(table(platformId,'UserCourseAccess'));
  await saveRow('teachers',{AccountID:'ACCOUNT2',Active:true});
  assert((await tt('get')).catalog.teachers.some(r=>r.id==='ACCOUNT2'));
+ table(platformId,'UserCourseAccess').at(-1)[4]=false;
+ assert(!(await tt('get')).catalog.teachers.some(r=>r.id==='ACCOUNT2'),'Explicit assignment cannot override a revoked program role');
+ table(platformId,'UserCourseAccess').at(-1)[4]=true;
  assert.deepEqual(table(platformId,'UserCourseAccess'),centralAccessBefore);
  await saveRow('enrollments',{EnrollmentID:'ENR-TEST',ClassID:'CLS-TEST',AccountID:'ACCOUNT2',StartDate:'2026-09-01',EndDate:'',Active:true});
  await tt('manage-save',edit('enrollments',{EnrollmentID:'ENR-OVERLAP',ClassID:'CLS-TEST',AccountID:'ACCOUNT2',StartDate:'2026-09-24',EndDate:'',Active:true}),token,400);

@@ -1,3 +1,9 @@
+# V105.3.1.6 — Management testing fixes
+
+Subjects, levels and modules start collapsed in the overview. Management tabs remain readable while another row is unfinished, and Return to unfinished entry keeps the draft and its original save identity. Teacher selection and timetable validation require a current Teacher, Senior or Admin role in the selected Program. Login, Program screens, version files and Worker health now share the same release label.
+
+Management and overview refresh use one API request. Spreadsheet failures distinguish rate limits, access/setup problems, temporary outages and unexpected backend errors, with safe diagnostic references. Rate-limited saves delay their automatic retry; confirmed saves remain confirmed even when refresh fails. [Scope, verification and acceptance](docs/V105.3.1.6-MANAGEMENT-FIXES.md).
+
 # V105.3.1.4 — Per-class module completion
 
 Add Active, Inactive and Completed statuses for each class/module pair. Overview shows a status beside each class; selecting it opens the progress editor. A new Module progress section supports records even before a lesson is scheduled. Existing classes show Not recorded until explicitly saved.

@@ -1,5 +1,6 @@
 import { managementState, managementView, applyManagementChange, MANAGEMENT_KINDS, managementRowRevision } from './management-model.js';
 import { problem } from './model.js';
+import { programFailure } from './errors.js';
 import { TIMETABLE_SCHEMA, payloadHash, emptyDraft, normalizeDraft, validateTimetable, boundedJSON, publishedOccurrences } from './timetable-model.js';
 export function timetableService(repository,program) {
   function state(data) {
@@ -25,7 +26,18 @@ export function timetableService(repository,program) {
     prepare:()=>repository.prepare(),
     async read(action,input={}) {
       const data=await repository.load();
-      if(action==='manage-get')return managementView(data,repository,program);
+      if(action==='manage-get'){
+        const view=await managementView(data,repository,program);
+        if(input.includeOverview===true){
+          view.overview={timetable:null,preview:null,error:null};
+          if(data.prepared)try{
+            const current=state(data);
+            view.overview.timetable={draft:current.draft};
+            if(current.draft.rules.length)view.overview.preview=validateTimetable(current.draft,await repository.catalog(data),program);
+          }catch(error){view.overview.error=programFailure(error,'manage-get','overview');}
+        }
+        return view;
+      }
       if (!data.prepared) return {program,prepared:false,revision:'',draft:emptyDraft(program.timezone),catalog:await repository.catalog(data),publications:[],currentPublicationId:''};
       const current=state(data);
       if (action==='history') return {publications:current.publications.map(publication),currentPublicationId:current.currentPublicationId};

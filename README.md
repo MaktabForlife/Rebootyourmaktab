@@ -1,3 +1,9 @@
+# V105.3.1.6 — Management testing fixes
+
+Subjects, levels and modules start collapsed in the overview. Management tabs remain readable while another row is unfinished, and Return to unfinished entry keeps the draft and its original save identity. Teacher selection and timetable validation require a current Teacher, Senior or Admin role in the selected Program. Login, Program screens, version files and Worker health now share the same release label.
+
+Management and overview refresh use one API request. Spreadsheet failures distinguish rate limits, access/setup problems, temporary outages and unexpected backend errors, with safe diagnostic references. Rate-limited saves delay their automatic retry; confirmed saves remain confirmed even when refresh fails. [Scope, verification and acceptance](docs/V105.3.1.6-MANAGEMENT-FIXES.md).
+
 # V105.3.1.5 — Management save recovery
 
 Management edits survive refresh and browser reload within the same tab. Unrelated row/reference changes no longer block saving; interrupted saves recover and retry automatically with the same operation ID. Different-field edits merge automatically. Conflicting edits to the same field require an explicit choice between the saved version and the user's entry. [Behavior and verification](docs/V105.3.1.5-SAVE-RECOVERY.md).

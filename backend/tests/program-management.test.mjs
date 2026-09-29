@@ -77,3 +77,12 @@ const retained=rowEdit({ClassID:'CLS-B',Name:'Independent B updated',Active:true
 f.shared.accounts.push({AccountID:'UNRELATED',DisplayName:'Unrelated account',Active:true});
 await coordinator.run('manage-save',retained,'token');
 console.log('Row revisions: independent concurrent additions, unrelated references and same-row conflicts passed.');
+
+view=await service.read('manage-get');
+await assert.rejects(coordinator.run('manage-save',input({AccountID:'LEARNER-DEMO',Active:true},'teachers'),'token'),/needs an active Teacher/);
+await coordinator.run('manage-save',input({AccountID:'TEACHER-1',Active:true},'teachers'),'token');
+view=await service.read('manage-get');
+f.shared.grantedTeachers=f.shared.grantedTeachers.filter(r=>r.AccountID!=='TEACHER-1');
+await assert.rejects(coordinator.run('manage-save',input({AccountID:'TEACHER-1',Active:true},'teachers',false),'token'),/needs an active Teacher/);
+await coordinator.run('manage-save',input({AccountID:'TEACHER-1',Active:false},'teachers',false),'token');
+console.log('Teacher eligibility: current program role required; revoked assignments can still be archived.');

@@ -1,3 +1,16 @@
+## V105.3.1.6 acceptance
+
+- [x] Collapse subjects, levels and modules by default; preserve optional levels and search.
+- [x] Browse tabs while preserving an unfinished row or pending operation.
+- [x] Restrict teachers to active program roles in the UI and backend.
+- [x] Align login, Program, version-file and Worker release labels.
+- [x] Reduce overview read duplication and classify/correlate spreadsheet failures.
+- [x] Pass 76 regression files and Cloudflare runtime tests.
+- [ ] User acceptance: desktop/mobile expansion, Learners navigation, teacher eligibility, save/refresh behavior and visible version labels.
+- [ ] Diagnose the earlier real spreadsheet failure if it recurs; quota cause is not confirmed.
+
+Next: V105.3.2 shared User Profile/roles; V105.3.3 timetable; V105.4 library/resources; V105.5 student/program integration and tasks.
+
 ## V105.3.1.4 acceptance
 
 - [x] Per-class Active / Inactive / Completed module progress.

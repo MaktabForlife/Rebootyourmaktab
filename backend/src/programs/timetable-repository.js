@@ -63,7 +63,7 @@ export function timetableRepository(env, program) {
         levels:(t.ProgramLevels||[]).map(row=>({id:row.LevelID,programSubjectId:row.ProgramSubjectID,name:row.Name,active:active(row.Active)})),
         modules:(t.ProgramModules||[]).map(row=>({id:row.ProgramModuleID,programSubjectId:row.ProgramSubjectID,levelId:row.LevelID,name:row.Name,active:active(row.Active)})),
         classes:(t.ProgramClasses||[]).map(row=>({id:row.ClassID,courseId:row.CourseID,name:row.Name,academicYear:row.AcademicYear,active:active(row.Active)})),
-        teachers:accounts.filter(row=>active(row.Active)&&((t.ProgramTeachers||[]).some(a=>a.AccountID===row.AccountID) ? active(t.ProgramTeachers.find(a=>a.AccountID===row.AccountID).Active) : access.some(a=>a.AccountID===row.AccountID&&a.CourseID===program.id&&active(a.Active)&&['TEACHER','SENIOR','ADMIN'].includes(a.Role)))).map(row=>({id:row.AccountID,name:row.DisplayName,active:true})),
+        teachers:accounts.filter(row=>active(row.Active)&&access.some(a=>a.AccountID===row.AccountID&&a.CourseID===program.id&&active(a.Active)&&['TEACHER','SENIOR','ADMIN'].includes(a.Role))&&(!(t.ProgramTeachers||[]).some(a=>a.AccountID===row.AccountID)||active(t.ProgramTeachers.find(a=>a.AccountID===row.AccountID).Active))).map(row=>({id:row.AccountID,name:row.DisplayName,active:true})),
         enrollments:(t.ProgramEnrollments||[]).map(row=>({id:row.EnrollmentID,courseId:row.CourseID,classId:row.ClassID,accountId:row.AccountID,startDate:row.StartDate,endDate:row.EndDate,active:active(row.Active)}))
       };
     },

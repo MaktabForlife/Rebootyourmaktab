@@ -1,5 +1,6 @@
 /* M4L V105.1 - Program routes and release health metadata. */
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import { ROUTE_PATHS } from "../src/router.js";
 import worker from "../src/worker.js";
 
@@ -130,7 +131,7 @@ assert.equal(root.status, 200);
 assert.deepEqual(await root.json(), {
   success: true,
   service: "rebootworker",
-  version: "105.3.1.5"
+  version: "105.3.1.6"
 });
 
 const preflight = await worker.fetch(new Request("https://worker.test/api/login", {
@@ -422,3 +423,14 @@ assert.equal(
 );
 
 console.log("Worker router tests passed.");
+
+// Login, program badges and both version endpoints must describe the same deployed release.
+const release=JSON.parse(await readFile(new URL('../../version.json',import.meta.url),'utf8')).version;
+assert.equal(JSON.parse(await readFile(new URL('../../js/version.json',import.meta.url),'utf8')).version,release);
+assert.equal((await (await worker.fetch(new Request('https://worker.test/'),{})).json()).version,release);
+for(const path of ['account/index.html','programs/index.html','programs/manage.html','programs/timetable.html']){
+ const html=await readFile(new URL('../../'+path,import.meta.url),'utf8');
+ const badge=html.match(/class="(?:account-version|pb-version)">V([^ <]+)/);
+ assert.equal(badge?.[1],release,path+' version badge');
+}
+console.log('Frontend badges and Worker release versions match.');
