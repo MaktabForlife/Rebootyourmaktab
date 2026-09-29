@@ -1,14 +1,13 @@
-/* V105.3.2 — one academy identity, scoped roles/subscriptions, independent account status. */
+/* V105.3.2.1 — staged academy access matrix; legacy access remains unchanged. */
 (()=>{'use strict';
   const $=id=>document.getElementById(id),esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const params=new URLSearchParams(location.search),program=params.get('program'),base=window.M4L_CONFIG?.API_BASE||'',storageKey=`m4l-user-profiles:${location.host}`;
-  const labels={USER:'User (free)',STUDENT:'Student (paid)',TEACHER:'Teacher',SENIOR:'Senior',ADMIN:'Admin'};
+  const labels={USER:'User',STUDENT:'Student',TEACHER:'Teacher',SENIOR:'Senior',ADMIN:'Admin'};
   const state={data:null,selected:params.get('account')||'',edit:null,pending:null,busy:false,waiting:false,timer:null,search:'',filter:'',conflict:null,loaded:false};
   const message=(text,error=false)=>{$('up-message').textContent=text;$('up-message').classList.toggle('is-error',error);};
-  const roleNames=roles=>(roles.includes('STUDENT')?roles:['USER',...roles]).map(role=>labels[role]).join(' · ');
+  const roleNames=roles=>(roles.length?roles:['USER']).map(role=>labels[role]).join(' · ');
   const scopeKey=scope=>`${scope.type}:${scope.id}`;
-  const selected=()=>state.data?.accounts.find(a=>a.accountId===state.selected);
-  const currentEdit=()=>state.edit?.accountId===state.selected?state.edit:null;
+  const currentEdit=()=>state.edit;
   function remember(){for(const key of ['edit','pending']){if(state[key])sessionStorage.setItem(`${storageKey}:${key}`,JSON.stringify(state[key]));else sessionStorage.removeItem(`${storageKey}:${key}`);}}
   async function api(action,input={}){
     const token=localStorage.getItem('m4l_account_token');if(!token)throw Object.assign(new Error('Sign in with your academy administrator account, then open User profiles.'),{status:401});
@@ -17,33 +16,33 @@
     if(!response.ok||!result.success)throw Object.assign(new Error(result.error||'The change could not be confirmed.'),result,{status:response.status});return result;
   }
   function render(){
-    if(state.loaded)remember();const editable=Boolean(state.data)&&!state.busy&&!state.pending,edit=currentEdit(),account=selected();
-    $('up-refresh').disabled=state.busy||state.waiting;$('up-add').disabled=!editable||Boolean(state.edit);
+    if(state.loaded)remember();const editable=Boolean(state.data)&&!state.busy&&!state.pending,edit=currentEdit();
+    $('up-refresh').disabled=state.busy||state.waiting;$('up-add').disabled=!editable||Boolean(edit)||!state.data?.prepared;
     $('up-retry').disabled=state.busy||state.waiting;$('up-pending').hidden=!state.pending;
-    $('up-draft-notice').hidden=!state.edit||Boolean(edit);$('up-return').disabled=state.busy;
+    $('up-draft-notice').hidden=!edit;$('up-return').disabled=state.busy;
+    $('up-save').hidden=$('up-cancel').hidden=!edit;$('up-save').disabled=!editable||state.waiting||Boolean(state.conflict);$('up-cancel').disabled=state.busy||Boolean(state.pending);
     $('up-conflict').hidden=!state.conflict||!edit;
-    if(state.conflict&&edit){$('up-comparison').innerHTML=`<table class="pm-grid"><thead><tr><th>Saved version</th><th>Your entry</th></tr></thead><tbody><tr><td>${esc(edit.mode==='profile'?`${state.conflict.currentRecord?.displayName||'Removed'} · ${state.conflict.currentRecord?.active?'Active':'Inactive'}`:roleNames(state.conflict.currentRecord?.roles||[]))}</td><td>${esc(edit.mode==='profile'?`${edit.displayName} · ${edit.active?'Active':'Inactive'}`:roleNames(edit.roles))}</td></tr></tbody></table>`;}
+    const describe=record=>edit?.mode==='profile'?`${record?.displayName||'Removed'} · ${record?.active?'Active':'Inactive'}`:edit?.mode==='matrix-policy'?record?.accessModel||'Unknown':roleNames(record?.roles||[])+(record?.accessModel?` · ${record.accessModel==='FREE'?'Free':'Paid'} setting`:'');
+    if(state.conflict&&edit)$('up-comparison').innerHTML=`<table class="pm-grid"><thead><tr><th>Saved version</th><th>Your entry</th></tr></thead><tbody><tr><td>${esc(describe(state.conflict.currentRecord))}</td><td>${esc(describe(edit))}</td></tr></tbody></table>`;
     $('up-keep-mine').disabled=!editable||!state.conflict?.currentRecord;$('up-use-saved').disabled=state.busy;
     if(!state.data)return;
+    const blocked=!editable||Boolean(edit),scopes=state.data.scopes;
+    $('up-setup').hidden=!state.data.needsSync;$('up-setup').disabled=blocked||state.waiting;
+    $('up-review-count').textContent=`${state.data.reviewCount||0} role entries and ${scopes.filter(s=>s.reviewStatus==='REQUIRED').length} Free/Paid settings need review.`;
+    $('up-head').innerHTML=`<tr><th scope="col">User name</th><th scope="col">Status</th>${scopes.map(scope=>{
+      const editing=edit?.mode==='matrix-policy'&&edit.scopeType===scope.type&&edit.scopeId===scope.id;
+      return `<th scope="col"><strong>${esc(scope.name)}</strong><small>${scope.type==='SUBJECT'?'Global subject':'Program'}${scope.active?'':' · Inactive'}</small>${editing?`<label>Access<select data-access-model aria-label="Access for ${esc(scope.name)}" ${!editable?'disabled':''}><option value="FREE" ${edit.accessModel==='FREE'?'selected':''}>Free</option><option value="PAID" ${edit.accessModel==='PAID'?'selected':''}>Paid</option></select></label><label class="up-confirm"><input type="checkbox" data-policy-confirm ${edit.policyConfirmed?'checked':''} ${!editable?'disabled':''}>Applies to this entire program/course</label>`:`<button type="button" class="pb-secondary" data-policy="${esc(scopeKey(scope))}" ${blocked||!scope.prepared?'disabled':''}>${scope.accessModel==='FREE'?'Free':'Paid'} ▾</button>`}${scope.reviewStatus==='REQUIRED'?'<small class="up-review">Review setting</small>':''}</th>`;
+    }).join('')}<th scope="col">Actions</th></tr>`;
     const accounts=state.data.accounts.filter(a=>(!state.filter||a.active===(state.filter==='active'))&&[a.displayName,...a.assignments.map(g=>roleNames(g.roles))].some(v=>v.toLowerCase().includes(state.search.toLowerCase())));
-    $('up-count').textContent=`${accounts.length} of ${state.data.accounts.length} users`;
-    $('up-users').innerHTML=accounts.map(a=>`<tr class="${a.active?'':'up-account-inactive'}"><td data-label="User">${esc(a.displayName)}${a.academyAdmin?'<small class="pm-muted">Academy administrator</small>':''}</td><td data-label="Active / Inactive">${a.active?'Active':'Inactive'}</td><td data-label="Roles / subscription">${a.assignments.filter(g=>g.roles.length).map(g=>`<span class="up-scope-summary">${esc(state.data.scopes.find(s=>s.type===g.scopeType&&s.id===g.scopeId)?.name||g.scopeId)}: ${esc(roleNames(g.roles))}</span>`).join('')||'User (free)'}</td><td data-label="Actions"><button type="button" class="pb-secondary" data-account="${esc(a.accountId)}">Open profile</button></td></tr>`).join('')||'<tr><td colspan="4" class="pm-empty">No matching users.</td></tr>';
-    $('up-detail').hidden=!account&&!edit;
-    if(!account&&!edit)return;
-    const profileEdit=edit?.mode==='profile';
-    $('up-name').textContent=profileEdit&&edit.creating?'New user':account?.displayName||edit.displayName;
-    $('up-display-name').value=profileEdit?edit.displayName:account?.displayName||'';$('up-active').value=String(profileEdit?edit.active:account?.active);
-    $('up-display-name').disabled=$('up-active').disabled=!profileEdit||!editable;
-    $('up-edit-profile').hidden=profileEdit;$('up-edit-profile').disabled=!editable||Boolean(state.edit);
-    $('up-save-profile').hidden=$('up-cancel-profile').hidden=!profileEdit;$('up-save-profile').disabled=!editable||state.waiting;
-    $('up-cancel-profile').disabled=state.busy||Boolean(state.pending);$('up-personal-link').disabled=!account||state.busy||state.waiting;
-    $('up-assignments').hidden=!account;
-    if(!account)return;
-    const ordered=[...state.data.scopes].sort((a,b)=>(b.id===program)-(a.id===program));
-    $('up-roles').innerHTML=ordered.map(scope=>{
-      const grant=account.assignments.find(g=>g.scopeType===scope.type&&g.scopeId===scope.id),editing=edit?.mode==='roles'&&edit.scopeType===scope.type&&edit.scopeId===scope.id,roles=editing?edit.roles:grant?.roles||[],needsConfirmation=editing&&roles.includes('STUDENT')&&!grant?.roles.includes('STUDENT');
-      return `<tr class="${editing?'is-editing':''}"><td data-label="Subject / program"><strong>${esc(scope.name)}</strong><small class="pm-muted">${scope.type==='SUBJECT'?'Global subject':scope.legacy?'Existing program':'Program'}${!scope.active?' · Inactive':''}</small></td><td data-label="Roles / subscription">${editing?`<div class="up-role-choices"><label><input type="radio" name="subscription" data-subscription="USER" ${!roles.includes('STUDENT')?'checked':''} ${!editable?'disabled':''}>User (free)</label><label><input type="radio" name="subscription" data-subscription="STUDENT" ${roles.includes('STUDENT')?'checked':''} ${!editable||scope.accessModel==='FREE'?'disabled':''}>Student (paid)</label>${['TEACHER','SENIOR','ADMIN'].map(role=>`<label><input type="checkbox" data-role="${role}" ${roles.includes(role)?'checked':''} ${!editable?'disabled':''}>${labels[role]}</label>`).join('')}</div>${needsConfirmation?`<label class="up-paid-confirm"><input type="checkbox" data-paid-confirm ${edit.subscriptionConfirmed?'checked':''} ${!editable?'disabled':''}>I confirm a paid subscription for this subject/program.</label>`:''}`:esc(roleNames(roles))}${scope.accessModel==='FREE'?'<small class="pm-muted">Free subject: no paid subscription required.</small>':''}${scope.legacy?'<small class="pm-muted">Additional Reboot roles require an existing linked staff/student record.</small>':''}</td><td data-label="Changes">${editing?`<button type="button" data-save-roles ${!editable||state.waiting?'disabled':''}>Save roles</button><button type="button" class="pb-secondary" data-cancel ${state.busy||state.pending?'disabled':''}>Cancel</button>`:`<button type="button" class="pb-secondary" data-edit-scope="${esc(scopeKey(scope))}" ${!editable||state.edit?'disabled':''}>Edit roles</button>`}</td></tr>`;
-    }).join('')||'<tr><td colspan="3" class="pm-empty">Create a global subject or program to assign roles.</td></tr>';
+    if(edit?.mode==='profile'&&edit.creating)accounts.unshift({accountId:edit.accountId,displayName:edit.displayName,active:edit.active,assignments:[]});
+    $('up-count').textContent=`${accounts.length} shown · ${state.data.accounts.length} users`;
+    $('up-users').innerHTML=accounts.map(a=>{
+      const profileEdit=edit?.mode==='profile'&&edit.accountId===a.accountId;
+      return `<tr data-user="${esc(a.accountId)}" class="${a.active?'':'up-account-inactive'} ${edit?.accountId===a.accountId?'is-editing':''} ${state.selected===a.accountId?'up-selected':''}"><td data-label="User name">${profileEdit?`<input data-name maxlength="160" aria-label="User name" value="${esc(edit.displayName)}" ${!editable?'disabled':''}>`:`<button type="button" class="up-cell" data-profile="${esc(a.accountId)}" ${blocked||!state.data.prepared?'disabled':''}>${esc(a.displayName)}</button>`}${a.academyAdmin?'<small>Academy administrator</small>':''}</td><td data-label="Status">${profileEdit?`<select data-active aria-label="Account status" ${!editable?'disabled':''}><option value="true" ${edit.active?'selected':''}>Active</option><option value="false" ${!edit.active?'selected':''}>Inactive</option></select>`:`<button type="button" class="up-cell" data-profile="${esc(a.accountId)}" ${blocked||!state.data.prepared?'disabled':''}>${a.active?'Active':'Inactive'}</button>`}</td>${scopes.map(scope=>{
+        const grant=a.assignments.find(g=>g.scopeType===scope.type&&g.scopeId===scope.id),editing=edit?.mode==='matrix-roles'&&edit.accountId===a.accountId&&edit.scopeType===scope.type&&edit.scopeId===scope.id,roles=editing?edit.roles:grant?.roles||[];
+        return `<td data-label="${esc(scope.name)}">${editing?`<fieldset class="up-role-choices"><legend>Roles for ${esc(a.displayName)} · ${esc(scope.name)}</legend><label><input type="checkbox" data-default-user ${roles.length?'':'checked'} ${!editable?'disabled':''}>User (default)</label>${state.data.roles.map(role=>`<label><input type="checkbox" data-role="${role}" ${roles.includes(role)?'checked':''} ${!editable?'disabled':''}>${labels[role]}</label>`).join('')}</fieldset>`:`<button type="button" class="up-cell" data-edit-scope="${esc(scopeKey(scope))}" data-account="${esc(a.accountId)}" ${blocked||!scope.prepared||!grant?'disabled':''}>${esc(roleNames(roles))} ▾</button>`}${grant?.reviewStatus==='REQUIRED'?'<small class="up-review">Confirm imported role</small>':''}</td>`;
+      }).join('')}<td data-label="Actions"><button type="button" class="pb-secondary" data-link="${esc(a.accountId)}" ${state.busy||state.waiting||edit?.creating?'disabled':''}>Sign-in link</button></td></tr>`;
+    }).join('')||`<tr><td colspan="${scopes.length+3}" class="pm-empty">No matching users.</td></tr>`;
   }
   function schedule(error,callback,attempt,kind){
     if(attempt>=2||error.retryable===false||error.status&&error.status<500)return false;
@@ -61,8 +60,7 @@
         if(state.edit)state.selected=state.edit.accountId;
         state.loaded=true;
       }
-      if(!state.selected&&state.data.accounts.length)state.selected=state.data.accounts[0].accountId;
-      $('up-wait').hidden=true;message(state.edit?'Records refreshed. Your unfinished entry is kept.':afterSave?'Saved.':'Choose a user to manage their profile, roles and subscriptions.');
+      $('up-wait').hidden=true;message(state.edit?'Records refreshed. Your unfinished entry is kept.':afterSave?'Saved.':'Edit a name, status, role cell or Free/Paid column setting.');
     }catch(error){message(`${afterSave?'Saved. The latest records could not be loaded. ':''}${error.message}`,true);if(!schedule(error,next=>refresh(next,afterSave),attempt,'Refreshing records')){$('up-wait').textContent='Automatic refresh has stopped. Your displayed records and entry are kept. Use Refresh to try again.';$('up-wait').hidden=false;}}
     finally{state.busy=false;render();}
     if(state.pending&&!state.waiting&&state.data)void save();
@@ -70,6 +68,8 @@
   function applyAcknowledgement(result){
     if(result.profile){let account=state.data.accounts.find(a=>a.accountId===result.profile.accountId);if(account)Object.assign(account,result.profile);else state.data.accounts.push({...result.profile,assignments:result.profile.assignments||[]});}
     if(result.assignment){const account=state.data.accounts.find(a=>a.accountId===result.assignment.accountId);if(account){const index=account.assignments.findIndex(g=>g.scopeType===result.assignment.scopeType&&g.scopeId===result.assignment.scopeId);if(index<0)account.assignments.push(result.assignment);else account.assignments[index]=result.assignment;}}
+    if(result.scope){const scope=state.data.scopes.find(s=>scopeKey(s)===scopeKey(result.scope));if(scope)Object.assign(scope,result.scope);}
+    state.data.reviewCount=state.data.accounts.flatMap(a=>a.assignments).filter(g=>g.reviewStatus==='REQUIRED').length;
     if(result.loginPath)showLink(result.loginPath);
   }
   async function save(attempt=0){
@@ -82,7 +82,7 @@
       applyAcknowledgement(result);message('Saved.');
     }catch(error){
       if(!state.pending){message('Saved. The display could not refresh; your save is confirmed.',true);}
-      else if(error.code==='ROW_CHANGED'){state.conflict={currentRecord:error.currentRecord,rowRevision:error.rowRevision};state.pending=null;remember();message(error.message,true);}
+      else if(error.code==='ROW_CHANGED'){state.conflict={currentRecord:error.currentRecord,rowRevision:error.rowRevision,scopeRevision:error.currentRecord?.scopeRevision};state.pending=null;remember();message(error.message,true);}
       else if(error.status&&error.status<500&&error.code!=='RECOVERY_REQUIRED'){state.pending=null;remember();message(error.message,true);}
       else {message(error.message,true);if(error.code==='RECOVERY_REQUIRED'){$('up-wait').hidden=false;$('up-wait').textContent='An earlier academy change needs recovery. Retry will recover it before saving this entry.';state.pending.needsRecovery=true;remember();}else schedule(error,save,attempt,'Retrying the same save');}
     }finally{state.busy=false;render();}
@@ -91,20 +91,34 @@
   function showLink(path){if(!/^\/account\/[A-Za-z0-9_-]+$/.test(path))return;$('up-link').hidden=false;$('up-link').innerHTML=`Personal sign-in link: <a href="${esc(path)}">${esc(location.origin+path)}</a>`;}
   function cancel(){if(state.busy||state.pending)return;state.edit=null;state.conflict=null;render();message('Unsaved entry discarded.');}
   $('up-search').oninput=e=>{state.search=e.target.value;render();};$('up-status-filter').onchange=e=>{state.filter=e.target.value;render();};
-  $('up-users').onclick=e=>{const id=e.target.closest('[data-account]')?.dataset.account;if(!id||state.busy)return;state.selected=id;$('up-link').hidden=true;render();};
-  $('up-return').onclick=()=>{if(state.edit){state.selected=state.edit.accountId;render();}};
-  $('up-add').onclick=()=>{if(!state.data||state.edit||state.busy||state.pending)return;state.selected=crypto.randomUUID();state.edit={mode:'profile',accountId:state.selected,creating:true,displayName:'',active:true,baseRevision:state.data.emptyRevision};state.conflict=null;$('up-link').hidden=true;render();$('up-display-name').focus();};
-  $('up-edit-profile').onclick=()=>{const account=selected();if(!account||state.edit||state.busy||state.pending)return;state.edit={mode:'profile',accountId:account.accountId,creating:false,displayName:account.displayName,active:account.active,baseRevision:account.revision};state.conflict=null;render();};
-  $('up-display-name').oninput=e=>{if(currentEdit()?.mode==='profile'&&!state.pending){state.edit.displayName=e.target.value;remember();}};
-  $('up-active').onchange=e=>{if(currentEdit()?.mode==='profile'&&!state.pending){state.edit.active=e.target.value==='true';remember();}};
-  $('up-profile-form').onsubmit=e=>{e.preventDefault();void save();};$('up-cancel-profile').onclick=cancel;
-  $('up-roles').onclick=e=>{const button=e.target.closest('button');if(!button||state.busy||state.pending)return;if(button.hasAttribute('data-save-roles'))void save();else if(button.hasAttribute('data-cancel'))cancel();else if(button.dataset.editScope&&!state.edit){const scope=state.data.scopes.find(s=>scopeKey(s)===button.dataset.editScope),account=selected();if(!scope||!account)return;const grant=account.assignments.find(g=>g.scopeType===scope.type&&g.scopeId===scope.id);if(!grant)return;state.edit={mode:'roles',accountId:account.accountId,scopeType:scope.type,scopeId:scope.id,roles:[...grant.roles],baseRevision:grant.revision,subscriptionConfirmed:false};state.conflict=null;render();}};
-  $('up-roles').onchange=e=>{const edit=currentEdit();if(edit?.mode!=='roles'||state.busy||state.pending)return;const {role,subscription,paidConfirm}=e.target.dataset;if(role){edit.roles=edit.roles.filter(r=>r!==role);if(e.target.checked)edit.roles.push(role);}if(subscription){edit.roles=edit.roles.filter(r=>r!=='STUDENT');if(subscription==='STUDENT')edit.roles.push('STUDENT');edit.subscriptionConfirmed=false;}if(paidConfirm!==undefined)edit.subscriptionConfirmed=e.target.checked;render();};
+  function startEdit(edit){if(state.edit||state.busy||state.pending)return;state.edit=edit;state.conflict=null;$('up-link').hidden=true;render();}
+  $('up-return').onclick=()=>{state.search='';state.filter='';$('up-search').value='';$('up-status-filter').value='';render();document.querySelector?.('.is-editing input, [data-access-model]')?.focus();};
+  $('up-add').onclick=()=>{if(state.data?.prepared)startEdit({mode:'profile',accountId:crypto.randomUUID(),creating:true,displayName:'',active:true,baseRevision:state.data.emptyRevision});};
+  $('up-setup').onclick=()=>{startEdit({mode:'matrix-prepare'});void save();};
+  $('up-users').onclick=async e=>{
+    const button=e.target.closest('button');if(!button||state.busy||state.pending)return;
+    const {profile,editScope,account,link}=button.dataset;
+    if(link){state.busy=true;render();try{showLink((await api('link',{accountId:link})).loginPath);}catch(error){message(error.message,true);}finally{state.busy=false;render();}return;}
+    if(profile){const a=state.data.accounts.find(a=>a.accountId===profile);if(a)startEdit({mode:'profile',accountId:a.accountId,creating:false,displayName:a.displayName,active:a.active,baseRevision:a.revision});}
+    if(editScope){const scope=state.data.scopes.find(s=>scopeKey(s)===editScope),a=state.data.accounts.find(a=>a.accountId===account),grant=a?.assignments.find(g=>g.scopeType===scope?.type&&g.scopeId===scope?.id);if(grant)startEdit({mode:'matrix-roles',accountId:account,scopeType:scope.type,scopeId:scope.id,roles:[...grant.roles],baseRevision:grant.revision,scopeRevision:scope.revision});}
+  };
+  $('up-users').oninput=e=>{if(state.edit?.mode==='profile'&&!state.pending&&Object.hasOwn(e.target.dataset,'name')){state.edit.displayName=e.target.value;remember();}};
+  $('up-users').onchange=e=>{const edit=state.edit;if(!edit||state.busy||state.pending)return;
+    if(edit.mode==='profile'&&Object.hasOwn(e.target.dataset,'active'))edit.active=e.target.value==='true';
+    if(edit.mode==='matrix-roles'){const {role,defaultUser}=e.target.dataset;if(role){edit.roles=edit.roles.filter(r=>r!==role);if(e.target.checked)edit.roles.push(role);}if(defaultUser!==undefined&&e.target.checked)edit.roles=[];}
+    render();
+  };
+  $('up-head').onclick=e=>{const policy=e.target.closest('button')?.dataset.policy,scope=state.data.scopes.find(s=>scopeKey(s)===policy);if(scope)startEdit({mode:'matrix-policy',scopeType:scope.type,scopeId:scope.id,accessModel:scope.accessModel,baseRevision:scope.revision,policyConfirmed:false});};
+  $('up-head').onchange=e=>{if(state.edit?.mode!=='matrix-policy'||state.busy||state.pending)return;
+    if(Object.hasOwn(e.target.dataset,'accessModel')){state.edit.accessModel=e.target.value;state.edit.policyConfirmed=false;}
+    if(Object.hasOwn(e.target.dataset,'policyConfirm'))state.edit.policyConfirmed=e.target.checked;render();
+  };
+  $('up-save').onclick=()=>void save();$('up-cancel').onclick=cancel;
+  $('up-users').onkeydown=e=>{if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)){e.preventDefault();void save();}};
   $('up-refresh').onclick=()=>void refresh();
   $('up-retry').onclick=async()=>{if(state.busy||state.waiting)return;if(state.pending?.needsRecovery){state.busy=true;render();try{await api('recover');delete state.pending.needsRecovery;}catch(error){message(error.message,true);state.busy=false;render();return;}state.busy=false;}void save();};
-  $('up-keep-mine').onclick=()=>{if(!state.conflict?.currentRecord||!state.edit||state.busy)return;state.edit.baseRevision=state.conflict.rowRevision;state.conflict=null;remember();void save();};
+  $('up-keep-mine').onclick=()=>{if(!state.conflict?.currentRecord||!state.edit||state.busy)return;state.edit.baseRevision=state.conflict.rowRevision;if(state.conflict.scopeRevision)state.edit.scopeRevision=state.conflict.scopeRevision;state.conflict=null;remember();void save();};
   $('up-use-saved').onclick=()=>{cancel();void refresh();};
-  $('up-personal-link').onclick=async()=>{if(state.busy||state.waiting||!selected())return;state.busy=true;render();try{showLink((await api('link',{accountId:state.selected})).loginPath);}catch(error){message(error.message,true);}finally{state.busy=false;render();}};
   if(program){$('up-back').href=`/programs/manage.html?program=${encodeURIComponent(program)}`;$('up-back').textContent='← Program management';}
   window.addEventListener('beforeunload',e=>{if(state.edit||state.pending){e.preventDefault();e.returnValue='';}});
   void refresh();

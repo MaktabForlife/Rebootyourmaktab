@@ -72,7 +72,7 @@ globalThis.fetch = async (url, init = {}) => {
     const rowMatch = /[A-Z]+(\d+):[A-Z]+(\d+)/.exec(span);
     return structuredClone(rowMatch ? values.slice(Number(rowMatch[1]) - 1, Number(rowMatch[2])) : values);
   };
-  if (suffix === "") return result({ sheets:sheets.map(({ sheetId, title }) => ({ properties:{ sheetId,title } })) });
+  if (suffix === "") return result({ sheets:sheets.map(({ sheetId, title, tables }) => ({ properties:{ sheetId,title },tables })) });
   if (suffix.startsWith("/values/")) return result({ values:rangeValues(decodeURIComponent(suffix.slice(8))) });
   if (suffix === "/values:batchGet") return result({ valueRanges:parsed.searchParams.getAll("ranges").map(range => ({ values:rangeValues(range) })) });
   assert.equal(suffix, ":batchUpdate");
@@ -81,6 +81,7 @@ globalThis.fetch = async (url, init = {}) => {
   const next = structuredClone(sheets);
   for (const request of JSON.parse(init.body).requests) {
     if (request.appendDimension) continue;
+    if (request.updateTable){const updated=request.updateTable.table;const sheet=next.find(s=>s.tables?.some(t=>t.tableId===updated.tableId));Object.assign(sheet.tables.find(t=>t.tableId===updated.tableId),updated);continue;}
     if (request.addSheet) {
       const { sheetId, title } = request.addSheet.properties;
       assert.ok(!next.some(sheet => sheet.sheetId === sheetId || sheet.title === title));
@@ -329,9 +330,13 @@ try{
   {title:'GlobalSubjectAccessMatrix',sheetId:801,rows:[['AccountID','TAFSEER','OTHER'],['ACCOUNT1',true,true],['ACCOUNT2',false,true],['TEACHER-1',false,false]]}
  );
  let directory=await profiles('get');assert(!JSON.stringify(directory).includes(hash));assert(!JSON.stringify(directory).includes('ADMIN-LINK'));
+ assert.equal(directory.prepared,false);
+ const beforeMatrixSetup=structuredClone([table(platformId,'UserCourseAccess'),table(platformId,'GlobalSubjectAccessMatrix'),table(platformId,'GlobalSubjectAccessPolicy')]);
+ await profiles('save',{mode:'matrix-prepare',operationId:crypto.randomUUID()});directory=await profiles('get');assert(directory.prepared);assert(directory.reviewCount>0);
+ assert.match(table(platformId,'AcademyAccessMatrix')[1][1],/^=IFERROR\(VLOOKUP/);
  const profileAccount=id=>directory.accounts.find(a=>a.accountId===id);
  const profileInput=(id,extra={})=>({operationId:crypto.randomUUID(),mode:'profile',accountId:id,creating:false,displayName:profileAccount(id).displayName,active:profileAccount(id).active,baseRevision:profileAccount(id).revision,...extra});
- const roleInput=(id,type,scopeId,roles,extra={})=>({operationId:crypto.randomUUID(),mode:'roles',accountId:id,scopeType:type,scopeId,roles,baseRevision:profileAccount(id).assignments.find(g=>g.scopeType===type&&g.scopeId===scopeId).revision,...extra});
+ const roleInput=(id,type,scopeId,roles,extra={})=>({operationId:crypto.randomUUID(),mode:'matrix-roles',accountId:id,scopeType:type,scopeId,roles,scopeRevision:directory.scopes.find(s=>s.type===type&&s.id===scopeId).revision,baseRevision:profileAccount(id).assignments.find(g=>g.scopeType===type&&g.scopeId===scopeId).revision,...extra});
  const originalAccount=structuredClone(table(platformId,'UserAccounts')[2]);
  await profiles('save',profileInput('ACCOUNT2',{displayName:'Renamed centrally',PINHash:'bad',PlatformRole:'GLOBAL_ADMIN'}));
  for(const column of [0,2,3,4,13])assert.equal(table(platformId,'UserAccounts')[2][column],originalAccount[column]);
@@ -339,19 +344,20 @@ try{
  assert.equal(profileAccount('ACCOUNT2').displayName,'Renamed centrally');
  assert.equal((await profiles('link',{accountId:'ACCOUNT2'})).loginPath,'/account/LOCAL-LINK');
  await profiles('save',profileInput('ACCOUNT1',{active:false}),token,409);
- await profiles('save',roleInput('ACCOUNT2','PROGRAM',input.id,['STUDENT']),token,400);
+ await profiles('save',roleInput('ACCOUNT2','PROGRAM',input.id,['GLOBAL_ADMIN']),token,400);
  await profiles('save',roleInput('ACCOUNT2','PROGRAM',input.id,['TEACHER','STUDENT'],{subscriptionConfirmed:true}));
- assert((await tt('get')).catalog.teachers.some(t=>t.id==='ACCOUNT2'));
+ assert.deepEqual(table(platformId,'UserCourseAccess'),beforeMatrixSetup[0]);
  directory=await profiles('get');
  const paidRoles=roleInput('ACCOUNT2','SUBJECT','TAFSEER',['STUDENT','TEACHER','ADMIN'],{subscriptionConfirmed:true});
  loseResponse=true;await profiles('save',paidRoles,token,503);
  const beforeProfileReplay=writes;assert((await profiles('save',paidRoles)).replayed);assert.equal(writes,beforeProfileReplay);
- assert.deepEqual(table(platformId,'GlobalSubjectAccessMatrix')[2],['ACCOUNT2',true,true]);
+ assert.deepEqual(table(platformId,'GlobalSubjectAccessMatrix')[2],['ACCOUNT2',false,true]);
  directory=await profiles('get');
  assert.deepEqual(profileAccount('ACCOUNT2').assignments.find(g=>g.scopeId==='TAFSEER').roles,['STUDENT','TEACHER','ADMIN']);
- const grantsBeforeInactive=structuredClone([table(platformId,'UserCourseAccess'),table(platformId,'GlobalSubjectAccessMatrix'),table(platformId,'AcademySubjectRoles')]);
+ assert.deepEqual([table(platformId,'UserCourseAccess'),table(platformId,'GlobalSubjectAccessMatrix'),table(platformId,'GlobalSubjectAccessPolicy')],beforeMatrixSetup);
+ const grantsBeforeInactive=structuredClone([table(platformId,'UserCourseAccess'),table(platformId,'GlobalSubjectAccessMatrix'),table(platformId,'AcademyAccessMatrix')]);
  await profiles('save',profileInput('ACCOUNT2',{active:false}));
- assert.deepEqual([table(platformId,'UserCourseAccess'),table(platformId,'GlobalSubjectAccessMatrix'),table(platformId,'AcademySubjectRoles')],grantsBeforeInactive);
+ assert.deepEqual([table(platformId,'UserCourseAccess'),table(platformId,'GlobalSubjectAccessMatrix'),table(platformId,'AcademyAccessMatrix')],grantsBeforeInactive);
  await profiles('get',{},centralAdminToken,401); // Inactive immediately revokes an existing session.
  assert(!(await tt('get')).catalog.teachers.some(t=>t.id==='ACCOUNT2'));
  directory=await profiles('get');await profiles('save',profileInput('ACCOUNT2',{active:true}));
@@ -379,8 +385,21 @@ try{
  assert.equal(blockedRecovery.code,'PROFILE_STORAGE_CHANGED');assert.equal(blockedRecovery.retryable,false);assert.equal(writes,movedWriteCount);
  books.get(platformId).find(s=>s.title==='UserAccounts').rows=accountsBeforeMove;
  await profiles('recover');assert((await profiles('save',movedProfile)).replayed);
+ // New courses append stable columns and extend the native table without replacing reviewed cells.
+ const nativeMatrix=books.get(platformId).find(s=>s.title==='AcademyAccessMatrix');
+ nativeMatrix.tables=[{tableId:'MATRIX-TABLE',range:{sheetId:nativeMatrix.sheetId,startRowIndex:0,startColumnIndex:0,endRowIndex:1000,endColumnIndex:nativeMatrix.rows[0].length},columnProperties:nativeMatrix.rows[0].map((columnName,columnIndex)=>({columnName,columnIndex,columnType:'TEXT'}))}];
+ const matrixBeforeNewScope=structuredClone(nativeMatrix.rows);
+ const newSubject={SubjectID:'NEW-SCOPE',SubjectName:'New scope',Active:true};
+ table(platformId,'GlobalSubjectList').push(PLATFORM_SHEET_HEADERS.GlobalSubjectList.map(h=>newSubject[h]??''));
+ assert((await profiles('get')).needsSync);
+ await profiles('save',{mode:'matrix-prepare',operationId:crypto.randomUUID()});
+ const extended=books.get(platformId).find(s=>s.title==='AcademyAccessMatrix');
+ assert.equal(extended.rows[0].at(-1),'SUBJECT:NEW-SCOPE');assert.equal(extended.tables[0].range.endColumnIndex,extended.rows[0].length);
+ assert.equal(extended.tables[0].columnProperties.at(-1).columnType,'DROPDOWN');
+ assert.deepEqual(extended.rows.map(row=>row.slice(0,-1)),matrixBeforeNewScope);
+ assert.equal((await profiles('get')).needsSync,false);
  assert(!JSON.stringify(table(platformId,'AcademyProfileOperations')).includes(hash));
- console.log('Shared profile API: academy-admin authority, inactive session revocation, atomic role/subscription saves, protected credentials, teacher eligibility and lost-response recovery passed.');
+ console.log('Shared profile API: academy-admin authority, inactive session revocation, isolated matrix saves, protected credentials, staged access and lost-response recovery passed.');
  assert.deepEqual(books.get(legacyId),originalLegacy);
  assert.deepEqual(table(platformId,'CourseRegistry')[1],originalRegistryRow);
  console.log('Program timetable API: authority, body bounds, Sheets preparation, atomic revisions/publications/receipts, retries, recovery, canonical coordinator keys, reference validation and Reboot isolation passed.');

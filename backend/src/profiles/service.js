@@ -1,4 +1,5 @@
-import { directory, planProfileChange, profileRevision } from './model.js';
+import { profileRevision } from './model.js';
+import { academyDirectory, planAcademyChange } from './academy-access.js';
 import { key, problem } from '../programs/model.js';
 export function profileService(repository){
   return {
@@ -9,7 +10,7 @@ export function profileService(repository){
         if(!account)throw problem('Choose an existing user.',404);
         return {loginPath:`/account/${encodeURIComponent(account.UniqueID)}`};
       }
-      return {...await directory(data),emptyRevision:await profileRevision(null)};
+      return {...await academyDirectory(data),emptyRevision:await profileRevision(null)};
     },
     async receipt(operationId,hash){
       const data=await repository.load(),receipt=data.tables.AcademyProfileOperations.find(r=>r.OperationID===operationId);
@@ -18,12 +19,12 @@ export function profileService(repository){
     },
     async plan(action,input,user,hash){
       if(action!=='save')throw problem('Unknown profile action.');
-      const data=await repository.load(),planned=await planProfileChange(data,input,user),timestamp=new Date().toISOString();
+      const data=await repository.load(),planned=await planAcademyChange(data,input,user),timestamp=new Date().toISOString();
       const result=planned.result;
       const audit={AuditID:`PROFILE-${input.operationId}`,DateStamp:timestamp,AccountID:user.accountid,AccountName:user.username,Authority:'GLOBAL_ADMIN',CourseID:input.scopeType==='PROGRAM'?input.scopeId:'',...planned.audit};
       const receipt={OperationID:input.operationId,PayloadHash:hash,ResultJSON:JSON.stringify(result),DateStamp:timestamp,AccountID:user.accountid};
       if(receipt.ResultJSON.length>45000)throw problem('This profile has too many assignments for a single safe save. No changes were made.',409);
-      return {plan:repository.plan(data,planned.changes,audit,receipt),result};
+      return {plan:repository.plan(data,planned.changes,audit,receipt,{matrixColumns:planned.matrixColumns}),result};
     },
     apply:plan=>repository.apply(plan)
   };

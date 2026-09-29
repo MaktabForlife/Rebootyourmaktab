@@ -1,18 +1,21 @@
-## V105.3.2 acceptance
+## V105.3.2.1 acceptance
 
-- [x] Shared academy directory, add/edit profiles, stable personal sign-in identities.
-- [x] Separate Active / Inactive account status preserves all assignments/history.
-- [x] Combined roles/subscriptions per subject/program, with explicit paid Student confirmation.
-- [x] Academy-administrator-only API and screen; fresh authority on save/recovery.
-- [x] Canonical matrix subscriptions, retained multi-role rows, atomic receipts/audit.
-- [x] Existing legacy record mappings and credentials are preserved.
-- [x] Draft/navigation/reload, quota cooldown, confirmed-save read recovery and explicit conflicts.
-- [x] All 78 regression files, development bundle and real local Cloudflare runtime pass.
-- [ ] User acceptance on Development: layout, profile editing, combined roles, inactive access, timetable eligibility and save recovery.
-- [ ] Future permission consumers: subject-specific staff workspaces and generic program teaching workspaces.
-- [ ] Consolidate older identity/subscription writers with shared profile coordination.
+- [x] One spreadsheet-like row per user; columns for all programs and global subjects.
+- [x] Multiple roles per cell; User default; separate central Active/Inactive status.
+- [x] Scope-wide Free/Paid settings; Paid permits Student/Teacher/Senior/Admin.
+- [x] Separate setup matrix, scope settings and import reviews in the development workbook.
+- [x] Import 33 existing identities and six scopes without changing legacy access records.
+- [x] Preserve drafts, exact retries, confirmed-save read recovery, audit and credential protection.
+- [ ] Administrator review: ten proposed Student entries imported from TRUE access flags.
+- [ ] Administrator review: Free/Paid for Reboot and Alimiyah (conservative Paid defaults, pending review).
+- [ ] User acceptance: desktop/mobile matrix, role combinations, settings, profile edits and recovery.
+- [ ] Finalize the structure in Google Sheets before any database migration.
+- [ ] Later: reviewed migration of Global Subjects and Reboot to the new matrix, with legacy identity mapping, access comparison and rollback.
+- [ ] Later: migrate finalized data to Cloudflare D1; no database is provisioned in this release.
 
-See [V105.3.2 notes](docs/V105.3.2-SHARED-USER-PROFILES.md). V105.3.3 timetable, V105.4 library/resources and V105.5 student/program integration and individual completion history remain the next phases. Earlier user acceptance stays open.
+The earlier V105.3.2 subscription-confirmation model is superseded. Setup role changes do not yet change timetable teacher lists or legacy authorization. Name and account-status edits remain immediate central identity changes. Existing user acceptance remains open.
+
+V105.3.3 timetable, V105.4 library/resources and V105.5 student/program integration, tasks and permanent student module-completion history remain planned.
 
 ## V105.3.1.8 acceptance
 

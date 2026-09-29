@@ -20,6 +20,7 @@ const GOOGLE_READ_MAX_ATTEMPTS = 2;
 const GOOGLE_READ_RETRY_BASE_MS = 250;
 const GOOGLE_READ_RETRY_MAX_MS = 2000;
 const SHEET_PROPERTIES_CACHE_KEY = Symbol('sheet-properties');
+const SHEET_TABLES_CACHE_KEY = Symbol('sheet-tables');
 
 export class GoogleSheetsApiError extends Error {
   constructor(status, message) {
@@ -226,22 +227,23 @@ export async function readGoogleSpreadsheetSheetProperties(env, target = {}) {
   const spreadsheetId = getGoogleSpreadsheetId(env, target);
   const context = getRequestSheetsReadContext(env);
   const cache = context ? getSpreadsheetReadCache(context, spreadsheetId) : null;
-  let pending = cache?.get(SHEET_PROPERTIES_CACHE_KEY);
+  const metadataKey=target.includeTables?SHEET_TABLES_CACHE_KEY:SHEET_PROPERTIES_CACHE_KEY;
+  let pending = cache?.get(metadataKey);
   if (!pending) {
-    pending = readGoogleSpreadsheetSheetPropertiesUncached(env, spreadsheetId);
-    cache?.set(SHEET_PROPERTIES_CACHE_KEY, pending);
+    pending = readGoogleSpreadsheetSheetPropertiesUncached(env, spreadsheetId, target.includeTables);
+    cache?.set(metadataKey, pending);
   }
   // Metadata is shared only within this request and invalidated by every write.
   // Fetch the small grid-size field once for callers with either projection.
-  return (await pending).map(({sheetId,title,rowCount}) => ({sheetId,title,...(target.includeGrid ? {rowCount} : {})}));
+  return (await pending).map(({sheetId,title,rowCount,tables}) => ({sheetId,title,...(target.includeGrid ? {rowCount} : {}),...(target.includeTables?{tables}: {})}));
 }
 
-async function readGoogleSpreadsheetSheetPropertiesUncached(env, spreadsheetId) {
+async function readGoogleSpreadsheetSheetPropertiesUncached(env, spreadsheetId, includeTables=false) {
   const accessToken = await getGoogleSheetsAccessToken(env);
   const url = [
     "https://sheets.googleapis.com/v4/spreadsheets/",
     encodeURIComponent(spreadsheetId),
-    "?fields=sheets(properties(sheetId,title,gridProperties(rowCount)))"
+    includeTables?"?fields=sheets(properties(sheetId,title,gridProperties(rowCount)),tables(tableId,range,columnProperties))":"?fields=sheets(properties(sheetId,title,gridProperties(rowCount)))"
   ].join("");
   const response = await fetchGoogleSheetsReadWithRetry(url, {
     method: "GET",
@@ -254,7 +256,8 @@ async function readGoogleSpreadsheetSheetPropertiesUncached(env, spreadsheetId) 
   return (Array.isArray(data.sheets) ? data.sheets : []).map(sheet => ({
     sheetId: Number(sheet?.properties?.sheetId),
     title: String(sheet?.properties?.title || "").trim(),
-    rowCount: Number(sheet?.properties?.gridProperties?.rowCount) || 1000
+    rowCount: Number(sheet?.properties?.gridProperties?.rowCount) || 1000,
+    tables: sheet.tables || []
   })).filter(sheet => Number.isInteger(sheet.sheetId) && sheet.title);
 }
 

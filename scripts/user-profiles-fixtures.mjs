@@ -1,4 +1,5 @@
 /* Synthetic identities only; never seed these records into an academy workbook. */
+import { ACADEMY_HEADERS, MATRIX_BASE } from '../backend/src/profiles/academy-access.js';
 import { PROFILE_HEADERS } from '../backend/src/profiles/model.js';
 export function userProfilesFixture(){
   const matrix=[{AccountID:'OWNER',_subjectAccess:{FREE:false,PAID:true}},{AccountID:'PERSON',_subjectAccess:{FREE:false,PAID:false}}];
@@ -11,16 +12,16 @@ export function userProfilesFixture(){
     GlobalSubjectAccessMatrix:matrix,
     CourseRegistry:[{CourseID:'PRG-DEMO',CourseName:'Demo program',SchemaVersion:'105.1-program',Active:false},{CourseID:'REBOOT',CourseName:'Reboot',SchemaVersion:'104.5',Active:true}],
     ProgramDefinitions:[{CourseID:'PRG-DEMO',Status:'DRAFT'}],UserCourseAccess:[{AccessID:'LEGACY',AccountID:'PERSON',CourseID:'REBOOT',Role:'TEACHER',Active:true,CourseRecordID:'ADMIN-REAL'}],
-    AcademySubjectRoles:[],AcademyProfileOperations:[],PlatformAuditLog:[]
+    AcademySubjectRoles:[],AcademyProfileOperations:[],PlatformAuditLog:[],AcademyAccessMatrix:[],AcademyAccessScopes:[],AcademyAccessReview:[]
   };
   for(const rows of Object.values(tables))rows.forEach((row,index)=>row._rowNumber=index+2);
-  let pending=null,failMode='',authorized=true;const plans=[];
+  let pending=null,failMode='',authorized=true,academyPrepared=false;const plans=[];const headers={...ACADEMY_HEADERS,AcademyAccessMatrix:MATRIX_BASE};
   const repository={
-    load:async()=>({tables:structuredClone(tables)}),
-    plan(_data,changes,audit,receipt){return {changes:structuredClone(changes),audit,receipt};},
+    load:async()=>({tables:structuredClone(tables),headers:structuredClone(headers),academyPrepared}),
+    plan(_data,changes,audit,receipt,options={}){return {changes:structuredClone(changes),audit,receipt,...options};},
     async apply(plan){
       const mode=failMode;failMode='';if(mode==='before')throw new Error('Injected before commit');
-      plans.push(structuredClone(plan));
+      plans.push(structuredClone(plan));if(plan.matrixColumns){headers.AcademyAccessMatrix=plan.matrixColumns;academyPrepared=true;}
       for(const {table,record,fields} of plan.changes){const rows=tables[table];
         if(record._rowNumber){const row=rows.find(r=>r._rowNumber===record._rowNumber);for(const field of fields||Object.keys(record)){if(table==='GlobalSubjectAccessMatrix'&&field!=='AccountID')row._subjectAccess[field.toUpperCase()]=record[field];else row[field]=record[field];}}
         else {const added={...structuredClone(record),_rowNumber:rows.length+2};if(table==='GlobalSubjectAccessMatrix')added._subjectAccess={FREE:false,PAID:false};rows.push(added);}
