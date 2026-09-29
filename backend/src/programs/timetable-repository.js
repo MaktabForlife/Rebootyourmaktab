@@ -1,7 +1,7 @@
 import { academySubjectRepository } from './academy-subjects.js';
 /* V105.2 — all timetable writes are planned inside the per-Program coordinator. */
 import { batchReadGoogleSheetValues, batchUpdateGoogleSpreadsheet, readGoogleSpreadsheetSheetProperties } from '../lib/google-sheets.js';
-import { readPlatformSheet } from '../lib/platform-sheet.js';
+import { readPlatformSheet, readPlatformSheets } from '../lib/platform-sheet.js';
 import { isActivePlatformValue as active } from '../lib/platform-schema.js';
 import { parseTable, assertUnique, problem, clean } from './model.js';
 import { managementState } from './management-model.js';
@@ -45,7 +45,7 @@ export function timetableRepository(env, program) {
       return data;
     },
     async managementReferences(data) {
-      const [subjects,accounts,access]=await Promise.all([subjectReferences(data),readPlatformSheet(env,'UserAccounts'),readPlatformSheet(env,'UserCourseAccess')]);
+      const [subjects,{UserAccounts:accounts,UserCourseAccess:access}]=await Promise.all([subjectReferences(data),readPlatformSheets(env,['UserAccounts','UserCourseAccess'])]);
       assertUnique(subjects,'SubjectID','Shared subjects');assertUnique(accounts,'AccountID','Accounts');
       return {
         subjects,
@@ -54,7 +54,7 @@ export function timetableRepository(env, program) {
       };
     },
     async catalog(data) {
-      const [subjects,accounts,access]=await Promise.all([subjectReferences(data),readPlatformSheet(env,'UserAccounts'),readPlatformSheet(env,'UserCourseAccess')]);
+      const [subjects,{UserAccounts:accounts,UserCourseAccess:access}]=await Promise.all([subjectReferences(data),readPlatformSheets(env,['UserAccounts','UserCourseAccess'])]);
       assertUnique(subjects,'SubjectID','Shared subjects'); assertUnique(accounts,'AccountID','Accounts');
       const t=data.tables;
       assertUnique(t.ProgramSubjects||[],'SubjectID','Program subject links');

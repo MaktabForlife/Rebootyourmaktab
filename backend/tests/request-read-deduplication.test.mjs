@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import {
   batchReadGoogleSheetValues,
   batchUpdateGoogleSheetValues,
+  batchUpdateGoogleSpreadsheet,
   readGoogleSheetValues,
+  readGoogleSpreadsheetSheetProperties,
   updateGoogleSheetValues
 } from "../src/lib/google-sheets.js";
 import { createCourseEnvironment } from "../src/lib/course-routing.js";
@@ -48,8 +50,12 @@ globalThis.fetch = async (input, init = {}) => {
     throw new Error(`Unexpected fetch: ${url}`);
   }
 
-  const spreadsheetId = decodeURIComponent(url.pathname.split("/")[3] || "");
+  const spreadsheetId = decodeURIComponent(url.pathname.split("/")[3] || "").split(':')[0];
   sheetCalls.push({ url, method, spreadsheetId, body: init.body });
+
+  if (method === 'GET' && url.pathname === `/v4/spreadsheets/${spreadsheetId}`) {
+    return jsonResponse({sheets:[{properties:{sheetId:7,title:'Data',gridProperties:{rowCount:1000+(versions.get(spreadsheetId)||0)}}}]});
+  }
 
   if (method === "GET" && url.pathname.endsWith("/values:batchGet")) {
     return jsonResponse({
@@ -190,6 +196,29 @@ try {
   await readGoogleSheetValues(baseEnv, "Unscoped!A:B");
   await readGoogleSheetValues(baseEnv, "Unscoped!A:B");
   assert.equal(getCalls("program-sheet", "Unscoped!A:B").length, uncachedBefore + 2);
+
+  // Metadata callers share one fetch across projections, but never across requests/books/writes.
+  const metadataBefore=sheetCalls.length;
+  const [plain,grid]=await Promise.all([
+    readGoogleSpreadsheetSheetProperties(requestEnv),
+    readGoogleSpreadsheetSheetProperties(requestEnv,{includeGrid:true})
+  ]);
+  assert.equal(sheetCalls.length-metadataBefore,1);
+  assert.deepEqual(plain,[{sheetId:7,title:'Data'}]);
+  assert.equal(grid[0].rowCount,1002);
+  grid[0].title='Mutated';
+  assert.equal((await readGoogleSpreadsheetSheetProperties(requestEnv,{includeGrid:true}))[0].title,'Data');
+  await readGoogleSpreadsheetSheetProperties(createRequestEnvironment(baseEnv));
+  await readGoogleSpreadsheetSheetProperties(requestEnv,{spreadsheetId:'platform-sheet'});
+  assert.equal(sheetCalls.length-metadataBefore,3);
+  await batchUpdateGoogleSpreadsheet(requestEnv,[{addSheet:{properties:{title:'New'}}}]);
+  assert.equal((await readGoogleSpreadsheetSheetProperties(requestEnv,{includeGrid:true}))[0].rowCount,1003);
+  const unaffectedBefore=sheetCalls.length;
+  await readGoogleSpreadsheetSheetProperties(requestEnv,{spreadsheetId:'platform-sheet'});
+  assert.equal(sheetCalls.length,unaffectedBefore);
+  await readGoogleSpreadsheetSheetProperties(baseEnv);
+  await readGoogleSpreadsheetSheetProperties(baseEnv);
+  assert.equal(sheetCalls.length,unaffectedBefore+2,'Metadata remains uncached without a request environment');
 
   assert.equal(oauthCalls, 1, "V104.3 must not alter the existing OAuth token cache behaviour");
 } finally {

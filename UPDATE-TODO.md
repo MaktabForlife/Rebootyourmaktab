@@ -1,3 +1,14 @@
+## V105.3.1.7 acceptance
+
+- [x] Restore module rows immediately inside expanded subjects/levels.
+
+- [x] Keep the acknowledged row visible and retry failed refresh reads automatically with quota cooldown.
+- [x] Preserve drafts and browsing during cooldown; never repeat a confirmed write for a read failure.
+- [x] Bound retry attempts and reduce request-local spreadsheet reads.
+- [ ] User acceptance: save, observe any temporary refresh delay, keep editing, and confirm automatic recovery, restored module rows and V105.3.1.7 labels.
+
+Future requirements: optional levels selected from Beginner / Intermediate / Advanced; individual student module-completion history in V105.5. See [refresh fix and roadmap notes](docs/V105.3.1.7-REFRESH-RECOVERY.md).
+
 ## V105.3.1.6 acceptance
 
 - [x] Collapse subjects, levels and modules by default; preserve optional levels and search.

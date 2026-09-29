@@ -1,3 +1,9 @@
+# V105.3.1.7 — Refresh recovery and module rows
+
+Opening a subject or level now shows modules as rows, with their class, teacher, learner and action columns. Subjects and levels remain collapsed by default.
+
+Confirmed saves now remain visible while a rate-limited refresh waits and retries automatically. Browsing and unsaved typing remain available; confirmed writes are never repeated by read recovery. Request-local metadata reuse and batched references reduce the measured management refresh from 13 to 9 upstream reads. [Fix and acceptance](docs/V105.3.1.7-REFRESH-RECOVERY.md).
+
 # V105.3.1.6 — Management testing fixes
 
 Subjects, levels and modules start collapsed in the overview. Management tabs remain readable while another row is unfinished, and Return to unfinished entry keeps the draft and its original save identity. Teacher selection and timetable validation require a current Teacher, Senior or Admin role in the selected Program. Login, Program screens, version files and Worker health now share the same release label.

@@ -203,7 +203,7 @@ try {
     ]
   });
   assert.equal(sheetsCalls[4].method, "GET");
-  assert.equal(sheetsCalls[4].url.searchParams.get("fields"), "sheets(properties(sheetId,title))");
+  assert.equal(sheetsCalls[4].url.searchParams.get("fields"), "sheets(properties(sheetId,title,gridProperties(rowCount)))");
   assert.equal(sheetsCalls[5].method, "POST");
   assert.equal(sheetsCalls[5].url.pathname.endsWith(":batchUpdate"), true);
   assert.deepEqual(JSON.parse(sheetsCalls[5].body), {

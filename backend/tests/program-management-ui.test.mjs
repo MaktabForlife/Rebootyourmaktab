@@ -8,11 +8,12 @@ const source=await readFile(new URL('../../js/m4l-program-management.js',import.
 const f=timetableFixture(),service=timetableService(f.repository,f.program);
 const coordinator=timetableCoordinator(f.journal,async()=>({service,user:{accountid:'ADMIN'}}));
 const elements=new Map(),storage=new Map(),requests=[];
-let failing=0,failReadAfterSave=false,serviceFailure=null;const delays=[];
+let failing=0,failReadAfterSave=false,serviceFailure=null,holdDelays=false;const delays=[],scheduled=[],readFailures=[];
 function element(id){if(!elements.has(id))elements.set(id,{hidden:false,disabled:false,value:'',textContent:'',innerHTML:'',listeners:{},classList:{toggle(){}},querySelectorAll:()=>[],querySelector:()=>null,addEventListener(type,fn){this.listeners[type]=fn;}});return elements.get(id);}
-const context={console,URLSearchParams,structuredClone,crypto,setTimeout:(fn,ms)=>{if(ms>=1000){delays.push(ms);return setTimeout(fn,0);}return setTimeout(fn,ms);},location:{search:'?program='+f.program.id},localStorage:{getItem:()=> 'token'},sessionStorage:{getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)},document:{getElementById:element,addEventListener(){}},window:{M4L_CONFIG:{API_BASE:''},M4L_PROGRAM_OVERVIEW:{build:()=>[]},addEventListener(){}},fetch:async(url,options)=>{
+const context={console,URLSearchParams,structuredClone,crypto,setTimeout:(fn,ms)=>{if(ms>=1000){delays.push(ms);if(holdDelays){scheduled.push({fn,ms});return scheduled.length;}return setTimeout(fn,0);}return setTimeout(fn,ms);},location:{search:'?program='+f.program.id},localStorage:{getItem:()=> 'token'},sessionStorage:{getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)},document:{getElementById:element,addEventListener(){}},window:{M4L_CONFIG:{API_BASE:''},M4L_PROGRAM_OVERVIEW:{build:()=>[]},addEventListener(){}},fetch:async(url,options)=>{
   const action=url.split('/').at(-1),body=JSON.parse(options.body);requests.push({action,body});
   try{
+    if(action==='manage-get'&&readFailures.length){const error=readFailures.shift();return {ok:false,status:503,json:async()=>({success:false,error:'Simulated read failure',...error})};}
     if(action==='manage-save'&&serviceFailure){const error=serviceFailure;serviceFailure=null;return {ok:false,status:503,json:async()=>({success:false,error:'Simulated service failure',...error})};}
     if(action==='manage-save'&&failing){failing--;throw new Error('Offline');}
     if(action==='manage-get'&&failReadAfterSave==='ready'){failReadAfterSave=false;throw new Error('Refresh unavailable');}
@@ -30,13 +31,18 @@ function input(key,value){element('pm-rows').listeners.input({target:{dataset:{f
 async function external(record){const view=await service.read('manage-get');await coordinator.run('manage-save',{id:f.program.id,kind:'classes',record,creating:false,revision:view.revision,baseRowRevision:view.rowRevisions.classes[record.ClassID],operationId:crypto.randomUUID()},'token');}
 await settled();
 assert.match(element('pm-overview').innerHTML,/data-rollup="subject:PS-TAFSEER"/);
-assert.match(element('pm-overview').innerHTML,/data-rollup="module:MOD-DEMO"/);
+assert.match(element('pm-overview').innerHTML,/<td data-label="Module"><strong>Maariful Quran · Demo module<\/strong>/);
+assert(!element('pm-overview').innerHTML.includes('data-rollup="module:'),'Module rows appear directly under their collapsed subject/level');
 assert(!/<details[^>]*\sopen[ >]/.test(element('pm-overview').innerHTML),'Every overview group starts collapsed');
 assert.deepEqual(requests.map(r=>r.action),['manage-get'],'Overview loads in a single request');
 element('pm-overview').listeners.toggle({target:{dataset:{rollup:'subject:PS-TAFSEER'},open:true}});
 element('pm-search').oninput({target:{value:'Demo'}});
 assert.match(element('pm-overview').innerHTML,/data-rollup="subject:PS-TAFSEER" open/);
-assert(!/data-rollup="module:MOD-DEMO" open/.test(element('pm-overview').innerHTML),'Opening a subject does not expand modules');
+assert.match(element('pm-overview').innerHTML,/data-module-edit="MOD-DEMO"/);
+element('pm-overview').onclick({target:{closest:()=>button({moduleEdit:'MOD-DEMO'})}});
+assert.equal(element('pm-caption').textContent,'Modules');
+assert.match(element('pm-rows').innerHTML,/value="Maariful Quran · Demo module"/);
+await clickRow({'data-cancel':true});
 element('pm-tabs').onclick({target:{closest:()=>({dataset:{tab:'classes'}})}});
 element('pm-add').onclick();input('Name','Preserved draft');
 // Browse Learners without losing or saving the Classes draft.
@@ -75,7 +81,7 @@ console.log('Management UI: preserved refresh/reload, automatic retry, stable op
 
 // A save confirmed by the server stays confirmed even if its subsequent refresh fails.
 failReadAfterSave=true;await clickRow({'data-save':true});
-assert.match(element('pm-message').textContent,/row was saved/);assert.equal(element('pm-pending').hidden,true);
+assert.match(element('pm-message').textContent,/Row saved/);assert.equal(element('pm-pending').hidden,true);
 assert.equal((await service.read('manage-get')).rows.classes.find(r=>r.ClassID===saved.ClassID).Name,'Browser reload draft');
 await element('pm-reload').onclick();
 // An interrupted server-side write is completed automatically and replayed exactly once.
@@ -109,3 +115,47 @@ await element('pm-retry').onclick();
 assert.equal((await service.read('manage-get')).rows.classes.find(r=>r.ClassID===saved.ClassID).Name,'Access restored','Retry from another tab must still save the original kind');
 assert.equal(element('pm-caption').textContent,'Classes');
 console.log('Management UI: bounded rate-limit backoff and safe pending-save navigation passed.');
+
+// Quota exhaustion after a confirmed write retries reads only, without freezing a new draft.
+holdDelays=true;
+const quota={code:'SHEETS_RATE_LIMITED',retryable:true,retryAfterMs:60000,reference:'test-refresh-reference'};
+await clickRow({edit:saved.ClassID});input('Name','Saved during quota limit');
+readFailures.push(quota);const beforeQuota=requests.length;
+await clickRow({'data-save':true});
+assert.equal(element('pm-pending').hidden,true);
+assert.match(element('pm-rows').innerHTML,/Saved during quota limit/,'Display the acknowledged row before refresh succeeds');
+assert.match(element('pm-refresh-status').textContent,/automatically in 60 seconds/);
+assert.match(element('pm-refresh-status').textContent,/test-refresh-reference/);
+assert.equal(scheduled.length,1);assert.equal(scheduled[0].ms,60000);
+assert.equal(element('pm-editor').disabled,false,'Typing is available during cooldown');
+assert.equal(element('pm-reload').disabled,true);
+await clickRow({edit:saved.ClassID});input('Name','Next unsaved entry');
+const duringWait=requests.length;
+await element('pm-reload').onclick();await clickRow({'data-save':true});
+assert.equal(requests.length,duringWait,'Manual clicks do not defeat the quota cooldown');
+element('pm-tabs').onclick({target:{closest:()=>({dataset:{tab:'enrollments'}})}});
+assert.equal(element('pm-caption').textContent,'Learners');
+scheduled.shift().fn();await settled();
+assert.equal(element('pm-refresh-status').hidden,true);
+element('pm-return').onclick();assert.match(element('pm-rows').innerHTML,/Next unsaved entry/);
+assert.equal(requests.slice(beforeQuota).filter(r=>r.action==='manage-save').length,1,'Never resend a confirmed write');
+assert.equal(requests.slice(beforeQuota).filter(r=>r.action==='recover').length,0,'Read recovery must not replay writes');
+assert.equal((await service.read('manage-get')).rows.classes.find(r=>r.ClassID===saved.ClassID).Name,'Saved during quota limit');
+await clickRow({'data-save':true});
+assert.equal(element('pm-conflict').hidden,true,'A new draft uses the acknowledged row revision');
+assert.equal((await service.read('manage-get')).rows.classes.find(r=>r.ClassID===saved.ClassID).Name,'Next unsaved entry');
+
+// Repeated quota failures stop after two delayed reads; explicit refresh starts a new attempt.
+readFailures.push(quota,quota,quota);const beforePersistent=requests.length;
+await element('pm-reload').onclick();scheduled.shift().fn();await settled();scheduled.shift().fn();await settled();
+assert.equal(scheduled.length,0);assert.match(element('pm-refresh-status').textContent,/Automatic refresh has stopped/);
+assert.equal(element('pm-reload').disabled,false);
+assert.equal(requests.slice(beforePersistent).filter(r=>r.action==='manage-get').length,3);
+await element('pm-reload').onclick();assert.equal(element('pm-refresh-status').hidden,true);
+
+// Spreadsheet access/configuration failures do not produce a retry loop.
+readFailures.push({code:'SHEETS_ACCESS_FAILED',retryable:false});
+await element('pm-reload').onclick();assert.equal(scheduled.length,0);
+assert.match(element('pm-refresh-status').textContent,/Simulated read failure/);
+await element('pm-reload').onclick();
+console.log('Management UI: acknowledged row retained, read-only automatic recovery, preserved concurrent draft, cooldown and bounded retries passed.');

@@ -176,13 +176,14 @@ try{
  assert(combined.overview.timetable.draft);assert(combined.overview.preview);
  const separateReadStart=reads;await tt('manage-get');await tt('get');await tt('preview',{draft:f.draft});
  const separateReads=reads-separateReadStart;assert(combinedReads<separateReads,'Overview must reduce upstream reads');
+ assert(combinedReads<=9,'Combined management refresh must stay within its measured read budget');
  denyTarget=true;const inaccessible=await tt('manage-get',{},token,503);denyTarget=false;
  assert.equal(inaccessible.code,'SHEETS_ACCESS_FAILED');assert.equal(inaccessible.retryable,false);assert(inaccessible.reference);
  console.log(`Management read budget: ${combinedReads} combined versus ${separateReads} separate reads.`);
  assert.equal(management.rows.modules[0].Name,'Demo module');
  assert(!JSON.stringify(management.accounts).includes('PINHash'));
  const edit=(kind,record,creating=true)=>({kind,record,creating,revision:management.revision,referenceRevision:management.referenceRevision,operationId:crypto.randomUUID()});
- const saveRow=async(kind,record,creating=true)=>{const result=await tt('manage-save',edit(kind,record,creating));management=await tt('manage-get');return result;};
+ const saveRow=async(kind,record,creating=true)=>{const result=await tt('manage-save',edit(kind,record,creating));management=await tt('manage-get');assert(Object.values(management.rowRevisions[kind]).includes(result.rowRevision),'Save acknowledgement includes the committed row revision');return result;};
  await saveRow('classes',{ClassID:'CLS-TEST',Name:'Evening class',AcademicYear:'2026',Active:true});
  assert((await tt('get')).catalog.classes.some(r=>r.id==='CLS-TEST'));
  const stale=edit('classes',{ClassID:'CLS-STALE',Name:'Stale',Active:true});
