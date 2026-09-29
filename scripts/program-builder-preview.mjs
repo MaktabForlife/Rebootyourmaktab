@@ -7,6 +7,7 @@ import path from "node:path";
 import { programService } from "../backend/src/programs/service.js";
 import { PROGRAM_SCHEMA } from "../backend/src/programs/model.js";
 import { timetableFixture } from './program-timetable-fixtures.mjs';
+import { readWeeklyDraft } from '../backend/src/programs/weekly-timetable.js';
 import { timetableService } from '../backend/src/programs/timetable-service.js';
 import { timetableCoordinator } from '../backend/src/programs/timetable-coordination.js';
 const fixture=timetableFixture();
@@ -24,7 +25,7 @@ const academyService=academySubjectService(academyRepository);
 const academyCoordinator=timetableCoordinator({get:async()=>academyPending,set:async value=>{academyPending=value;},clear:async()=>{academyPending=null;}},async()=>({user:{accountid:'PREVIEW'},service:academyService}));
 const ttService=timetableService(fixture.repository,fixture.program);
 const ttCoordinator=timetableCoordinator(fixture.journal,async()=>({user:{accountid:'PREVIEW'},service:ttService}));
-await ttCoordinator.run('save',{id:fixture.program.id,revision:'',draft:fixture.draft,operationId:crypto.randomUUID()},'preview');
+await ttCoordinator.run('save',{id:fixture.program.id,revision:'',draft:readWeeklyDraft(fixture.draft).draft,operationId:crypto.randomUUID()},'preview');
 const root = fileURLToPath(new URL("../", import.meta.url));
 const id = "PRG-19da8d59-7eb0-41c3-949d-916f8d764f81";
 const registry = [

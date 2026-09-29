@@ -9,6 +9,7 @@ import { timetableRepository } from '../src/programs/timetable-repository.js';
 import { timetableProgram,timetableUser } from '../src/programs/timetable-context.js';
 import { createRequestEnvironment } from '../src/lib/request-context.js';
 import { TIMETABLE_HEADERS } from '../src/programs/timetable-model.js';
+import { readWeeklyDraft } from '../src/programs/weekly-timetable.js';
 import { timetableFixture } from '../../scripts/program-timetable-fixtures.mjs';
 import assert from "node:assert/strict";
 import nodeWorker from "../src/worker.js";
@@ -120,7 +121,7 @@ if (useRuntime) {
   await runtime.ready;
   worker={fetch:async request=>runtime.dispatchFetch(request.url,{method:request.method,headers:Object.fromEntries(request.headers),...(request.method==='GET'?{}:{body:await request.text()})})};
 }
-const f=timetableFixture();
+const f=timetableFixture();f.draft=readWeeklyDraft(f.draft).draft;
 const input={id:f.program.id,name:'Aalimiya',spreadsheetId:targetId,durationYears:4,timezone:'Asia/Riyadh',status:'DRAFT'};
 const journals=new Map(),coordinators=new Map(),names=[];
 const binding={getByName(name){names.push(name);if(!coordinators.has(name)){
@@ -148,7 +149,7 @@ async function profiles(action,body={},auth=token,expected=200){
  const result=await response.json();assert.equal(response.status,expected,JSON.stringify(result));assert.equal(response.headers.get('Cache-Control'),'no-store');return result;
 }
 try{
- for(const action of ['get','prepare','save','validate','preview','publish','history','recover','manage-get','manage-save']){
+ for(const action of ['get','prepare','save','validate','preview','publish','published','history','recover','manage-get','manage-save']){
   for(const auth of [legacyToken,studentToken,centralAdminToken])await tt(action,{},auth,403);
   await tt(action,{},'',401);
  }
@@ -168,7 +169,7 @@ try{
  let saved=await tt('save',change(''));assert.equal(table(targetId,'ProgramTimetableState').length,2);assert.equal(table(targetId,'ProgramTimetablePublications').length,1);
  const publishInput=change(saved.revision);let pub=await tt('publish',publishInput);assert.equal(pub.version,1);assert.equal(table(targetId,'ProgramTimetableState').length,3);
  assert((await tt('publish',publishInput)).replayed);assert.equal(table(targetId,'ProgramTimetablePublications').length,2);
- assert.equal((await tt('history')).publications[0].occurrences.length,4);
+ assert.equal((await tt('history')).publications[0].occurrences.length,2);
  await tt('save',change(saved.revision),token,409);
  // Canonical ID selects the same coordinator regardless of request casing.
  await tt('prepare',{id:input.id.toLowerCase()});if(!useRuntime)assert.equal(new Set(names).size,1);
@@ -400,6 +401,18 @@ try{
  assert.equal((await profiles('get')).needsSync,false);
  assert(!JSON.stringify(table(platformId,'AcademyProfileOperations')).includes(hash));
  console.log('Shared profile API: academy-admin authority, inactive session revocation, isolated matrix saves, protected credentials, staged access and lost-response recovery passed.');
+ // Future weekly publication with no teacher preserves today's immutable snapshot.
+ const beforeWeekly=await tt('get'),activeBefore=(await tt('published')).publication;
+ const weeklyDraft=structuredClone(managedDraft);weeklyDraft.rules[0].teacherId='';weeklyDraft.rules[0].startTime='08:45';weeklyDraft.rules[0].endTime='10:15';
+ assert((await tt('preview',{draft:weeklyDraft})).valid);
+ const effectiveFrom=new Date(Date.parse(beforeWeekly.today+'T00:00:00Z')+7*86400000).toISOString().slice(0,10);
+ const future=await tt('publish',{...change(beforeWeekly.revision,weeklyDraft),effectiveFrom});
+ assert.equal(future.currentPublicationId,activeBefore.id);
+ assert.deepEqual((await tt('published')).publication.snapshot,activeBefore.snapshot);
+ const futureView=(await tt('published',{date:effectiveFrom})).publication;
+ assert.equal(futureView.id,future.publicationId);assert.equal(futureView.occurrences[0].teacherId,'');assert.equal(futureView.occurrences[0].startTime,'08:45');
+ assert.equal((await tt('published',{date:'2099-12-31'})).publication.id,future.publicationId);
+ console.log('Weekly runtime API: optional teacher, future publication, current/history preservation and no expiry passed.');
  assert.deepEqual(books.get(legacyId),originalLegacy);
  assert.deepEqual(table(platformId,'CourseRegistry')[1],originalRegistryRow);
  console.log('Program timetable API: authority, body bounds, Sheets preparation, atomic revisions/publications/receipts, retries, recovery, canonical coordinator keys, reference validation and Reboot isolation passed.');

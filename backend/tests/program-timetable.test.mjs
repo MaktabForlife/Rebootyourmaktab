@@ -3,6 +3,7 @@ import { validateTimetable,normalizeDraft,publishedOccurrences,payloadHash } fro
 import { timetableService } from '../src/programs/timetable-service.js';
 import { timetableCoordinator } from '../src/programs/timetable-coordination.js';
 import { timetableFixture } from '../../scripts/program-timetable-fixtures.mjs';
+import { readWeeklyDraft } from '../src/programs/weekly-timetable.js';
 const clone=structuredClone;
 const f=timetableFixture(), check=d=>validateTimetable(d,f.catalog,f.program);
 let result=check(f.draft);
@@ -26,6 +27,7 @@ d=clone(f.draft);d.startDate='2026-02-30';assert.equal(check(d).valid,false);
 for(const [date,start,end] of [['2026-03-08','02:00','03:00'],['2026-11-01','01:00','02:00']]){d=clone(f.draft);Object.assign(d,{timezone:'America/New_York',startDate:date,endDate:date});Object.assign(d.rules[0],{kind:'EXPLICIT',startDate:date,endDate:date,startTime:start,endTime:end});assert.equal(check(d).valid,false,'DST ambiguity/gap fails closed');}
 d=clone(f.draft);d.rules.push(clone(d.rules[0]));assert.throws(()=>check(d),/unique/);
 d=clone(f.draft);d.exceptions=[{id:'EX-BAD',ruleId:'RULE-DEMO',originalDate:'2026-09-22',action:'CANCEL'}];assert.equal(check(d).valid,false);
+f.draft=readWeeklyDraft(f.draft).draft;
 let authorized=true,opens=0;
 const user={accountid:'ADMIN-TEST'};
 const open=async()=>{opens++;if(!authorized)throw new Error('revoked');return {user,service:timetableService(f.repository,f.program)};};

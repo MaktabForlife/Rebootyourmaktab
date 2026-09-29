@@ -168,7 +168,7 @@ const ROUTES = new Map([
   ...["get", "import-preview", "save", "recover"].map(action => [
     `/api/admin/platform/academy-subjects/${action}`, workerRoute("program-timetable", academySubjectsEndpoint(action))
   ]),
-  ...["get", "prepare", "save", "validate", "preview", "publish", "history", "recover", "manage-get", "manage-save"].map(action => [
+  ...["get", "prepare", "save", "validate", "preview", "publish", "published", "history", "recover", "manage-get", "manage-save"].map(action => [
     `/api/admin/platform/program-timetable/${action}`, workerRoute("program-timetable", programTimetableEndpoint(action))
   ]),
   ...["list", "create", "save", "readiness", "prepare"].map(action => [

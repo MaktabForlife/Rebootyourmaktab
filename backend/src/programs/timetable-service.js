@@ -1,27 +1,29 @@
 import { managementState, managementView, applyManagementChange, MANAGEMENT_KINDS, managementRowRevision } from './management-model.js';
 import { problem } from './model.js';
 import { programFailure } from './errors.js';
-import { TIMETABLE_SCHEMA, payloadHash, emptyDraft, normalizeDraft, validateTimetable, boundedJSON, publishedOccurrences } from './timetable-model.js';
-export function timetableService(repository,program) {
+import { TIMETABLE_SCHEMA, boundedJSON, validDate, normalizeDraft as normalizeDatedDraft } from './timetable-model.js';
+import { WEEKLY_SCHEMA, emptyWeeklyDraft, normalizeWeeklyDraft, readWeeklyDraft, validateWeeklyTimetable, publicationRecord, publicationSchedule, programToday } from './weekly-timetable.js';
+export function timetableService(repository,program,now=()=>new Date()) {
+  function dateContext(draft={}) {
+    // A damaged or unset zone must not prevent loading the editor to repair it.
+    for(const zone of [program.timezone,draft.timezone,'UTC'].filter(Boolean))try{return {today:programToday(zone,now()),effectiveTimezone:zone};}catch{}
+  }
   function state(data) {
     if (!data.prepared) throw problem('Prepare the timetable tables first.',409);
     const rows=data.tables.ProgramTimetableState;
-    if (rows.some(row=>row.CourseID!==program.id||row.SchemaVersion!==TIMETABLE_SCHEMA||!Number.isSafeInteger(Number(row.Sequence))||Number(row.Sequence)<1)||new Set(rows.map(row=>Number(row.Sequence))).size!==rows.length) throw problem('Timetable state does not match this Program.',409);
+    if (rows.some(row=>row.CourseID!==program.id||![TIMETABLE_SCHEMA,WEEKLY_SCHEMA].includes(row.SchemaVersion)||!Number.isSafeInteger(Number(row.Sequence))||Number(row.Sequence)<1)||new Set(rows.map(row=>Number(row.Sequence))).size!==rows.length) throw problem('Timetable state does not match this Program.',409);
     const row=rows.reduce((latest,item)=>!latest||Number(item.Sequence)>Number(latest.Sequence)?item:latest,null);
-    let draft;
-    try { draft=row?normalizeDraft(JSON.parse(row.DraftJSON)):emptyDraft(program.timezone); } catch { throw problem('The saved timetable draft is invalid. Repair its storage before editing.',409); }
+    let draft,conversion;
+    try { ({draft,conversion}=row?readWeeklyDraft(JSON.parse(row.DraftJSON)):{draft:emptyWeeklyDraft(program.timezone),conversion:null}); } catch { throw problem('The saved timetable draft is invalid. Repair its storage before editing.',409); }
     const publications=data.tables.ProgramTimetablePublications;
     if (publications.some(p=>p.CourseID!==program.id||!Number.isSafeInteger(Number(p.VersionNo))||Number(p.VersionNo)<1)||new Set(publications.map(p=>Number(p.VersionNo))).size!==publications.length) throw problem('Publication history contains invalid Program or version references.',409);
     const current=publications.find(p=>p.PublicationID===row?.CurrentPublicationID);
     if (row?.CurrentPublicationID&&!current) throw problem('The published timetable pointer has no matching history entry.',409);
-    return {row,draft,revision:row?.Revision||'',currentPublicationId:row?.CurrentPublicationID||'',publications};
+    const {today,effectiveTimezone}=dateContext(draft);
+    const schedule=publicationSchedule(publications.map(row=>publicationRecord(row,program)),today);
+    return {row,draft,conversion,today,effectiveTimezone,revision:row?.Revision||'',latestPublicationId:row?.CurrentPublicationID||'',...schedule};
   }
-  function publication(row) {
-    if (!row) return null;
-    let snapshot; try {snapshot=JSON.parse(row.SnapshotJSON);} catch {throw problem('A published version is damaged; restore its saved snapshot.',409);}
-    if (snapshot.programId!==program.id||snapshot.schema!==TIMETABLE_SCHEMA) throw problem('Published snapshot does not match this Program.',409);
-    return {id:row.PublicationID,version:Number(row.VersionNo),date:row.PublishedDate,by:row.PublishedByAccountID,snapshot,occurrences:publishedOccurrences(snapshot)};
-  }
+  const metadata=p=>{const {snapshot,occurrences,...rest}=p;return rest;};
   return {
     prepare:()=>repository.prepare(),
     async read(action,input={}) {
@@ -33,19 +35,19 @@ export function timetableService(repository,program) {
           if(data.prepared)try{
             const current=state(data);
             view.overview.timetable={draft:current.draft};
-            if(current.draft.rules.length)view.overview.preview=validateTimetable(current.draft,await repository.catalog(data),program);
+            if(current.draft.rules.length)view.overview.preview=validateWeeklyTimetable(current.draft,await repository.catalog(data),program,current.today);
           }catch(error){view.overview.error=programFailure(error,'manage-get','overview');}
         }
         return view;
       }
-      if (!data.prepared) return {program,prepared:false,revision:'',draft:emptyDraft(program.timezone),catalog:await repository.catalog(data),publications:[],currentPublicationId:''};
+      if (!data.prepared) return {program,prepared:false,revision:'',draft:emptyWeeklyDraft(program.timezone),catalog:await repository.catalog(data),publications:[],currentPublicationId:'',...dateContext()};
       const current=state(data);
-      if (action==='history') return {publications:current.publications.map(publication),currentPublicationId:current.currentPublicationId};
-      if (action==='published') return {publication:publication(current.publications.find(p=>p.PublicationID===current.currentPublicationId))};
+      if (action==='history') return {publications:current.publications,currentPublicationId:current.currentPublicationId};
+      if(action==='published'){const schedule=publicationSchedule(current.publications,input.date||current.today);return {publication:schedule.publications.find(p=>p.id===schedule.currentPublicationId)||null};}
       const catalog=await repository.catalog(data);
-      if (action==='validate'||action==='preview') return validateTimetable(input.draft,catalog,program);
-      return {program,prepared:true,revision:current.revision,draft:current.draft,catalog,currentPublicationId:current.currentPublicationId,
-        publications:current.publications.map(p=>({id:p.PublicationID,version:Number(p.VersionNo),date:p.PublishedDate,by:p.PublishedByAccountID}))};
+      if (action==='validate'||action==='preview') return validateWeeklyTimetable(input.draft,catalog,program,input.effectiveFrom||current.today);
+      return {program,prepared:true,revision:current.revision,draft:current.draft,conversion:current.conversion,catalog,currentPublicationId:current.currentPublicationId,today:current.today,effectiveTimezone:current.effectiveTimezone,
+        publications:current.publications.map(metadata)};
     },
     async receipt(operationId,hash) {
       const data=await repository.load();
@@ -82,20 +84,26 @@ export function timetableService(repository,program) {
       if (program.status!=='DRAFT') throw problem('Archived Programs cannot change their timetable.',409);
       const data=await repository.load(), current=state(data);
       if (input.revision!==current.revision) throw problem('Another administrator changed this timetable. Your edits are kept; load the latest draft before reapplying them.',409);
-      const draft=normalizeDraft(input.draft);
-      let validation;
+      const legacySave=action==='save'&&input.draft&&input.draft.format===undefined;
+      if(!legacySave&&current.conversion?.required&&input.convertLegacy!==true)throw problem('Review the older dated items and choose Use weekly lessons before saving. The original draft remains saved.',409);
+      const draft=legacySave?normalizeDatedDraft(input.draft):normalizeWeeklyDraft(input.draft);
+      let validation,effectiveFrom;
       if (action==='publish') {
-        validation=validateTimetable(draft,await repository.catalog(data),program);
+        effectiveFrom=input.effectiveFrom||current.today;
+        if(!validDate(effectiveFrom)||effectiveFrom<current.today)throw problem('Choose today or a future date for the new timetable. Published history cannot be backdated.',409);
+        validation=validateWeeklyTimetable(draft,await repository.catalog(data),program,effectiveFrom);
         if (!validation.valid) throw problem('Publication blocked: resolve all validation issues and timetable conflicts, then preview again.',409);
       }
-      const timestamp=new Date().toISOString(),revision=crypto.randomUUID(),records=[];
-      let publicationId=current.currentPublicationId,version=null;
+      const timestamp=now().toISOString(),revision=crypto.randomUUID(),records=[];
+      let publicationId=current.latestPublicationId,version=null;
       if (action==='publish') {
-        publicationId=`PUB-${crypto.randomUUID()}`; version=Math.max(0,...current.publications.map(p=>Number(p.VersionNo)))+1;
-        records.push({table:'ProgramTimetablePublications',record:{PublicationID:publicationId,CourseID:program.id,VersionNo:version,PublishedDate:timestamp,PublishedByAccountID:user.accountid,SnapshotJSON:boundedJSON(validation.snapshot),OperationID:input.operationId}});
+        publicationId=`PUB-${crypto.randomUUID()}`; version=Math.max(0,...current.publications.map(p=>Number(p.version)))+1;
+        records.push({table:'ProgramTimetablePublications',record:{PublicationID:publicationId,CourseID:program.id,VersionNo:version,PublishedDate:timestamp,PublishedByAccountID:user.accountid,SnapshotJSON:boundedJSON({...validation.snapshot,effectiveFrom,effectiveTimezone:current.effectiveTimezone}),OperationID:input.operationId}});
       }
-      records.push({table:'ProgramTimetableState',record:{CourseID:program.id,SchemaVersion:TIMETABLE_SCHEMA,Revision:revision,Sequence:Number(current.row?.Sequence||0)+1,DraftJSON:boundedJSON(draft),CurrentPublicationID:publicationId,ModifiedDate:timestamp,ModifiedByAccountID:user.accountid}});
-      const result={revision,currentPublicationId:publicationId,version};
+      records.push({table:'ProgramTimetableState',record:{CourseID:program.id,SchemaVersion:legacySave?TIMETABLE_SCHEMA:WEEKLY_SCHEMA,Revision:revision,Sequence:Number(current.row?.Sequence||0)+1,DraftJSON:boundedJSON(draft),CurrentPublicationID:publicationId,ModifiedDate:timestamp,ModifiedByAccountID:user.accountid}});
+      const added=version?{id:publicationId,version,date:timestamp,by:user.accountid,effectiveFrom,pattern:'WEEKLY',snapshot:{...validation.snapshot,effectiveFrom}}:null;
+      const schedule=publicationSchedule([...current.publications,...(added?[added]:[])],current.today);
+      const result={revision,...(legacySave?{upgradeRequired:true}:{}),currentPublicationId:schedule.currentPublicationId,publicationId:version?publicationId:null,version,effectiveFrom:effectiveFrom||null,publications:schedule.publications.map(metadata)};
       records.push({table:'ProgramTimetableOperations',record:{OperationID:input.operationId,PayloadHash:hash,ResultJSON:boundedJSON(result),DateStamp:timestamp,AccountID:user.accountid,Action:action}});
       return {plan:repository.plan(data,records),result};
     },

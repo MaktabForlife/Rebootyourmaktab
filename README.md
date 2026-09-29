@@ -1,3 +1,9 @@
+# V105.3.2.2 — Weekly timetable corrections
+
+Program timetable rows now repeat weekly without lesson dates or a Pattern column. The grid starts with Module, followed by Classes, Teacher, Weekdays, Start and End. Teachers are optional; time entry accepts 845 as 08h45. Choose one effective date when publishing: the current version remains in effect until its replacement starts. Earlier published snapshots stay unchanged. [Details and acceptance](docs/V105.3.2.2-WEEKLY-TIMETABLE.md).
+
+Development only. User acceptance and the staged academy access-matrix review remain open.
+
 # V105.3.2.1 — Academy access matrix setup
 
 User profiles now shows one editable row per academy user and one column per program/global subject. Roles can be combined; User is the default. Each column has an administrator-controlled Free/Paid setting. The new matrix is staged in separate tabs of the development platform workbook while existing access continues on its current records. [Structure, migration and acceptance](docs/V105.3.2.1-ACADEMY-ACCESS-MATRIX.md).

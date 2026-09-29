@@ -1,3 +1,17 @@
+## V105.3.2.2 acceptance
+
+- [x] Ongoing weekly rows; remove Pattern, lesson dates, date window and exceptions from the editor.
+- [x] Module first; Classes shows the selected class names, including combined classes.
+- [x] Teacher optional; still validate any selected teacher's eligibility and overlapping lessons.
+- [x] Normalize 845 / 0845 / 8h45 / 8:45 to 08h45; preserve valid 1015 entry.
+- [x] One publication effective date; future versions preserve the current timetable until activation.
+- [x] Immutable publication history, retained draft edits and stable retry identifiers.
+- [x] 80 regression files, development build and local Cloudflare runtime checks pass.
+- [ ] User acceptance: enter actual weekly lessons, preview without a teacher, publish now or for a future date, and check desktop/mobile layout.
+- [ ] Previous management, profile and access-matrix testing is still open; this release does not mark it complete.
+
+See [implementation and verification](docs/V105.3.2.2-WEEKLY-TIMETABLE.md). Broader timetable work remains V105.3.3.
+
 ## V105.3.2.1 acceptance
 
 - [x] One spreadsheet-like row per user; columns for all programs and global subjects.
