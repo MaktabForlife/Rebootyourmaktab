@@ -328,7 +328,7 @@ try{
   for(const auth of [legacyToken,studentToken,centralAdminToken])await profiles(action,{},auth,403);
   await profiles(action,{},'',401);
  }
- await profiles('get','invalid',token,400);await profiles('save','x'.repeat(32769),token,413);
+ await profiles('get','invalid',token,400);await profiles('save','x'.repeat(131073),token,413);
  books.get(platformId).push(
   {title:'GlobalSubjectAccessPolicy',sheetId:800,rows:[PLATFORM_SHEET_HEADERS.GlobalSubjectAccessPolicy,['POLICY-TF','TAFSEER','SUBSCRIPTION',true]]},
   {title:'GlobalSubjectAccessMatrix',sheetId:801,rows:[['AccountID','TAFSEER','OTHER'],['ACCOUNT1',true,true],['ACCOUNT2',false,true],['TEACHER-1',false,false]]}
@@ -359,6 +359,7 @@ try{
  directory=await profiles('get');
  assert.deepEqual(profileAccount('ACCOUNT2').assignments.find(g=>g.scopeId==='TAFSEER').roles,['STUDENT','TEACHER','ADMIN']);
  assert.deepEqual([table(platformId,'UserCourseAccess'),table(platformId,'GlobalSubjectAccessMatrix'),table(platformId,'GlobalSubjectAccessPolicy')],beforeMatrixSetup);
+ assert((await tt('get')).catalog.teachers.some(t=>t.id==='ACCOUNT2'),'Confirmed matrix teacher appears without a legacy grant');
  const grantsBeforeInactive=structuredClone([table(platformId,'UserCourseAccess'),table(platformId,'GlobalSubjectAccessMatrix'),table(platformId,'AcademyAccessMatrix')]);
  await profiles('save',profileInput('ACCOUNT2',{active:false}));
  assert.deepEqual([table(platformId,'UserCourseAccess'),table(platformId,'GlobalSubjectAccessMatrix'),table(platformId,'AcademyAccessMatrix')],grantsBeforeInactive);
@@ -403,6 +404,21 @@ try{
  assert.deepEqual(extended.rows.map(row=>row.slice(0,-1)),matrixBeforeNewScope);
  assert.equal((await profiles('get')).needsSync,false);
  assert(!JSON.stringify(table(platformId,'AcademyProfileOperations')).includes(hash));
+ directory=await profiles('get');
+ const batch={mode:'batch',operationId:crypto.randomUUID(),entries:[profileInput('ACCOUNT2',{displayName:'Batched API name'}),roleInput('ACCOUNT2','PROGRAM',input.id,['SENIOR','STUDENT']),roleInput('ACCOUNT2','SUBJECT','TAFSEER',['ADMIN'])]};
+ const batchBefore=writes;await profiles('save',batch);assert.equal(writes,batchBefore+1,'Multi-field batch uses one Sheets write');
+ assert((await profiles('save',batch)).replayed);assert.equal(writes,batchBefore+1);
+ directory=await profiles('get');assert.equal(profileAccount('ACCOUNT2').displayName,'Batched API name');
+ const matrixHeader=table(platformId,'AcademyAccessMatrix')[0],matrixAccount=table(platformId,'AcademyAccessMatrix').find(r=>r[0]==='ACCOUNT2');
+ assert.equal(matrixAccount[matrixHeader.indexOf('PROGRAM:'+input.id)],'STUDENT|SENIOR');assert.equal(matrixAccount[matrixHeader.indexOf('SUBJECT:TAFSEER')],'ADMIN');
+ assert((await tt('get')).catalog.teachers.some(t=>t.id==='ACCOUNT2'));
+ const readCatalogue=await academy('get');const renameTarget=readCatalogue.subjects[0];
+ const rename={mode:'rename',subjectId:renameTarget.SubjectID,subjectName:'Renamed academy subject',baseRevision:renameTarget.Revision,operationId:crypto.randomUUID()};
+ const originalSubjectCount=table(platformId,'AcademySubjectList').length;
+ const renamed=await academy('save',rename);assert.equal(renamed.subject.SubjectID,renameTarget.SubjectID);assert.equal(table(platformId,'AcademySubjectList').length,originalSubjectCount);
+ assert((await academy('save',rename)).replayed);
+ await academy('save',{...rename,subjectName:'Stale rename',operationId:crypto.randomUUID()},token,409);
+ assert((await tt('manage-get')).sharedSubjects.some(s=>s.SubjectID===renameTarget.SubjectID&&s.SubjectName==='Renamed academy subject'));
  console.log('Shared profile API: academy-admin authority, inactive session revocation, isolated matrix saves, protected credentials, staged access and lost-response recovery passed.');
  // Future weekly publication with no teacher preserves today's immutable snapshot.
  const beforeWeekly=await tt('get'),activeBefore=(await tt('published')).publication;

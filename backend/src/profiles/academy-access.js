@@ -89,7 +89,10 @@ export async function planAcademyChange(data,input,user){
     return planned;
   }
   if(!['matrix-roles','matrix-policy'].includes(input.mode))throw problem('Refresh User profiles to use the new academy matrix. The existing access lists were not changed.',409);
-  const view=await academyDirectory(data),scope=view.scopes.find(s=>s.type===input.scopeType&&key(s.id)===key(input.scopeId));
+  const source=sourceScopes(data).find(s=>s.type===input.scopeType&&key(s.id)===key(input.scopeId));
+  const stored=source&&data.tables.AcademyAccessScopes.find(r=>key(r.ScopeKey)===key(scopeKey(source)));
+  const scope=source?{...source,prepared:Boolean(stored)&&Boolean(data.headers?.AcademyAccessMatrix?.includes(scopeKey(source))),accessModel:stored?.AccessModel||source.accessModel,reviewStatus:stored?.ReviewStatus||'REQUIRED',stage:stored?.MigrationStage||'SETUP'}:null;
+  if(scope)scope.revision=await policyRevision(scope);
   if(!scope?.prepared)throw problem('Update the matrix to include this program/course.',409);
   if(scope.stage!=='SETUP')throw problem('This matrix version supports setup only. Review the access migration before editing.',409);
   const timestamp=new Date().toISOString(),actor=user.accountid;
@@ -100,8 +103,8 @@ export async function planAcademyChange(data,input,user){
     const updated={...scope,accessModel:input.accessModel,reviewStatus:'CONFIRMED'};updated.revision=await policyRevision(updated);
     return {changes:[{table:'AcademyAccessScopes',record,fields:['AccessModel','ReviewStatus','ModifiedDate','ModifiedByAccountID']}],result:{scope:updated},audit:{Action:'SET_ACADEMY_ACCESS_POLICY',RecordType:scope.type,RecordID:scope.id,ChangedFields:JSON.stringify({before:scope.accessModel,after:input.accessModel,stage:'SETUP'})}};
   }
-  const account=view.accounts.find(a=>key(a.accountId)===key(input.accountId));if(!account)throw problem('Choose an existing academy user.');
-  const current=account.assignments.find(g=>g.scopeType===scope.type&&g.scopeId===scope.id);
+  const account=profileRecord(data.tables.UserAccounts.find(a=>key(a.AccountID)===key(input.accountId)));if(!account)throw problem('Choose an existing academy user.');
+  const current=matrixAssignment(data,account.accountId,scope);current.revision=await payloadHash(current);
   if(input.baseRevision!==current.revision)changed(current,current.revision);
   if(input.scopeRevision!==scope.revision)throw Object.assign(problem('The Free/Paid setting changed. Review the roles against the current setting before saving.',409),{code:'ROW_CHANGED',currentRecord:{...current,scopeRevision:scope.revision,accessModel:scope.accessModel},rowRevision:current.revision});
   if(!Array.isArray(input.roles)||input.roles.some(r=>!ROLES.includes(r))||input.roles.length!==new Set(input.roles).size)throw problem('Choose valid roles. User is the default.');

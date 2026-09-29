@@ -8,6 +8,7 @@ export const ACADEMY_SUBJECT_HEADERS = {
   AcademySubjectList:['SubjectID','SubjectName','Active','CreatedDate','CreatedByAccountID'],
   AcademySubjectOperations:['OperationID','PayloadHash','ResultJSON','DateStamp','AccountID','SourceSpreadsheetID','SourceSubjectsJSON']
 };
+export const subjectRevision = row => payloadHash({SubjectID:row.SubjectID,SubjectName:row.SubjectName,Active:active(row.Active)});
 export const subjectKey = name => clean(name).normalize('NFKC').replace(/\s+/gu,' ').toLowerCase();
 export function subjectName(value) {
   if(typeof value!=='string'||!subjectKey(value)||value.trim().length>160)throw problem('Enter a subject name (up to 160 characters).');
@@ -48,18 +49,24 @@ export function academySubjectRepository(env) {
       return {sourceId,subjects,revision:await payloadHash({sourceId,subjects})};
     },
     plan(data,subjects,receipt) {
-      const requests=[];
+      const requests=[],guards=[];
       for(const [name,records] of [['AcademySubjectList',subjects],['AcademySubjectOperations',[receipt]]]) {
         if(!records.length)continue;
         const rows=data.tables[name]||[],sheet=data.sheets.find(s=>s.title===name);
-        const rowIndex=Math.max(0,...rows.map(r=>r._rowNumber-1))+1;
-        if(rowIndex+records.length>sheet.rowCount)requests.push({appendDimension:{sheetId:sheet.sheetId,dimension:'ROWS',length:Math.max(1000,rowIndex+records.length-sheet.rowCount)}});
-        requests.push({updateCells:{start:{sheetId:sheet.sheetId,rowIndex,columnIndex:0},rows:records.map(r=>cells(ACADEMY_SUBJECT_HEADERS[name].map(h=>r[h]))),fields:'userEnteredValue'}});
+        let nextRow=Math.max(0,...rows.map(r=>r._rowNumber-1))+1;
+        for(const record of records){
+          const previous=rows.find(r=>r[ACADEMY_SUBJECT_HEADERS[name][0]]===record[ACADEMY_SUBJECT_HEADERS[name][0]]);
+          const rowIndex=previous?previous._rowNumber-1:nextRow++;
+          if(previous)guards.push({SubjectID:previous.SubjectID,SubjectName:previous.SubjectName,Active:previous.Active,row:previous._rowNumber});
+          if(rowIndex>=sheet.rowCount)requests.push({appendDimension:{sheetId:sheet.sheetId,dimension:'ROWS',length:Math.max(1000,rowIndex+1-sheet.rowCount)}});
+          requests.push({updateCells:{start:{sheetId:sheet.sheetId,rowIndex,columnIndex:0},rows:[cells(ACADEMY_SUBJECT_HEADERS[name].map(h=>record[h]))],fields:'userEnteredValue'}});
+        }
       }
-      return {spreadsheetId,requests};
+      return {spreadsheetId,requests,guards};
     },
     async apply(plan) {
       if(plan.spreadsheetId!==spreadsheetId)throw problem('Academy spreadsheet mapping changed. Recover with the original mapping.',409);
+      if(plan.guards?.length){const latest=await load();for(const guard of plan.guards){const row=latest.subjects.find(r=>r.SubjectID===guard.SubjectID);if(!row||row.SubjectName!==guard.SubjectName||row.Active!==guard.Active||row._rowNumber!==guard.row)throw problem('The subject catalogue changed during this save. Your pending rename is kept for administrator recovery.',503);}}
       await batchUpdateGoogleSpreadsheet(env,plan.requests,target);
     }
   };
@@ -69,7 +76,7 @@ export function academySubjectService(repository) {
     prepare:()=>repository.prepare(),
     async read(action) {
       const data=await repository.load();
-      const subjects=data.subjects.map(r=>({SubjectID:r.SubjectID,SubjectName:r.SubjectName,Active:active(r.Active)}));
+      const subjects=await Promise.all(data.subjects.map(async r=>({SubjectID:r.SubjectID,SubjectName:r.SubjectName,Active:active(r.Active),Revision:await subjectRevision(r)})));
       if(action==='import-preview') {
         const source=await repository.rebootSubjects();
         return {...source,subjects:source.subjects.map(r=>({...r,existing:subjects.find(s=>subjectKey(s.SubjectName)===subjectKey(r.SubjectName))||null}))};
@@ -84,6 +91,17 @@ export function academySubjectService(repository) {
     },
     async plan(action,input,user,hash) {
       if(action!=='save')throw problem('Unknown subject action.');
+      if(input.mode==='rename'){
+        const data=await repository.load(),row=data.subjects.find(r=>r.SubjectID===input.subjectId);
+        if(!row)throw problem('Choose an existing Academy subject.',404);
+        const revision=await subjectRevision(row);
+        if(input.baseRevision!==revision)throw Object.assign(problem('The subject name changed elsewhere. Review both names before saving.',409),{code:'ROW_CHANGED',currentRecord:{SubjectID:row.SubjectID,SubjectName:row.SubjectName,Active:active(row.Active)},rowRevision:revision});
+        const name=subjectName(input.subjectName);
+        if(data.subjects.some(r=>r.SubjectID!==row.SubjectID&&subjectKey(r.SubjectName)===subjectKey(name)))throw problem('Another Academy subject already uses this name. Choose a distinct name.',409);
+        const updated={...row,SubjectName:name},result={subject:{SubjectID:row.SubjectID,SubjectName:name,Active:active(row.Active),Revision:await subjectRevision(updated)}};
+        const receipt={OperationID:input.operationId,PayloadHash:hash,ResultJSON:JSON.stringify(result),DateStamp:new Date().toISOString(),AccountID:user.accountid,SourceSpreadsheetID:'',SourceSubjectsJSON:JSON.stringify({action:'rename',before:row.SubjectName,after:name,subjectId:row.SubjectID})};
+        return {plan:repository.plan(data,[updated],receipt),result};
+      }
       let names,source;
       if(input.mode==='import') {
         source=await repository.rebootSubjects();

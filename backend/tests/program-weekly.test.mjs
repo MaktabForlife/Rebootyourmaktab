@@ -82,3 +82,10 @@ await assert.rejects(cachedCoordinator.run('publish',{...cachedInput,operationId
 assert.equal(cached.tables.ProgramTimetablePublications.length,0);
 const unset=timetableFixture();unset.program.timezone='';assert.equal((await timetableService(unset.repository,unset.program).read('get')).effectiveTimezone,'UTC');
 console.log('Weekly timetable: optional teachers, recurring conflicts, no date cap, future activation, supersession, immutable history, legacy conversion and stable retries passed.');
+
+// A subject can be scheduled without inventing a module or completion record.
+const subjectOnly=clone(draft);subjectOnly.rules[0].moduleId='';subjectOnly.rules[0].programSubjectId='PS-TAFSEER';
+let subjectPreview=check(subjectOnly);assert(subjectPreview.valid);assert.equal(subjectPreview.occurrences[0].moduleName,'Tafseer');assert.equal(subjectPreview.snapshot.rules[0].moduleId,'');
+subjectOnly.rules[0].programSubjectId='MISSING';assert(!check(subjectOnly).valid);
+subjectOnly.rules[0].moduleId='MOD-DEMO';assert(!check(subjectOnly).valid,'A module cannot be paired with a different subject');
+console.log('Subject-only weekly lessons: active subject validation and stable subject reference passed.');

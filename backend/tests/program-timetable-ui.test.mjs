@@ -6,7 +6,7 @@ import {readWeeklyDraft} from '../src/programs/weekly-timetable.js';
 import {timetableService} from '../src/programs/timetable-service.js';
 import {timetableCoordinator} from '../src/programs/timetable-coordination.js';
 const source=await readFile(new URL('../../js/m4l-program-timetable.js',import.meta.url),'utf8'),markup=await readFile(new URL('../../programs/timetable.html',import.meta.url),'utf8');
-assert.match(markup,/<th>Module<\/th><th>Classes<\/th><th>Teacher<\/th><th>Weekdays<\/th><th>Start<\/th><th>End<\/th>/);
+assert.match(markup,/<th>Subject \/ Module<\/th><th>Classes<\/th><th>Teacher<\/th><th>Weekdays<\/th><th>Start<\/th><th>End<\/th>/);
 assert(!/Classes learning together|<th>Pattern|First date|Last date|Publication window|tt-exceptions/.test(markup));
 assert.equal([...markup.matchAll(/type="date"/g)].length,1);
 const ids=new Set([...markup.matchAll(/id="([^"]+)"/g)].map(m=>m[1])),elements=new Map(),storage=new Map(),requests=[];
@@ -15,7 +15,7 @@ f.catalog.classes[0].zoomLink='https://zoom.us/j/111';
 const draft=readWeeklyDraft(f.draft).draft;draft.rules[0].teacherId='';
 await coordinator.run('save',{id:f.program.id,draft,revision:'',operationId:crypto.randomUUID()},'token');
 function element(id){assert(ids.has(id),`Missing ${id}`);if(!elements.has(id))elements.set(id,{hidden:false,disabled:false,value:'',textContent:'',innerHTML:'',events:{},classList:{toggle(){}},addEventListener(event,fn){this.events[event]=fn;}});return elements.get(id);}
-const context={console,URL,URLSearchParams,structuredClone,crypto,location:{search:`?program=${f.program.id}`},document:{getElementById:element,querySelectorAll:()=>[],addEventListener(){}},localStorage:{getItem:()=> 'token'},sessionStorage:{getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)},window:{M4L_CONFIG:{API_BASE:''},M4L_TIMEZONES:{options:z=>`<option>${z}</option>`,defaultZone:'Asia/Riyadh'},addEventListener(){}},fetch:async(url,options)=>{
+const context={console,URL,Image:class{constructor(){this.complete=false;}},URLSearchParams,structuredClone,crypto,location:{search:`?program=${f.program.id}`},document:{getElementById:element,querySelectorAll:()=>[],addEventListener(){}},localStorage:{getItem:()=> 'token'},sessionStorage:{getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)},window:{M4L_CONFIG:{API_BASE:''},M4L_TIMEZONES:{options:z=>`<option>${z}</option>`,defaultZone:'Asia/Riyadh'},addEventListener(){}},fetch:async(url,options)=>{
  const action=url.split('/').at(-1),body=JSON.parse(options.body);requests.push({action,body});
  try{const result=['save','publish','recover','prepare'].includes(action)?await coordinator.run(action,body,'token'):await service.read(action,body);return {ok:true,status:200,json:async()=>({success:true,coordinatorAvailable:true,...result})};}
  catch(error){return {ok:false,status:error.status||503,json:async()=>({success:false,error:error.message})};}
@@ -23,6 +23,7 @@ const context={console,URL,URLSearchParams,structuredClone,crypto,location:{sear
 const settled=async()=>{for(let i=0;i<6;i++)await new Promise(r=>setTimeout(r,2));};
 const click=async id=>{await element(id).onclick();await settled();};
 function edit(field,value){const target={dataset:{field},value,closest:()=>({dataset:{row:'RULE-DEMO'}})};element('tt-editor').events.input({target});element('tt-editor').events.focusout({target});return target.value;}
+context.window.M4L_TIMETABLE_PRESENTATION ||= {model:()=>({}),html:()=>'<span>Lesson Zoom</span>',canvases:()=>[]};
 vm.runInNewContext(source,context);await settled();
 assert.match(element('tt-rules').innerHTML,/<summary>Year 1 · Demo, Year 2 · Demo<\/summary>/);
 assert.match(element('tt-rules').innerHTML,/data-field="zoomLink"/);
@@ -33,6 +34,7 @@ edit('zoomLink','');await click('tt-preview');assert.match(element('tt-validatio
 edit('zoomLink','https://zoom.us/j/222?pwd=test');
 edit('startTime','845');assert.equal(edit('endTime','1015'),'10h15');
 // Unfinished rows survive navigation, without changing the stored server revision.
+context.window.M4L_TIMETABLE_PRESENTATION ||= {model:()=>({}),html:()=>'<span>Lesson Zoom</span>',canvases:()=>[]};
 vm.runInNewContext(source,context);await settled();assert.match(element('tt-rules').innerHTML,/value="08h45"/);assert.match(element('tt-rules').innerHTML,/value="10h15"/);
 await click('tt-preview');assert.equal(element('tt-publish-options').hidden,false);assert.equal(element('tt-effective-from').value,'2026-09-29');
 assert.match(element('tt-validation').innerHTML,/Weekly timetable checked/);assert(!/authorised active teacher/.test(element('tt-validation').innerHTML));
@@ -43,6 +45,7 @@ let request=requests.filter(r=>r.action==='publish').at(-1).body;
 assert.equal(request.effectiveFrom,'2026-09-29');assert.equal(request.draft.rules[0].startTime,'08:45');assert.equal(request.draft.rules[0].teacherId,'');assert(!('effectiveFrom' in request.draft));
 edit('startTime','900');await click('tt-preview');element('tt-effective-from').oninput({target:{value:'2026-10-05'}});assert.equal(element('tt-publish').disabled,true);await click('tt-preview');
 f.failNext('after');await click('tt-publish');assert.equal(element('tt-pending').hidden,false);const retry=requests.filter(r=>r.action==='publish').at(-1).body;
+context.window.M4L_TIMETABLE_PRESENTATION ||= {model:()=>({}),html:()=>'<span>Lesson Zoom</span>',canvases:()=>[]};
 vm.runInNewContext(source,context);await settled();await click('tt-retry');
 assert.deepEqual(requests.filter(r=>r.action==='publish').at(-1).body,retry);
 assert.equal(element('tt-pending').hidden,true);assert.match(element('tt-live-state').textContent,/In effect · Version 1 · Version 2 from 2026-10-05/);
@@ -62,3 +65,18 @@ assert.equal(element('tt-publish').disabled,false);
 // Malformed links never become executable anchors in draft hints or previews.
 edit('zoomLink','javascript:alert(1)');await click('tt-preview');assert.equal(element('tt-publish').disabled,true);assert(!element('tt-occurrences').innerHTML.includes('href="javascript:'));
 console.log('Zoom UI: lesson editing, combined-class requirement, single-class fallback and safe meeting links passed.');
+
+// Copying a publication preserves original snapshots and protects an unfinished draft.
+const firstPublication=structuredClone(f.tables.ProgramTimetablePublications[0]);
+edit('zoomLink','https://zoom.us/j/333');
+await click('tt-history');
+assert.match(element('tt-history-list').innerHTML,/Edit as new version/);
+element('tt-history-list').onclick({target:{dataset:{reuse:firstPublication.PublicationID}}});await settled();
+assert.equal(element('tt-reuse-warning').hidden,false);
+await click('tt-reuse-keep');assert.equal(element('tt-reuse-warning').hidden,true);
+await click('tt-save');
+element('tt-history-list').onclick({target:{dataset:{reuse:firstPublication.PublicationID}}});await settled();
+assert.match(element('tt-rules').innerHTML,/https:\/\/zoom.us\/j\/222\?pwd=test/);
+await click('tt-preview');await click('tt-publish');
+assert.equal(f.tables.ProgramTimetablePublications.length,3);assert.deepEqual(f.tables.ProgramTimetablePublications[0],firstPublication);
+console.log('Timetable reuse: protected unfinished draft, preserved Zoom snapshot and new immutable publication passed.');

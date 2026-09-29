@@ -10,7 +10,7 @@ const coordinator=timetableCoordinator(f.journal,async()=>({service,user:{accoun
 const markup=await readFile(new URL('../../programs/manage.html',import.meta.url),'utf8');
 const elementIds=new Set([...markup.matchAll(/id="([^"]+)"/g)].map(m=>m[1]));
 const elements=new Map(),storage=new Map(),requests=[];
-let failing=0,failReadAfterSave=false,serviceFailure=null,holdDelays=false;const delays=[],scheduled=[],readFailures=[];
+let renameConflict=false;let failing=0,failReadAfterSave=false,serviceFailure=null,holdDelays=false;const delays=[],scheduled=[],readFailures=[];
 function element(id){assert(elementIds.has(id),`Missing HTML element ${id}`);if(!elements.has(id))elements.set(id,{hidden:false,disabled:false,value:'',textContent:'',innerHTML:'',listeners:{},classList:{toggle(){}},querySelectorAll:()=>[],querySelector:()=>null,addEventListener(type,fn){this.listeners[type]=fn;}});return elements.get(id);}
 const context={console,URL,URLSearchParams,structuredClone,crypto,setTimeout:(fn,ms)=>{if(ms>=1000){delays.push(ms);if(holdDelays){scheduled.push({fn,ms});return scheduled.length;}return setTimeout(fn,0);}return setTimeout(fn,ms);},location:{search:'?program='+f.program.id},localStorage:{getItem:()=> 'token'},sessionStorage:{getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)},document:{getElementById:element,addEventListener(){}},window:{M4L_CONFIG:{API_BASE:''},M4L_PROGRAM_OVERVIEW:{build:()=>[]},addEventListener(){}},fetch:async(url,options)=>{
   const action=url.split('/').at(-1),body=JSON.parse(options.body);requests.push({action,body});
@@ -19,6 +19,11 @@ const context={console,URL,URLSearchParams,structuredClone,crypto,setTimeout:(fn
     if(action==='manage-save'&&serviceFailure){const error=serviceFailure;serviceFailure=null;return {ok:false,status:503,json:async()=>({success:false,error:'Simulated service failure',...error})};}
     if(action==='manage-save'&&failing){failing--;throw new Error('Offline');}
     if(action==='manage-get'&&failReadAfterSave==='ready'){failReadAfterSave=false;throw new Error('Refresh unavailable');}
+    if(url.includes('/academy-subjects/')&&action==='save'&&body.mode==='rename'){
+      const row=f.shared.subjects.find(s=>s.SubjectID===body.subjectId);
+      if(renameConflict){renameConflict=false;row.SubjectName='Other subject name';row.Revision='renamed-elsewhere';return {ok:false,status:409,json:async()=>({success:false,error:'The subject name changed elsewhere.',code:'ROW_CHANGED',currentRecord:row,rowRevision:row.Revision})};}
+      assert.equal(body.baseRevision,row.Revision);row.SubjectName=body.subjectName;row.Revision='renamed';return {ok:true,status:200,json:async()=>({success:true,subject:row})};
+    }
     const result=['manage-save','recover'].includes(action)?await coordinator.run(action,body,'token'):await service.read(action,body);
     if(action==='manage-save'&&failReadAfterSave===true)failReadAfterSave='ready';
     return {ok:true,status:200,json:async()=>({success:true,coordinatorAvailable:true,...result})};
@@ -241,3 +246,13 @@ management=await service.read('manage-get');
 assert.equal(management.rows.modules.find(r=>r.ProgramModuleID==='MOD-DEMO').LevelID,management.rows.modules.find(r=>r.ProgramModuleID==='MOD-OTHER').LevelID);
 assert.equal(management.rows.levels.filter(r=>r.Name==='Intermediate').length,1);
 console.log('Management UI: refreshed standard-level draft keeps its label and reuses the newly created level.');
+
+// Existing shared subjects expose a name editor with independent conflict protection.
+f.shared.subjects[0].Revision='subject-before';await element('pm-reload').onclick();await settled();
+element('pm-tabs').onclick({target:{closest:()=>({dataset:{tab:'subjects'}})}});
+await clickRow({edit:'PS-TAFSEER'});assert.match(element('pm-rows').innerHTML,/data-field="SubjectName"/);
+input('SubjectName','Renamed subject');renameConflict=true;await clickRow({'data-save':''});
+assert.equal(element('pm-conflict').hidden,false);assert.match(element('pm-conflict-details').innerHTML,/Other subject name/);assert.match(element('pm-conflict-details').innerHTML,/Renamed subject/);
+await element('pm-use-mine').onclick();await settled();assert.equal(f.shared.subjects[0].SubjectName,'Renamed subject');
+const renameRequest=requests.findLast(r=>r.body.mode==='rename');assert.equal(renameRequest.body.subjectId,'TAFSEER');assert.equal(renameRequest.body.baseRevision,'renamed-elsewhere');
+console.log('Management subject rename: editable name, stable ID and explicit conflict review passed.');

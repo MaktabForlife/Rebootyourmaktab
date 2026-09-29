@@ -86,3 +86,21 @@ await click('up-retry');assert.equal(element('up-pending').hidden,true);assert.e
 assert.deepEqual(requests.filter(r=>r.action==='save').at(-1).body,pendingRequest);
 assert(!Object.hasOwn(pendingRequest,'needsRecovery'));
 console.log('Shared profiles UI: matrix rows, combined roles, independent inactive status, preserved drafts, stable retries, post-save quota recovery and conflict review passed.');
+
+// Several users and role cells are retained and committed by Save all in one write.
+await editProfile();name('Batch person');element('up-users').onchange({target:{dataset:{active:''},value:'true'}});
+await rowClick({profile:'OWNER'});name('Batch owner');
+await scopeClick({editScope:'PROGRAM:PRG-DEMO'});choose({role:'ADMIN'});
+assert.match(element('up-users').innerHTML,/Batch person/);assert.match(element('up-users').innerHTML,/Batch owner/);
+assert.match(element('up-users').innerHTML,/data-save="PERSON"/);
+const writesBefore=requests.filter(r=>r.action==='save').length;await click('up-save-all');
+assert.equal(requests.filter(r=>r.action==='save').length,writesBefore+1);
+assert.equal(requests.filter(r=>r.action==='save').at(-1).body.mode,'batch');
+assert.equal(f.tables.UserAccounts[0].DisplayName,'Batch owner');assert.equal(f.tables.UserAccounts[1].DisplayName,'Batch person');
+assert.match(f.tables.AcademyAccessMatrix[1]['PROGRAM:PRG-DEMO'],/ADMIN/);
+assert.match(element('up-users').innerHTML,/data-view="PERSON"/);assert.match(element('up-users').innerHTML,/data-share="PERSON"/);assert.match(element('up-users').innerHTML,/data-copy="PERSON"/);
+assert(!element('up-head').innerHTML.includes('>Global subject<'));
+await click('up-add');name('Zebra new user');await submit();
+assert(element('up-users').innerHTML.indexOf('Zebra new user')<element('up-users').innerHTML.indexOf('Batch owner'));
+await click('up-refresh');assert(element('up-users').innerHTML.indexOf('Zebra new user')<element('up-users').innerHTML.indexOf('Batch owner'));
+console.log('Profiles UI: multi-user Save all, row icons, cleaned headings and session-pinned new users passed.');

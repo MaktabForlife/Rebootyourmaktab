@@ -1,7 +1,8 @@
-import { academySubjectRepository } from './academy-subjects.js';
+import { readProgramRoleAccounts } from '../profiles/program-roles.js';
+import { academySubjectRepository,subjectRevision } from './academy-subjects.js';
 /* V105.2 — all timetable writes are planned inside the per-Program coordinator. */
 import { batchReadGoogleSheetValues, batchUpdateGoogleSpreadsheet, readGoogleSpreadsheetSheetProperties } from '../lib/google-sheets.js';
-import { readPlatformSheet, readPlatformSheets } from '../lib/platform-sheet.js';
+import { readPlatformSheet } from '../lib/platform-sheet.js';
 import { isActivePlatformValue as active } from '../lib/platform-schema.js';
 import { parseTable, assertUnique, problem, clean } from './model.js';
 import { managementState } from './management-model.js';
@@ -13,7 +14,7 @@ export function timetableRepository(env, program) {
   const read=names=>batchReadGoogleSheetValues(env,names.map(name=>`'${name}'!A:ZZ`),target);
   async function subjectReferences(data) {
     const {subjects}=await academySubjectRepository(env).load();
-    const academy=subjects.map(r=>({SubjectID:r.SubjectID,SubjectName:r.SubjectName,Active:active(r.Active),Legacy:false}));
+    const academy=await Promise.all(subjects.map(async r=>({SubjectID:r.SubjectID,SubjectName:r.SubjectName,Active:active(r.Active),Legacy:false,Revision:await subjectRevision(r)})));
     const links=data?.tables?.ProgramSubjects||[];
     const legacyIds=links.filter(r=>!academy.some(s=>s.SubjectID===r.SubjectID)).map(r=>r.SubjectID);
     const legacy=legacyIds.length?await readPlatformSheet(env,'GlobalSubjectList'):[];
@@ -45,16 +46,16 @@ export function timetableRepository(env, program) {
       return data;
     },
     async managementReferences(data) {
-      const [subjects,{UserAccounts:accounts,UserCourseAccess:access}]=await Promise.all([subjectReferences(data),readPlatformSheets(env,['UserAccounts','UserCourseAccess'])]);
+      const [subjects,accounts]=await Promise.all([subjectReferences(data),readProgramRoleAccounts(env,program.id)]);
       assertUnique(subjects,'SubjectID','Shared subjects');assertUnique(accounts,'AccountID','Accounts');
       return {
         subjects,
-        accounts:accounts.map(r=>({AccountID:r.AccountID,DisplayName:r.DisplayName,Active:active(r.Active),Roles:[...new Set(access.filter(a=>a.AccountID===r.AccountID&&a.CourseID===program.id&&active(a.Active)&&['STUDENT','TEACHER','SENIOR','ADMIN'].includes(a.Role)).map(a=>a.Role))]})),
-        grantedTeachers:accounts.filter(r=>active(r.Active)&&access.some(a=>a.AccountID===r.AccountID&&a.CourseID===program.id&&active(a.Active)&&['TEACHER','SENIOR','ADMIN'].includes(a.Role))).map(r=>({AccountID:r.AccountID}))
+        accounts,
+        grantedTeachers:accounts.filter(r=>r.Active&&r.Roles.some(role=>['TEACHER','SENIOR','ADMIN'].includes(role))).map(r=>({AccountID:r.AccountID}))
       };
     },
     async catalog(data) {
-      const [subjects,{UserAccounts:accounts,UserCourseAccess:access}]=await Promise.all([subjectReferences(data),readPlatformSheets(env,['UserAccounts','UserCourseAccess'])]);
+      const [subjects,accounts]=await Promise.all([subjectReferences(data),readProgramRoleAccounts(env,program.id)]);
       assertUnique(subjects,'SubjectID','Shared subjects'); assertUnique(accounts,'AccountID','Accounts');
       const t=data.tables;
       assertUnique(t.ProgramSubjects||[],'SubjectID','Program subject links');
@@ -63,7 +64,7 @@ export function timetableRepository(env, program) {
         levels:(t.ProgramLevels||[]).map(row=>({id:row.LevelID,programSubjectId:row.ProgramSubjectID,name:row.Name,active:active(row.Active)})),
         modules:(t.ProgramModules||[]).map(row=>({id:row.ProgramModuleID,programSubjectId:row.ProgramSubjectID,levelId:row.LevelID,name:row.Name,active:active(row.Active)})),
         classes:(t.ProgramClasses||[]).map(row=>({id:row.ClassID,courseId:row.CourseID,name:row.Name,academicYear:row.AcademicYear,zoomLink:row.ZoomLink||'',active:active(row.Active)})),
-        teachers:accounts.filter(row=>active(row.Active)&&access.some(a=>a.AccountID===row.AccountID&&a.CourseID===program.id&&active(a.Active)&&['TEACHER','SENIOR','ADMIN'].includes(a.Role))).map(row=>({id:row.AccountID,name:row.DisplayName,active:true})),
+        teachers:accounts.filter(row=>row.Active&&row.Roles.some(role=>['TEACHER','SENIOR','ADMIN'].includes(role))).map(row=>({id:row.AccountID,name:row.DisplayName,active:true})),
         enrollments:(t.ProgramEnrollments||[]).map(row=>({id:row.EnrollmentID,courseId:row.CourseID,classId:row.ClassID,accountId:row.AccountID,startDate:row.StartDate,endDate:row.EndDate,active:active(row.Active)}))
       };
     },

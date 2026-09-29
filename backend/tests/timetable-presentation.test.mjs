@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
+import vm from 'node:vm';
+const ctx={window:{},URL};vm.runInNewContext(await readFile(new URL('../../js/m4l-timetable-presentation.js',import.meta.url),'utf8'),ctx);
+const presentation=ctx.window.M4L_TIMETABLE_PRESENTATION;
+const a={moduleName:'<script>bad</script>',teacherName:'Teacher',classIds:['A'],classNames:['Year 1'],startTime:'08:45',endTime:'10:15',weekday:2,zoomLink:'https://zoom.us/j/123?pwd=example',status:'SCHEDULED'};
+const b={...a,moduleName:'Fiqh',classIds:['B'],classNames:['Year 2'],weekday:3,zoomLink:'javascript:alert(1)'};
+const source={pattern:'WEEKLY',version:3,effectiveFrom:'2026-10-01',snapshot:{programName:'Program',timezone:'Asia/Riyadh'},occurrences:[a,b]};
+const m=presentation.model(source,{history:true});assert.equal(m.rows.length,1);assert.equal(m.columns.length,2);assert.match(m.stamp,/Published version 3/);
+let html=presentation.html(m);assert(!html.includes('<script>'));assert(html.includes('&lt;script&gt;'));assert(html.includes('href="https://zoom.us/j/123?pwd=example"'));assert(!html.includes('href="javascript:'));assert(html.includes('Tuesday'));assert(html.includes('08h45 - 10h15'));
+const filtered=presentation.model(source,{classId:'B',effectiveFrom:'2026-10-05'});assert.equal(filtered.columns.length,1);assert.equal(filtered.columns[0].id,3);assert.equal(filtered.classes,'Year 2');assert.match(filtered.stamp,/DRAFT PREVIEW/);assert(!presentation.html(filtered).includes('zoom.us'));
+const cancelled=presentation.model({...source,occurrences:[{...a,status:'CANCELLED'}]});assert(!presentation.html(cancelled).includes('href='));
+for(const url of ['http://zoom.us/j/1','https://user:password@zoom.us/j/1','https://zoom.us/\n','javascript:alert(1)'])assert.equal(presentation.link(url),'');
+console.log('Timetable presentation: weekday/time grid, class filtering, draft/published labels, safe linked module names and cancelled lessons passed.');

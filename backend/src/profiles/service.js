@@ -1,3 +1,4 @@
+import { planProfileBatch } from './batch.js';
 import { profileRevision } from './model.js';
 import { academyDirectory, planAcademyChange } from './academy-access.js';
 import { key, problem } from '../programs/model.js';
@@ -19,7 +20,7 @@ export function profileService(repository){
     },
     async plan(action,input,user,hash){
       if(action!=='save')throw problem('Unknown profile action.');
-      const data=await repository.load(),planned=await planAcademyChange(data,input,user),timestamp=new Date().toISOString();
+      const data=await repository.load(),planned=await (input.mode==='batch'?planProfileBatch:planAcademyChange)(data,input,user),timestamp=new Date().toISOString();
       const result=planned.result;
       const audit={AuditID:`PROFILE-${input.operationId}`,DateStamp:timestamp,AccountID:user.accountid,AccountName:user.username,Authority:'GLOBAL_ADMIN',CourseID:input.scopeType==='PROGRAM'?input.scopeId:'',...planned.audit};
       const receipt={OperationID:input.operationId,PayloadHash:hash,ResultJSON:JSON.stringify(result),DateStamp:timestamp,AccountID:user.accountid};

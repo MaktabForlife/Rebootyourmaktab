@@ -74,6 +74,7 @@
   }
   function cell(row,col){const [key,label,type]=col,values=choices(type,row),value=key==='Active'?String(active(row[key])):String(row[key]??'');
     const fixed=(state.kind==='enrollments'&&key==='AccountID'&&Boolean(state.profileAccountId))||!state.edit.creating&&((state.kind==='progress'&&['ProgramModuleID','ClassID'].includes(key))||(state.kind==='subjects'&&key==='SubjectID'&&!state.data.sharedSubjects.find(s=>s.SubjectID===state.edit.originalSubjectID)?.Legacy)||(state.kind==='teachers'&&key==='AccountID'));
+    if(type==='subject'&&fixed)return `<input data-field="SubjectName" aria-label="Subject name" maxlength="160" value="${esc(row.SubjectName||'')}"><small>Renames this shared Academy subject in all programs.</small>`;
     if(values){let available=values.filter(v=>v.active===undefined||active(v.active)||v.id===value);if(type==='subject'&&!fixed)available.push({id:'__new__',name:'＋ Create a new subject…'});if(value&&!available.some(v=>v.id===value))available.push({id:value,name:`Unavailable: ${value}`});
       return `<select data-field="${key}" aria-label="${esc(label)}" ${fixed?'disabled':''}>${['active','progress'].includes(type)?'':`<option value="">${type==='level'?'No level':'Choose…'}</option>`}${available.map(v=>`<option value="${esc(v.id)}" ${v.id===value?'selected':''}>${esc(v.name)}${v.active!==undefined&&!active(v.active)?' (inactive)':''}</option>`).join('')}</select>${type==='subject'&&value==='__new__'?`<label class="pm-new-subject">New subject name<input data-field="NewSubjectName" aria-label="New subject name" maxlength="160" placeholder="For example, Tafseer" value="${esc(row.NewSubjectName||'')}"></label>`:''}`;
     }
@@ -140,10 +141,12 @@
     edit.baseRecord=structuredClone(state.data.rows[state.kind].find(r=>r[def.key]===edit.originalId)||null);
     edit.baseRowRevision=state.data.rowRevisions?.[state.kind]?.[edit.originalId]||state.data.emptyRowRevision;
     edit.baseRevision=state.data.revision;edit.baselineSet=true;
+    if(state.kind==='subjects'&&!edit.creating){const subject=state.data.sharedSubjects.find(s=>s.SubjectID===edit.record.SubjectID&&!s.Legacy);if(subject){edit.record.SubjectName=subject.SubjectName;edit.baseSubjectName=subject.SubjectName;edit.baseSubjectRevision=subject.Revision;}}
   }
   function renderConflict(){
-    const conflict=visibleEdit()?.conflict,panel=$('pm-conflict');panel.hidden=!conflict;
+    const conflict=visibleEdit()?.subjectConflict||visibleEdit()?.conflict,panel=$('pm-conflict');panel.hidden=!conflict;
     if(!conflict)return;
+    if(state.edit.subjectConflict){$('pm-use-mine').disabled=state.busy;$('pm-use-saved').disabled=state.busy;$('pm-conflict-details').innerHTML=`<p>Saved name: <strong>${esc(conflict.currentRecord.SubjectName)}</strong></p><p>Your name: <strong>${esc(state.edit.record.SubjectName)}</strong></p>`;return;}
     $('pm-conflict-details').innerHTML=conflict.currentRecord?`<table class="pm-grid"><thead><tr><th>Field</th><th>Saved version</th><th>Your entry</th></tr></thead><tbody>${defs[state.kind].columns.map(col=>`<tr><th scope="row">${esc(col[1])}</th><td data-label="Saved version">${esc(display(conflict.currentRecord,col))}</td><td data-label="Your entry">${esc(display(state.edit.record,col))}</td></tr>`).join('')}</tbody></table>`:'<p>This record was removed elsewhere. Your entry is still kept.</p>';
     $('pm-use-mine').disabled=state.busy||!conflict.currentRecord;
     $('pm-use-saved').disabled=state.busy;
@@ -242,19 +245,22 @@
     state.data.rowRevisions[kind][record[def.key]]=result.rowRevision;
   }
   function keepPending(){sessionStorage.setItem(storageKey,JSON.stringify(state.pending));}
-  async function save(automaticRetry=true){if(!state.edit)return;const returning=!visibleEdit();state.kind=state.edit.kind||state.kind;state.overview=false;if(returning)render();if(state.edit.conflict){message('Review the saved version and your entry below before saving.',true);return;}
+  async function save(automaticRetry=true){if(!state.edit)return;const returning=!visibleEdit();state.kind=state.edit.kind||state.kind;state.overview=false;if(returning)render();if(state.edit.conflict||state.edit.subjectConflict){message('Review the saved version and your entry below before saving.',true);return;}
     if(!state.pending){
       const record=structuredClone(state.edit.record);
       if(state.kind==='subjects'&&record.SubjectID==='__new__'&&!record.NewSubjectName?.trim())throw new Error('Enter the new subject name.');
       state.pending={kind:state.kind,baseRecord:state.edit.baseRecord,originalSubjectID:state.edit.originalSubjectID,body:{kind:state.kind,record,creating:state.edit.creating,revision:state.edit.baseRevision,baseRowRevision:state.edit.baseRowRevision,referenceRevision:state.data.referenceRevision,operationId:crypto.randomUUID()}};
       if(record.SubjectID==='__new__')state.pending.createSubject={mode:'create',subjectName:record.NewSubjectName.trim(),operationId:crypto.randomUUID()};
+      if(state.kind==='subjects'&&state.edit.baseSubjectRevision&&record.SubjectName!==state.edit.baseSubjectName)state.pending.createSubject={mode:'rename',subjectId:record.SubjectID,subjectName:record.SubjectName,baseRevision:state.edit.baseSubjectRevision,operationId:crypto.randomUUID()};
       keepPending();
     }
     try{
       if(state.pending.createSubject&&!state.pending.subjectResolved){
         const result=await api('save',state.pending.createSubject,true);
         state.pending.body.record.SubjectID=result.subject.SubjectID;delete state.pending.body.record.NewSubjectName;
-        state.pending.subjectResolved=true;keepPending();
+        state.pending.subjectResolved=true;
+        if(state.pending.createSubject.mode==='rename'){state.edit.baseSubjectName=result.subject.SubjectName;state.edit.baseSubjectRevision=result.subject.Revision;const subject=state.data.sharedSubjects.find(s=>s.SubjectID===result.subject.SubjectID);if(subject)Object.assign(subject,result.subject);}
+        keepPending();
       }
       if(state.pending.subjectResolved&&!state.pending.linkStarted){
         const latest=await api('manage-get');
@@ -267,6 +273,7 @@
     }catch(error){
       if(!state.pending){render();throw new Error('Your row was saved, but the latest records could not be loaded. '+error.message);}
       if(error.code==='ROW_CHANGED'){
+        if(state.pending.createSubject?.mode==='rename'&&!state.pending.subjectResolved){state.edit.subjectConflict={currentRecord:error.currentRecord,rowRevision:error.rowRevision};state.pending=null;sessionStorage.removeItem(storageKey);render();message(error.message,true);return;}
         const pending=state.pending;
         if(pending.subjectResolved)state.edit.record=structuredClone(pending.body.record);
         sessionStorage.removeItem(storageKey);state.pending=null;
@@ -320,7 +327,8 @@
   $('pm-retry').onclick=()=>work(save);
   $('pm-reload').onclick=()=>work(refresh);
   $('pm-use-mine').onclick=()=>work(async()=>{
-    const edit=state.edit,conflict=edit?.conflict;if(!conflict?.currentRecord)return;
+    const edit=state.edit,conflict=edit?.subjectConflict||edit?.conflict;if(!conflict?.currentRecord)return;
+    if(edit.subjectConflict){edit.baseSubjectName=conflict.currentRecord.SubjectName;edit.baseSubjectRevision=conflict.rowRevision;delete edit.subjectConflict;render();await save();return;}
     edit.baseRecord=structuredClone(conflict.currentRecord);edit.baseRowRevision=conflict.rowRevision;
     edit.creating=false;delete edit.conflict;render();await save();
   });

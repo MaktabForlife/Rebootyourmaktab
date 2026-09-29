@@ -1,3 +1,18 @@
+# V105.3.3 — Development acceptance
+
+- [x] Multi-user and multi-cell drafts; Save all and row Save icons; preserve edits and stable retries.
+- [x] View profile popup, share/copy personal sign-in link, clean scope headings and session-pinned new users.
+- [x] Confirmed Teacher/Senior/Admin roles in the shared program matrix supply active timetable teachers.
+- [x] Rename Academy subjects with stable IDs, duplicate checks and conflict review.
+- [x] Subject-only timetable lessons alongside modules; preserve existing weekly, optional-teacher and Zoom rules.
+- [x] Copy a published timetable into a new editable draft; keep original publications immutable.
+- [x] Reference-based weekly grid for preview/history, class filter, image share/download and linked PDF download.
+- [x] Automated regression, bundled Worker runtime, generated PDF rendering and link checks.
+- [ ] User acceptance of profile batching, mobile share actions, names and the timetable layout on Development.
+- [ ] Later user checks of Active/Inactive, Free/Paid access and class enrolments. Their earlier provisional observations are retained, not marked complete.
+- [ ] Legacy Global Subject/Reboot access migration is still staged. Review and activate separately.
+- [ ] Future integration: individual learner module-completion records, library/resources (V105.4), student/program/task integration (V105.5).
+
 ## V105.3.2.3 acceptance
 
 - [x] Optional class default Zoom link in Classes; lesson override in the timetable grid.

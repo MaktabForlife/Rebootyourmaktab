@@ -1,3 +1,11 @@
+# V105.3.3 — User-profile editing and timetable completion
+
+Edit several users and role cells before saving, with **Save all**, optional row saves, profile popups and sign-in link actions. Newly created users stay at the top for the session. Confirmed program Teacher, Senior and Admin roles now supply the timetable teacher list.
+
+Rename shared Academy subjects, schedule a subject without a module, and copy an older publication into a draft for a new version. Preview and published snapshots use a weekday/time grid based on the supplied reference, with class filtering, linked module names, image sharing/download and linked PDF download. [Scope and acceptance](docs/V105.3.3-PROFILES-AND-TIMETABLE.md).
+
+Development only. Existing access and enrolment acceptance checks remain open; legacy Global Subject and Reboot access migration remains staged.
+
 # V105.3.2.3 — Class and lesson Zoom links
 
 Set a default Zoom link in Classes and an override in each timetable lesson. A lesson link takes priority. A single-class lesson falls back to its class link; combined classes require one shared lesson link before publication. Preview and published history show the selected link. [Storage and acceptance](docs/V105.3.2.3-ZOOM-LINKS.md).
