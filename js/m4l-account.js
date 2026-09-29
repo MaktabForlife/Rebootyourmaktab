@@ -182,6 +182,7 @@
 
   function renderContextView() {
     byId("program-builder-link")?.classList.toggle("hidden", state.context?.role !== "GLOBAL_ADMIN");
+    byId("user-profiles-link")?.classList.toggle("hidden", state.context?.role !== "GLOBAL_ADMIN");
     byId("context-account-name").textContent = state.account?.displayName || "Account";
     byId("current-course").textContent = state.context?.courseName || "M4L Platform";
     byId("current-scope").textContent = contextScopeLabel(state.context?.scope);

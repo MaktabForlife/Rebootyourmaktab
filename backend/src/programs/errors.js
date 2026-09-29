@@ -4,6 +4,7 @@ import { GoogleSheetsApiError } from '../lib/google-sheets.js';
 export function programFailure(error, action, stage='request') {
   if(error.publicMessage)return {success:false,status:error.status,error:error.publicMessage,
     ...(error.code?{code:error.code}:{}),
+    ...(typeof error.retryable==='boolean'?{retryable:error.retryable}:{}),
     ...(error.code==='ROW_CHANGED'?{currentRecord:error.currentRecord,rowRevision:error.rowRevision}:{})};
   const save=['save','manage-save','publish','recover','prepare'].includes(action);
   const reference=crypto.randomUUID(),google=error instanceof GoogleSheetsApiError;

@@ -1,3 +1,6 @@
+import { profileUser } from '../routes/user-profiles.js';
+import { profileService } from '../profiles/service.js';
+import { profileRepository } from '../profiles/repository.js';
 import { academySubjectRepository, academySubjectService } from './academy-subjects.js';
 import { DurableObject } from 'cloudflare:workers';
 import { createRequestEnvironment } from '../lib/request-context.js';
@@ -22,6 +25,17 @@ export class ProgramTimetableCoordinator extends DurableObject {
       set:async value=>{sql.exec('INSERT OR REPLACE INTO catalogue_pending(id,intent) VALUES(1,?)',JSON.stringify(value));},
       clear:async()=>{sql.exec('DELETE FROM catalogue_pending WHERE id=1');}
     };
+    sql.exec('CREATE TABLE IF NOT EXISTS profiles_pending (id INTEGER PRIMARY KEY CHECK(id=1), intent TEXT NOT NULL)');
+    const profilesJournal={
+      get:async()=>{const row=sql.exec('SELECT intent FROM profiles_pending WHERE id=1').toArray()[0];return row?JSON.parse(row.intent):null;},
+      set:async value=>{sql.exec('INSERT OR REPLACE INTO profiles_pending(id,intent) VALUES(1,?)',JSON.stringify(value));},
+      clear:async()=>{sql.exec('DELETE FROM profiles_pending WHERE id=1');}
+    };
+    this.profiles=timetableCoordinator(profilesJournal,async(_id,authorization)=>{
+      const fresh=createRequestEnvironment(env);
+      const user=await profileUser(new Request('https://internal.invalid/profiles',{headers:{Authorization:authorization}}),fresh);
+      return {user,service:profileService(profileRepository(fresh))};
+    });
     this.catalogue=timetableCoordinator(catalogueJournal,async(_id,authorization)=>{
       const fresh=createRequestEnvironment(env);
       const user=await timetableUser(new Request('https://internal.invalid/catalogue',{headers:{Authorization:authorization}}),fresh);
@@ -33,6 +47,10 @@ export class ProgramTimetableCoordinator extends DurableObject {
       const program=await timetableProgram(fresh,id);
       return {user,service:timetableService(timetableRepository(fresh,program),program)};
     });
+  }
+  async profilesRun(action,input,authorization){
+    try{return {success:true,...await this.profiles.run(action,input,authorization)};}
+    catch(error){return programFailure(error,action,'profile-coordinator');}
   }
   async catalogRun(action,input,authorization) {
     try{return {success:true,...await this.catalogue.run(action,input,authorization)};}

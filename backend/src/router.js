@@ -1,3 +1,4 @@
+import { userProfilesEndpoint } from './routes/user-profiles.js';
 import { academySubjectsEndpoint } from './routes/academy-subjects.js';
 import { programTimetableEndpoint } from './routes/program-timetable.js';
 /* M4L V105.2 - Add platform Program setup routes. */
@@ -161,6 +162,9 @@ import { json } from "./lib/http.js";
 import { createRequestEnvironment } from "./lib/request-context.js";
 
 const ROUTES = new Map([
+  ...["get", "link", "save", "recover"].map(action => [
+    `/api/admin/platform/user-profiles/${action}`, workerRoute("program-timetable", userProfilesEndpoint(action))
+  ]),
   ...["get", "import-preview", "save", "recover"].map(action => [
     `/api/admin/platform/academy-subjects/${action}`, workerRoute("program-timetable", academySubjectsEndpoint(action))
   ]),

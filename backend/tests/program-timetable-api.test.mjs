@@ -1,4 +1,7 @@
 import { programFailure } from '../src/programs/errors.js';
+import { profileRepository } from '../src/profiles/repository.js';
+import { profileService } from '../src/profiles/service.js';
+import { profileUser } from '../src/routes/user-profiles.js';
 import { academySubjectRepository, academySubjectService } from '../src/programs/academy-subjects.js';
 import { timetableCoordinator } from '../src/programs/timetable-coordination.js';
 import { timetableService } from '../src/programs/timetable-service.js';
@@ -77,6 +80,7 @@ globalThis.fetch = async (url, init = {}) => {
   if (failWrite) { failWrite = false; return new Response(JSON.stringify({ error:{ message:"Injected write failure" } }), { status:500 }); }
   const next = structuredClone(sheets);
   for (const request of JSON.parse(init.body).requests) {
+    if (request.appendDimension) continue;
     if (request.addSheet) {
       const { sheetId, title } = request.addSheet.properties;
       assert.ok(!next.some(sheet => sheet.sheetId === sheetId || sheet.title === title));
@@ -87,7 +91,10 @@ globalThis.fetch = async (url, init = {}) => {
     assert.ok(target);
     const rows = update.rows.map(row => row.values.map(cell => Object.values(cell.userEnteredValue)[0]));
     if (request.appendCells) target.rows.push(...rows);
-    else rows.forEach((row, i) => { target.rows[update.start.rowIndex + i] = row; });
+    else rows.forEach((row, i) => {
+      const existing=target.rows[update.start.rowIndex+i] ||= [];
+      row.forEach((cell,j)=>{existing[(update.start.columnIndex||0)+j]=cell;});
+    });
   }
   books.set(id, next);
   if (loseResponse) { loseResponse = false; throw new Error("Connection closed after successful commit"); }
@@ -118,11 +125,13 @@ const journals=new Map(),coordinators=new Map(),names=[];
 const binding={getByName(name){names.push(name);if(!coordinators.has(name)){
  const journal={get:async()=>journals.get(name)||null,set:async p=>journals.set(name,structuredClone(p)),clear:async()=>journals.delete(name)};
  coordinators.set(name,timetableCoordinator(journal,async(id,authorization)=>{
-  const fresh=createRequestEnvironment(env);const user=await timetableUser(new Request('https://test.invalid',{headers:{Authorization:authorization}}),fresh);
+  const fresh=createRequestEnvironment(env),request=new Request('https://test.invalid',{headers:{Authorization:authorization}});
+  if(name.endsWith(':user-profiles'))return {user:await profileUser(request,fresh),service:profileService(profileRepository(fresh))};
+  const user=await timetableUser(request,fresh);
   if(name.endsWith(':academy-subjects'))return {user,service:academySubjectService(academySubjectRepository(fresh))};
   const program=await timetableProgram(fresh,id);return {user,service:timetableService(timetableRepository(fresh,program),program)};
  }));}
- return {async catalogRun(action,body,auth){return this.run(action,body,auth);},async run(action,body,auth){try{return {success:true,...await coordinators.get(name).run(action,body,auth)};}catch(e){return programFailure(e,action,'test-coordinator');}}};
+ return {async profilesRun(action,body,auth){return this.run(action,body,auth);},async catalogRun(action,body,auth){return this.run(action,body,auth);},async run(action,body,auth){try{return {success:true,...await coordinators.get(name).run(action,body,auth)};}catch(e){return programFailure(e,action,'test-coordinator');}}};
 }};
 async function tt(action,body={},auth=token,expected=200,method='POST'){
  const response=await worker.fetch(new Request(`https://worker.test/api/admin/platform/program-timetable/${action}`,{method,headers:{'Content-Type':'application/json',...(auth?{Authorization:`Bearer ${auth}`}:{})},...(method==='POST'?{body:typeof body==='string'?body:JSON.stringify({id:input.id,...body})}:{})}),env);
@@ -133,6 +142,10 @@ async function academy(action,body={},auth=token,expected=200){
  const result=await response.json();assert.equal(response.status,expected,JSON.stringify(result));return result;
 }
 const change=(revision,draft=f.draft)=>({revision,draft:structuredClone(draft),operationId:crypto.randomUUID()});
+async function profiles(action,body={},auth=token,expected=200){
+ const response=await worker.fetch(new Request(`https://worker.test/api/admin/platform/user-profiles/${action}`,{method:'POST',headers:{'Content-Type':'application/json',...(auth?{Authorization:`Bearer ${auth}`}:{})},body:typeof body==='string'?body:JSON.stringify(body)}),env);
+ const result=await response.json();assert.equal(response.status,expected,JSON.stringify(result));assert.equal(response.headers.get('Cache-Control'),'no-store');return result;
+}
 try{
  for(const action of ['get','prepare','save','validate','preview','publish','history','recover','manage-get','manage-save']){
   for(const auth of [legacyToken,studentToken,centralAdminToken])await tt(action,{},auth,403);
@@ -305,6 +318,69 @@ try{
  assert.deepEqual(await tt('history'),progressBefore.history);assert.deepEqual((await tt('get')).draft,progressBefore.draft);
  assert.deepEqual(table(platformId,'GlobalSubjectList'),globalBefore);
  console.log('Academy subjects: isolated catalogue, reviewed imports, duplicate reuse, concurrency, retry/recovery, authority, legacy mapping and immutable history passed.');
+ // Shared academy profiles use the same identities; only academy administrators may read or write.
+ for(const action of ['get','link','save','recover']){
+  for(const auth of [legacyToken,studentToken,centralAdminToken])await profiles(action,{},auth,403);
+  await profiles(action,{},'',401);
+ }
+ await profiles('get','invalid',token,400);await profiles('save','x'.repeat(32769),token,413);
+ books.get(platformId).push(
+  {title:'GlobalSubjectAccessPolicy',sheetId:800,rows:[PLATFORM_SHEET_HEADERS.GlobalSubjectAccessPolicy,['POLICY-TF','TAFSEER','SUBSCRIPTION',true]]},
+  {title:'GlobalSubjectAccessMatrix',sheetId:801,rows:[['AccountID','TAFSEER','OTHER'],['ACCOUNT1',true,true],['ACCOUNT2',false,true],['TEACHER-1',false,false]]}
+ );
+ let directory=await profiles('get');assert(!JSON.stringify(directory).includes(hash));assert(!JSON.stringify(directory).includes('ADMIN-LINK'));
+ const profileAccount=id=>directory.accounts.find(a=>a.accountId===id);
+ const profileInput=(id,extra={})=>({operationId:crypto.randomUUID(),mode:'profile',accountId:id,creating:false,displayName:profileAccount(id).displayName,active:profileAccount(id).active,baseRevision:profileAccount(id).revision,...extra});
+ const roleInput=(id,type,scopeId,roles,extra={})=>({operationId:crypto.randomUUID(),mode:'roles',accountId:id,scopeType:type,scopeId,roles,baseRevision:profileAccount(id).assignments.find(g=>g.scopeType===type&&g.scopeId===scopeId).revision,...extra});
+ const originalAccount=structuredClone(table(platformId,'UserAccounts')[2]);
+ await profiles('save',profileInput('ACCOUNT2',{displayName:'Renamed centrally',PINHash:'bad',PlatformRole:'GLOBAL_ADMIN'}));
+ for(const column of [0,2,3,4,13])assert.equal(table(platformId,'UserAccounts')[2][column],originalAccount[column]);
+ directory=await profiles('get');
+ assert.equal(profileAccount('ACCOUNT2').displayName,'Renamed centrally');
+ assert.equal((await profiles('link',{accountId:'ACCOUNT2'})).loginPath,'/account/LOCAL-LINK');
+ await profiles('save',profileInput('ACCOUNT1',{active:false}),token,409);
+ await profiles('save',roleInput('ACCOUNT2','PROGRAM',input.id,['STUDENT']),token,400);
+ await profiles('save',roleInput('ACCOUNT2','PROGRAM',input.id,['TEACHER','STUDENT'],{subscriptionConfirmed:true}));
+ assert((await tt('get')).catalog.teachers.some(t=>t.id==='ACCOUNT2'));
+ directory=await profiles('get');
+ const paidRoles=roleInput('ACCOUNT2','SUBJECT','TAFSEER',['STUDENT','TEACHER','ADMIN'],{subscriptionConfirmed:true});
+ loseResponse=true;await profiles('save',paidRoles,token,503);
+ const beforeProfileReplay=writes;assert((await profiles('save',paidRoles)).replayed);assert.equal(writes,beforeProfileReplay);
+ assert.deepEqual(table(platformId,'GlobalSubjectAccessMatrix')[2],['ACCOUNT2',true,true]);
+ directory=await profiles('get');
+ assert.deepEqual(profileAccount('ACCOUNT2').assignments.find(g=>g.scopeId==='TAFSEER').roles,['STUDENT','TEACHER','ADMIN']);
+ const grantsBeforeInactive=structuredClone([table(platformId,'UserCourseAccess'),table(platformId,'GlobalSubjectAccessMatrix'),table(platformId,'AcademySubjectRoles')]);
+ await profiles('save',profileInput('ACCOUNT2',{active:false}));
+ assert.deepEqual([table(platformId,'UserCourseAccess'),table(platformId,'GlobalSubjectAccessMatrix'),table(platformId,'AcademySubjectRoles')],grantsBeforeInactive);
+ await profiles('get',{},centralAdminToken,401); // Inactive immediately revokes an existing session.
+ assert(!(await tt('get')).catalog.teachers.some(t=>t.id==='ACCOUNT2'));
+ directory=await profiles('get');await profiles('save',profileInput('ACCOUNT2',{active:true}));
+ directory=await profiles('get');const oldRevision=profileInput('ACCOUNT2');
+ await profiles('save',profileInput('ACCOUNT2',{displayName:'Changed by another admin'}));
+ assert.equal((await profiles('save',oldRevision,token,409)).code,'ROW_CHANGED');
+ const newAccountId=crypto.randomUUID();
+ const createProfile={operationId:crypto.randomUUID(),mode:'profile',accountId:newAccountId,creating:true,displayName:'Synthetic new user',active:true,baseRevision:directory.emptyRevision};
+ loseResponse=true;await profiles('save',createProfile,token,503);
+ const newResult=await profiles('save',createProfile);assert(newResult.replayed);assert(newResult.profile.assignments.length);
+ assert.equal(table(platformId,'UserAccounts').filter(r=>r[0]===newAccountId).length,1);
+ assert.equal(table(platformId,'GlobalSubjectAccessMatrix').filter(r=>r[0]===newAccountId).length,1);
+ assert(!table(platformId,'UserCourseAccess').some(r=>r[1]===newAccountId),'New users start free without grants');
+ const newRow=table(platformId,'UserAccounts').find(r=>r[0]===newAccountId);assert.equal(newRow[3],false);assert.equal(newRow[4],'');assert.equal(newRow[13],'');
+ directory=await profiles('get');const recoverProfile=profileInput('ACCOUNT2',{displayName:'Recovered name'});
+ failWrite=true;await profiles('save',recoverProfile,token,503);
+ table(platformId,'UserAccounts')[1][13]='';await profiles('recover',{},token,401);table(platformId,'UserAccounts')[1][13]='GLOBAL_ADMIN';
+ await profiles('recover');assert((await profiles('save',recoverProfile)).replayed);
+ // A moved spreadsheet row cannot turn a recovered profile write into another user's update.
+ directory=await profiles('get');const movedProfile=profileInput('ACCOUNT2',{displayName:'Safe after row restore'});
+ failWrite=true;await profiles('save',movedProfile,token,503);
+ const accountsBeforeMove=structuredClone(table(platformId,'UserAccounts'));
+ [table(platformId,'UserAccounts')[2],table(platformId,'UserAccounts')[3]]=[table(platformId,'UserAccounts')[3],table(platformId,'UserAccounts')[2]];
+ const movedWriteCount=writes;const blockedRecovery=await profiles('recover',{},token,503);
+ assert.equal(blockedRecovery.code,'PROFILE_STORAGE_CHANGED');assert.equal(blockedRecovery.retryable,false);assert.equal(writes,movedWriteCount);
+ books.get(platformId).find(s=>s.title==='UserAccounts').rows=accountsBeforeMove;
+ await profiles('recover');assert((await profiles('save',movedProfile)).replayed);
+ assert(!JSON.stringify(table(platformId,'AcademyProfileOperations')).includes(hash));
+ console.log('Shared profile API: academy-admin authority, inactive session revocation, atomic role/subscription saves, protected credentials, teacher eligibility and lost-response recovery passed.');
  assert.deepEqual(books.get(legacyId),originalLegacy);
  assert.deepEqual(table(platformId,'CourseRegistry')[1],originalRegistryRow);
  console.log('Program timetable API: authority, body bounds, Sheets preparation, atomic revisions/publications/receipts, retries, recovery, canonical coordinator keys, reference validation and Reboot isolation passed.');

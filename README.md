@@ -1,3 +1,9 @@
+# V105.3.2 — Shared academy user profiles
+
+User profiles now uses one academy identity across subjects and programs. Academy administrators can add/edit users, combine Student (paid) with Teacher, Senior and Admin roles per scope, and set Active / Inactive separately. Paid Student grants require explicit confirmation; deactivation retains roles and history. Drafts and pending saves survive refresh/reload, with duplicate-safe recovery. [Scope, storage and acceptance](docs/V105.3.2-SHARED-USER-PROFILES.md).
+
+Program teaching roles feed timetable selection. Global-subject staff workspaces remain future work; legacy Reboot grants still require their existing linked staff/student records. Development only; user acceptance remains open.
+
 # V105.3.1.8 — Consolidated management tabs
 
 The management screen now has five tabs in this order: **Overview, Modules, Subjects, Classes, User profiles**. Tab headings no longer include record counts. Modules includes optional standard levels and a class-progress column; teacher selection belongs to the timetable. [Details and acceptance](docs/V105.3.1.8-MANAGEMENT-TABS.md).

@@ -1,3 +1,19 @@
+## V105.3.2 acceptance
+
+- [x] Shared academy directory, add/edit profiles, stable personal sign-in identities.
+- [x] Separate Active / Inactive account status preserves all assignments/history.
+- [x] Combined roles/subscriptions per subject/program, with explicit paid Student confirmation.
+- [x] Academy-administrator-only API and screen; fresh authority on save/recovery.
+- [x] Canonical matrix subscriptions, retained multi-role rows, atomic receipts/audit.
+- [x] Existing legacy record mappings and credentials are preserved.
+- [x] Draft/navigation/reload, quota cooldown, confirmed-save read recovery and explicit conflicts.
+- [x] All 78 regression files, development bundle and real local Cloudflare runtime pass.
+- [ ] User acceptance on Development: layout, profile editing, combined roles, inactive access, timetable eligibility and save recovery.
+- [ ] Future permission consumers: subject-specific staff workspaces and generic program teaching workspaces.
+- [ ] Consolidate older identity/subscription writers with shared profile coordination.
+
+See [V105.3.2 notes](docs/V105.3.2-SHARED-USER-PROFILES.md). V105.3.3 timetable, V105.4 library/resources and V105.5 student/program integration and individual completion history remain the next phases. Earlier user acceptance stays open.
+
 ## V105.3.1.8 acceptance
 
 - [x] Five tabs, in order: Overview, Modules, Subjects, Classes, User profiles; no heading counts.

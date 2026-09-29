@@ -24,3 +24,5 @@
 
 .pm-progress-list,.pm-progress-editor{min-width:200px}.pm-progress-list>button{margin-top:8px;font-size:12px}.pm-progress-editor{display:grid;gap:8px;margin-top:8px}.pm-progress-editor label{display:grid;gap:4px;font-size:12px}.pm-progress-editor button{font-size:12px;padding:6px 10px;margin-right:4px}.pm-grid td[data-label="Class progress"]{vertical-align:top}
 @media(max-width:760px){.pm-grid td[data-label="Class progress"]{display:block}.pm-grid td[data-label="Class progress"]::before{display:block;margin-bottom:6px}.pm-progress-list,.pm-progress-editor{min-width:0}}
+
+.pm-profile-link{display:block;margin:4px 0 8px;font-size:12px}

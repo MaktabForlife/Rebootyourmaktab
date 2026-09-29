@@ -1,4 +1,4 @@
-/* V105.3.1.8 — preserve drafts, recover interrupted saves and review genuine conflicts. */
+/* V105.3.2 — preserve drafts, recover interrupted saves and review genuine conflicts. */
 (() => {
   'use strict';
   const $=id=>document.getElementById(id), esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -117,13 +117,13 @@
     const roles=account=>(account.Roles||[]).map(role=>({STUDENT:'Student',TEACHER:'Teacher',SENIOR:'Senior',ADMIN:'Admin'})[role]||role);
     const filtered=records.filter(account=>[account.DisplayName,account.AccountID,...roles(account)].some(value=>String(value).toLowerCase().includes(search)));
     $('pm-caption').textContent='User profiles';$('pm-help').textContent='Academy users and their roles in this Program. Open Class memberships to add or update their class membership dates.';
-    $('pm-section-note').textContent='Profile creation, profile editing and role assignment across Programs are planned for V105.3.2.';$('pm-section-note').hidden=false;
+    $('pm-section-note').textContent='Open the shared User profiles screen to add or edit academy users and assign their roles and subscriptions.';$('pm-section-note').hidden=false;
     $('pm-count').textContent=`${filtered.length} of ${records.length} users`;
     $('pm-head').innerHTML='<tr><th scope="col">User</th><th scope="col">Account status</th><th scope="col">Roles in this Program</th><th scope="col">Classes</th><th scope="col">Actions</th></tr>';
     $('pm-rows').innerHTML=filtered.map(account=>{
       const memberships=state.data.rows.enrollments.filter(r=>r.AccountID===account.AccountID&&active(r.Active));
       const classes=[...new Set(memberships.map(r=>state.data.rows.classes.find(c=>c.ClassID===r.ClassID)?.Name||r.ClassID))];
-      return `<tr><td data-label="User">${esc(account.DisplayName)}</td><td data-label="Account status">${active(account.Active)?'Active':'Archived'}</td><td data-label="Roles in this Program">${roles(account).map(esc).join(', ')||'No program roles'}</td><td data-label="Classes">${classes.map(esc).join(', ')||'No class memberships'}</td><td data-label="Actions"><button type="button" class="pb-secondary" data-user-memberships="${esc(account.AccountID)}">Class memberships</button></td></tr>`;
+      return `<tr><td data-label="User">${esc(account.DisplayName)}</td><td data-label="Account status">${active(account.Active)?'Active':'Inactive'}</td><td data-label="Roles in this Program">${roles(account).map(esc).join(', ')||'No program roles'}</td><td data-label="Classes">${classes.map(esc).join(', ')||'No class memberships'}</td><td data-label="Actions"><a class="pm-profile-link" href="/users/?program=${encodeURIComponent(programId)}&amp;account=${encodeURIComponent(account.AccountID)}">Profile and roles →</a><button type="button" class="pb-secondary" data-user-memberships="${esc(account.AccountID)}">Class memberships</button></td></tr>`;
     }).join('')||'<tr><td colspan="5" class="pm-empty">No matching Academy users.</td></tr>';
   }
   function rememberDraft(){
@@ -166,6 +166,7 @@
     $('pm-overview').hidden=!state.overview;$('pm-editor').hidden=state.overview;
     $('pm-add').hidden=!state.overview&&['profiles','teachers','levels'].includes(state.kind);
     $('pm-profiles-back').hidden=state.overview||state.kind!=='enrollments';
+    $('pm-shared-profiles').hidden=state.overview||state.kind!=='profiles';$('pm-shared-profiles').href=`/users/?program=${encodeURIComponent(programId)}`;
     $('pm-shared').hidden=state.overview||state.kind!=='subjects';$('pm-legacy').hidden=state.overview||state.kind!=='subjects'||!state.data.sharedSubjects.some(s=>s.Legacy);
     $('pm-section-note').hidden=true;
     if(state.overview){$('pm-add').textContent='＋ Add module';renderOverview();controls();return;}
