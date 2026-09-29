@@ -1,3 +1,10 @@
+# V105.3.3.3 — Compact Blocks acceptance
+
+- [x] 30-minute grid marks and smaller spacing, preserving exact lesson times and gaps.
+- [x] Compact short entries and one-page reference timetable with all linked titles.
+- [x] Seven-day export on one page; bounds and dense-schedule pagination checks.
+- [ ] User review of the compact preview and PDF with current academy timetable data.
+
 # V105.3.3.2 — Blocks trial acceptance
 
 - [x] Separate Blocks view with exact time positions, rounded corners and retained lesson details/links.

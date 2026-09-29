@@ -39,6 +39,7 @@ const blocks=context.window.M4L_TIMETABLE_BLOCKS;
 for(const [name,input] of [['blocks',result],['blocks-dense',dense],['blocks-wide',{...result,occurrences:[1,2,3,4,5,6,0].map(d=>item('Shared assembly',d,'07:30','07:45'))}],['blocks-uneven',{...result,occurrences:[item('Quduri',2,'07:45','09:15'),item('Mishkaat',3,'08:10','09:05',{teacherName:'Teacher B'}),item('Fiqh',3,'08:30','09:20',{classIds:['C2'],classNames:['Third Year'],teacherName:'Teacher C'}),item('Tafseer',2,'09:30','10:00')]}]]){
  const m=blocks.model(input,{effectiveFrom:'2026-10-01'}),pages=blocks.canvases(m,createCanvas,await loadImage(new URL('logo.png',root).pathname));
  for(const page of pages)for(const r of page.links)if(r.x<0||r.y<0||r.x+r.width>page.canvas.width||r.y+r.height>page.canvas.height)throw Error('Clipped blocks PDF link');
+ if(['blocks','blocks-wide','blocks-uneven'].includes(name)&&pages.length!==1)throw Error(name+' should fit one page');
  const bytes=await p.pdf(pages,lib),doc=await lib.PDFDocument.load(bytes);if(doc.getPageCount()!==pages.length)throw Error('Missing blocks pages');
  let annotations=0;for(const page of doc.getPages())annotations+=page.node.lookup(lib.PDFName.of('Annots'),lib.PDFArray).size();
  if(annotations!==pages.reduce((sum,page)=>sum+page.links.length,0))throw Error('Missing blocks PDF annotations');

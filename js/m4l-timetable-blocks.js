@@ -1,4 +1,4 @@
-/* V105.3.3.2 — optional time-positioned blocks; the table renderer is unchanged. */
+/* V105.3.3.3 — optional time-positioned blocks; the table renderer is unchanged. */
 (()=>{'use strict';
   const table=window.M4L_TIMETABLE_PRESENTATION;
   const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -21,7 +21,7 @@
       url:r.status==='CANCELLED'?'':table.link(r.zoomLink),cancelled:r.status==='CANCELLED',kind:r.kind||'LESSON',
       identity:JSON.stringify([r.moduleId||'',r.programSubjectId||'',r.teacherId||'',r.classIds.slice().sort()])
     })).filter(r=>Number.isFinite(r.start)&&Number.isFinite(r.end)&&r.end>r.start);
-    return {...base,events,start:events.length?Math.floor(Math.min(...events.map(r=>r.start))/15)*15:0,end:events.length?Math.ceil(Math.max(...events.map(r=>r.end))/15)*15:0};
+    return {...base,events,start:events.length?Math.floor(Math.min(...events.map(r=>r.start))/30)*30:0,end:events.length?Math.ceil(Math.max(...events.map(r=>r.end))/30)*30:0};
   }
   // Interval groups use separate lanes: simultaneous classes never cover one another.
   function position(m,offset=0,count=m.columns.length){
@@ -43,17 +43,37 @@
     return merged;
   }
   function scene(m,createCanvas,offset=0,count=m.columns.length){
-    const width=Math.max(1600,count*280+170),left=150,right=35,dayWidth=(width-left-right)/Math.max(1,count),ctx=createCanvas(1,1).getContext('2d');
+    const width=Math.max(1600,count*200+160),left=130,right=30,dayWidth=(width-left-right)/Math.max(1,count),ctx=createCanvas(1,1).getContext('2d');
     const blocks=position(m,offset,count).map(block=>{
-      const x=left+block.col*dayWidth+block.lane*dayWidth/block.lanes+7,w=dayWidth*block.span/block.lanes-14;
-      const lines=[];const add=(text,size,bold,color)=>{font(ctx,size,bold);for(const value of wrap(ctx,text,w-28))lines.push({text:value,size,bold,color,height:size+6});};
-      add(`${clock(block.start)} - ${clock(block.end)}`,17,true,'#65516b');
-      add(block.title,23,true,block.url?'#713d83':'#34243d');
-      add(block.teacher,18,false,'#443b4a');add(block.classes,16,false,'#685f6e');if(block.cancelled)add('Cancelled',16,false,'#685f6e');
-      return {...block,x,width:w,lines,needed:lines.reduce((n,l)=>n+l.height,0)+22};
+      const x=left+block.col*dayWidth+block.lane*dayWidth/block.lanes+5,w=dayWidth*block.span/block.lanes-10;
+      const fields=[
+        {text:`${clock(block.start)} - ${clock(block.end)}`,size:14,bold:true,color:'#65516b'},
+        {text:block.title,size:20,bold:true,color:block.url?'#713d83':'#34243d',title:true},
+        {text:block.teacher,size:16,color:'#443b4a'},
+        {text:block.classes,size:14,color:'#685f6e'},
+        ...(block.cancelled?[{text:'Cancelled',size:14,color:'#685f6e'}]:[])
+      ].filter(f=>f.text);
+      const rows=[];let row={runs:[],width:0,height:0};
+      const flush=()=>{if(row.runs.length)rows.push(row);row={runs:[],width:0,height:0};};
+      // Short entries use their horizontal space instead of stretching every lesson.
+      const compact=block.end-block.start<=20;
+      if(compact)fields.unshift(...fields.splice(1,1));
+      for(const field of fields){
+        font(ctx,field.size,field.bold);
+        for(const text of wrap(ctx,field.text,Math.max(1,w-20))){
+          const runWidth=ctx.measureText(text).width,gap=row.runs.length?16:0;
+          if(!compact||row.width+gap+runWidth>w-20)flush();
+          const dx=row.width+(row.runs.length?16:0);
+          row.runs.push({...field,text,dx,width:runWidth});row.width=dx+runWidth;row.height=Math.max(row.height,field.size+3);
+          if(!compact)flush();
+        }
+      }
+      flush();let dy=0;const lines=[];
+      for(const r of rows){for(const run of r.runs)lines.push({...run,dx:(w-r.width)/2+run.dx,dy:dy+r.height-3-run.size});dy+=r.height;}
+      return {...block,x,width:w,lines,needed:dy+10};
     });
-    // One linear clock scale for the entire grid. Short entries increase it uniformly.
-    const scale=Math.max(4,...blocks.map(b=>(b.needed+8)/(b.end-b.start)));
+    // 30 minutes start at 60px; retain one proportional clock scale and legible text.
+    const scale=Math.max(2,...blocks.map(b=>(b.needed+6)/(b.end-b.start)));
     blocks.forEach(b=>{b.y=(b.start-m.start)*scale;b.height=(b.end-b.start)*scale;});
     return {width,left,right,dayWidth,columns:m.columns.slice(offset,offset+count),blocks,scale,height:(m.end-m.start)*scale,start:m.start,end:m.end};
   }
@@ -61,11 +81,12 @@
   function html(m,createCanvas){
     if(!m.events.length)return '<p class="tt-empty">No lessons to display.</p>';
     const s=scene(m,createCanvas),top=64,ticks=[];
-    for(let t=s.start;t<=s.end;t+=15){const y=top+(t-s.start)*s.scale;ticks.push(`<line x1="${s.left}" x2="${s.width-s.right}" y1="${y}" y2="${y}" stroke="${t%30?'#eee6f0':'#d9cddd'}"/><text x="${s.left-18}" y="${y+6}" text-anchor="end" font-size="17" fill="#6c5a74">${clock(t)}</text>`);}
+    for(let t=s.start;t<=s.end;t+=30){const y=top+(t-s.start)*s.scale;ticks.push(`<line x1="${s.left}" x2="${s.width-s.right}" y1="${y}" y2="${y}" stroke="#d9cddd"/><text x="${s.left-18}" y="${y+6}" text-anchor="end" font-size="17" fill="#6c5a74">${clock(t)}</text>`);}
     const cols=s.columns.map((c,i)=>`<rect x="${s.left+i*s.dayWidth+3}" y="4" width="${s.dayWidth-6}" height="44" rx="10" fill="#e4d5eb"/><text x="${s.left+(i+.5)*s.dayWidth}" y="33" text-anchor="middle" font-size="23" font-weight="bold" fill="#4c3058">${esc(c.label)}</text><line x1="${s.left+i*s.dayWidth}" x2="${s.left+i*s.dayWidth}" y1="${top}" y2="${top+s.height}" stroke="#e5dce9"/>`).join('');
     const blocks=s.blocks.map(b=>{
       const y=top+b.y+3,height=b.height-6,isBreak=b.kind==='BREAK',fill=b.cancelled?'#eeeef0':isBreak?'#edf4f1':'#f7f0fb',stroke=isBreak?'#91b0a2':'#b598c3';
-      let ty=y+(height-b.needed+22)/2;const text=b.lines.map(line=>{ty+=line.size;const title=line.size===23;const value=`<text x="${b.x+b.width/2}" y="${ty}" text-anchor="middle" font-size="${line.size}" font-weight="${line.bold?'bold':'normal'}" fill="${line.color}" ${title&&b.cancelled?'text-decoration="line-through"':''}>${esc(line.text)}</text>`;ty+=6;return title&&b.url?`<a href="${esc(b.url)}" target="_blank" rel="noopener noreferrer" aria-label="${esc(b.title+' meeting link')}">${value.replace('<text ','<text text-decoration="underline" ')}</a>`:value;}).join('');
+      const textTop=y+(height-b.needed+10)/2;
+      const text=b.lines.map(line=>{const value=`<text x="${b.x+line.dx}" y="${textTop+line.dy+line.size}" font-size="${line.size}" font-weight="${line.bold?'bold':'normal'}" fill="${line.color}" ${line.title&&b.cancelled?'text-decoration="line-through"':''}>${esc(line.text)}</text>`;return line.title&&b.url?`<a href="${esc(b.url)}" target="_blank" rel="noopener noreferrer" aria-label="${esc(b.title+' meeting link')}">${value.replace('<text ','<text text-decoration="underline" ')}</a>`:value;}).join('');
       return `<g role="group" aria-label="${esc(`${b.title}, ${clock(b.start)} to ${clock(b.end)}, ${b.teacher}, ${b.classes}`)}"><rect x="${b.x}" y="${y}" width="${b.width}" height="${height}" rx="16" fill="${fill}" stroke="${stroke}" stroke-width="1.5"/>${text}</g>`;
     }).join('');
     return `<section class="tt-block-sheet">${header(m)}<svg class="tt-block-grid" viewBox="0 0 ${s.width} ${top+s.height+28}" xmlns="http://www.w3.org/2000/svg" role="group" aria-label="Timetable blocks positioned by start and end time" style="min-width:${Math.max(850,m.columns.length*230+120)}px;font-family:Arial,sans-serif">${cols}${ticks.join('')}${blocks}</svg></section>`;
@@ -74,8 +95,8 @@
   function canvases(m,createCanvas,logo){
     if(!m.events.length)throw Error('There are no lessons to export.');
     const pages=[],W=1600,H=1132;
-    for(let offset=0;offset<m.columns.length;offset+=5){
-      const s=scene(m,createCanvas,offset,Math.min(5,m.columns.length-offset));let from=m.start;
+    for(let offset=0;offset<m.columns.length;offset+=7){
+      const s=scene(m,createCanvas,offset,Math.min(7,m.columns.length-offset));let from=m.start;
       // Estimate the heading once; repeat it on every exported page.
       const measure=createCanvas(1,1).getContext('2d'),headings=[];
       for(const [text,size,bold] of [[m.academy,22,true],[m.program,30,true],[m.title,21,true],[m.classes,18,false],[`${m.stamp} · ${m.timezone}`,16,false]]){font(measure,size,bold);for(const line of wrap(measure,text,W-350))headings.push({text:line,size,bold});}
@@ -98,15 +119,17 @@
         s.columns.forEach((day,i)=>{rounded(ctx,s.left+i*s.dayWidth+3,gridTop-54,s.dayWidth-6,42,'#e4d5eb','#e4d5eb');font(ctx,23,true);ctx.fillStyle='#4c3058';ctx.fillText(day.label,s.left+(i+.5)*s.dayWidth,gridTop-46);});
         const bottom=gridTop+(to-from)*s.scale;
         ctx.strokeStyle='#e5dce9';ctx.lineWidth=1;for(let i=0;i<=s.columns.length;i++){const x=s.left+i*s.dayWidth;ctx.beginPath();ctx.moveTo(x,gridTop);ctx.lineTo(x,bottom);ctx.stroke();}
-        const times=[from,...Array.from({length:Math.max(0,Math.floor(to/15)-Math.ceil(from/15)+1)},(_,i)=>(Math.ceil(from/15)+i)*15),to];
+        const times=[from,...Array.from({length:Math.max(0,Math.floor(to/30)-Math.ceil(from/30)+1)},(_,i)=>(Math.ceil(from/30)+i)*30),to];
         for(const t of [...new Set(times)]){const ty=gridTop+(t-from)*s.scale;ctx.strokeStyle=t%30?'#eee6f0':'#d9cddd';ctx.beginPath();ctx.moveTo(s.left,ty);ctx.lineTo(W-s.right,ty);ctx.stroke();font(ctx,17);ctx.textAlign='right';ctx.fillStyle='#6c5a74';ctx.fillText(clock(Math.round(t)),s.left-18,Math.min(bottom-17,Math.max(gridTop,ty-8)));}
         ctx.textAlign='center';
         for(const b of s.blocks.filter(b=>b.start<to&&b.end>from)){
           const by=gridTop+(Math.max(b.start,from)-from)*s.scale+3,height=(Math.min(b.end,to)-Math.max(b.start,from))*s.scale-6;
           rounded(ctx,b.x,by,b.width,height,b.cancelled?'#eeeef0':b.kind==='BREAK'?'#edf4f1':'#f7f0fb',b.kind==='BREAK'?'#91b0a2':'#b598c3');
           const continued=b.start<from||b.end>to;
-          let ly=by+(height-b.needed+22-(continued?20:0))/2;
-          for(const line of b.lines){font(ctx,line.size,line.bold);ctx.fillStyle=line.color;ctx.fillText(line.text,b.x+b.width/2,ly);if(line.size===23&&b.url){const width=ctx.measureText(line.text).width;ctx.fillRect(b.x+(b.width-width)/2,ly+26,width,1);links.push({url:b.url,x:b.x+(b.width-width)/2,y:ly,width,height:28});}ly+=line.height;}
+          const textTop=by+(height-b.needed+10-(continued?20:0))/2;
+          ctx.textAlign='left';
+          for(const line of b.lines){const lx=b.x+line.dx,ly=textTop+line.dy;font(ctx,line.size,line.bold);ctx.fillStyle=line.color;ctx.fillText(line.text,lx,ly);if(line.title&&b.url){ctx.fillRect(lx,ly+line.size+1,line.width,1);links.push({url:b.url,x:lx,y:ly,width:line.width,height:line.size+3});}}
+          ctx.textAlign='center';
           if(continued){font(ctx,12);ctx.fillStyle='#6c5a74';ctx.fillText('Continues on adjacent page',b.x+b.width/2,by+height-15);}
         }
         pages.push({canvas,links});from=to;
