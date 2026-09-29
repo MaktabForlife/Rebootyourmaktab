@@ -35,10 +35,10 @@ export class ProgramTimetableCoordinator extends DurableObject {
   }
   async catalogRun(action,input,authorization) {
     try{return {success:true,...await this.catalogue.run(action,input,authorization)};}
-    catch(error){return {success:false,status:error.publicMessage?error.status:503,error:error.publicMessage||'Subject save could not be confirmed. Retry the same change or recover the subject catalogue.'};}
+    catch(error){return {success:false,...(error.code?{code:error.code}:{}),status:error.publicMessage?error.status:503,error:error.publicMessage||'Subject save could not be confirmed. Retry the same change or recover the subject catalogue.'};}
   }
   async run(action,input,authorization) {
     try {return {success:true,...await this.coordinator.run(action,input,authorization)};}
-    catch(error) {return {success:false,status:error.publicMessage?error.status:503,error:error.publicMessage||'The change could not be confirmed. Keep your edits and retry the same action, or use Recover interrupted change.'};}
+    catch(error) {return {success:false,...(error.code?{code:error.code}:{}),...(error.code==='ROW_CHANGED'?{code:error.code,currentRecord:error.currentRecord,rowRevision:error.rowRevision}:{}),status:error.publicMessage?error.status:503,error:error.publicMessage||'The change could not be confirmed. Keep your edits and retry the same action, or use Recover interrupted change.'};}
   }
 }

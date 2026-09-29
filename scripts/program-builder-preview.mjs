@@ -80,7 +80,7 @@ const server = http.createServer(async (req,res) => {
     res.writeHead(200, { "Content-Type":mime, "Cache-Control":"no-store" }); res.end(content);
   } catch (error) {
     res.writeHead(error.publicMessage ? error.status : 503, { "Content-Type":"application/json" });
-    res.end(JSON.stringify({ success:false,error:error.publicMessage || "Temporary preview save failure. Your edits are still here. Retry Save." }));
+    res.end(JSON.stringify({ success:false,...(error.code?{code:error.code}:{}),...(error.code==='ROW_CHANGED'?{code:error.code,currentRecord:error.currentRecord,rowRevision:error.rowRevision}:{}),error:error.publicMessage || "Temporary preview save failure. Your edits are still here. Retry Save." }));
   }
 });
 const port = Number(process.env.PROGRAM_PREVIEW_PORT || 8105);

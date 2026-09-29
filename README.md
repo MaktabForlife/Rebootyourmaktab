@@ -1,3 +1,7 @@
+# V105.3.1.5 — Management save recovery
+
+Management edits survive refresh and browser reload within the same tab. Unrelated row/reference changes no longer block saving; interrupted saves recover and retry automatically with the same operation ID. Different-field edits merge automatically. Conflicting edits to the same field require an explicit choice between the saved version and the user's entry. [Behavior and verification](docs/V105.3.1.5-SAVE-RECOVERY.md).
+
 # V105.3.1.4 — Per-class module completion
 
 Add Active, Inactive and Completed statuses for each class/module pair. Overview shows a status beside each class; selecting it opens the progress editor. A new Module progress section supports records even before a lesson is scheduled. Existing classes show Not recorded until explicitly saved.

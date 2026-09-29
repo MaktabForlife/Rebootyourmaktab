@@ -1,4 +1,4 @@
-/* V105.3.1.4 — compact Program records, explicit row saves and retry-safe edits. */
+/* V105.3.1.5 — preserve drafts, recover interrupted saves and review genuine conflicts. */
 (() => {
   'use strict';
   const $=id=>document.getElementById(id), esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -19,7 +19,7 @@
     const token=localStorage.getItem('m4l_account_token');if(!token)throw new Error('Sign in through your personal Academy account link, then open Programs.');
     const response=await fetch(`${window.M4L_CONFIG?.API_BASE||''}/api/admin/platform/${shared?`academy-subjects/${action}`:`program-timetable/${action}`}`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify(shared?body:{id:programId,...body})});
     let result;try{result=await response.json();}catch{throw new Error('The response could not be read. Your edits are kept.');}
-    if(!response.ok||!result.success)throw Object.assign(new Error(result.error||'The change could not be confirmed.'),{status:response.status});return result;
+    if(!response.ok||!result.success)throw Object.assign(new Error(result.error||'The change could not be confirmed.'),{status:response.status,code:result.code,currentRecord:result.currentRecord,rowRevision:result.rowRevision});return result;
   }
   function controls(){
     const locked=state.busy||Boolean(state.pending)||Boolean(state.importPending),editable=state.data?.prepared&&state.data?.coordinatorAvailable&&state.data?.program.status==='DRAFT';
@@ -32,7 +32,7 @@
     $('pm-import-save').textContent=state.importPending?'Retry same import':'Import and add to this Program';
     $('pm-catalogue-recover').disabled=state.busy;
     $('pm-import-list').disabled=locked;
-    $('pm-pending').hidden=!state.pending;
+    $('pm-pending').hidden=!state.pending;renderConflict();
     $('pm-overview').querySelectorAll('button').forEach(button=>{button.disabled=locked||!editable||Boolean(state.edit);});
   }
   async function work(fn){if(state.busy)return;state.busy=true;controls();try{await fn();}catch(error){message(error.message,true);}finally{state.busy=false;controls();}}
@@ -67,7 +67,38 @@
     $('pm-help').textContent='One row per module, or a subject/level awaiting modules. Class statuses are saved per module; teachers reflect the saved timetable draft. Learners have membership on at least one scheduled lesson date; cancelled lessons are excluded.';
     $('pm-overview').innerHTML=`${state.timetableError?'<p class="pb-refresh-warning">Timetable details could not be loaded. Reload to see classes, teachers and learners.</p>':state.preview?.issues?.length?'<p class="pb-refresh-warning">Resolve timetable validation issues to see learner counts. Classes and teachers below show the saved draft selections.</p>':''}<div class="pm-scroll pm-overview-scroll"><table class="pm-grid pm-overview-grid" role="table"><caption class="pb-sr-only">Curriculum overview</caption><thead><tr>${['Subject','Level','Module','Classes','Teachers','Learners','Actions'].map(label=>`<th scope="col">${label}</th>`).join('')}</tr></thead><tbody>${filtered.map(r=>`<tr class="${r.archived?'pm-archived':''}"><td data-label="Subject"><strong>${esc(r.subject)}</strong>${r.archived?'<small class="pm-muted">Archived</small>':''}</td><td data-label="Level">${esc(r.level)}</td><td data-label="Module">${r.module?esc(r.module):'<span class="pm-muted">No module yet</span>'}</td><td data-label="Classes">${state.timetableError&&!r.classProgress.length?'Unavailable':progressClasses(r)}</td><td data-label="Teachers">${state.timetableError?'Unavailable':list(r.teachers,'Not assigned')}</td><td data-label="Learners">${!r.rosterReady?'<span class="pm-muted">Unavailable</span>':r.learners.length?`<details><summary>${r.learners.length} ${r.learners.length===1?'learner':'learners'}</summary><ul>${r.learners.map(l=>`<li>${esc(l.name)}</li>`).join('')}</ul></details>`:r.hasLessons?'0 learners':'—'}</td><td data-label="Actions">${r.moduleId?`<button type="button" class="pb-secondary" data-module-edit="${esc(r.moduleId)}">Edit module</button>`:!r.archived?`<button type="button" class="pb-secondary" data-module-add="${esc(r.subjectId)}" data-level="${esc(r.levelId)}">Add module</button>`:''}${r.moduleId?`<button type="button" class="pb-secondary" data-progress-module="${esc(r.moduleId)}">Class status</button>`:''}<a href="${esc($('pm-timetable').href)}">Timetable →</a></td></tr>`).join('')||'<tr><td colspan="7" class="pm-empty">No matching curriculum rows. Use Subjects to add or import names, then add modules.</td></tr>'}</tbody></table></div>`;
   }
-  function render(){if(!state.data){controls();return;}const def=defs[state.kind];
+  function rememberDraft(){
+    if(state.edit)sessionStorage.setItem(storageKey+':draft',JSON.stringify({kind:state.kind,edit:state.edit}));
+    else sessionStorage.removeItem(storageKey+':draft');
+  }
+  function baseline(){
+    if(!state.edit||state.edit.baselineSet)return;
+    const edit=state.edit,def=defs[state.kind];
+    edit.baseRecord=structuredClone(state.data.rows[state.kind].find(r=>r[def.key]===edit.originalId)||null);
+    edit.baseRowRevision=state.data.rowRevisions?.[state.kind]?.[edit.originalId]||state.data.emptyRowRevision;
+    edit.baseRevision=state.data.revision;edit.baselineSet=true;
+  }
+  function renderConflict(){
+    const conflict=state.edit?.conflict,panel=$('pm-conflict');panel.hidden=!conflict;
+    if(!conflict)return;
+    $('pm-conflict-details').innerHTML=conflict.currentRecord?`<table class="pm-grid"><thead><tr><th>Field</th><th>Saved version</th><th>Your entry</th></tr></thead><tbody>${defs[state.kind].columns.map(col=>`<tr><th scope="row">${esc(col[1])}</th><td data-label="Saved version">${esc(display(conflict.currentRecord,col))}</td><td data-label="Your entry">${esc(display(state.edit.record,col))}</td></tr>`).join('')}</tbody></table>`:'<p>This record was removed elsewhere. Your entry is still kept.</p>';
+    $('pm-use-mine').disabled=state.busy||!conflict.currentRecord;
+    $('pm-use-saved').disabled=state.busy;
+  }
+  function reconcile(currentRecord,rowRevision){
+    const edit=state.edit,base=edit.baseRecord;
+    const equal=(a,b)=>typeof a==='boolean'||typeof b==='boolean'?active(a)===active(b):String(a??'')===String(b??'');
+    if(!base||!currentRecord||edit.creating){edit.conflict={currentRecord,rowRevision};return false;}
+    const merged={...currentRecord};
+    for(const [key] of defs[state.kind].columns){
+      const mine=edit.record[key],before=base[key],latest=currentRecord[key];
+      if(!equal(mine,before)&&!equal(latest,before)&&!equal(mine,latest)){edit.conflict={currentRecord,rowRevision};return false;}
+      if(!equal(mine,before))merged[key]=mine;
+    }
+    if('Active' in merged)merged.Active=active(merged.Active);
+    edit.record=merged;edit.baseRecord=structuredClone(currentRecord);edit.baseRowRevision=rowRevision;delete edit.conflict;return true;
+  }
+  function render(){baseline();rememberDraft();renderConflict();if(!state.data){controls();return;}const def=defs[state.kind];
     $('pm-title').textContent=`${state.data.program.name} · Management`;
     $('pm-timetable').href=`/programs/timetable.html?program=${encodeURIComponent(programId)}`;
     $('pm-workspace').hidden=!state.data.prepared;$('pm-prepare').hidden=state.data.prepared;
@@ -76,30 +107,31 @@
     if(state.overview){$('pm-shared').hidden=true;$('pm-legacy').hidden=true;$('pm-add').textContent='＋ Add module';renderOverview();controls();return;}
     $('pm-help').textContent=def.help+' Ctrl/⌘ + Enter saves the edited row.';$('pm-caption').textContent=def.label;$('pm-add').textContent=`＋ Add ${def.singular}`;$('pm-shared').hidden=state.kind!=='subjects';$('pm-legacy').hidden=state.kind!=='subjects'||!state.data.sharedSubjects.some(s=>s.Legacy);
     $('pm-head').innerHTML=`<tr><th scope="col">#</th>${def.columns.map(c=>`<th scope="col">${c[1]}</th>`).join('')}<th scope="col">Changes</th></tr>`;
-    const records=state.data.rows[state.kind].map(r=>({...r}));if(state.edit?.creating)records.push(state.edit.record);
+    const records=state.data.rows[state.kind].map(r=>({...r}));if(state.edit&&(state.edit.creating||!records.some(r=>r[def.key]===state.edit.originalId)))records.push(state.edit.record);
     const filtered=records.filter(r=>state.edit&&r[def.key]===state.edit.originalId||def.columns.some(c=>String(display(r,c)).toLowerCase().includes(state.search.toLowerCase())));
     $('pm-count').textContent=`${filtered.length} of ${records.length} rows`;
     $('pm-rows').innerHTML=filtered.map((r,i)=>{const editing=state.edit&&(state.edit.creating?r===state.edit.record:r[def.key]===state.edit.originalId),row=editing?state.edit.record:r;
       return `<tr class="${editing?'is-editing':''}"><td>${i+1}</td>${def.columns.map(c=>`<td data-label="${esc(c[1])}">${editing?cell(row,c):esc(display(row,c))}</td>`).join('')}<td data-label="Changes">${editing?'<button type="button" data-save>Save</button><button type="button" data-cancel class="pb-secondary">Cancel</button>':`<button type="button" data-edit="${esc(r[def.key])}" class="pb-secondary" ${state.edit?'disabled':''}>Edit</button>`}</td></tr>`;
     }).join('')||`<tr><td colspan="${def.columns.length+2}" class="pm-empty">No ${def.label.toLowerCase()} yet. Add your first ${def.singular}.</td></tr>`;controls();
   }
-  async function load(){state.data=await api('manage-get');state.data.rows.progress||=[];state.edit=null;state.pending=null;
+  async function load(){state.data=await api('manage-get');state.data.rows.progress||=[];
     state.timetable=null;state.preview=null;state.timetableError=false;
     if(state.data.prepared)try{state.timetable=await api('get');if(state.timetable.draft.rules.length)state.preview=await api('preview',{draft:state.timetable.draft});}catch{state.timetableError=true;}
 
     try{state.pending=JSON.parse(sessionStorage.getItem(storageKey)||'null');}catch{sessionStorage.removeItem(storageKey);}
-    if(state.pending){state.overview=false;state.kind=state.pending.kind;state.edit={creating:state.pending.body.creating,originalId:state.pending.body.record[defs[state.kind].key],originalSubjectID:state.pending.originalSubjectID,record:structuredClone(state.pending.body.record)};}
+    if(!state.edit){try{const draft=JSON.parse(sessionStorage.getItem(storageKey+':draft')||'null');if(draft&&defs[draft.kind]){state.kind=draft.kind;state.edit=draft.edit;state.overview=false;}}catch{}}
+    if(state.pending&&!state.edit){state.overview=false;state.kind=state.pending.kind;state.edit={creating:state.pending.body.creating,originalId:state.pending.body.record[defs[state.kind].key],originalSubjectID:state.pending.originalSubjectID,baselineSet:true,baseRowRevision:state.pending.body.baseRowRevision,baseRevision:state.pending.body.revision,baseRecord:state.pending.baseRecord,record:structuredClone(state.pending.body.record)};}
     try{state.importPending=JSON.parse(sessionStorage.getItem(storageKey+':import')||'null');}catch{sessionStorage.removeItem(storageKey+':import');}
     if(state.importPending){state.overview=false;state.kind='subjects';}
     if(state.importPending&&!state.importPending.catalogue)state.importPending={catalogue:state.importPending}; // Preserve pre-fix retry identifiers.
-    render();message(!state.data.prepared?'Prepare management tables once to begin. Existing Program records are preserved.':!state.data.coordinatorAvailable?'Saving needs the Program coordinator binding.':state.importPending?'An earlier subject import needs confirmation. Open Reboot import and retry.':state.pending?'An earlier save needs confirmation. Retry the same change.':'Ready. Add or edit a row, then save it.');
+    render();message(!state.data.prepared?'Prepare management tables once to begin. Existing Program records are preserved.':!state.data.coordinatorAvailable?'Saving needs the Program coordinator binding.':state.importPending?'An earlier subject import needs confirmation. Open Reboot import and retry.':state.pending?'An earlier save needs confirmation. Retry the same change.':state.edit?'Records refreshed. Your unsaved entry is kept.': 'Ready. Add or edit a row, then save it.');
   }
   function keepPending(){sessionStorage.setItem(storageKey,JSON.stringify(state.pending));}
-  async function save(){if(!state.edit)return;
+  async function save(automaticRetry=true){if(!state.edit)return;if(state.edit.conflict){message('Review the saved version and your entry below before saving.',true);return;}
     if(!state.pending){
       const record=structuredClone(state.edit.record);
       if(state.kind==='subjects'&&record.SubjectID==='__new__'&&!record.NewSubjectName?.trim())throw new Error('Enter the new subject name.');
-      state.pending={kind:state.kind,originalSubjectID:state.edit.originalSubjectID,body:{kind:state.kind,record,creating:state.edit.creating,revision:state.data.revision,referenceRevision:state.data.referenceRevision,operationId:crypto.randomUUID()}};
+      state.pending={kind:state.kind,baseRecord:state.edit.baseRecord,originalSubjectID:state.edit.originalSubjectID,body:{kind:state.kind,record,creating:state.edit.creating,revision:state.edit.baseRevision,baseRowRevision:state.edit.baseRowRevision,referenceRevision:state.data.referenceRevision,operationId:crypto.randomUUID()}};
       if(record.SubjectID==='__new__')state.pending.createSubject={mode:'create',subjectName:record.NewSubjectName.trim(),operationId:crypto.randomUUID()};
       keepPending();
     }
@@ -111,11 +143,31 @@
       }
       if(state.pending.subjectResolved&&!state.pending.linkStarted){
         const latest=await api('manage-get');
-        if(latest.revision!==state.pending.body.revision){state.data=latest;throw Object.assign(new Error('The subject name is saved in the Academy catalogue, but this Program changed. Reload and select the name to link it.'),{status:409});}
         state.pending.body.referenceRevision=latest.referenceRevision;state.pending.linkStarted=true;keepPending();
       }
-      await api('manage-save',state.pending.body);sessionStorage.removeItem(storageKey);state.pending=null;state.edit=null;await load();message(state.kind==='progress'?'Class module status saved. Other classes and timetable lessons are unchanged.':'Row saved. It is now available to the timetable.');
-    }catch(error){if(error.status&&error.status<500){sessionStorage.removeItem(storageKey);state.pending=null;}throw error;}
+      await api('manage-save',state.pending.body);sessionStorage.removeItem(storageKey);state.pending=null;state.edit=null;rememberDraft();await load();message(state.kind==='progress'?'Class module status saved. Other classes and timetable lessons are unchanged.':'Row saved. It is now available to the timetable.');
+    }catch(error){
+      if(!state.pending){render();throw new Error('Your row was saved, but the latest records could not be loaded. Press Refresh records.');}
+      if(error.code==='ROW_CHANGED'){
+        const pending=state.pending;
+        if(pending.subjectResolved)state.edit.record=structuredClone(pending.body.record);
+        sessionStorage.removeItem(storageKey);state.pending=null;
+        const merged=reconcile(error.currentRecord,error.rowRevision);render();
+        if(merged&&automaticRetry)return save(false);
+        if(merged)throw new Error('Records changed again. Your entry is kept; press Save to try again.');
+        message('This record changed elsewhere. Your entry is kept. Review both versions below.',true);return;
+      }
+      if(automaticRetry&&(!error.status||error.status>=500||error.code==='RECOVERY_REQUIRED')){
+        message('Recovering the interrupted save. Your entry is kept…');
+        await api('recover',{},Boolean(state.pending.createSubject&&!state.pending.linkStarted));
+        return save(false);
+      }
+      if(error.status&&error.status<500&&error.code!=='RECOVERY_REQUIRED'){
+        if(state.pending.subjectResolved)state.edit.record=structuredClone(state.pending.body.record);
+        sessionStorage.removeItem(storageKey);state.pending=null;render();
+      }
+      throw error;
+    }
   }
   $('pm-add').onclick=()=>{if(state.edit||state.busy||state.pending||state.importPending)return;if(state.overview){state.overview=false;state.kind='modules';}const def=defs[state.kind],record=Object.fromEntries(def.columns.map(([key])=>[key,key==='Active'?true:key==='Status'?'ACTIVE':key==='SortOrder'?0:'']));if(def.prefix)record[def.key]=`${def.prefix}-${crypto.randomUUID()}`;state.edit={record,creating:true,originalId:record[def.key]};state.search='';$('pm-search').value='';render();$('pm-rows').querySelector('input,select')?.focus();};
   $('pm-tabs').onclick=event=>{const key=event.target.closest('[data-tab]')?.dataset.tab;if(!key||state.busy)return;if(state.edit||state.pending||state.importPending){message('Save or cancel the current row before changing sections.',true);return;}state.overview=key==='overview';if(!state.overview)state.kind=key;state.search='';$('pm-search').value='';render();};
@@ -132,15 +184,18 @@
   };
   $('pm-search').oninput=event=>{state.search=event.target.value;render();};
   $('pm-rows').onclick=event=>{if(state.busy||state.pending)return;const button=event.target.closest('button');if(!button)return;if(button.hasAttribute('data-save'))void work(save);else if(button.hasAttribute('data-cancel')){state.edit=null;render();message('Unsaved row changes discarded.');}else if(button.dataset.edit&&!state.edit){const row=state.data.rows[state.kind].find(r=>r[defs[state.kind].key]===button.dataset.edit);state.edit={record:{...row,Active:active(row.Active)},creating:false,originalId:button.dataset.edit,originalSubjectID:row.SubjectID};render();}};
-  $('pm-rows').addEventListener('input',event=>{const key=event.target.dataset.field;if(key&&state.edit&&!state.busy&&!state.pending)state.edit.record[key]=key==='Active'?event.target.value==='true':event.target.value;});
-  $('pm-rows').addEventListener('change',event=>{const key=event.target.dataset.field;if(!key||!state.edit||state.busy||state.pending)return;state.edit.record[key]=key==='Active'?event.target.value==='true':event.target.value;if(key==='SubjectID'){render();$('pm-rows').querySelector('[data-field=NewSubjectName]')?.focus();}if(key==='ProgramSubjectID'&&state.kind==='modules'){state.edit.record.LevelID='';render();}});
+  $('pm-rows').addEventListener('input',event=>{const key=event.target.dataset.field;if(key&&state.edit&&!state.busy&&!state.pending){state.edit.record[key]=key==='Active'?event.target.value==='true':event.target.value;rememberDraft();if(state.edit.conflict)renderConflict();}});
+  $('pm-rows').addEventListener('change',event=>{const key=event.target.dataset.field;if(!key||!state.edit||state.busy||state.pending)return;state.edit.record[key]=key==='Active'?event.target.value==='true':event.target.value;rememberDraft();if(key==='SubjectID'){render();$('pm-rows').querySelector('[data-field=NewSubjectName]')?.focus();}if(key==='ProgramSubjectID'&&state.kind==='modules'){state.edit.record.LevelID='';render();}});
   $('pm-prepare').onclick=()=>work(async()=>{await api('prepare');await load();});
   $('pm-retry').onclick=()=>work(save);
-  $('pm-reload').onclick=()=>{if(state.edit||state.pending)$('pm-discard-warning').hidden=false;else void work(load);};
-  $('pm-keep').onclick=()=>{$('pm-discard-warning').hidden=true;};
-  $('pm-discard').onclick=()=>{if(state.pending){message('Confirm the pending save using Retry or Recover before discarding.',true);return;}$('pm-discard-warning').hidden=true;void work(load);};
-  $('pm-export').onclick=()=>{const url=URL.createObjectURL(new Blob([JSON.stringify({programId,kind:state.kind,record:state.edit?.record},null,2)],{type:'application/json'})),link=document.createElement('a');link.href=url;link.download='program-management-row.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
-  $('pm-recover').onclick=()=>work(async()=>{if(state.pending?.createSubject&&!state.pending.linkStarted){await api('recover',{},true);await save();return;}await api('recover');if(state.pending){sessionStorage.removeItem(storageKey);state.pending=null;}if(state.edit){state.data.revision='stale';render();message('Recovery completed. Your edited row is kept; download it and reload before reapplying changes.');}else await load();});
+  $('pm-reload').onclick=()=>work(load);
+  $('pm-use-mine').onclick=()=>work(async()=>{
+    const edit=state.edit,conflict=edit?.conflict;if(!conflict?.currentRecord)return;
+    edit.baseRecord=structuredClone(conflict.currentRecord);edit.baseRowRevision=conflict.rowRevision;
+    edit.creating=false;delete edit.conflict;render();await save();
+  });
+  $('pm-use-saved').onclick=()=>work(async()=>{state.edit=null;rememberDraft();render();await load();message('Latest saved version loaded. Your unsaved changes were discarded.');});
+  $('pm-recover').onclick=()=>work(async()=>{if(state.pending)await save();else {await api('recover');await load();}});
   $('pm-import-preview').onclick=()=>work(async()=>{
     state.importPreview=await api('import-preview',{},true);
     $('pm-import-list').innerHTML=state.importPreview.subjects.map(r=>`<label><input type="checkbox" value="${esc(r.SourceSubjectID)}" ${!r.Active?'disabled':''}> <span>${esc(r.SubjectName)}</span><small>${!r.Active?'Archived — unavailable':r.existing?(state.data.rows.subjects.some(s=>s.SubjectID===r.existing.SubjectID)?'Already in this Program':'In Academy catalogue — add to this Program'):'New Academy subject'}</small></label>`).join('')||'<p>No subjects found in Reboot.</p>';
@@ -182,5 +237,5 @@
   });
   document.addEventListener('keydown',event=>{if((event.ctrlKey||event.metaKey)&&event.key==='Enter'&&state.edit&&!state.busy&&!state.pending){event.preventDefault();void work(save);}});
   window.addEventListener('beforeunload',event=>{if(state.edit||state.pending||state.importPending){event.preventDefault();event.returnValue='';}});
-  void work(load);
+  void work(async()=>{await load();if(state.pending)await save();});
 })();

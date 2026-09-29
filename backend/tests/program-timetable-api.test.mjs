@@ -121,7 +121,7 @@ const binding={getByName(name){names.push(name);if(!coordinators.has(name)){
   if(name.endsWith(':academy-subjects'))return {user,service:academySubjectService(academySubjectRepository(fresh))};
   const program=await timetableProgram(fresh,id);return {user,service:timetableService(timetableRepository(fresh,program),program)};
  }));}
- return {async catalogRun(action,body,auth){return this.run(action,body,auth);},async run(action,body,auth){try{return {success:true,...await coordinators.get(name).run(action,body,auth)};}catch(e){return {success:false,status:e.publicMessage?e.status:503,error:e.publicMessage||'Uncertain write'};}}};
+ return {async catalogRun(action,body,auth){return this.run(action,body,auth);},async run(action,body,auth){try{return {success:true,...await coordinators.get(name).run(action,body,auth)};}catch(e){return {success:false,...(e.code?{code:e.code,currentRecord:e.currentRecord,rowRevision:e.rowRevision}:{}),status:e.publicMessage?e.status:503,error:e.publicMessage||'Uncertain write'};}}};
 }};
 async function tt(action,body={},auth=token,expected=200,method='POST'){
  const response=await worker.fetch(new Request(`https://worker.test/api/admin/platform/program-timetable/${action}`,{method,headers:{'Content-Type':'application/json',...(auth?{Authorization:`Bearer ${auth}`}:{})},...(method==='POST'?{body:typeof body==='string'?body:JSON.stringify({id:input.id,...body})}:{})}),env);
@@ -180,6 +180,15 @@ try{
  const stale=edit('classes',{ClassID:'CLS-STALE',Name:'Stale',Active:true});
  await saveRow('levels',{LevelID:'LVL-TEST',ProgramSubjectID:'PS-TAFSEER',Name:'Introductory',SortOrder:1,Active:true});
  await tt('manage-save',stale,token,409);
+ // New clients compare the actual row, so unrelated edits no longer block additions.
+ const independent={...stale,operationId:crypto.randomUUID(),baseRowRevision:management.emptyRowRevision};
+ await tt('manage-save',independent);
+ management=await tt('manage-get');
+ const sameRow={...edit('classes',{ClassID:'CLS-STALE',Name:'My class edit',Active:true},false),baseRowRevision:management.rowRevisions.classes['CLS-STALE']};
+ await saveRow('classes',{ClassID:'CLS-STALE',Name:'Other class edit',Active:true},false);
+ const rowConflict=await tt('manage-save',sameRow,token,409);
+ assert.equal(rowConflict.code,'ROW_CHANGED');assert.equal(rowConflict.currentRecord.Name,'Other class edit');assert(rowConflict.rowRevision);
+
  await saveRow('modules',{ProgramModuleID:'MOD-TEST',ProgramSubjectID:'PS-TAFSEER',LevelID:'',Name:'No level module',SortOrder:2,Active:true});
  await tt('manage-save',edit('modules',{ProgramModuleID:'MOD-WRONG',ProgramSubjectID:'PS-TAFSEER',LevelID:'MISSING',Name:'Wrong level',Active:true}),token,400);
  await saveRow('modules',{ProgramModuleID:'MOD-LEVEL',ProgramSubjectID:'PS-TAFSEER',LevelID:'LVL-TEST',Name:'Level module',SortOrder:3,Active:true});
@@ -202,9 +211,9 @@ try{
  assert((await tt('manage-save',lostManagement)).replayed);
  assert.equal(table(targetId,'ProgramManagementState').length,revisionCount);
  management=await tt('manage-get');
- // A changed central account blocks stale reference choices.
- const revokedReference=edit('teachers',{AccountID:'ACCOUNT1',Active:true});
- table(platformId,'UserAccounts')[2][5]=false;await tt('manage-save',revokedReference,token,409);table(platformId,'UserAccounts')[2][5]=true;
+ // A selected account is validated fresh; inactive accounts cannot be assigned.
+ const revokedReference=edit('teachers',{AccountID:'ACCOUNT2',Active:true},false);
+ table(platformId,'UserAccounts')[2][5]=false;await tt('manage-save',revokedReference,token,400);table(platformId,'UserAccounts')[2][5]=true;
  management=await tt('manage-get');
  await saveRow('teachers',{AccountID:'ACCOUNT2',Active:false},false);
  assert(!(await tt('preview',{draft:managedDraft})).valid);

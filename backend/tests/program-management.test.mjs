@@ -62,3 +62,18 @@ const unchanged=applyManagementChange({snapshot:archived},{kind:'subject-import'
 assert.deepEqual(unchanged.record,{added:0,alreadyLinked:1,archived:1});assert.deepEqual(unchanged.snapshot,archived);
 console.log('Program import: single/multiple selection, canonical deduplication, archived preservation, atomic failure, stale revisions and replay/recovery passed.');
 console.log('Program management: shared subjects, level scope, duplicates, archive guards, authority, concurrent edits, recovery and late-write preservation passed.');
+
+// Per-row revisions permit unrelated work while rejecting stale edits to the same row.
+view=await service.read('manage-get');
+const rowEdit=(record,creating=false)=>({...input(record,'classes',creating),baseRowRevision:view.rowRevisions.classes[record.ClassID]||view.emptyRowRevision});
+const independent=[rowEdit({ClassID:'CLS-A',Name:'Independent A',Active:true},true),rowEdit({ClassID:'CLS-B',Name:'Independent B',Active:true},true)];
+await Promise.all(independent.map(body=>coordinator.run('manage-save',body,'token')));
+view=await service.read('manage-get');
+const first=rowEdit({ClassID:'CLS-A',Name:'Renamed A',Active:true});
+const conflict=rowEdit({ClassID:'CLS-A',Name:'Conflicting A',Active:true});
+await coordinator.run('manage-save',first,'token');
+await assert.rejects(coordinator.run('manage-save',conflict,'token'),error=>error.code==='ROW_CHANGED'&&error.currentRecord.Name==='Renamed A'&&Boolean(error.rowRevision));
+const retained=rowEdit({ClassID:'CLS-B',Name:'Independent B updated',Active:true});
+f.shared.accounts.push({AccountID:'UNRELATED',DisplayName:'Unrelated account',Active:true});
+await coordinator.run('manage-save',retained,'token');
+console.log('Row revisions: independent concurrent additions, unrelated references and same-row conflicts passed.');

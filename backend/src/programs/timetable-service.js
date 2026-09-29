@@ -1,4 +1,4 @@
-import { managementState, managementView, applyManagementChange } from './management-model.js';
+import { managementState, managementView, applyManagementChange, MANAGEMENT_KINDS, managementRowRevision } from './management-model.js';
 import { problem } from './model.js';
 import { TIMETABLE_SCHEMA, payloadHash, emptyDraft, normalizeDraft, validateTimetable, boundedJSON, publishedOccurrences } from './timetable-model.js';
 export function timetableService(repository,program) {
@@ -48,7 +48,13 @@ export function timetableService(repository,program) {
         const data=await repository.load();
         if(!data.prepared)throw problem('Prepare the management tables first.',409);
         const current=managementState(data,program),shared=await repository.managementReferences(data);
-        if(input.revision!==current.revision||input.referenceRevision!==await payloadHash(shared))throw problem('Program data or Academy references changed. Your edits are kept; reload before saving.',409);
+        const spec=MANAGEMENT_KINDS[input.kind];
+        const currentRecord=spec?current.snapshot[spec.table].find(r=>r[spec.key]===input.record?.[spec.key])||null:null;
+        const rowRevision=await managementRowRevision(currentRecord);
+        const changed=spec&&typeof input.baseRowRevision==='string'?input.baseRowRevision!==rowRevision:input.revision!==current.revision;
+        if(changed)throw Object.assign(problem(`The saved ${input.kind==='progress'?'class status':input.kind==='modules'?'module':'record'} changed since editing began. Your draft is kept. Review the saved row and your changes.`,409),{code:'ROW_CHANGED',currentRecord,rowRevision});
+        // Validate against fresh references below. An unrelated account/catalogue change
+        // must not reject this row; inactive/missing selections still fail validation.
         const {snapshot,record}=applyManagementChange(current,input,shared,program);
         const snapshotJSON=JSON.stringify(snapshot);
         if(snapshotJSON.length>40000)throw problem('This Program has reached the current management storage limit. No changes were saved.');

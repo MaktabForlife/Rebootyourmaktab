@@ -29,6 +29,10 @@ export function managementState(data, program) {
   if(progress.some(r=>!clean(r.ProgramModuleID)||!clean(r.ClassID)||!['ACTIVE','INACTIVE','COMPLETED'].includes(r.Status))||new Set(progress.map(r=>JSON.stringify([r.ProgramModuleID,r.ClassID]))).size!==progress.length)throw problem('Module progress has invalid or duplicate records.',409);
   return {snapshot,revision:latest?.Revision||'',sequence:Number(latest?.Sequence||0)};
 }
+export function managementRowRevision(record) {
+  // Sheet position is metadata, not a change to the record being edited.
+  return payloadHash(record?Object.fromEntries(Object.entries(record).filter(([key])=>key!=='_rowNumber')):null);
+}
 export async function managementView(data, repository, program) {
   const current=managementState(data,program), shared=await repository.managementReferences(data);
   const rows=Object.fromEntries(Object.entries(MANAGEMENT_KINDS).map(([kind,{table}])=>[kind,current.snapshot[table].map(r=>({...r}))]));
@@ -36,7 +40,9 @@ export async function managementView(data, repository, program) {
   for(const teacher of shared.grantedTeachers) if(!rows.teachers.some(r=>r.AccountID===teacher.AccountID)) rows.teachers.push({AccountID:teacher.AccountID,Active:true});
   for(const kind of ['levels','modules'])rows[kind].sort((a,b)=>Number(a.SortOrder||0)-Number(b.SortOrder||0));
   const referenceRevision=await payloadHash(shared);
-  return {program,prepared:data.prepared,revision:current.revision,referenceRevision,rows,sharedSubjects:shared.subjects,accounts:shared.accounts};
+  const rowRevisions={};
+  for(const [kind,{table,key}] of Object.entries(MANAGEMENT_KINDS))rowRevisions[kind]=Object.fromEntries(await Promise.all(current.snapshot[table].map(async record=>[record[key],await managementRowRevision(record)])));
+  return {program,prepared:data.prepared,revision:current.revision,referenceRevision,rowRevisions,emptyRowRevision:await managementRowRevision(null),rows,sharedSubjects:shared.subjects,accounts:shared.accounts};
 }
 export function applyManagementChange(current, input, shared, program) {
   if(input.kind==='subject-import') {

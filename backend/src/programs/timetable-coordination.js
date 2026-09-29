@@ -21,7 +21,7 @@ export function timetableCoordinator(journal, open) {
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(input.operationId||'')) throw problem('This change needs a valid retry identifier.');
     const hash=await payloadHash({action,input});
     if (pending) {
-      if (pending.operationId!==input.operationId||pending.hash!==hash) throw problem('An earlier change needs recovery. Recover it before saving new edits.',409);
+      if (pending.operationId!==input.operationId||pending.hash!==hash) throw Object.assign(problem('An earlier change needs recovery. Your entry is kept.',409),{code:'RECOVERY_REQUIRED'});
       return finish(service,pending);
     }
     const receipt=await service.receipt(input.operationId,hash);
