@@ -225,3 +225,17 @@ for(const [kind,record,destination] of [
   await clickRow({'data-cancel':true});assert.equal(element('pm-caption').textContent,destination);
 }
 console.log('Management UI: upgrade retains drafts from removed sections without restoring their tabs.');
+
+// A draft standard selection keeps its label when another module creates that level meanwhile.
+element('pm-tabs').onclick({target:{closest:()=>({dataset:{tab:'modules'}})}});
+await clickRow({edit:'MOD-DEMO'});input('LevelID','standard:Intermediate');
+management=await service.read('manage-get');
+await coordinator.run('manage-save',{id:f.program.id,operationId:crypto.randomUUID(),kind:'modules',creating:true,baseRowRevision:management.emptyRowRevision,record:{ProgramModuleID:'MOD-OTHER',ProgramSubjectID:'PS-TAFSEER',LevelID:'standard:Intermediate',Name:'Other administrator module',Active:true}},'token');
+await element('pm-reload').onclick();
+assert.match(element('pm-rows').innerHTML,/value="standard:Intermediate" selected>Intermediate<\/option>/);
+assert(!element('pm-rows').innerHTML.includes('Unavailable: standard:'));
+await clickRow({'data-save':true});
+management=await service.read('manage-get');
+assert.equal(management.rows.modules.find(r=>r.ProgramModuleID==='MOD-DEMO').LevelID,management.rows.modules.find(r=>r.ProgramModuleID==='MOD-OTHER').LevelID);
+assert.equal(management.rows.levels.filter(r=>r.Name==='Intermediate').length,1);
+console.log('Management UI: refreshed standard-level draft keeps its label and reuses the newly created level.');

@@ -57,7 +57,7 @@
     if(type==='programSubject')return data.rows.subjects.map(r=>({id:r.ProgramSubjectID,name:data.sharedSubjects.find(s=>s.SubjectID===r.SubjectID)?.SubjectName||r.SubjectID,active:active(r.Active)&&data.sharedSubjects.some(s=>s.SubjectID===r.SubjectID&&active(s.Active))}));
     if(type==='level'){
       const levels=data.rows.levels.filter(r=>r.ProgramSubjectID===row.ProgramSubjectID);
-      const values=(data.standardLevels||['Beginner','Intermediate','Advanced']).map(name=>{const level=levels.find(r=>active(r.Active)&&String(r.Name||'').trim().toLowerCase()===name.toLowerCase());return {id:level?.LevelID||`standard:${name}`,name};});
+      const values=(data.standardLevels||['Beginner','Intermediate','Advanced']).map(name=>{const level=levels.find(r=>active(r.Active)&&String(r.Name||'').trim().toLowerCase()===name.toLowerCase());return {id:row.LevelID===`standard:${name}`?row.LevelID:level?.LevelID||`standard:${name}`,name};});
       const previous=levels.find(r=>r.LevelID===row.LevelID);
       if(previous&&!values.some(v=>v.id===previous.LevelID))values.push({id:previous.LevelID,name:`${previous.Name} — existing level`,active:previous.Active});
       return values;
