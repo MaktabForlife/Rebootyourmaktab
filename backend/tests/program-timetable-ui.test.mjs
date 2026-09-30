@@ -5,7 +5,8 @@ import {timetableFixture} from '../../scripts/program-timetable-fixtures.mjs';
 import {readWeeklyDraft} from '../src/programs/weekly-timetable.js';
 import {timetableService} from '../src/programs/timetable-service.js';
 import {timetableCoordinator} from '../src/programs/timetable-coordination.js';
-const source=await readFile(new URL('../../js/m4l-program-timetable.js',import.meta.url),'utf8'),markup=await readFile(new URL('../../programs/timetable.html',import.meta.url),'utf8');
+const source=await readFile(new URL('../../js/m4l-program-timetable.js',import.meta.url),'utf8'),plannerSource=await readFile(new URL('../../js/m4l-timetable-planner.js',import.meta.url),'utf8'),markup=await readFile(new URL('../../programs/timetable.html',import.meta.url),'utf8');
+assert.match(markup,/js\/m4l-timetable-planner\.js/);assert.match(markup,/id="tt-planner"/);assert.match(markup,/id="tt-board"/);
 assert.match(markup,/<th>Subject \/ Module<\/th><th>Classes<\/th><th>Teacher<\/th><th>Weekdays<\/th><th>Start<\/th><th>End<\/th>/);
 assert(!/Classes learning together|<th>Pattern|First date|Last date|Publication window|tt-exceptions/.test(markup));
 assert(!/id="tt-view"|id="tt-adjust"|id="tt-layout"|All classes/.test(markup));
@@ -28,6 +29,7 @@ const click=async id=>{await element(id).onclick();await settled();};
 function edit(field,value){const target={dataset:{field},value,closest:()=>({dataset:{row:'RULE-DEMO'}})};element('tt-editor').events.input({target});element('tt-editor').events.focusout({target});return target.value;}
 context.window.M4L_TIMETABLE_PRESENTATION ||= {model:()=>({}),html:()=>'<span>Lesson Zoom</span>',canvases:()=>[]};
 context.window.M4L_TIMETABLE_BLOCKS={model:(result,options)=>{blockOptions.push(options);return {timetableName:options.teacherId?'Teacher A':'Year 1'};},html:model=>`<svg>${model.timetableName} block timetable</svg>`,canvases:()=>[]};
+vm.runInNewContext(plannerSource,context);
 vm.runInNewContext(source,context);await settled();
 assert.match(element('tt-rules').innerHTML,/<summary>Year 1 · Demo, Year 2 · Demo<\/summary>/);
 assert.match(element('tt-rules').innerHTML,/data-field="zoomLink"/);

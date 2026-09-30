@@ -1,4 +1,4 @@
-/* V105.3.3.4 — block-only class and teacher timetable previews and exports. */
+/* V105.3.4 — weekly timetable with assisted manual planning. */
 (()=>{'use strict';
   const $=id=>document.getElementById(id),esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const id=new URLSearchParams(location.search).get('program'),storageKey=`m4l-timetable-pending:${id}`,draftKey=`m4l-timetable-draft:${id}`,format='105.3.2.2-weekly';
@@ -22,6 +22,7 @@
   function controls(){
     const locked=state.busy||Boolean(state.pending),needsReview=state.conversion?.required&&!state.converted,ready=state.data?.prepared&&state.data?.coordinatorAvailable&&state.data?.program.status==='DRAFT'&&!needsReview;
     $('tt-editor').disabled=locked||!ready;
+    $('tt-planner').disabled=locked||!ready;
     for(const name of ['save','validate','preview'])$(`tt-${name}`).disabled=locked||!ready;
     $('tt-save').disabled||=!dirty();$('tt-publish').disabled=locked||!ready||!state.preview?.valid;
     $('tt-effective-from').disabled=locked;$('tt-preview-type').disabled=locked;$('tt-preview-target').disabled=locked||!$('tt-preview-target').value;
@@ -32,9 +33,11 @@
     $('tt-save-state').textContent=state.pending?'Change not confirmed':dirty()?'Unsaved draft changes':'Saved draft';
   }
   async function work(fn){if(state.busy)return;state.busy=true;controls();try{await fn();}catch(error){message(error.message,true);}finally{state.busy=false;controls();}}
-  function invalidate(){exportGeneration++;exportPages=null;exportFiles=null;state.preview=null;$('tt-publish-options').hidden=true;$('tt-preview-panel').hidden=true;$('tt-validation').hidden=true;remember();controls();}
+  function invalidate(){exportGeneration++;exportPages=null;exportFiles=null;state.preview=null;$('tt-publish-options').hidden=true;$('tt-preview-panel').hidden=true;$('tt-validation').hidden=true;remember();controls();planner?.render();}
   function options(rows,selected,empty='Choose…'){return `<option value="">${esc(empty)}</option>`+rows.map(row=>`<option value="${esc(row.id)}" ${row.id===selected?'selected':''}>${esc(row.name)}</option>`).join('')+(selected&&!rows.some(r=>r.id===selected)?`<option selected value="${esc(selected)}">Unavailable: ${esc(selected)}</option>`:'');}
   function modules(){const c=state.data.catalog;return [...c.subjects.filter(s=>s.active).map(s=>({id:'subject:'+s.id,name:s.name+' · Subject only'})),...c.modules.filter(m=>m.active).map(m=>{const s=c.subjects.find(s=>s.id===m.programSubjectId),l=c.levels.find(l=>l.id===m.levelId);return {id:m.id,name:`${m.name} · ${s?.name||'Missing subject'}${l?` / ${l.name}`:''}`};})];}
+  const planner=window.M4L_ASSISTED_PLANNER?.mount({state,$,esc,days,modules,changed:()=>{invalidate();render();},locked:()=>state.busy||Boolean(state.pending)||!state.data?.prepared||!state.data?.coordinatorAvailable||state.data?.program.status!=='DRAFT'||Boolean(state.conversion?.required&&!state.converted)});
+  if(planner)$('tt-undo-placement').onclick=()=>planner.undo();
   const rowLabel=ruleId=>{const b=(state.draft.breaks||[]).findIndex(r=>r.id===ruleId);if(b>=0)return `Break ${b+1}`;const n=state.draft.rules.findIndex(r=>r.id===ruleId);return n<0?'Timetable':`Lesson ${n+1}`;};
   const anchorLabel=anchor=>{const [ruleId,day]=anchor.split('@');return `${rowLabel(ruleId)} · ${days[Number(day)]||day}`;};
   const classNames=row=>row.classIds.map(id=>state.data.catalog.classes.find(c=>c.id===id)?.name||`Unavailable: ${id}`).join(', ')||'Choose classes';
@@ -61,6 +64,7 @@
     $('tt-live-state').textContent=(current?`In effect · Version ${current.version}`:'No timetable in effect')+scheduled.map(p=>` · Version ${p.version} from ${p.effectiveFrom}`).join('');
     $('tt-rules').innerHTML=state.draft.rules.map((row,i)=>`<tr data-row="${esc(row.id)}"><td><select data-field="moduleId" aria-label="Module for lesson ${i+1}">${options(modules(),row.moduleId||(row.programSubjectId?'subject:'+row.programSubjectId:''))}</select></td><td><details><summary>${esc(classNames(row))}</summary>${c.classes.filter(c=>c.active||row.classIds.includes(c.id)).map(cls=>`<label class="tt-class-choice"><input type="checkbox" data-class="${esc(cls.id)}" ${row.classIds.includes(cls.id)?'checked':''}>${esc(cls.name)}${cls.active?'':' (inactive)'}</label>`).join('')}${row.classIds.filter(id=>!c.classes.some(c=>c.id===id)).map(id=>`<label class="tt-class-choice"><input type="checkbox" data-class="${esc(id)}" checked>Unavailable: ${esc(id)}</label>`).join('')}</details></td><td><select data-field="teacherId" aria-label="Teacher for lesson ${i+1}">${options(c.teachers,row.teacherId,'Not assigned (optional)')}</select></td><td><div class="tt-days">${[1,2,3,4,5,6,0].map(n=>`<label>${days[n].slice(0,2)}<input type="checkbox" data-day="${n}" aria-label="${days[n]} for lesson ${i+1}" ${row.weekdays.includes(n)?'checked':''}></label>`).join('')}</div></td><td>${field(row,'startTime')}</td><td>${field(row,'endTime')}</td><td class="tt-zoom-cell">${zoomField(row)}</td><td><button type="button" data-remove="${esc(row.id)}" class="pb-secondary" aria-label="Remove lesson ${i+1}">×</button></td></tr>`).join('')||'<tr><td colspan="8" class="tt-empty">Add a subject or module lesson to start your weekly timetable.</td></tr>';
     renderBreaks();
+    planner?.render();
     $('tt-effective-from').value=state.effectiveFrom||state.data.today;$('tt-effective-from').min=state.data.today;
     $('tt-effective-note').textContent=`The new timetable applies from this date in ${state.data.effectiveTimezone}. The current version continues until then; there is no end date.`;
     controls();
@@ -195,7 +199,7 @@
       const latest=await api('get');state.data=latest;state.baseline=JSON.stringify(latest.draft);
       const snapshot=publication.snapshot;
       state.conversion=latest.conversion;state.converted=false;
-      state.draft=displayDraft(snapshot.format===format?{format,timezone:snapshot.timezone,...(snapshot.breaks?{breaks:structuredClone(snapshot.breaks)}:{}),...(snapshot.layout?{layout:structuredClone(snapshot.layout)}:{}),rules:snapshot.rules.map(r=>({id:r.id,moduleId:r.moduleId,programSubjectId:r.programSubjectId||'',teacherId:r.teacherId,classIds:[...r.classIds],weekdays:[...r.weekdays],startTime:r.startTime,endTime:r.endTime,zoomLink:r.effectiveZoomLink||r.zoomLink||''}))}:snapshot);
+      state.draft=displayDraft(snapshot.format===format?{format,timezone:snapshot.timezone,...(snapshot.breaks?{breaks:structuredClone(snapshot.breaks)}:{}),...(snapshot.layout?{layout:structuredClone(snapshot.layout)}:{}),...(latest.draft.planner?{planner:structuredClone(latest.draft.planner)}:{}),rules:snapshot.rules.map(r=>({id:r.id,moduleId:r.moduleId,programSubjectId:r.programSubjectId||'',teacherId:r.teacherId,classIds:[...r.classIds],weekdays:[...r.weekdays],startTime:r.startTime,endTime:r.endTime,zoomLink:r.effectiveZoomLink||r.zoomLink||''}))}:snapshot);
       state.effectiveFrom=latest.today;invalidate();render();
       message(`Version ${publication.version} copied into an editable draft. Preview and publish to create a new version.`);
     });

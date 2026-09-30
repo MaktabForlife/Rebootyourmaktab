@@ -1,3 +1,9 @@
+# V105.3.4 — Assisted manual timetable planner
+
+Set up period times, teacher availability and weekly teaching targets, then place lessons on a class planning board. The board explains conflicts, tracks teacher hours and unmet requirements, and supports moving or undoing placements. Planner settings stay in the saved draft; publication still uses the existing preview and effective-date flow. [Scope, use and verification](docs/V105.3.4-ASSISTED-TIMETABLE-PLANNER.md).
+
+Development only; Academy acceptance remains open.
+
 # V105.3.3.4 — Class and teacher timetables
 
 Blocks is now the only timetable preview. Select one class or one assigned teacher for the preview and its PNG/PDF export. The Academy and selected name form the heading; version, effective date and timezone appear in the footnote. Lesson blocks omit the name already stated in the heading. [Scope and verification](docs/V105.3.3.4-CLASS-TEACHER-TIMETABLES.md).

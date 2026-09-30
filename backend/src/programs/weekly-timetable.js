@@ -11,6 +11,21 @@ export function programToday(timezone,now=new Date()){
   catch {throw problem('Choose a valid Program timezone before publishing.');}
 }
 export const emptyWeeklyDraft=timezone=>({format:WEEKLY_SCHEMA,timezone:timezone||'',rules:[]});
+export function normalizePlanner(input){
+  if(!input||typeof input!=='object'||Array.isArray(input))throw problem('Invalid timetable planner.');
+  const arrays=['periods','requirements','availability','limits'];
+  for(const key of arrays)if(input[key]!==undefined&&!Array.isArray(input[key]))throw problem(`Invalid planner ${key}.`);
+  const periods=(input.periods||[]).map(row=>({id:text(row?.id),startTime:normalizeTime(row?.startTime),endTime:normalizeTime(row?.endTime)}));
+  const requirements=(input.requirements||[]).map(row=>({id:text(row?.id),programSubjectId:text(row?.programSubjectId),moduleId:text(row?.moduleId),classId:text(row?.classId),teacherId:text(row?.teacherId),weeklyMinutes:Number(row?.weeklyMinutes)}));
+  const availability=(input.availability||[]).map(row=>({teacherId:text(row?.teacherId),preferred:Array.isArray(row?.preferred)?row.preferred.map(text):null,unavailable:Array.isArray(row?.unavailable)?row.unavailable.map(text):null}));
+  const limits=(input.limits||[]).map(row=>({teacherId:text(row?.teacherId),maxWeeklyMinutes:Number(row?.maxWeeklyMinutes)}));
+  if(periods.length>16||requirements.length>100||availability.length>100||limits.length>100)throw problem('The timetable planner has too many entries.');
+  if(periods.some(row=>!/^PERIOD-[\w-]{1,80}$/.test(row.id))||new Set(periods.map(row=>row.id)).size!==periods.length)throw problem('Planner periods need unique IDs.');
+  if(requirements.some(row=>!/^NEED-[\w-]{1,80}$/.test(row.id))||new Set(requirements.map(row=>row.id)).size!==requirements.length)throw problem('Teaching requirements need unique IDs.');
+  if(availability.some(row=>!row.teacherId||!row.preferred||!row.unavailable||row.preferred.length+row.unavailable.length>112||[...row.preferred,...row.unavailable].some(key=>!/^([0-6]):PERIOD-[\w-]{1,80}$/.test(key))||new Set([...row.preferred,...row.unavailable]).size!==row.preferred.length+row.unavailable.length)||new Set(availability.map(row=>row.teacherId)).size!==availability.length)throw problem('Invalid or duplicate teacher availability.');
+  if(limits.some(row=>!row.teacherId||!Number.isInteger(row.maxWeeklyMinutes)||row.maxWeeklyMinutes<0||row.maxWeeklyMinutes>10080)||new Set(limits.map(row=>row.teacherId)).size!==limits.length)throw problem('Invalid teacher teaching-hour limit.');
+  return {periods,requirements,availability,limits};
+}
 export function normalizeLayout(value={}){
   if(!value||typeof value!=='object'||Array.isArray(value))throw problem('Invalid timetable layout.');
   const sizes=(input,pattern,min,max)=>{
@@ -46,6 +61,7 @@ export function normalizeWeeklyDraft(input){
     if(new Set(draft.breaks.map(r=>r.id)).size!==draft.breaks.length)throw problem('Break IDs must be unique.');
   }
   if(input.layout!==undefined)draft.layout=normalizeLayout(input.layout);
+  if(input.planner!==undefined)draft.planner=normalizePlanner(input.planner);
   boundedJSON(draft);return draft;
 }
 export function readWeeklyDraft(input){
@@ -64,6 +80,50 @@ function hasWeekday(start,end,weekday){
   const day=new Date(`${start}T00:00:00Z`).getUTCDay();
   const first=new Date(Date.parse(`${start}T00:00:00Z`)+((weekday-day+7)%7)*86400000).toISOString().slice(0,10);
   return first<=end;
+}
+const minutes=value=>Number(value.slice(0,2))*60+Number(value.slice(3,5));
+export function reviewPlanner(draft,catalog){
+  const planner=draft.planner;if(!planner)return {issues:[],teachers:[],requirements:[]};
+  const issues=[],issue=(rowId,field,message)=>issues.push({rowId,field,message});
+  const teachers=new Map((catalog.teachers||[]).map(row=>[row.id,row]));
+  const classes=new Map((catalog.classes||[]).map(row=>[row.id,row]));
+  const modules=new Map((catalog.modules||[]).map(row=>[row.id,row]));
+  const subjects=new Map((catalog.subjects||[]).map(row=>[row.id,row]));
+  const periods=new Map(planner.periods.map(row=>[row.id,row]));
+  for(const period of planner.periods)if(!validTime(period.startTime)||!validTime(period.endTime)||period.startTime>=period.endTime)issue(period.id,'periods','Set a valid start and end time for each planning period.');
+  for(let i=0;i<planner.periods.length;i++)for(let j=i+1;j<planner.periods.length;j++){
+    const a=planner.periods[i],b=planner.periods[j];
+    if(validTime(a.startTime)&&validTime(a.endTime)&&validTime(b.startTime)&&validTime(b.endTime)&&a.startTime<b.endTime&&b.startTime<a.endTime)issue(b.id,'periods','Planning periods cannot overlap.');
+  }
+  const booked=new Map();
+  for(const row of draft.rules){
+    if(!validTime(row.startTime)||!validTime(row.endTime)||row.startTime>=row.endTime)continue;
+    if(row.teacherId)booked.set(row.teacherId,(booked.get(row.teacherId)||0)+(minutes(row.endTime)-minutes(row.startTime))*row.weekdays.length);
+    for(const day of row.weekdays)for(const availability of planner.availability.filter(item=>item.teacherId===row.teacherId))for(const key of availability.unavailable){
+      const [blockedDay,periodId]=key.split(':'),period=periods.get(periodId);
+      if(Number(blockedDay)===day&&period&&validTime(period.startTime)&&validTime(period.endTime)&&row.startTime<period.endTime&&period.startTime<row.endTime)
+        issue(row.id,'teacherId',`${teachers.get(row.teacherId)?.name||'Teacher'} is unavailable on ${['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][day]} ${period.startTime}–${period.endTime}.`);
+    }
+  }
+  for(const row of planner.availability){
+    if(!teachers.get(row.teacherId)?.active)issue('','availability','Remove availability for a teacher who is no longer eligible.');
+    if([...row.preferred,...row.unavailable].some(key=>!periods.has(key.slice(2))))issue('','availability','Availability refers to a missing planning period.');
+  }
+  for(const row of planner.limits){
+    if(!teachers.get(row.teacherId)?.active)issue('','limits','Remove the teaching-hour limit for a teacher who is no longer eligible.');
+    if((booked.get(row.teacherId)||0)>row.maxWeeklyMinutes)issue('','limits',`${teachers.get(row.teacherId)?.name||'Teacher'} exceeds the weekly teaching-hour limit.`);
+  }
+  const seen=new Set(),requirements=[];
+  for(const row of planner.requirements){
+    const key=[row.programSubjectId,row.moduleId,row.classId,row.teacherId].join('|');
+    if(seen.has(key))issue(row.id,'requirements','Combine duplicate teaching requirements.');seen.add(key);
+    if(!classes.get(row.classId)?.active||!teachers.get(row.teacherId)?.active||!subjects.get(row.programSubjectId)?.active||row.moduleId&&(!modules.get(row.moduleId)?.active||modules.get(row.moduleId)?.programSubjectId!==row.programSubjectId))issue(row.id,'requirements','Choose an active class, subject or module, and authorised teacher for each requirement.');
+    if(!Number.isInteger(row.weeklyMinutes)||row.weeklyMinutes<1||row.weeklyMinutes>10080)issue(row.id,'requirements','Enter required weekly teaching time in whole minutes.');
+    const scheduled=draft.rules.filter(rule=>rule.classIds.includes(row.classId)&&rule.teacherId===row.teacherId&&(rule.programSubjectId||modules.get(rule.moduleId)?.programSubjectId)===row.programSubjectId&&rule.moduleId===row.moduleId&&validTime(rule.startTime)&&validTime(rule.endTime)&&rule.startTime<rule.endTime).reduce((total,rule)=>total+(minutes(rule.endTime)-minutes(rule.startTime))*rule.weekdays.length,0);
+    requirements.push({id:row.id,scheduledMinutes:scheduled,requiredMinutes:row.weeklyMinutes,remainingMinutes:Math.max(0,row.weeklyMinutes-scheduled)});
+    if(scheduled<row.weeklyMinutes)issue(row.id,'requirements',`${classes.get(row.classId)?.name||'Class'} needs ${row.weeklyMinutes-scheduled} more teaching minutes for ${modules.get(row.moduleId)?.name||subjects.get(row.programSubjectId)?.name||'this subject'} with ${teachers.get(row.teacherId)?.name||'this teacher'}.`);
+  }
+  return {issues,teachers:[...booked].map(([teacherId,scheduledMinutes])=>({teacherId,scheduledMinutes})),requirements};
 }
 export function weeklyPattern(rules,breaks=[]){
   return [...rules,...breaks.map(b=>({...b,kind:'BREAK',moduleName:b.label,classIds:[],classNames:[]}))].flatMap(r=>r.weekdays.map(weekday=>({anchor:`${r.id}@${weekday}`,ruleId:r.id,kind:r.kind||'LESSON',weekday,moduleId:r.moduleId,programSubjectId:r.programSubjectId,subjectName:r.subjectName,moduleName:r.moduleName,levelName:r.levelName,classIds:r.classIds,classNames:r.classNames,teacherId:r.teacherId,teacherName:r.teacherName,startTime:r.startTime,endTime:r.endTime,zoomLink:r.effectiveZoomLink||'',zoomSource:r.zoomSource||'NONE',status:'SCHEDULED'})))
@@ -112,8 +172,10 @@ export function validateWeeklyTimetable(input,catalog,program,fromDate){
     if(left.some(x=>right.some(y=>x.accountId===y.accountId&&days.some(day=>hasWeekday([asOf,x.startDate,y.startDate].sort().at(-1),[x.endDate||'2099-12-31',y.endDate||'2099-12-31'].sort()[0],day)))))reasons.push('Known learner membership overlap');
     if(reasons.length)conflicts.push({left:`${a.id}@${days[0]}`,right:`${b.id}@${days[0]}`,rowIds:[a.id,b.id],weekdays:days,reasons});
   }
-  const snapshot={schema:WEEKLY_SCHEMA,programId:program.id,programName:program.name,...draft,rules:linked};boundedJSON(snapshot);
-  return {valid:!conflicts.length,issues,conflicts,draft,snapshot,pattern:'WEEKLY',asOf,occurrences:weeklyPattern(linked,breaks),warnings:['Conflict checks cover this Program and known class memberships. Cross-Program checks remain a later integration.']};
+  const plannerReview=reviewPlanner(draft,catalog);issues.push(...plannerReview.issues);
+  const {planner:privatePlanner,...publicDraft}=draft;
+  const snapshot={schema:WEEKLY_SCHEMA,programId:program.id,programName:program.name,...publicDraft,rules:linked};boundedJSON(snapshot);
+  return {valid:!issues.length&&!conflicts.length,issues,conflicts,draft,snapshot,plannerReview,pattern:'WEEKLY',asOf,occurrences:weeklyPattern(linked,breaks),warnings:['Conflict checks cover this Program and known class memberships. Cross-Program checks remain a later integration.']};
 }
 export function publicationRecord(row,program){
   let snapshot;try{snapshot=JSON.parse(row.SnapshotJSON);}catch{throw problem('A published timetable snapshot is damaged.',409);}
