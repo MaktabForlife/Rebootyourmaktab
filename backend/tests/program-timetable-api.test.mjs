@@ -122,7 +122,7 @@ if (useRuntime) {
   worker={fetch:async request=>runtime.dispatchFetch(request.url,{method:request.method,headers:Object.fromEntries(request.headers),...(request.method==='GET'?{}:{body:await request.text()})})};
 }
 const f=timetableFixture();f.draft=readWeeklyDraft(f.draft).draft;
-const input={id:f.program.id,name:'Aalimiya',spreadsheetId:targetId,durationYears:4,timezone:'Asia/Riyadh',status:'DRAFT'};
+const input={id:f.program.id,name:'Aalimiya',spreadsheetId:targetId,durationYears:4,timezone:'Africa/Johannesburg',status:'DRAFT'};
 const journals=new Map(),coordinators=new Map(),names=[];
 const binding={getByName(name){names.push(name);if(!coordinators.has(name)){
  const journal={get:async()=>journals.get(name)||null,set:async p=>journals.set(name,structuredClone(p)),clear:async()=>journals.delete(name)};

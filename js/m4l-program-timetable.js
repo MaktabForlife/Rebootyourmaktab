@@ -1,7 +1,8 @@
-/* V105.3.4 — weekly timetable with assisted manual planning. */
+/* V105.3.4.1 — weekly timetable with class and teacher planning boards. */
 (()=>{'use strict';
   const $=id=>document.getElementById(id),esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const id=new URLSearchParams(location.search).get('program'),storageKey=`m4l-timetable-pending:${id}`,draftKey=`m4l-timetable-draft:${id}`,format='105.3.2.2-weekly';
+  const timezone='Africa/Johannesburg';
   const days=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
   const state={data:null,draft:null,baseline:'',busy:false,pending:null,preview:null,history:[],calendarView:null,conversion:null,converted:false,effectiveFrom:'',audiences:{classes:[],teachers:[]}};
   const inputTime=value=>value.trim().replace(/^(\d{1,2})(\d{2})$/,'$1:$2').replace(/[hH]/,':').replace(/^(\d):(\d{2})$/,'0$1:$2');
@@ -10,9 +11,9 @@
   const message=(text,error=false)=>{$('tt-message').textContent=text;$('tt-message').classList.toggle('is-error',error);};
   function remember(){if(state.draft&&state.data)sessionStorage.setItem(draftKey,JSON.stringify({draft:state.draft,baseline:state.baseline,revision:state.data.revision,effectiveFrom:state.effectiveFrom,converted:state.converted,conversion:state.conversion}));}
   function displayDraft(raw){
-    if(raw.format===format)return {...structuredClone(raw),rules:raw.rules.map(r=>({...r,startTime:inputTime(r.startTime),endTime:inputTime(r.endTime)}))};
+    if(raw.format===format)return {...structuredClone(raw),timezone,rules:raw.rules.map(r=>({...r,startTime:inputTime(r.startTime),endTime:inputTime(r.endTime)}))};
     state.conversion={required:Boolean(raw.exceptions?.length||raw.rules.some(r=>r.kind==='EXPLICIT')),oneOffCount:raw.rules.filter(r=>r.kind==='EXPLICIT').length,exceptionCount:raw.exceptions?.length||0,originalDraft:structuredClone(raw)};
-    return {format,timezone:raw.timezone,rules:raw.rules.filter(r=>r.kind!=='EXPLICIT').map(({startDate,endDate,kind,...rule})=>({...rule,startTime:inputTime(rule.startTime),endTime:inputTime(rule.endTime)}))};
+    return {format,timezone,rules:raw.rules.filter(r=>r.kind!=='EXPLICIT').map(({startDate,endDate,kind,...rule})=>({...rule,startTime:inputTime(rule.startTime),endTime:inputTime(rule.endTime)}))};
   }
   async function api(action,body={}){
     const token=localStorage.getItem('m4l_account_token');if(!token)throw new Error('Sign in through your personal Academy account link first.');
@@ -57,7 +58,7 @@
     $('tt-breaks').innerHTML=(state.draft.breaks||[]).map(row=>`<tr data-row="${esc(row.id)}"><td><input data-field="label" aria-label="Break label" maxlength="80" value="${esc(row.label)}"></td><td>${dayChoices(row)}</td><td>${field(row,'startTime')}</td><td>${field(row,'endTime')}</td><td><button type="button" data-remove="${esc(row.id)}" class="pb-secondary" aria-label="Remove ${esc(row.label)}">×</button></td></tr>`).join('')||'<tr><td colspan="5" class="tt-empty">No breaks added.</td></tr>';
   }
   function render(){
-    const c=state.data.catalog;$('tt-timezone').innerHTML=window.M4L_TIMEZONES.options(state.draft.timezone);$('tt-timezone').value=state.draft.timezone;$('tt-title').textContent=`${state.data.program.name} · Timetable`;
+    const c=state.data.catalog;$('tt-title').textContent=`${state.data.program.name} · Timetable`;
     $('tt-teachers-note').hidden=c.teachers.length>0;
     $('tt-teachers-note').innerHTML=`No eligible teachers yet. In <a href="/users/?program=${encodeURIComponent(id)}">User profiles</a>, give an active user a confirmed Teacher, Senior or Admin role in this program. Teacher selection is optional.`;
     const current=state.data.publications.find(p=>p.id===state.data.currentPublicationId),scheduled=state.data.publications.filter(p=>p.status==='SCHEDULED');
@@ -71,7 +72,6 @@
   }
   async function load(restore=true){
     const result=await api('get');state.data=result;state.conversion=result.conversion;state.converted=false;state.draft=structuredClone(result.draft);state.baseline=JSON.stringify(result.draft);state.preview=null;state.effectiveFrom=result.today;
-    if(!result.revision&&!state.draft.timezone)state.draft.timezone=window.M4L_TIMEZONES.defaultZone;
     try{state.pending=JSON.parse(sessionStorage.getItem(storageKey)||'null');}catch{state.pending=null;}
     if(restore)try{const saved=JSON.parse(sessionStorage.getItem(draftKey)||'null');if(saved&&JSON.stringify(saved.draft)!==saved.baseline){state.draft=displayDraft(saved.draft);state.baseline=saved.baseline;state.data.revision=saved.revision;state.effectiveFrom=saved.effectiveFrom||result.today;state.converted=saved.converted;state.conversion=saved.conversion||state.conversion;}}catch{}
     if(state.pending)state.draft=displayDraft(state.pending.body.draft);
@@ -167,8 +167,7 @@
   $('tt-management').href=`/programs/manage.html?program=${encodeURIComponent(id)}`;
   $('tt-editor').addEventListener('input',event=>{
     const el=event.target;if(state.busy||state.pending)return;
-    if(el.id==='tt-timezone')state.draft.timezone=el.value;
-    else {const row=[...state.draft.rules,...(state.draft.breaks||[])].find(r=>r.id===el.closest('[data-row]')?.dataset.row);if(!row)return;
+    {const row=[...state.draft.rules,...(state.draft.breaks||[])].find(r=>r.id===el.closest('[data-row]')?.dataset.row);if(!row)return;
       if(el.dataset.field==='moduleId'){if(el.value.startsWith('subject:')){row.moduleId='';row.programSubjectId=el.value.slice(8);}else{row.moduleId=el.value;row.programSubjectId=state.data.catalog.modules.find(m=>m.id===el.value)?.programSubjectId||'';}}
       else if(el.dataset.field)row[el.dataset.field]=el.dataset.field.endsWith('Time')?inputTime(el.value):el.value;
       if(el.dataset.class){row.classIds=el.checked?[...new Set([...row.classIds,el.dataset.class])]:row.classIds.filter(id=>id!==el.dataset.class);el.closest('details').querySelector('summary').textContent=classNames(row);}

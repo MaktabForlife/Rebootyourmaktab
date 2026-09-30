@@ -1,6 +1,6 @@
-# V105.3.4 — Assisted manual timetable planner
+# V105.3.4.1 — Weekly timetable boards
 
-Set up period times, teacher availability and weekly teaching targets, then place lessons on a class planning board. The board explains conflicts, tracks teacher hours and unmet requirements, and supports moving or undoing placements. Planner settings stay in the saved draft; publication still uses the existing preview and effective-date flow. [Scope, use and verification](docs/V105.3.4-ASSISTED-TIMETABLE-PLANNER.md).
+Set up period times to generate class and teacher weekly boards. Choose a class, subject and teacher, then place or move lessons directly in the grid. Teacher availability is entered as from–to time ranges, and timetable times are fixed to South Africa time. Weekly teaching requirements are no longer part of the planner. Planner settings stay in the saved draft; publication still uses the existing preview and effective-date flow. [Scope, use and verification](docs/V105.3.4.1-TIMETABLE-BOARDS.md).
 
 Development only; Academy acceptance remains open.
 

@@ -9,30 +9,40 @@ import {timetableCoordinator} from '../src/programs/timetable-coordination.js';
 const f=timetableFixture();
 const draft=readWeeklyDraft(f.draft).draft;
 const period={id:'PERIOD-1',startTime:'13:00',endTime:'14:00'};
-draft.planner={periods:[period],requirements:[{id:'NEED-1',programSubjectId:'PS-TAFSEER',moduleId:'MOD-DEMO',classId:'CLASS-1',teacherId:'TEACHER-1',weeklyMinutes:120}],availability:[],limits:[{teacherId:'TEACHER-1',maxWeeklyMinutes:120}]};
+const range=(id,weekday,startTime,endTime,teacherId='TEACHER-1')=>({id:'AVAIL-'+id,teacherId,weekday,startTime,endTime});
+draft.planner={periods:[period],availability:[range('MON',1,'13:00','14:00'),range('WED',3,'13:00','14:00')],limits:[{teacherId:'TEACHER-1',maxWeeklyMinutes:120}]};
 let result=validateWeeklyTimetable(draft,f.catalog,f.program,'2026-09-29');
 assert.equal(result.valid,true);
-assert.equal(result.plannerReview.requirements[0].scheduledMinutes,120);
+assert.equal(result.draft.timezone,'Africa/Johannesburg');
 assert.equal(result.plannerReview.teachers[0].scheduledMinutes,120);
-assert.equal(result.snapshot.planner,undefined,'availability is private planning data, not publication content');
+assert.equal(result.snapshot.planner,undefined,'availability stays out of published timetable snapshots');
+
 let changed=structuredClone(draft);
-changed.planner.availability.push({teacherId:'TEACHER-1',preferred:[],unavailable:['1:PERIOD-1']});
+changed.planner.availability.pop();
 result=validateWeeklyTimetable(changed,f.catalog,f.program,'2026-09-29');
 assert.equal(result.valid,false);
 assert.match(result.issues[0].message,/unavailable/);
+changed=structuredClone(draft);changed.planner.availability[0].startTime='13:30';
+assert.match(validateWeeklyTimetable(changed,f.catalog,f.program,'2026-09-29').issues[0].message,/unavailable/,'the full lesson must fit inside the available range');
 changed=structuredClone(draft);changed.planner.limits[0].maxWeeklyMinutes=60;
 assert.match(validateWeeklyTimetable(changed,f.catalog,f.program).issues[0].message,/exceeds/);
-changed=structuredClone(draft);changed.planner.requirements[0].weeklyMinutes=180;
-assert.equal(validateWeeklyTimetable(changed,f.catalog,f.program).plannerReview.requirements[0].remainingMinutes,60);
-assert.match(validateWeeklyTimetable(changed,f.catalog,f.program).issues[0].message,/60 more/);
 changed=structuredClone(draft);changed.planner.periods.push({id:'PERIOD-2',startTime:'13:30',endTime:'14:30'});
 assert.match(validateWeeklyTimetable(changed,f.catalog,f.program).issues[0].message,/cannot overlap/);
-changed=structuredClone(draft);changed.planner.availability.push({teacherId:'TEACHER-1',preferred:['1:PERIOD-1'],unavailable:[]});
-assert.equal(validateWeeklyTimetable(changed,f.catalog,f.program).valid,true);
-assert.throws(()=>normalizeWeeklyDraft({...draft,planner:{...draft.planner,availability:[...changed.planner.availability,...changed.planner.availability]}}),/duplicate teacher availability/);
-const fullGrid=structuredClone(draft);fullGrid.planner.periods=Array.from({length:8},(_,i)=>({id:'PERIOD-'+(i+1),startTime:String(8+i).padStart(2,'0')+':00',endTime:String(9+i).padStart(2,'0')+':00'}));
-fullGrid.planner.availability=Array.from({length:15},(_,i)=>({teacherId:'TEACHER-'+String(i).padStart(32,'0'),preferred:[],unavailable:Array.from({length:5},(_,day)=>fullGrid.planner.periods.map(period=>(day+1)+':'+period.id)).flat()}));
-assert.doesNotThrow(()=>normalizeWeeklyDraft(fullGrid),'15 teachers with 8 periods across 5 days fit in one draft');
+changed=structuredClone(draft);changed.planner.availability.push(range('OVERLAP',1,'13:30','14:30'));
+assert.throws(()=>normalizeWeeklyDraft(changed),/cannot overlap/);
+changed=structuredClone(draft);changed.planner.requirements=[{id:'NEED-OLD',weeklyMinutes:180}];
+changed.planner.availability.push({teacherId:'TEACHER-2',preferred:[],unavailable:['1:PERIOD-1']});
+const migrated=normalizeWeeklyDraft(changed);
+assert.equal(migrated.planner.requirements,undefined,'retired weekly targets are removed from draft data');
+assert.equal(migrated.planner.availability.length,2,'retired period-status availability is removed');
+
+const fullGrid=structuredClone(draft);
+fullGrid.planner.periods=Array.from({length:8},(_,i)=>({id:'PERIOD-'+(i+1),startTime:String(8+i).padStart(2,'0')+':00',endTime:String(9+i).padStart(2,'0')+':00'}));
+fullGrid.planner.availability=Array.from({length:15},(_,i)=>Array.from({length:5},(_,day)=>[
+  range(i+'-'+day+'-A',day+1,'08:00','12:00','TEACHER-'+i),
+  range(i+'-'+day+'-B',day+1,'12:00','16:00','TEACHER-'+i)
+])).flat(2);
+assert.doesNotThrow(()=>normalizeWeeklyDraft(fullGrid),'15 teachers with two daily ranges fit in one draft');
 
 const coordinator=timetableCoordinator(f.journal,async()=>({service:timetableService(f.repository,f.program),user:{accountid:'ADMIN'}}));
 const first=await coordinator.run('save',{id:f.program.id,revision:'',draft,operationId:crypto.randomUUID()},'token');
@@ -41,10 +51,14 @@ await assert.rejects(coordinator.run('save',{id:f.program.id,revision:first.revi
 const older={...draft};delete older.planner;
 const saved=await coordinator.run('save',{id:f.program.id,revision:first.revision,draft:older,operationId:crypto.randomUUID()},'token');
 assert.deepEqual((await timetableService(f.repository,f.program).read('get')).draft.planner,draft.planner,'an older editor cannot erase planner settings');
-const blocked=structuredClone(draft);blocked.planner.availability.push({teacherId:'TEACHER-1',preferred:[],unavailable:['1:PERIOD-1']});
+const blocked=structuredClone(draft);blocked.planner.availability.pop();
 await assert.rejects(coordinator.run('publish',{id:f.program.id,revision:saved.revision,draft:blocked,operationId:crypto.randomUUID()},'token'),/Publication blocked/);
 
 const source=await readFile(new URL('../../js/m4l-timetable-planner.js',import.meta.url),'utf8');
+const html=await readFile(new URL('../../programs/timetable.html',import.meta.url),'utf8');
+assert.doesNotMatch(html,/Weekly teaching requirements|Place requirement/);
+assert.doesNotMatch(html,/id="tt-timezone"/);
+assert.match(html,/South Africa time/);
 const elements=new Map();
 function $(id){if(!elements.has(id))elements.set(id,{value:'',innerHTML:'',textContent:'',disabled:false,classList:{toggle(){}}});return elements.get(id);}
 const state={data:{catalog:f.catalog},draft:{format:draft.format,timezone:draft.timezone,rules:[]}};
@@ -56,15 +70,16 @@ $('tt-period-count').value='2';$('tt-period-start').value='08h00';$('tt-period-l
 $('tt-create-periods').onclick();
 assert.equal(state.draft.planner.periods.length,2);
 planner.render();
-$('tt-need-subject').value='MOD-DEMO';$('tt-need-class').value='CLASS-1';$('tt-need-teacher').value='TEACHER-1';$('tt-need-hours').value='2';
-$('tt-add-need').onclick();
-assert.equal(state.draft.planner.requirements.length,1);
+assert.match($('tt-board').innerHTML,/tt-board-grid/,'period setup generates the class board');
+$('tt-board-subject').onchange({target:{value:'MOD-DEMO'}});
+$('tt-board-teacher').onchange({target:{value:'TEACHER-1'}});
+$('tt-board-view').onchange({target:{value:'teacher'}});
+assert.match($('tt-board').innerHTML,/Teacher:/,'teacher view uses the same weekly grid');
 const [morning,second]=state.draft.planner.periods;
+$('tt-availability-day').value='2';$('tt-availability-from').value='08h00';$('tt-availability-to').value='10h00';
+$('tt-add-availability').onclick();
+assert.equal(state.draft.planner.availability[0].startTime,'08:00');
 const event=dataset=>({target:{dataset,closest:()=>({dataset})}});
-$('tt-availability-grid').onclick(event({availabilityDay:'1',availabilityPeriod:morning.id}));
-assert(state.draft.planner.availability[0].preferred.includes('1:'+morning.id));
-$('tt-availability-grid').onclick(event({availabilityDay:'1',availabilityPeriod:morning.id}));
-assert(state.draft.planner.availability[0].unavailable.includes('1:'+morning.id));
 $('tt-board').onclick(event({boardDay:'1',boardPeriod:morning.id}));
 assert.equal(state.draft.rules.length,0);
 assert.match($('tt-board-message').textContent,/unavailable/);
@@ -81,8 +96,12 @@ assert.equal(state.draft.rules.length,2);
 const firstRule=state.draft.rules[0];
 $('tt-board').onclick(event({boardDay:'2',boardPeriod:morning.id,ruleId:firstRule.id}));
 $('tt-board').onclick(event({boardDay:'3',boardPeriod:morning.id}));
+assert.equal(state.draft.rules[0].weekdays[0],2,'move outside availability is rejected');
+$('tt-availability-day').value='3';$('tt-availability-from').value='08h00';$('tt-availability-to').value='09h00';
+$('tt-add-availability').onclick();
+$('tt-board').onclick(event({boardDay:'3',boardPeriod:morning.id}));
 assert.equal(state.draft.rules[0].weekdays[0],3);
 planner.undo();
 assert.equal(state.draft.rules[0].weekdays[0],2);
 assert(changes>=8);
-console.log('Assisted planner: durable settings, server review, placement guidance, move and undo passed.');
+console.log('Assisted planner: class and teacher boards, time ranges, placement checks, move and undo passed.');

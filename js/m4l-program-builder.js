@@ -3,6 +3,7 @@
   "use strict";
   const byId = id => document.getElementById(id);
   const escape = value => String(value ?? "").replace(/[&<>"']/g, char => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[char]));
+  const timezone = "Africa/Johannesburg";
   const fields = ["name", "durationYears", "timezone", "status", "spreadsheetId"];
   const state = { rows: [], selected: "", busy: false, search: "", filter: "", readiness: {} };
   const dirty = row => !row.saved || fields.some(field => String(row[field] ?? "") !== String(row.saved[field] ?? ""));
@@ -55,7 +56,7 @@
     return `<tr data-id="${escape(row.id)}" class="${state.selected === row.id ? "is-selected" : ""}">
       <td>${index}</td><td>${input("name", "Program name", 'class="pb-name" maxlength="160"')}</td>
       <td>${editable ? input("durationYears", "Duration in years", 'type="number" min="1" max="30" step="1"') : "—"}</td>
-      <td>${editable ? `<select data-field="timezone" aria-label="Timezone for ${escape(row.name || "new Program")}" ${state.busy ? "disabled" : ""}>${window.M4L_TIMEZONES.options(row.timezone)}</select>` : "—"}</td>
+      <td>${editable ? "South Africa (SAST)" : "—"}</td>
       <td>${editable ? `<select data-field="status" aria-label="Status for ${escape(row.name || "new Program")}" ${state.busy ? "disabled" : ""}>${["DRAFT", "ARCHIVED"].map(value => `<option value="${value}" ${row.status === value ? "selected" : ""}>${value === "DRAFT" ? "Draft" : "Archived"}</option>`).join("")}</select>` : escape(row.status === "ACTIVE" ? "Active" : "Inactive")}</td>
       <td>${row.saved ? `<a href="https://docs.google.com/spreadsheets/d/${encodeURIComponent(row.spreadsheetId)}/edit" target="_blank" rel="noopener noreferrer">Open spreadsheet ↗</a>` : input("spreadsheetId", "Spreadsheet link or ID", 'placeholder="Paste Google Sheets link"')} </td>
       <td><div class="pb-actions"><span class="pb-state">${!editable ? "Existing workspace" : row.error ? "Save failed" : dirty(row) ? "Unsaved" : "Saved"}</span>
@@ -79,13 +80,13 @@
   function add() {
     if (state.busy) return;
     const id = `PRG-${crypto.randomUUID()}`;
-    state.rows.push({ id, name: "", durationYears: "", timezone: window.M4L_TIMEZONES.defaultZone, status: "DRAFT", spreadsheetId: "", mode: "PROGRAM", saved: null, error: "" });
+    state.rows.push({ id, name: "", durationYears: "", timezone, status: "DRAFT", spreadsheetId: "", mode: "PROGRAM", saved: null, error: "" });
     state.selected = id;
     state.search = state.filter = "";
     byId("program-search").value = byId("program-filter").value = "";
     render();
     document.querySelector(`[data-id="${id}"] [data-field="name"]`).focus();
-    message("New draft. Enter its name and spreadsheet. Timezone defaults to South Africa; change it if needed.");
+    message("New draft. Enter its name and spreadsheet. Times use South Africa time.");
   }
   async function save(row) {
     if (state.busy || !dirty(row)) return;
@@ -94,7 +95,9 @@
     message(`Saving ${row.name || "Program"}…`);
     render();
     try {
-      const result = await api(row.saved ? "save" : "create", Object.fromEntries(["id", "revision", ...fields].map(field => [field, row[field]])));
+      const payload=Object.fromEntries(["id", "revision", ...fields].map(field => [field, row[field]]));
+      payload.timezone=timezone;
+      const result = await api(row.saved ? "save" : "create", payload);
       Object.assign(row, draft(result.program));
       delete state.readiness[row.id];
       message(`${row.name} saved. Teaching remains disabled.`);

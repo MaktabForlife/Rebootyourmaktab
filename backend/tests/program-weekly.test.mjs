@@ -80,7 +80,7 @@ assert((await cachedCoordinator.run('save',cachedInput,'token')).replayed);
 assert.equal((await cachedService.read('get')).draft.rules[0].startTime,'08:45');
 await assert.rejects(cachedCoordinator.run('publish',{...cachedInput,operationId:crypto.randomUUID(),revision:cachedSave.revision},'token'),/Refresh/);
 assert.equal(cached.tables.ProgramTimetablePublications.length,0);
-const unset=timetableFixture();unset.program.timezone='';assert.equal((await timetableService(unset.repository,unset.program).read('get')).effectiveTimezone,'UTC');
+const unset=timetableFixture();unset.program.timezone='';assert.equal((await timetableService(unset.repository,unset.program).read('get')).effectiveTimezone,'Africa/Johannesburg');
 console.log('Weekly timetable: optional teachers, recurring conflicts, no date cap, future activation, supersession, immutable history, legacy conversion and stable retries passed.');
 
 // A subject can be scheduled without inventing a module or completion record.

@@ -2,11 +2,10 @@ import { managementState, managementView, applyManagementChange, MANAGEMENT_KIND
 import { problem } from './model.js';
 import { programFailure } from './errors.js';
 import { TIMETABLE_SCHEMA, boundedJSON, validDate, normalizeDraft as normalizeDatedDraft } from './timetable-model.js';
-import { WEEKLY_SCHEMA, emptyWeeklyDraft, normalizeWeeklyDraft, readWeeklyDraft, validateWeeklyTimetable, publicationRecord, publicationSchedule, programToday } from './weekly-timetable.js';
+import { WEEKLY_SCHEMA, TIMETABLE_TIMEZONE, emptyWeeklyDraft, normalizeWeeklyDraft, readWeeklyDraft, validateWeeklyTimetable, publicationRecord, publicationSchedule, programToday } from './weekly-timetable.js';
 export function timetableService(repository,program,now=()=>new Date()) {
-  function dateContext(draft={}) {
-    // A damaged or unset zone must not prevent loading the editor to repair it.
-    for(const zone of [program.timezone,draft.timezone,'UTC'].filter(Boolean))try{return {today:programToday(zone,now()),effectiveTimezone:zone};}catch{}
+  function dateContext() {
+    return {today:programToday(TIMETABLE_TIMEZONE,now()),effectiveTimezone:TIMETABLE_TIMEZONE};
   }
   function state(data) {
     if (!data.prepared) throw problem('Prepare the timetable tables first.',409);

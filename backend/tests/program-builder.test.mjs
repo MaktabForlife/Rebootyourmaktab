@@ -141,7 +141,7 @@ try {
   assert.ok(!books.get(targetId).some(sheet => sheet.title === "ProgramIdentity"));
   const ready = await call("prepare", { id:input.id });
   assert.equal(ready.prepared, true);
-  assert.equal(ready.timezoneConfigured, false);
+  assert.equal(ready.timezoneConfigured, true);
   assert.equal(ready.teachingEnabled, false);
   const readyWrites = writes;
   await call("prepare", { id:input.id });
@@ -150,12 +150,12 @@ try {
   await call("save", { ...input,revision:created.revision,name:"Renamed",spreadsheetId:"some-other-sheet" }, token, 409);
   await call("save", { ...input,revision:"stale" }, token, 409);
   // The client sends configuration fields only, never the read-only capability map.
-  const savedInput = { ...input,revision:created.revision,name:"Aalimiya programme",timezone:"Asia/Riyadh" };
+  const savedInput = { ...input,revision:created.revision,name:"Aalimiya programme",timezone:"Africa/Johannesburg" };
   failWrite = true;
   await call("save", savedInput, token, 503);
   assert.equal(table(platformId, "CourseRegistry")[2][1], "Aalimiya");
   const saved = (await call("save", savedInput)).program;
-  assert.equal(saved.timezone, "Asia/Riyadh");
+  assert.equal(saved.timezone, "Africa/Johannesburg");
   assert.notEqual(saved.revision, created.revision);
   await call("save", savedInput, token, 409);
   const archived = (await call("save", { ...savedInput,revision:saved.revision,status:"ARCHIVED" })).program;

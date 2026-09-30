@@ -1,5 +1,6 @@
 /* M4L V105.2 - Program setup contract with timetable-builder capability. */
 export const PROGRAM_SCHEMA = "105.1-program";
+export const PROGRAM_TIMEZONE = "Africa/Johannesburg";
 export const DEFINITION_HEADERS = Object.freeze([
   "CourseID", "DurationYears", "Timezone", "Status", "Revision", "ModifiedDate", "ModifiedByAccountID"
 ]);
@@ -24,11 +25,9 @@ export function definition(input) {
   if (durationYears !== "" && (!Number.isInteger(durationYears) || durationYears < 1 || durationYears > 30)) {
     throw problem("Duration must be blank or a whole number from 1 to 30 years.");
   }
-  const timezone = clean(input.timezone);
-  if (timezone) {
-    try { new Intl.DateTimeFormat("en", { timeZone: timezone }).format(); }
-    catch { throw problem("Enter a recognised timezone, for example Asia/Riyadh, or leave it pending."); }
-  }
+  const requestedTimezone = clean(input.timezone);
+  if (requestedTimezone && requestedTimezone !== PROGRAM_TIMEZONE) throw problem("Program timezone is fixed to South Africa (Africa/Johannesburg). Refresh and save again.");
+  const timezone = PROGRAM_TIMEZONE;
   const status = clean(input.status || "DRAFT");
   if (!["DRAFT", "ARCHIVED"].includes(status)) throw problem("Only Draft or Archived is available during Program setup.");
   if (input.active === true || input.capabilities) throw problem("Teaching capabilities cannot be enabled in V105.1.");
