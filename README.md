@@ -1,6 +1,6 @@
-# V105.3.4.1 — Weekly timetable boards
+# V105.3.4.2 — Editable timetable boards
 
-Set up period times to generate class and teacher weekly boards. Choose a class, subject and teacher, then place or move lessons directly in the grid. Teacher availability is entered as from–to time ranges, and timetable times are fixed to South Africa time. Weekly teaching requirements are no longer part of the planner. Planner settings stay in the saved draft; publication still uses the existing preview and effective-date flow. [Scope, use and verification](docs/V105.3.4.1-TIMETABLE-BOARDS.md).
+Teachers are optional when placing lessons on the weekly board. Select a lesson to edit its details, move it to another period, or remove it from the selected weekday. Each class or teacher board can be opened in another tab; draft changes are shared and conflicting edits to the same item are blocked. Save, validate and publish still use the existing flow. [Scope, use and verification](docs/V105.3.4.2-BOARD-LESSON-EDITING.md).
 
 Development only; Academy acceptance remains open.
 

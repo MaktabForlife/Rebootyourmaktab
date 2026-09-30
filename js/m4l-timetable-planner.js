@@ -1,4 +1,4 @@
-/* V105.3.4.1 — period-based class and teacher timetable boards. */
+/* V105.3.4.2 — editable class and teacher timetable boards. */
 (()=>{'use strict';
   const timeMinutes=value=>/^([01]\d|2[0-3]):[0-5]\d$/.test(value||'')?Number(value.slice(0,2))*60+Number(value.slice(3)):NaN;
   const clock=minutes=>String(Math.floor(minutes/60)).padStart(2,'0')+':'+String(minutes%60).padStart(2,'0');
@@ -8,7 +8,9 @@
   const dayOrder=[1,2,3,4,5,6,0];
   window.M4L_ASSISTED_PLANNER={
     mount({state,$,esc,days,modules,changed,locked}){
-      let selectedClass='',selectedSubject='',selectedTeacher='',boardView='class',availabilityTeacher='',selectedMove=null,learnerCache=new Map();
+      let selectedClass='',selectedSubject='',selectedTeacher='',boardView='class',availabilityTeacher='',selectedMove=null,editing=null,editorDirty=false,editorSource='',learnerCache=new Map();
+      const boardParams=new URLSearchParams(location.search),requestedView=boardParams.get('board');
+      if(requestedView==='teacher'||requestedView==='class'){boardView=requestedView;selectedClass=boardParams.get('class')||'';selectedTeacher=boardParams.get('teacher')||'';}
       const undo=[];
       const empty=()=>({periods:[],availability:[],limits:[]});
       const plan=()=>state.draft?.planner||empty();
@@ -18,6 +20,15 @@
       const subject=row=>row.moduleId?catalog().modules.find(m=>m.id===row.moduleId)?.name:catalog().subjects.find(s=>s.id===row.programSubjectId)?.name;
       const note=(value,error=false)=>{$('tt-board-message').textContent=value;$('tt-board-message').classList.toggle('is-error',error);};
       const option=(id,name,selected)=>'<option value="'+esc(id)+'"'+(id===selected?' selected':'')+'>'+esc(name)+'</option>';
+      const saveUndo=before=>{undo.push({before,after:JSON.stringify(state.draft.rules)});if(undo.length>20)undo.shift();};
+      const activeEdit=()=>editing&&state.draft.rules.find(row=>row.id===editing.id&&row.weekdays.includes(editing.day));
+      function updateBoardLink(){
+        const url=new URL(location.href);url.searchParams.set('board',boardView);
+        if(boardView==='teacher'){url.searchParams.set('teacher',selectedTeacher);url.searchParams.delete('class');}
+        else{url.searchParams.set('class',selectedClass);url.searchParams.delete('teacher');}
+        $('tt-open-board').href=url.pathname+url.search;
+        $('tt-open-board').setAttribute('aria-label','Open '+(boardView==='teacher'?'teacher':'class')+' board in a new tab');
+      }
       function learnersOverlap(leftClasses,rightClasses,weekday){
         const key=[leftClasses.slice().sort().join(','),rightClasses.slice().sort().join(','),weekday,state.effectiveFrom||state.data.today].join('|');
         if(learnerCache.has(key))return learnerCache.get(key);
@@ -72,6 +83,7 @@
         $('tt-availability-grid').innerHTML=!availabilityTeacher?'<p class="tt-scope">Add an eligible teacher to set availability.</p>':rows.length?'<table class="tt-availability-table"><thead><tr><th>Day</th><th>Available from</th><th>Available to</th><th></th></tr></thead><tbody>'+rows.map(row=>'<tr><td>'+esc(days[row.weekday])+'</td><td>'+esc(row.startTime)+'</td><td>'+esc(row.endTime)+'</td><td><button type="button" class="pb-secondary" data-remove-availability="'+esc(row.id)+'" aria-label="Remove '+esc(days[row.weekday]+' '+row.startTime+' to '+row.endTime)+'">Remove</button></td></tr>').join('')+'</tbody></table>':'<p class="tt-scope">No time ranges entered. This teacher has no availability restriction.</p>';
       }
       function renderBoard(){
+        $('tt-clear-selection').disabled=!selectedMove;
         const classes=catalog().classes.filter(row=>row.active);
         if(!classes.some(row=>row.id===selectedClass))selectedClass=classes[0]?.id||'';
         $('tt-board-class').innerHTML=classes.map(row=>option(row.id,row.name,selectedClass)).join('');
@@ -81,29 +93,50 @@
         if(!teachers.some(row=>row.id===selectedTeacher))selectedTeacher='';
         $('tt-board-subject').innerHTML='<option value="">Choose subject…</option>'+subjects.map(row=>option(row.id,row.name,selectedSubject)).join('');
         $('tt-board-subject').value=selectedSubject;
-        $('tt-board-teacher').innerHTML='<option value="">Choose teacher…</option>'+teachers.map(row=>option(row.id,row.name,selectedTeacher)).join('');
+        $('tt-board-teacher').innerHTML='<option value="">Not assigned (optional)</option>'+teachers.map(row=>option(row.id,row.name,selectedTeacher)).join('');
         $('tt-board-teacher').value=selectedTeacher;
         $('tt-board-view').value=boardView;
+        updateBoardLink();
         const periods=plan().periods;
         if(!periods.length){$('tt-board').innerHTML='<p class="tt-board-empty">Set up periods above to generate the weekly timetable grid.</p>';return;}
         if(!selectedClass||boardView==='teacher'&&!selectedTeacher){$('tt-board').innerHTML='<p class="tt-board-empty">Choose a '+(boardView==='teacher'?'teacher':'class')+' to view the weekly board.</p>';return;}
         const viewName=boardView==='teacher'?teacher(selectedTeacher)?.name:classes.find(row=>row.id===selectedClass)?.name;
         $('tt-board').innerHTML='<table class="tt-board-grid"><caption>'+esc((boardView==='teacher'?'Teacher: ':'Class: ')+(viewName||''))+'</caption><thead><tr><th scope="col">Period</th>'+dayOrder.map(day=>'<th scope="col">'+days[day]+'</th>').join('')+'</tr></thead><tbody>'+periods.map((period,i)=>'<tr><th scope="row"><strong>Period '+(i+1)+'</strong><span>'+esc(period.startTime)+'–'+esc(period.endTime)+'</span></th>'+dayOrder.map(day=>{
           const rows=state.draft.rules.filter(row=>(boardView==='teacher'?row.teacherId===selectedTeacher:row.classIds.includes(selectedClass))&&row.weekdays.includes(day)&&overlap(row,period));
-          const row=rows[0],moving=selectedMove&&state.draft.rules.find(item=>item.id===selectedMove.id);
-          const candidate=moving||selectedSubject&&selectedTeacher?{classIds:moving?moving.classIds:[selectedClass],teacherId:moving?moving.teacherId:selectedTeacher,weekday:day,startTime:period.startTime,endTime:period.endTime}:null;
-          const why=!row&&candidate?reason(candidate,selectedMove):'';
-          const selected=row&&selectedMove?.id===row.id&&selectedMove.day===day;
-          const detail=boardView==='teacher'?row?.classIds.map(id=>classes.find(item=>item.id===id)?.name||id).join(', '):teacher(row?.teacherId)?.name||'No teacher';
-          const label=row?(subject(row)||'Lesson')+' · '+detail+(rows.length>1?' · +'+(rows.length-1)+' more':''):why||'＋ Add lesson';
-          return '<td><button type="button" class="tt-board-cell '+(row?'is-occupied ':'is-empty ')+(why?'is-conflict ':'')+(selected?'is-selected':'')+'" data-board-day="'+day+'" data-board-period="'+esc(period.id)+'"'+(row?' data-rule-id="'+esc(row.id)+'"':'')+' aria-label="'+esc(days[day]+' '+period.startTime+'–'+period.endTime+' '+label)+'">'+esc(label)+'</button></td>';
+          const moving=selectedMove&&state.draft.rules.find(item=>item.id===selectedMove.id);
+          const candidate=moving||selectedSubject?{classIds:moving?moving.classIds:[selectedClass],teacherId:moving?moving.teacherId:selectedTeacher,weekday:day,startTime:period.startTime,endTime:period.endTime}:null;
+          const why=!rows.length&&candidate?reason(candidate,selectedMove):'';
+          if(!rows.length){const label=why||'＋ Add lesson';return '<td><button type="button" class="tt-board-cell is-empty '+(why?'is-conflict':'')+'" data-board-day="'+day+'" data-board-period="'+esc(period.id)+'" aria-label="'+esc(days[day]+' '+period.startTime+'–'+period.endTime+' '+label)+'">'+esc(label)+'</button></td>';}
+          return '<td>'+rows.map(row=>{
+            const selected=selectedMove?.id===row.id&&selectedMove.day===day||editing?.id===row.id&&editing.day===day;
+            const detail=boardView==='teacher'?row.classIds.map(id=>classes.find(item=>item.id===id)?.name||id).join(', '):teacher(row.teacherId)?.name||'No teacher';
+            const label=(subject(row)||'Lesson')+' · '+detail;
+            return '<button type="button" class="tt-board-cell is-occupied '+(selected?'is-selected':'')+'" data-board-day="'+day+'" data-board-period="'+esc(period.id)+'" data-rule-id="'+esc(row.id)+'" aria-label="Edit '+esc(days[day]+' '+label)+'">'+esc(label)+'<small>Edit · Move · Delete</small></button>';
+          }).join('')+'</td>';
         }).join('')+'</tr>').join('')+'</tbody></table>';
+      }
+      function renderEditor(){
+        const row=activeEdit(),panel=$('tt-board-editor');panel.hidden=!row;
+        if(editorDirty&&editing){panel.hidden=false;$('tt-save-lesson').disabled=!row;$('tt-move-lesson').disabled=!row;$('tt-delete-lesson').disabled=!row;if(!row)note('This lesson was removed in another tab. Copy any unsaved details, then close this editor.',true);return;}
+        if(!row){editing=null;editorSource='';return;}
+        $('tt-save-lesson').disabled=false;$('tt-move-lesson').disabled=false;$('tt-delete-lesson').disabled=false;editorSource=JSON.stringify(row);
+        $('tt-board-editor-title').textContent='Edit '+days[editing.day]+' lesson';
+        const subjectId=row.moduleId||'subject:'+row.programSubjectId;
+        const subjects=modules();
+        $('tt-edit-subject').innerHTML=subjects.map(item=>option(item.id,item.name,subjectId)).join('')+(subjects.some(item=>item.id===subjectId)?'':option(subjectId,'Unavailable: '+subjectId,subjectId));
+        $('tt-edit-subject').value=subjectId;
+        const classes=catalog().classes.filter(item=>item.active||row.classIds.includes(item.id));
+        $('tt-edit-classes').innerHTML=classes.map(item=>'<label><input type="checkbox" value="'+esc(item.id)+'"'+(row.classIds.includes(item.id)?' checked':'')+'> '+esc(item.name)+(item.active?'':' (inactive)')+'</label>').join('')+row.classIds.filter(id=>!classes.some(item=>item.id===id)).map(id=>'<label><input type="checkbox" value="'+esc(id)+'" checked> Unavailable: '+esc(id)+'</label>').join('');
+        const teachers=catalog().teachers.filter(item=>item.active||item.id===row.teacherId);
+        $('tt-edit-teacher').innerHTML='<option value="">Not assigned (optional)</option>'+teachers.map(item=>option(item.id,item.name+(item.active?'':' (inactive)'),row.teacherId)).join('');
+        $('tt-edit-teacher').value=row.teacherId||'';
+        $('tt-edit-start').value=row.startTime.replace(':','h');$('tt-edit-end').value=row.endTime.replace(':','h');$('tt-edit-zoom').value=row.zoomLink||'';
       }
       function renderReview(){
         const teacherIds=new Set([...plan().limits.map(row=>row.teacherId),...state.draft.rules.map(row=>row.teacherId).filter(Boolean)]);
         $('tt-planner-review').innerHTML=[...teacherIds].map(id=>{const used=total(id),limit=plan().limits.find(row=>row.teacherId===id)?.maxWeeklyMinutes;return '<span class="'+(limit!==undefined&&used>limit?'is-over':'')+'">'+esc(teacher(id)?.name||id)+': '+duration(used)+(limit===undefined?'':' / '+duration(limit)+' max')+'</span>';}).join('')||'<span>No teacher hours scheduled yet.</span>';
       }
-      function render(){if(!state.data||!state.draft)return;learnerCache=new Map();renderPeriods();renderBoard();renderAvailability();renderReview();$('tt-clear-selection').disabled=!selectedMove;$('tt-undo-placement').disabled=!undo.length;}
+      function render(){if(!state.data||!state.draft)return;learnerCache=new Map();renderPeriods();renderBoard();renderEditor();renderAvailability();renderReview();$('tt-clear-selection').disabled=!selectedMove;$('tt-undo-placement').disabled=!undo.length;}
       function commit(){changed();render();}
       $('tt-create-periods').onclick=()=>{
         if(locked())return;
@@ -141,20 +174,48 @@
         note('Available time range added.');commit();
       };
       $('tt-availability-grid').onclick=event=>{const id=event.target.closest?.('[data-remove-availability]')?.dataset.removeAvailability;if(!id||locked())return;edit().availability=plan().availability.filter(row=>row.id!==id);note('Available time range removed.');commit();};
-      $('tt-board-view').onchange=event=>{boardView=event.target.value==='teacher'?'teacher':'class';selectedMove=null;renderBoard();};
-      $('tt-board-class').onchange=event=>{selectedClass=event.target.value;selectedMove=null;renderBoard();};
+      $('tt-board-view').onchange=event=>{if(editorDirty){note('Save or close the open lesson before switching boards.',true);event.target.value=boardView;return;}boardView=event.target.value==='teacher'?'teacher':'class';selectedMove=null;editing=null;renderBoard();renderEditor();};
+      $('tt-board-class').onchange=event=>{if(editorDirty){note('Save or close the open lesson before switching boards.',true);event.target.value=selectedClass;return;}selectedClass=event.target.value;selectedMove=null;editing=null;renderBoard();renderEditor();};
       $('tt-board-subject').onchange=event=>{selectedSubject=event.target.value;selectedMove=null;renderBoard();};
       $('tt-board-teacher').onchange=event=>{selectedTeacher=event.target.value;selectedMove=null;renderBoard();};
       $('tt-clear-selection').onclick=()=>{selectedMove=null;renderBoard();};
+      $('tt-board-editor').oninput=()=>{editorDirty=true;};$('tt-board-editor').onchange=()=>{editorDirty=true;};
+      $('tt-close-lesson').onclick=()=>{editing=null;editorDirty=false;renderBoard();renderEditor();};
+      $('tt-move-lesson').onclick=()=>{if(locked()||!activeEdit())return;if(editorDirty){note('Save or close your edits before moving the lesson.',true);return;}selectedMove=editing;editing=null;note('Choose an empty period for this lesson.');renderBoard();renderEditor();};
+      $('tt-save-lesson').onclick=()=>{
+        if(locked())return;const row=activeEdit();if(!row)return;
+        if(editorDirty&&JSON.stringify(row)!==editorSource){note('This lesson changed in another tab. Copy your edits, close the editor and reopen the lesson.',true);return;}
+        const subjectId=$('tt-edit-subject').value,entry=modules().find(item=>item.id===subjectId);
+        const classIds=[...$('tt-edit-classes').querySelectorAll('input:checked')].map(input=>input.value);
+        const teacherId=$('tt-edit-teacher').value,startTime=String($('tt-edit-start').value).trim().replace(/[hH]/,':').replace(/^(\d):/,'0$1:'),endTime=String($('tt-edit-end').value).trim().replace(/[hH]/,':').replace(/^(\d):/,'0$1:'),zoomLink=$('tt-edit-zoom').value.trim();
+        if(!entry||!classIds.length){note('Choose a subject and at least one class.',true);return;}
+        if(!Number.isFinite(timeMinutes(startTime))||!Number.isFinite(timeMinutes(endTime))||startTime>=endTime){note('Enter a valid start and end time, such as 08h00 to 08h45.',true);return;}
+        if(classIds.length>1&&!zoomLink){note('Combined classes need a shared lesson link.',true);return;}
+        if(zoomLink){try{const url=new URL(zoomLink);if(url.protocol!=='https:'||url.username||url.password)throw Error();}catch{note('Enter a valid https:// lesson link.',true);return;}}
+        const candidate={classIds,teacherId,weekday:editing.day,startTime,endTime},why=reason(candidate,editing);if(why){note(why,true);return;}
+        if(row.weekdays.length>1&&state.draft.rules.length>=100){note('The timetable has reached its 100 lesson row limit.',true);return;}
+        const before=structuredClone(state.draft.rules),patch={moduleId:subjectId.startsWith('subject:')?'':subjectId,programSubjectId:subjectId.startsWith('subject:')?subjectId.slice(8):catalog().modules.find(item=>item.id===subjectId)?.programSubjectId||'',classIds,teacherId,startTime,endTime,zoomLink};
+        if(row.weekdays.length===1)Object.assign(row,patch);
+        else{row.weekdays=row.weekdays.filter(day=>day!==editing.day);state.draft.rules.push({...structuredClone(row),...patch,id:'RULE-'+crypto.randomUUID(),weekdays:[editing.day]});}
+        editing=null;editorDirty=false;saveUndo(before);note('Lesson updated for this weekday.');commit();
+      };
+      $('tt-delete-lesson').onclick=()=>{
+        if(locked())return;const row=activeEdit();if(!row)return;
+        if(editorDirty){note('Save or close your edits before deleting the lesson.',true);return;}
+        const before=structuredClone(state.draft.rules);
+        if(row.weekdays.length===1)state.draft.rules=state.draft.rules.filter(item=>item.id!==row.id);
+        else row.weekdays=row.weekdays.filter(day=>day!==editing.day);
+        editing=null;editorDirty=false;saveUndo(before);note('Lesson removed from this weekday.');commit();
+      };
       $('tt-board').onclick=event=>{
         const button=event.target.closest?.('[data-board-period]');if(!button||locked())return;
         const day=Number(button.dataset.boardDay),period=plan().periods.find(row=>row.id===button.dataset.boardPeriod);if(!period)return;
         if(button.dataset.ruleId){
-          selectedMove=selectedMove?.id===button.dataset.ruleId&&selectedMove.day===day?null:{id:button.dataset.ruleId,day};
-          note(selectedMove?'Lesson selected. Tap an empty period to move it.':'Move selection cleared.');renderBoard();return;
+          if(editorDirty){note('Save or close the open lesson before selecting another.',true);return;}
+          selectedMove=null;editing={id:button.dataset.ruleId,day};editorDirty=false;note('Edit, move or delete this lesson below.');renderBoard();renderEditor();return;
         }
         const source=selectedMove&&state.draft.rules.find(row=>row.id===selectedMove.id);
-        if(!source&&(!selectedClass||!selectedSubject||!selectedTeacher)){note('Choose a class, subject and teacher before adding a lesson.',true);return;}
+        if(!source&&(!selectedClass||!selectedSubject)){note('Choose a class and subject before adding a lesson.',true);return;}
         const moduleId=selectedSubject.startsWith('subject:')?'':selectedSubject,programSubjectId=moduleId?catalog().modules.find(row=>row.id===moduleId)?.programSubjectId:selectedSubject.slice(8);
         const candidate={classIds:source?source.classIds:[selectedClass],teacherId:source?source.teacherId:selectedTeacher,weekday:day,startTime:period.startTime,endTime:period.endTime};
         const why=reason(candidate,selectedMove);if(why){note(why,true);return;}
@@ -171,10 +232,10 @@
           state.draft.rules.push({id:'RULE-'+crypto.randomUUID(),moduleId,programSubjectId,teacherId:selectedTeacher,classIds:[selectedClass],weekdays:[day],startTime:period.startTime,endTime:period.endTime,zoomLink:''});
           note('Lesson placed.');
         }
-        undo.push({before,after:JSON.stringify(state.draft.rules)});if(undo.length>20)undo.shift();
+        saveUndo(before);
         commit();
       };
-      return {render,undo(){if(!undo.length)return;if(JSON.stringify(state.draft.rules)!==undo.at(-1).after){undo.length=0;note('The lessons changed after that placement. Use the detailed editor to adjust them.',true);render();return;}state.draft.rules=undo.pop().before;selectedMove=null;note('Last placement or move undone.');commit();}};
+      return {render,undo(){if(!undo.length)return;if(JSON.stringify(state.draft.rules)!==undo.at(-1).after){undo.length=0;note('The lessons changed after that board action. Use the detailed editor to adjust them.',true);render();return;}state.draft.rules=undo.pop().before;selectedMove=null;editing=null;editorDirty=false;note('Last board change undone.');commit();}};
     }
   };
 })();

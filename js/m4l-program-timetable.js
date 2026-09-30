@@ -1,7 +1,10 @@
-/* V105.3.4.1 — weekly timetable with class and teacher planning boards. */
+/* V105.3.4.2 — editable timetable boards shared between browser tabs. */
 (()=>{'use strict';
   const $=id=>document.getElementById(id),esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const id=new URLSearchParams(location.search).get('program'),storageKey=`m4l-timetable-pending:${id}`,draftKey=`m4l-timetable-draft:${id}`,format='105.3.2.2-weekly';
+  const tokenHash=[...(localStorage.getItem('m4l_account_token')||'')].reduce((n,char)=>Math.imul(n^char.charCodeAt(0),16777619)>>>0,2166136261).toString(36);
+  const sharedKey=`m4l-timetable-shared:${id}:${tokenHash}`;
+  let sharedSnapshot=null,sharedStamp=0,sharedConflict=false,revisionStamp=0;
   const timezone='Africa/Johannesburg';
   const days=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
   const state={data:null,draft:null,baseline:'',busy:false,pending:null,preview:null,history:[],calendarView:null,conversion:null,converted:false,effectiveFrom:'',audiences:{classes:[],teachers:[]}};
@@ -9,7 +12,32 @@
   const time=value=>inputTime(String(value||'')).replace(':','h');
   const dirty=()=>Boolean(state.draft)&&JSON.stringify(state.draft)!==state.baseline;
   const message=(text,error=false)=>{$('tt-message').textContent=text;$('tt-message').classList.toggle('is-error',error);};
-  function remember(){if(state.draft&&state.data)sessionStorage.setItem(draftKey,JSON.stringify({draft:state.draft,baseline:state.baseline,revision:state.data.revision,effectiveFrom:state.effectiveFrom,converted:state.converted,conversion:state.conversion}));}
+  const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b),mergeValue=window.M4L_TIMETABLE_SYNC.merge;
+  function sharedRecord(){try{return JSON.parse(localStorage.getItem(sharedKey)||'null');}catch{return null;}}
+  function showTabConflict(){sharedConflict=true;$('tt-tab-warning').hidden=false;controls();}
+  function syncShared(preferLocalRevision=false){
+    if(!state.draft||!state.data||sharedConflict)return false;
+    const latest=sharedRecord();
+    if(latest?.draft&&latest.stamp>sharedStamp){
+      try{
+        state.draft=mergeValue(latest.baseDraft||sharedSnapshot||latest.draft,state.draft,latest.draft);
+        if(!preferLocalRevision){
+          if(latest.revision===state.data.revision||Number(latest.revisionStamp||0)>revisionStamp){state.baseline=latest.baseline;state.data.revision=latest.revision;revisionStamp=Number(latest.revisionStamp||0);}
+          else if(Number(latest.revisionStamp||0)===revisionStamp){showTabConflict();return false;}
+        }
+        sharedSnapshot=structuredClone(latest.draft);sharedStamp=latest.stamp;
+      }catch{showTabConflict();return false;}
+    }
+    if(latest&&same(state.draft,latest.draft)&&state.data.revision===latest.revision)return true;
+    const record={draft:state.draft,baseDraft:sharedSnapshot||state.draft,baseline:state.baseline,revision:state.data.revision,revisionStamp,stamp:Math.max(Date.now(),sharedStamp+1)};
+    try{localStorage.setItem(sharedKey,JSON.stringify(record));sharedSnapshot=structuredClone(state.draft);sharedStamp=record.stamp;}catch{return false;}
+    return true;
+  }
+  function remember(preferLocalRevision=false){
+    if(!state.draft||!state.data)return;
+    syncShared(preferLocalRevision);
+    sessionStorage.setItem(draftKey,JSON.stringify({draft:state.draft,baseline:state.baseline,revision:state.data.revision,effectiveFrom:state.effectiveFrom,converted:state.converted,conversion:state.conversion,sharedSnapshot}));
+  }
   function displayDraft(raw){
     if(raw.format===format)return {...structuredClone(raw),timezone,rules:raw.rules.map(r=>({...r,startTime:inputTime(r.startTime),endTime:inputTime(r.endTime)}))};
     state.conversion={required:Boolean(raw.exceptions?.length||raw.rules.some(r=>r.kind==='EXPLICIT')),oneOffCount:raw.rules.filter(r=>r.kind==='EXPLICIT').length,exceptionCount:raw.exceptions?.length||0,originalDraft:structuredClone(raw)};
@@ -25,7 +53,7 @@
     $('tt-editor').disabled=locked||!ready;
     $('tt-planner').disabled=locked||!ready;
     for(const name of ['save','validate','preview'])$(`tt-${name}`).disabled=locked||!ready;
-    $('tt-save').disabled||=!dirty();$('tt-publish').disabled=locked||!ready||!state.preview?.valid;
+    $('tt-save').disabled||=!dirty()||sharedConflict;$('tt-publish').disabled=locked||!ready||!state.preview?.valid||sharedConflict;
     $('tt-effective-from').disabled=locked;$('tt-preview-type').disabled=locked;$('tt-preview-target').disabled=locked||!$('tt-preview-target').value;
     for(const name of ['reload','recover','history','prepare','convert'])$(`tt-${name}`).disabled=state.busy;
     $('tt-convert').disabled||=Boolean(state.pending);$('tt-retry').disabled=state.busy;$('tt-export').disabled=!state.draft;
@@ -71,23 +99,54 @@
     controls();
   }
   async function load(restore=true){
+    sharedConflict=false;sharedSnapshot=null;sharedStamp=0;revisionStamp=0;$('tt-tab-warning').hidden=true;
     const result=await api('get');state.data=result;state.conversion=result.conversion;state.converted=false;state.draft=structuredClone(result.draft);state.baseline=JSON.stringify(result.draft);state.preview=null;state.effectiveFrom=result.today;
+    const shared=sharedRecord();
+    if(shared?.draft&&shared.revision===result.revision){state.draft=displayDraft(shared.draft);state.baseline=shared.baseline;sharedSnapshot=structuredClone(shared.draft);sharedStamp=shared.stamp;revisionStamp=Number(shared.revisionStamp||0);}
+    else if(shared?.draft){
+      try{state.draft=mergeValue(JSON.parse(shared.baseline),shared.draft,result.draft);}catch{state.draft=displayDraft(shared.draft);showTabConflict();}
+      sharedSnapshot=structuredClone(shared.draft);sharedStamp=shared.stamp;revisionStamp=Math.max(Date.now(),Number(shared.revisionStamp||0)+1);
+    }
+    else revisionStamp=Date.now();
     try{state.pending=JSON.parse(sessionStorage.getItem(storageKey)||'null');}catch{state.pending=null;}
-    if(restore)try{const saved=JSON.parse(sessionStorage.getItem(draftKey)||'null');if(saved&&JSON.stringify(saved.draft)!==saved.baseline){state.draft=displayDraft(saved.draft);state.baseline=saved.baseline;state.data.revision=saved.revision;state.effectiveFrom=saved.effectiveFrom||result.today;state.converted=saved.converted;state.conversion=saved.conversion||state.conversion;}}catch{}
+    if(restore)try{
+      const saved=JSON.parse(sessionStorage.getItem(draftKey)||'null');
+      if(saved&&saved.revision===result.revision&&JSON.stringify(saved.draft)!==saved.baseline){
+        if(shared?.draft&&shared.revision===result.revision&&saved.sharedSnapshot){
+          try{state.draft=mergeValue(saved.sharedSnapshot,saved.draft,shared.draft);}catch{state.draft=displayDraft(saved.draft);showTabConflict();}
+        }else if(!shared?.draft)state.draft=displayDraft(saved.draft);
+        state.effectiveFrom=saved.effectiveFrom||result.today;state.converted=saved.converted;state.conversion=saved.conversion||state.conversion;
+      }
+    }catch{}
     if(state.pending)state.draft=displayDraft(state.pending.body.draft);
     $('tt-workspace').hidden=!result.prepared;$('tt-prepare').hidden=result.prepared;$('tt-preview-panel').hidden=true;$('tt-validation').hidden=true;
-    render();remember();message(!result.prepared?'Prepare the empty timetable tables to begin.':!result.coordinatorAvailable?'Saving is unavailable until the backend coordinator is configured.':dirty()?'Your unfinished timetable is kept.':!result.catalog.subjects.length?'No subjects yet. Open Program management to add subjects and classes.':'Build the weekly pattern, preview it, then choose its effective date when publishing.');
+    render();remember(true);message(!result.prepared?'Prepare the empty timetable tables to begin.':!result.coordinatorAvailable?'Saving is unavailable until the backend coordinator is configured.':dirty()?'Your unfinished timetable is kept.':!result.catalog.subjects.length?'No subjects yet. Open Program management to add subjects and classes.':'Build the weekly pattern, preview it, then choose its effective date when publishing.');
   }
   function clearPending(){state.pending=null;sessionStorage.removeItem(storageKey);}
-  async function mutate(action){
+  async function mutate(action,retried=false){
+    if(sharedConflict)throw Error('Resolve the change from the other tab before saving.');
+    const beforeSync=JSON.stringify(state.draft),beforeRevision=state.data.revision;
+    if(!state.pending&&!syncShared())throw Error('The shared draft could not be updated. Download your draft and reload before saving.');
+    if(beforeSync!==JSON.stringify(state.draft)||beforeRevision!==state.data.revision){invalidate();render();if(action==='publish')throw Error('Another tab changed the timetable. Review the updated board and preview again before publishing.');}
     if(!state.pending){state.pending={action,body:{revision:state.data.revision,draft:structuredClone(state.draft),operationId:crypto.randomUUID(),...(action==='publish'?{effectiveFrom:state.effectiveFrom||state.data.today}:{}),...(state.converted?{convertLegacy:true}:{})}};sessionStorage.setItem(storageKey,JSON.stringify(state.pending));}
     try{
       const result=await api(state.pending.action,state.pending.body),wasPublish=state.pending.action==='publish';
       state.data.revision=result.revision;state.data.currentPublicationId=result.currentPublicationId;
+      revisionStamp=Math.max(Date.now(),revisionStamp+1);
       if(result.publications)state.data.publications=result.publications;
-      state.baseline=JSON.stringify(state.draft);clearPending();state.conversion=null;state.converted=false;invalidate();render();
+      state.baseline=JSON.stringify(state.draft);clearPending();state.conversion=null;state.converted=false;remember(true);invalidate();render();
       message(wasPublish?`Version ${result.version} published, effective ${result.effectiveFrom||'as originally recorded'}.`:'Weekly draft saved. The timetable in effect is unchanged.');
-    }catch(error){if(error.status&&error.status<500){clearPending();remember();}throw error;}
+    }catch(error){
+      if(error.status&&error.status<500){clearPending();if(error.status!==409||action!=='save')remember();}
+      if(action==='save'&&!retried&&error.status===409&&!sharedConflict){
+        const latest=await api('get');
+        try{state.draft=mergeValue(JSON.parse(state.baseline),state.draft,latest.draft);}catch{showTabConflict();throw Error('Another tab changed the same lesson. Download this draft before reloading the latest version.');}
+        state.data=latest;state.baseline=JSON.stringify(latest.draft);revisionStamp=Math.max(Date.now(),revisionStamp+1);remember(true);render();
+        if(sharedConflict)throw Error('Another tab changed the same lesson. Download this draft before reloading the latest version.');
+        return mutate('save',true);
+      }
+      throw error;
+    }
   }
   function showValidation(result){
     $('tt-validation').hidden=false;$('tt-validation').innerHTML=`<strong class="${result.valid?'tt-good':'tt-error'}">${result.valid?'✓ Weekly timetable checked':'Resolve these items before publication'}</strong><ul>${(result.issues||[]).map(i=>`<li>${esc(i.rowId?rowLabel(i.rowId)+': ':'')}${esc(i.message)}</li>`).join('')}${(result.conflicts||[]).map(c=>`<li>${esc(c.reasons.join(', '))}: ${esc(anchorLabel(c.left))} ↔ ${esc(anchorLabel(c.right))}</li>`).join('')}</ul>${(result.warnings||[]).map(w=>`<p class="tt-scope">${esc(w)}</p>`).join('')}`;
@@ -211,6 +270,12 @@
   $('tt-export').onclick=()=>download(state.draft);$('tt-original').onclick=()=>download(state.conversion.originalDraft);
   $('tt-convert').onclick=()=>{state.converted=true;state.baseline='';invalidate();render();message('The weekly rows are ready to edit. Saving creates a new draft version; the previous dated draft stays preserved.');};
   document.addEventListener('keydown',event=>{if((event.ctrlKey||event.metaKey)&&event.key==='Enter'&&!$('tt-save').disabled){event.preventDefault();void work(()=>mutate('save'));}});
+  window.addEventListener('storage',event=>{
+    if(event.key!==sharedKey||!state.data||!state.draft||sharedConflict)return;
+    const before=JSON.stringify(state.draft),revision=state.data.revision;
+    if(!syncShared())return;
+    if(before!==JSON.stringify(state.draft)||revision!==state.data.revision){invalidate();render();message('Changes from another timetable tab are now shown. Review the board before publishing.');}
+  });
   window.addEventListener('beforeunload',event=>{if(dirty()||state.pending){remember();event.preventDefault();event.returnValue='';}});
   void work(load);
 })();

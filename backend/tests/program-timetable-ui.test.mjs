@@ -5,21 +5,21 @@ import {timetableFixture} from '../../scripts/program-timetable-fixtures.mjs';
 import {readWeeklyDraft} from '../src/programs/weekly-timetable.js';
 import {timetableService} from '../src/programs/timetable-service.js';
 import {timetableCoordinator} from '../src/programs/timetable-coordination.js';
-const source=await readFile(new URL('../../js/m4l-program-timetable.js',import.meta.url),'utf8'),plannerSource=await readFile(new URL('../../js/m4l-timetable-planner.js',import.meta.url),'utf8'),markup=await readFile(new URL('../../programs/timetable.html',import.meta.url),'utf8');
+const source=await readFile(new URL('../../js/m4l-program-timetable.js',import.meta.url),'utf8'),plannerSource=await readFile(new URL('../../js/m4l-timetable-planner.js',import.meta.url),'utf8'),syncSource=await readFile(new URL('../../js/m4l-timetable-sync.js',import.meta.url),'utf8'),markup=await readFile(new URL('../../programs/timetable.html',import.meta.url),'utf8');
 assert.match(markup,/js\/m4l-timetable-planner\.js/);assert.match(markup,/id="tt-planner"/);assert.match(markup,/id="tt-board"/);
 assert.match(markup,/<th>Subject \/ Module<\/th><th>Classes<\/th><th>Teacher<\/th><th>Weekdays<\/th><th>Start<\/th><th>End<\/th>/);
 assert(!/Classes learning together|<th>Pattern|First date|Last date|Publication window|tt-exceptions/.test(markup));
 assert(!/id="tt-view"|id="tt-adjust"|id="tt-layout"|All classes/.test(markup));
 assert.match(markup,/id="tt-preview-type"/);assert.match(markup,/id="tt-preview-target"/);
 assert.equal([...markup.matchAll(/type="date"/g)].length,1);
-const ids=new Set([...markup.matchAll(/id="([^"]+)"/g)].map(m=>m[1])),elements=new Map(),storage=new Map(),requests=[];
+const ids=new Set([...markup.matchAll(/id="([^"]+)"/g)].map(m=>m[1])),elements=new Map(),storage=new Map(),sharedStorage=new Map(),requests=[];
 const f=timetableFixture(),service=timetableService(f.repository,f.program,()=>new Date('2026-09-29T09:00:00Z')),coordinator=timetableCoordinator(f.journal,async()=>({service,user:{accountid:'ADMIN'}}));
 f.catalog.classes[0].zoomLink='https://zoom.us/j/111';
 const draft=readWeeklyDraft(f.draft).draft;draft.rules[0].teacherId='';
 await coordinator.run('save',{id:f.program.id,draft,revision:'',operationId:crypto.randomUUID()},'token');
-function element(id){assert(ids.has(id),`Missing ${id}`);if(!elements.has(id))elements.set(id,{hidden:false,disabled:false,value:'',textContent:'',innerHTML:'',events:{},classList:{toggle(){}},addEventListener(event,fn){this.events[event]=fn;}});return elements.get(id);}
-const blockOptions=[];
-const context={console,URL,Image:class{constructor(){this.complete=false;}},URLSearchParams,structuredClone,crypto,location:{search:`?program=${f.program.id}`},document:{getElementById:element,querySelectorAll:()=>[],addEventListener(){},fonts:{ready:Promise.resolve()}},localStorage:{getItem:()=> 'token'},sessionStorage:{getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)},window:{M4L_CONFIG:{API_BASE:''},M4L_TIMEZONES:{options:z=>`<option>${z}</option>`,defaultZone:'Asia/Riyadh'},addEventListener(){}},fetch:async(url,options)=>{
+function element(id){assert(ids.has(id),`Missing ${id}`);if(!elements.has(id))elements.set(id,{hidden:false,disabled:false,value:'',textContent:'',innerHTML:'',events:{},classList:{toggle(){}},setAttribute(){},addEventListener(event,fn){this.events[event]=fn;}});return elements.get(id);}
+const blockOptions=[],windowEvents={};
+const context={console,URL,Image:class{constructor(){this.complete=false;}},URLSearchParams,structuredClone,crypto,location:{search:`?program=${f.program.id}`,href:`https://example.test/programs/timetable.html?program=${f.program.id}`},document:{getElementById:element,querySelectorAll:()=>[],addEventListener(){},fonts:{ready:Promise.resolve()}},localStorage:{getItem:k=>k==='m4l_account_token'?'token':sharedStorage.get(k)||null,setItem:(k,v)=>sharedStorage.set(k,v)},sessionStorage:{getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)},window:{M4L_CONFIG:{API_BASE:''},M4L_TIMEZONES:{options:z=>`<option>${z}</option>`,defaultZone:'Asia/Riyadh'},addEventListener:(name,fn)=>{windowEvents[name]=fn;}},fetch:async(url,options)=>{
  const action=url.split('/').at(-1),body=JSON.parse(options.body);requests.push({action,body});
  try{const result=['save','publish','recover','prepare'].includes(action)?await coordinator.run(action,body,'token'):await service.read(action,body);return {ok:true,status:200,json:async()=>({success:true,coordinatorAvailable:true,...result})};}
  catch(error){return {ok:false,status:error.status||503,json:async()=>({success:false,error:error.message})};}
@@ -29,6 +29,7 @@ const click=async id=>{await element(id).onclick();await settled();};
 function edit(field,value){const target={dataset:{field},value,closest:()=>({dataset:{row:'RULE-DEMO'}})};element('tt-editor').events.input({target});element('tt-editor').events.focusout({target});return target.value;}
 context.window.M4L_TIMETABLE_PRESENTATION ||= {model:()=>({}),html:()=>'<span>Lesson Zoom</span>',canvases:()=>[]};
 context.window.M4L_TIMETABLE_BLOCKS={model:(result,options)=>{blockOptions.push(options);return {timetableName:options.teacherId?'Teacher A':'Year 1'};},html:model=>`<svg>${model.timetableName} block timetable</svg>`,canvases:()=>[]};
+vm.runInNewContext(syncSource,context);
 vm.runInNewContext(plannerSource,context);
 vm.runInNewContext(source,context);await settled();
 assert.match(element('tt-rules').innerHTML,/<summary>Year 1 · Demo, Year 2 · Demo<\/summary>/);
@@ -113,3 +114,22 @@ assert.equal(blockOptions.at(-1).teacherId,f.catalog.teachers[0].id);assert.equa
 assert.match(element('tt-calendar').innerHTML,/Teacher A block timetable/);
 assert.equal(storage.get(`m4l-timetable-draft:${f.program.id}`),draftBeforeAudience);assert.equal(requests.length,requestsBeforeAudience);assert.equal(element('tt-save-state').textContent,saveStateBeforeAudience);
 console.log('Timetable audience switch: one class or assigned teacher, block-only preview and no writes passed.');
+
+// A second board tab can add a different lesson; a stale same-field edit stops saving.
+const sharedKey=[...sharedStorage.keys()].find(key=>key.startsWith('m4l-timetable-shared:'));
+assert(sharedKey);
+const beforeRemote=JSON.parse(sharedStorage.get(sharedKey));
+const remote=structuredClone(beforeRemote);remote.baseDraft=structuredClone(beforeRemote.draft);
+remote.draft.rules.push({...structuredClone(remote.draft.rules[0]),id:'REMOTE-LESSON',weekdays:[4]});remote.stamp++;
+sharedStorage.set(sharedKey,JSON.stringify(remote));windowEvents.storage({key:sharedKey});
+assert.match(element('tt-rules').innerHTML,/data-row="REMOTE-LESSON"/);
+assert.equal(element('tt-tab-warning').hidden,true);
+const beforeRace=JSON.parse(sharedStorage.get(sharedKey));
+edit('startTime','0900');
+const stale=structuredClone(beforeRace);stale.baseDraft=structuredClone(beforeRace.draft);
+stale.draft.rules.find(row=>row.id==='RULE-DEMO').startTime='10:00';
+stale.stamp=JSON.parse(sharedStorage.get(sharedKey)).stamp+1;
+sharedStorage.set(sharedKey,JSON.stringify(stale));windowEvents.storage({key:sharedKey});
+assert.equal(element('tt-tab-warning').hidden,false);
+assert.equal(element('tt-save').disabled,true);
+console.log('Timetable tabs: shared board updates and same-item conflict protection passed.');
