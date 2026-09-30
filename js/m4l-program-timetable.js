@@ -1,9 +1,9 @@
-/* V105.3.2.3 — weekly lessons with class defaults and lesson Zoom overrides. */
+/* V105.3.3.4 — block-only class and teacher timetable previews and exports. */
 (()=>{'use strict';
   const $=id=>document.getElementById(id),esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const id=new URLSearchParams(location.search).get('program'),storageKey=`m4l-timetable-pending:${id}`,draftKey=`m4l-timetable-draft:${id}`,format='105.3.2.2-weekly';
   const days=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-  const state={data:null,draft:null,baseline:'',busy:false,pending:null,preview:null,history:[],calendarView:null,conversion:null,converted:false,effectiveFrom:'',adjusting:false};
+  const state={data:null,draft:null,baseline:'',busy:false,pending:null,preview:null,history:[],calendarView:null,conversion:null,converted:false,effectiveFrom:'',audiences:{classes:[],teachers:[]}};
   const inputTime=value=>value.trim().replace(/^(\d{1,2})(\d{2})$/,'$1:$2').replace(/[hH]/,':').replace(/^(\d):(\d{2})$/,'0$1:$2');
   const time=value=>inputTime(String(value||'')).replace(':','h');
   const dirty=()=>Boolean(state.draft)&&JSON.stringify(state.draft)!==state.baseline;
@@ -22,11 +22,9 @@
   function controls(){
     const locked=state.busy||Boolean(state.pending),needsReview=state.conversion?.required&&!state.converted,ready=state.data?.prepared&&state.data?.coordinatorAvailable&&state.data?.program.status==='DRAFT'&&!needsReview;
     $('tt-editor').disabled=locked||!ready;
-    $('tt-layout').disabled=locked||!ready||Boolean(state.calendarView?.history);$('tt-adjust').disabled=locked||!ready;
-    $('tt-entry-form').querySelectorAll?.('button,input,select').forEach(el=>{el.disabled=locked;});
     for(const name of ['save','validate','preview'])$(`tt-${name}`).disabled=locked||!ready;
     $('tt-save').disabled||=!dirty();$('tt-publish').disabled=locked||!ready||!state.preview?.valid;
-    $('tt-effective-from').disabled=locked;$('tt-view').disabled=locked;$('tt-preview-class').disabled=locked;
+    $('tt-effective-from').disabled=locked;$('tt-preview-type').disabled=locked;$('tt-preview-target').disabled=locked||!$('tt-preview-target').value;
     for(const name of ['reload','recover','history','prepare','convert'])$(`tt-${name}`).disabled=state.busy;
     $('tt-convert').disabled||=Boolean(state.pending);$('tt-retry').disabled=state.busy;$('tt-export').disabled=!state.draft;
     $('tt-pending').hidden=!state.pending;$('tt-conversion').hidden=!needsReview;
@@ -91,43 +89,66 @@
     $('tt-validation').hidden=false;$('tt-validation').innerHTML=`<strong class="${result.valid?'tt-good':'tt-error'}">${result.valid?'✓ Weekly timetable checked':'Resolve these items before publication'}</strong><ul>${(result.issues||[]).map(i=>`<li>${esc(i.rowId?rowLabel(i.rowId)+': ':'')}${esc(i.message)}</li>`).join('')}${(result.conflicts||[]).map(c=>`<li>${esc(c.reasons.join(', '))}: ${esc(anchorLabel(c.left))} ↔ ${esc(anchorLabel(c.right))}</li>`).join('')}</ul>${(result.warnings||[]).map(w=>`<p class="tt-scope">${esc(w)}</p>`).join('')}`;
     const bad=new Set([...(result.issues||[]).map(i=>i.rowId),...(result.conflicts||[]).flatMap(c=>c.rowIds)]);document.querySelectorAll('[data-row]').forEach(row=>row.classList.toggle('tt-row-bad',bad.has(row.dataset.row)));
   }
+  function audienceRows(result,type){
+    const rows=new Map();
+    for(const row of result.occurrences.filter(row=>row.kind!=='BREAK')){
+      if(type==='teacher'){if(row.teacherId)rows.set(row.teacherId,row.teacherName||row.teacherId);}
+      else row.classIds.forEach((classId,i)=>rows.set(classId,row.classNames[i]||classId));
+    }
+    return [...rows].map(([id,name])=>({id,name})).sort((a,b)=>a.name.localeCompare(b.name));
+  }
+  function visibleOccurrences(result,type,target){
+    const lessons=result.occurrences.filter(row=>row.kind!=='BREAK'&&(type==='teacher'?row.teacherId===target:row.classIds.includes(target)));
+    const lessonDays=new Set(lessons.map(row=>result.pattern==='WEEKLY'?row.weekday:row.date));
+    return result.occurrences.filter(row=>row.kind!=='BREAK'?(type==='teacher'?row.teacherId===target:row.classIds.includes(target)):(type==='class'||lessonDays.has(result.pattern==='WEEKLY'?row.weekday:row.date)));
+  }
+  function renderOccurrenceList(){
+    const result=state.calendarView,target=$('tt-preview-target').value,type=$('tt-preview-type').value;if(!result)return;
+    const weekly=result.pattern==='WEEKLY';
+    $('tt-occurrences').innerHTML=visibleOccurrences(result,type,target).map(r=>`<tr class="${r.status==='CANCELLED'?'tt-cancelled':''}"><td>${esc(weekly?days[r.weekday]:r.date)}</td><td>${esc(time(r.startTime))}–${esc(time(r.endTime))}</td><td>${zoomAnchor(r.zoomLink,r.moduleName||r.subjectName)||esc(r.moduleName||r.subjectName)}<small>${esc(r.subjectName)}${r.levelName?' / '+esc(r.levelName):''}</small></td><td>${r.classNames.map(esc).join(', ')}</td><td>${esc(r.teacherName||'Not assigned')}</td><td>${zoomDisplay(r)}</td><td>${esc(r.status.toLowerCase())}</td></tr>`).join('')||'<tr><td colspan="7" class="tt-empty">No lessons are assigned to this selection.</td></tr>';
+  }
+  function populatePreviewTargets(preferred=''){
+    const type=$('tt-preview-type').value,rows=type==='teacher'?state.audiences.teachers:state.audiences.classes,target=$('tt-preview-target');
+    $('tt-preview-target-label').textContent=type==='teacher'?'Teacher':'Class';
+    target.innerHTML=rows.length?rows.map(row=>`<option value="${esc(row.id)}">${esc(row.name)}</option>`).join(''):'<option value="">No eligible options</option>';
+    target.value=rows.some(row=>row.id===preferred)?preferred:(rows[0]?.id||'');
+    renderOccurrenceList();renderPresentation();controls();
+  }
   function showOccurrences(result,title,history=false){
-    state.calendarView={...result,history};if(history)state.adjusting=false;$('tt-adjust').setAttribute?.('aria-expanded',String(state.adjusting));$('tt-adjust').hidden=history;$('tt-layout').hidden=!state.adjusting;$('tt-preview-panel').hidden=false;$('tt-preview-title').textContent=title;
+    state.calendarView={...result,history};$('tt-preview-panel').hidden=false;$('tt-preview-title').textContent=title;
     const weekly=result.pattern==='WEEKLY';$('tt-preview-note').textContent=`${result.occurrences.filter(r=>r.kind!=='BREAK').length} lessons${result.occurrences.some(r=>r.kind==='BREAK')?' · '+result.occurrences.filter(r=>r.kind==='BREAK').length+' breaks':''} ${weekly?'each week':'in this publication'} · ${result.snapshot?.timezone||state.draft.timezone}${history?` · Published snapshot${result.effectiveFrom?' · Effective '+result.effectiveFrom:''}`:' · Repeats weekly until a newer version takes effect'}`;
-    $('tt-occurrences').innerHTML=result.occurrences.map(r=>`<tr class="${r.status==='CANCELLED'?'tt-cancelled':''}"><td>${esc(weekly?days[r.weekday]:r.date)}</td><td>${esc(time(r.startTime))}–${esc(time(r.endTime))}</td><td>${zoomAnchor(r.zoomLink,r.moduleName||r.subjectName)||esc(r.moduleName||r.subjectName)}<small>${esc(r.subjectName)}${r.levelName?' / '+esc(r.levelName):''}</small></td><td>${r.classNames.map(esc).join(', ')}</td><td>${esc(r.teacherName||'Not assigned')}</td><td>${zoomDisplay(r)}</td><td>${esc(r.status.toLowerCase())}</td></tr>`).join('');
-    const classes=new Map();result.occurrences.forEach(r=>r.classIds.forEach((id,i)=>classes.set(id,r.classNames[i])));
-    $('tt-preview-class').innerHTML=options([...classes].map(([id,name])=>({id,name})),'','All classes');
-    $('tt-preview-class').value='';renderPresentation();
-    $('tt-publish-options').hidden=history;controls();
+    state.audiences={classes:audienceRows(result,'class'),teachers:audienceRows(result,'teacher')};
+    const requested=$('tt-preview-type').value,available=requested==='teacher'?state.audiences.teachers:state.audiences.classes;
+    $('tt-preview-type').value=available.length?requested:(state.audiences.classes.length?'class':'teacher');
+    populatePreviewTargets();$('tt-publish-options').hidden=history;controls();
   }
   let exportGeneration=0,exportPages=null,exportFiles=null;
   const presentation=window.M4L_TIMETABLE_PRESENTATION;
-  const blocks=window.M4L_TIMETABLE_BLOCKS,viewKey=`m4l-timetable-view:${id}`;
-  try{$('tt-view').value=sessionStorage.getItem(viewKey)==='blocks'?'blocks':'table';}catch{$('tt-view').value='table';}
+  const blocks=window.M4L_TIMETABLE_BLOCKS;
   const createCanvas=(w,h)=>{const canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;return canvas;};
   const logo=new Image();logo.src='/logo.png';
-  function renderPresentation(refreshLayout=true){
-    const result=state.calendarView;if(!result)return;
-    const useBlocks=$('tt-view').value==='blocks',renderer=useBlocks?blocks:presentation;
-    const model=renderer.model(result,{programName:state.data.program.name,classId:$('tt-preview-class').value,effectiveFrom:state.effectiveFrom||state.data.today,history:result.history,layout:result.history?undefined:state.draft.layout});
-    $('tt-calendar').hidden=false;$('tt-calendar').innerHTML=useBlocks?renderer.html(model,createCanvas):presentation.html(model,{editable:state.adjusting&&!result.history});
-    $('tt-view-note').hidden=!useBlocks;$('tt-adjust').hidden=useBlocks||result.history;$('tt-layout').hidden=useBlocks||!state.adjusting;
-    if(refreshLayout&&!useBlocks)renderLayout(model);
+  let exportName='timetable';
+  function renderPresentation(){
+    const result=state.calendarView,target=$('tt-preview-target').value,type=$('tt-preview-type').value;if(!result)return;
     exportPages=null;exportFiles=null;const generation=++exportGeneration;
     $('tt-share-image').disabled=$('tt-download-image').disabled=$('tt-download-pdf').disabled=true;
+    if(!target){$('tt-calendar').innerHTML='<p class="tt-empty">Assign a class or teacher to a lesson before creating a timetable.</p>';$('tt-export-note').textContent='Choose a class or assigned teacher to prepare an export.';return;}
+    const model=blocks.model(result,{programName:state.data.program.name,effectiveFrom:state.effectiveFrom||state.data.today,history:result.history,...(type==='teacher'?{teacherId:target}:{classId:target})});
+    $('tt-calendar').hidden=false;$('tt-calendar').innerHTML=blocks.html(model,createCanvas);
+    exportName=`${type}-${String(model.timetableName||'timetable').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||'timetable'}`;
     $('tt-export-note').textContent='Preparing export…';
     Promise.resolve(document.fonts?.ready).then(async()=>{
       if(logo.decode)try{await logo.decode();}catch{}
       if(generation!==exportGeneration)return;
-      const pages=renderer.canvases(model,createCanvas,logo.complete&&logo.naturalWidth?logo:null);
-      const files=await Promise.all(pages.map((p,i)=>new Promise((resolve,reject)=>p.canvas.toBlob(blob=>blob?resolve(new File([blob],`timetable-${useBlocks?'blocks-':''}${i+1}.png`,{type:'image/png'})):reject(Error('Image export failed.')),'image/png'))));
+      const pages=blocks.canvases(model,createCanvas,logo.complete&&logo.naturalWidth?logo:null);
+      const files=await Promise.all(pages.map((p,i)=>new Promise((resolve,reject)=>p.canvas.toBlob(blob=>blob?resolve(new File([blob],`${exportName}-${i+1}.png`,{type:'image/png'})):reject(Error('Image export failed.')),'image/png'))));
       if(generation!==exportGeneration)return;exportPages=pages;exportFiles=files;
       $('tt-share-image').disabled=$('tt-download-image').disabled=$('tt-download-pdf').disabled=false;
       $('tt-export-note').textContent='Module names are links in the PDF. Images do not contain clickable links.';
     }).catch(error=>{if(generation===exportGeneration)$('tt-export-note').textContent=error.message;});
   }
-  $('tt-preview-class').onchange=renderPresentation;
-  $('tt-view').onchange=()=>{try{sessionStorage.setItem(viewKey,$('tt-view').value);}catch{}renderPresentation();};
+  $('tt-preview-type').onchange=()=>populatePreviewTargets();
+  $('tt-preview-target').onchange=()=>{renderOccurrenceList();renderPresentation();};
   function downloadFile(blob,name){const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),60000);}
   $('tt-download-image').onclick=()=>{for(const file of exportFiles||[])downloadFile(file,file.name);};
   $('tt-share-image').onclick=async()=>{
@@ -137,54 +158,9 @@
       catch(error){if(error.name!=='AbortError')message('Image sharing was unavailable. Use Download image and share the saved file.',true);}
     }else{for(const file of exportFiles)downloadFile(file,file.name);message('Timetable image downloaded. Share the saved image from your device.');}
   };
-  $('tt-download-pdf').onclick=()=>work(async()=>{const pages=exportPages,name=$('tt-view').value==='blocks'?'timetable-blocks.pdf':'timetable.pdf';if(pages)downloadFile(new Blob([await presentation.pdf(pages,window.PDFLib)],{type:'application/pdf'}),name);});
+  $('tt-download-pdf').onclick=()=>work(async()=>{if(exportPages)downloadFile(new Blob([await presentation.pdf(exportPages,window.PDFLib)],{type:'application/pdf'}),`${exportName}.pdf`);});
   $('tt-class-links').href=`/programs/manage.html?program=${encodeURIComponent(id)}&tab=classes`;
   $('tt-management').href=`/programs/manage.html?program=${encodeURIComponent(id)}`;
-  function renderLayout(model){
-    if(!state.adjusting||state.calendarView?.history)return;
-    const layout={alignment:'center',mergeShared:true,columnWidths:{},rowHeights:{},...state.draft.layout};
-    $('tt-alignment').value=layout.alignment;$('tt-merge').checked=layout.mergeShared;
-    $('tt-widths').innerHTML=[{id:'time',label:'Time'},...model.columns].map(c=>`<label>${esc(c.label)}<input type="number" min="100" max="600" step="10" data-width="${esc(c.id)}" value="${layout.columnWidths[c.id]||(c.id==='time'?180:360)}"></label>`).join('');
-    $('tt-heights').innerHTML=model.rows.map(row=>`<label>${esc(row.label)}<input type="number" min="60" max="300" step="10" data-height="${esc(row.key)}" value="${layout.rowHeights[row.key]||70}"></label>`).join('');
-  }
-  function layoutChanged(refreshControls=false){
-    if(state.preview){state.preview.draft=structuredClone(state.draft);if(state.preview.snapshot)state.preview.snapshot.layout=structuredClone(state.draft.layout);}
-    remember();controls();renderPresentation(refreshControls);message('Layout updated in the draft. Save the draft or publish to keep it.');
-  }
-  $('tt-adjust').onclick=()=>{if(state.busy||state.pending||state.calendarView?.history)return;state.adjusting=!state.adjusting;$('tt-layout').hidden=!state.adjusting;$('tt-adjust').setAttribute?.('aria-expanded',String(state.adjusting));renderPresentation();};
-  $('tt-layout').addEventListener('input',e=>{
-    if(state.busy||state.pending||state.calendarView?.history)return;
-    const el=e.target,layout=structuredClone(state.draft.layout||{alignment:'center',mergeShared:true,columnWidths:{},rowHeights:{}});
-    if(el.id==='tt-alignment')layout.alignment=el.value;
-    else if(el.id==='tt-merge')layout.mergeShared=el.checked;
-    else if(el.dataset.width!==undefined||el.dataset.height){const width=el.dataset.width!==undefined,min=width?100:60,max=width?600:300,value=Number(el.value);if(!Number.isInteger(value)||value<min||value>max){message(`Enter a whole number between ${min} and ${max}.`,true);return;}layout[width?'columnWidths':'rowHeights'][width?el.dataset.width:el.dataset.height]=value;}
-    else return;
-    state.draft.layout=layout;layoutChanged();
-  });
-  $('tt-layout-reset').onclick=()=>{if(state.busy||state.pending)return;state.draft.layout={alignment:'center',mergeShared:true,columnWidths:{},rowHeights:{}};layoutChanged(true);};
-  let entryEdit=null;
-  function openEntry(entry,isBreak,isNew=false){
-    if(state.busy||state.pending||state.calendarView?.history)return;
-    entryEdit={row:structuredClone(entry),isBreak,isNew};const c=state.data.catalog;
-    $('tt-entry-title').textContent=isBreak?'Edit break':'Edit lesson';$('tt-entry-error').textContent='';
-    $('tt-entry-fields').innerHTML=(isBreak?`<label>Label<input name="label" maxlength="80" value="${esc(entry.label)}"></label>`:`<label>Subject / Module<select name="moduleId">${options(modules(),entry.moduleId||(entry.programSubjectId?'subject:'+entry.programSubjectId:''))}</select></label><fieldset><legend>Classes</legend>${entry.classIds.filter(id=>!c.classes.some(c=>c.id===id)).map(id=>`<label><input type="checkbox" name="classId" value="${esc(id)}" checked>Unavailable: ${esc(id)}</label>`).join('')}${c.classes.filter(c=>c.active||entry.classIds.includes(c.id)).map(cls=>`<label><input type="checkbox" name="classId" value="${esc(cls.id)}" ${entry.classIds.includes(cls.id)?'checked':''}>${esc(cls.name)}</label>`).join('')}</fieldset><label>Teacher<select name="teacherId">${options(c.teachers,entry.teacherId,'Not assigned (optional)')}</select></label>`)+dayChoices(entry,'modal')+`<div class="tt-entry-times"><label>Start<input name="startTime" value="${esc(time(entry.startTime))}" placeholder="08h45" maxlength="5"></label><label>End<input name="endTime" value="${esc(time(entry.endTime))}" placeholder="09h15" maxlength="5"></label></div>`+(isBreak?'':`<label>Lesson Zoom link<input name="zoomLink" type="url" maxlength="2048" value="${esc(entry.zoomLink||'')}"></label><small>Optional for a single class; required for combined classes.</small>`);
-    $('tt-entry-dialog').showModal();
-  }
-  $('tt-entry-cancel').onclick=()=>{$('tt-entry-dialog').close();entryEdit=null;};
-  $('tt-entry-form').onsubmit=event=>{event.preventDefault();if(!entryEdit||state.busy||state.pending)return;
-    const form=new FormData($('tt-entry-form')),row={...entryEdit.row,weekdays:form.getAll('weekday').map(Number),startTime:inputTime(String(form.get('startTime')||'')),endTime:inputTime(String(form.get('endTime')||''))};
-    if(entryEdit.isBreak)row.label=String(form.get('label')||'').trim()||'Break';
-    else{const selected=String(form.get('moduleId')||'');row.moduleId=selected.startsWith('subject:')?'':selected;row.programSubjectId=selected.startsWith('subject:')?selected.slice(8):state.data.catalog.modules.find(m=>m.id===selected)?.programSubjectId||'';row.teacherId=String(form.get('teacherId')||'');row.classIds=form.getAll('classId');row.zoomLink=String(form.get('zoomLink')||'').trim();}
-    if(!/^([01]\d|2[0-3]):[0-5]\d$/.test(row.startTime)||!/^([01]\d|2[0-3]):[0-5]\d$/.test(row.endTime)||row.startTime>=row.endTime||!row.weekdays.length){$('tt-entry-error').textContent='Choose weekdays and valid times, with the end after the start.';return;}
-    const key=entryEdit.isBreak?'breaks':'rules';state.draft[key]||=[];if(entryEdit.isNew)state.draft[key].push(row);else state.draft[key]=state.draft[key].map(r=>r.id===row.id?row:r);
-    $('tt-entry-dialog').close();entryEdit=null;invalidate();render();
-    void work(async()=>{const result=await api('preview',{draft:state.draft,effectiveFrom:state.effectiveFrom||state.data.today});state.preview=result;showValidation(result);showOccurrences(result,'Weekly timetable preview');message(result.valid?'Entry updated and validated. Save the draft or publish to keep it.':'Entry kept in the draft. Resolve the listed issues before publishing.',!result.valid);});
-  };
-  $('tt-calendar').onclick=event=>{
-    const button=event.target.closest('button');if(!button||!state.adjusting||state.calendarView?.history)return;
-    if(button.dataset.gap){const [startTime,endTime]=button.dataset.gap.split('|');openEntry({id:`BREAK-${crypto.randomUUID()}`,label:'Break',startTime,endTime,weekdays:button.dataset.gapDays.split(',').map(Number)},true,true);return;}
-    const id=button.dataset.editEntry,entry=state.draft.rules.find(r=>r.id===id)||(state.draft.breaks||[]).find(r=>r.id===id);if(entry)openEntry(entry,id.startsWith('BREAK-'));
-  };
   $('tt-editor').addEventListener('input',event=>{
     const el=event.target;if(state.busy||state.pending)return;
     if(el.id==='tt-timezone')state.draft.timezone=el.value;

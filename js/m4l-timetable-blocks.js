@@ -1,6 +1,7 @@
-/* V105.3.3.3 — optional time-positioned blocks; the table renderer is unchanged. */
+/* V105.3.3.4 — single-class and single-teacher time-positioned timetables. */
 (()=>{'use strict';
   const table=window.M4L_TIMETABLE_PRESENTATION;
+  const days=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
   const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const minutes=t=>{const [h,m]=String(t).split(':').map(Number);return h*60+m;};
   const clock=n=>`${String(Math.floor(n/60)).padStart(2,'0')}h${String(n%60).padStart(2,'0')}`;
@@ -14,14 +15,22 @@
     if(line)lines.push(line);return lines;
   }
   function model(result,options={}){
-    const base=table.model(result,options),weekly=result.pattern==='WEEKLY';
-    const events=result.occurrences.filter(r=>r.kind==='BREAK'||!options.classId||r.classIds.includes(options.classId)).map((r,i)=>({
+    const weekly=result.pattern==='WEEKLY',lessons=result.occurrences.filter(r=>r.kind!=='BREAK');
+    const timetableType=options.teacherId?'teacher':'class',targetId=options.teacherId||options.classId||lessons[0]?.classIds[0]||'';
+    const selectedLessons=lessons.filter(r=>timetableType==='teacher'?r.teacherId===targetId:r.classIds.includes(targetId));
+    const selectedDays=new Set(selectedLessons.map(r=>weekly?r.weekday:r.date));
+    const selected=result.occurrences.filter(r=>r.kind==='BREAK'?(timetableType==='class'||selectedDays.has(weekly?r.weekday:r.date)):(timetableType==='teacher'?r.teacherId===targetId:r.classIds.includes(targetId)));
+    const match=selectedLessons[0],classIndex=match?.classIds.indexOf(targetId)??-1;
+    const timetableName=timetableType==='teacher'?(match?.teacherName||targetId):(classIndex>=0?match.classNames[classIndex]:targetId);
+    const base=table.model(result,{...options,classId:timetableType==='class'?targetId:''});
+    const events=selected.map((r,i)=>({
       key:r.anchor||`${r.ruleId||i}@${weekly?r.weekday:r.date}`,ruleId:r.ruleId,day:weekly?r.weekday:r.date,
-      start:minutes(r.startTime),end:minutes(r.endTime),title:r.moduleName||r.subjectName||'Lesson',teacher:r.teacherName||'',classes:r.classNames.join(', '),
+      start:minutes(r.startTime),end:minutes(r.endTime),title:r.moduleName||r.subjectName||'Lesson',teacher:r.kind==='BREAK'?'':timetableType==='class'?(r.teacherName||''):'',classes:r.kind==='BREAK'?'':timetableType==='teacher'?r.classNames.join(', '):'',
       url:r.status==='CANCELLED'?'':table.link(r.zoomLink),cancelled:r.status==='CANCELLED',kind:r.kind||'LESSON',
       identity:JSON.stringify([r.moduleId||'',r.programSubjectId||'',r.teacherId||'',r.classIds.slice().sort()])
     })).filter(r=>Number.isFinite(r.start)&&Number.isFinite(r.end)&&r.end>r.start);
-    return {...base,events,start:events.length?Math.floor(Math.min(...events.map(r=>r.start))/30)*30:0,end:events.length?Math.ceil(Math.max(...events.map(r=>r.end))/30)*30:0};
+    const columns=weekly?[1,2,3,4,5,6,0].filter(day=>events.some(event=>event.day===day)).map(day=>({id:day,label:days[day]})):[...new Set(events.map(event=>event.day))].sort().map(day=>({id:day,label:day}));
+    return {...base,timetableType,timetableName,columns,events,start:events.length?Math.floor(Math.min(...events.map(r=>r.start))/30)*30:0,end:events.length?Math.ceil(Math.max(...events.map(r=>r.end))/30)*30:0};
   }
   // Interval groups use separate lanes: simultaneous classes never cover one another.
   function position(m,offset=0,count=m.columns.length){
@@ -77,7 +86,7 @@
     blocks.forEach(b=>{b.y=(b.start-m.start)*scale;b.height=(b.end-b.start)*scale;});
     return {width,left,right,dayWidth,columns:m.columns.slice(offset,offset+count),blocks,scale,height:(m.end-m.start)*scale,start:m.start,end:m.end};
   }
-  function header(m){return `<header class="tt-block-heading"><img src="/logo.png" alt="Academy logo"><div><p>${esc(m.academy)}</p><h2>${esc(m.program)}</h2><h3>${esc(m.title)}</h3><p>${esc(m.classes)}</p></div></header><p class="tt-block-stamp">${esc(m.stamp)} · ${esc(m.timezone)}</p>`;}
+  function header(m){return `<header class="tt-block-heading"><img src="/logo.png" alt="Academy logo"><div><p>${esc(m.academy)}</p><h2>${esc(`${m.timetableName} ${m.title}`)}</h2></div></header>`;}
   function html(m,createCanvas){
     if(!m.events.length)return '<p class="tt-empty">No lessons to display.</p>';
     const s=scene(m,createCanvas),top=64,ticks=[];
@@ -89,7 +98,7 @@
       const text=b.lines.map(line=>{const value=`<text x="${b.x+line.dx}" y="${textTop+line.dy+line.size}" font-size="${line.size}" font-weight="${line.bold?'bold':'normal'}" fill="${line.color}" ${line.title&&b.cancelled?'text-decoration="line-through"':''}>${esc(line.text)}</text>`;return line.title&&b.url?`<a href="${esc(b.url)}" target="_blank" rel="noopener noreferrer" aria-label="${esc(b.title+' meeting link')}">${value.replace('<text ','<text text-decoration="underline" ')}</a>`:value;}).join('');
       return `<g role="group" aria-label="${esc(`${b.title}, ${clock(b.start)} to ${clock(b.end)}, ${b.teacher}, ${b.classes}`)}"><rect x="${b.x}" y="${y}" width="${b.width}" height="${height}" rx="16" fill="${fill}" stroke="${stroke}" stroke-width="1.5"/>${text}</g>`;
     }).join('');
-    return `<section class="tt-block-sheet">${header(m)}<svg class="tt-block-grid" viewBox="0 0 ${s.width} ${top+s.height+28}" xmlns="http://www.w3.org/2000/svg" role="group" aria-label="Timetable blocks positioned by start and end time" style="min-width:${Math.max(850,m.columns.length*230+120)}px;font-family:Arial,sans-serif">${cols}${ticks.join('')}${blocks}</svg></section>`;
+    return `<section class="tt-block-sheet">${header(m)}<svg class="tt-block-grid" viewBox="0 0 ${s.width} ${top+s.height+28}" xmlns="http://www.w3.org/2000/svg" role="group" aria-label="${esc(m.timetableName)} timetable blocks positioned by start and end time" style="min-width:${Math.max(850,m.columns.length*230+120)}px;font-family:Arial,sans-serif">${cols}${ticks.join('')}${blocks}</svg><p class="tt-block-footnote">${esc(m.stamp)} · ${esc(m.timezone)}</p></section>`;
   }
   function rounded(ctx,x,y,w,h,fill,stroke){ctx.beginPath();ctx.roundRect(x,y,w,h,14);ctx.fillStyle=fill;ctx.fill();ctx.strokeStyle=stroke;ctx.lineWidth=1.5;ctx.stroke();}
   function canvases(m,createCanvas,logo){
@@ -99,10 +108,10 @@
       const s=scene(m,createCanvas,offset,Math.min(7,m.columns.length-offset));let from=m.start;
       // Estimate the heading once; repeat it on every exported page.
       const measure=createCanvas(1,1).getContext('2d'),headings=[];
-      for(const [text,size,bold] of [[m.academy,22,true],[m.program,30,true],[m.title,21,true],[m.classes,18,false],[`${m.stamp} · ${m.timezone}`,16,false]]){font(measure,size,bold);for(const line of wrap(measure,text,W-350))headings.push({text:line,size,bold});}
+      for(const [text,size,bold] of [[m.academy,22,true],[`${m.timetableName} ${m.title}`,30,true]]){font(measure,size,bold);for(const line of wrap(measure,text,W-350))headings.push({text:line,size,bold});}
       const gridTop=30+headings.reduce((n,l)=>n+l.size+7,0)+66,capacity=H-gridTop-58;
       while(from<m.end){
-        if(pages.length>=40)throw Error('This block view needs too many pages. Filter to a class or use Table view for export.');
+        if(pages.length>=40)throw Error('This timetable needs too many pages. Choose a class or teacher with fewer sessions.');
         let to=Math.min(m.end,Math.floor(from+capacity/s.scale));
         // Avoid cutting a short block into fragments too small for its full details.
         const candidates=Array.from({length:Math.max(0,to-from)},(_,i)=>to-i);
@@ -112,7 +121,7 @@
           return !(b.start<t&&b.end>t&&(b.end-t)*s.scale<b.needed+26);
         });
         to=candidates.find(fits);
-        if(to===undefined)throw Error('A block is too tall for a PDF page. Filter to a class or use Table view.');
+        if(to===undefined)throw Error('A block is too tall for a PDF page. Choose a class or teacher with fewer overlapping sessions.');
         const canvas=createCanvas(W,H),ctx=canvas.getContext('2d'),links=[];ctx.fillStyle='#fffdf8';ctx.fillRect(0,0,W,H);ctx.textAlign='center';ctx.textBaseline='top';
         if(logo)ctx.drawImage(logo,42,30,78,78);let y=28;
         for(const line of headings){font(ctx,line.size,line.bold);ctx.fillStyle='#42304b';ctx.fillText(line.text,W/2,y);y+=line.size+7;}
@@ -135,7 +144,7 @@
         pages.push({canvas,links});from=to;
       }
     }
-    pages.forEach((page,i)=>{const ctx=page.canvas.getContext('2d');font(ctx,16);ctx.textAlign='right';ctx.fillStyle='#685f6e';ctx.fillText(`Blocks · Page ${i+1} of ${pages.length}`,1560,1100);});return pages;
+    pages.forEach((page,i)=>{const ctx=page.canvas.getContext('2d');font(ctx,15);ctx.fillStyle='#685f6e';ctx.textAlign='center';ctx.fillText(`${m.stamp} · ${m.timezone}`,800,1100);ctx.textAlign='right';ctx.fillText(`Page ${i+1} of ${pages.length}`,1560,1100);});return pages;
   }
   window.M4L_TIMETABLE_BLOCKS={model,position,scene,html,canvases};
 })();

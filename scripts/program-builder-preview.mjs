@@ -32,7 +32,7 @@ const ttCoordinator=timetableCoordinator(fixture.journal,async()=>({user:{accoun
 const demoDraft=readWeeklyDraft(fixture.draft).draft;
 if(process.env.PROGRAM_PREVIEW_TIMETABLE==='review'){
   fixture.catalog.modules=[{id:'MOD-ASSEMBLY',programSubjectId:'PS-TAFSEER',name:'Assembly',active:true},{id:'MOD-QUDURI',programSubjectId:'PS-TAFSEER',name:'Quduri',active:true},{id:'MOD-MISHKAAT',programSubjectId:'PS-TAFSEER',name:'Mishkaat',active:true}];
-  const rule=(id,moduleId,weekdays,startTime,endTime)=>({id,moduleId,teacherId:'',classIds:['CLASS-1'],weekdays,startTime,endTime,zoomLink:'https://example.zoom.us/j/123?pwd=synthetic'});
+  const teacher=fixture.catalog.teachers[0]?.id||'',rule=(id,moduleId,weekdays,startTime,endTime)=>({id,moduleId,teacherId:teacher,classIds:['CLASS-1'],weekdays,startTime,endTime,zoomLink:'https://example.zoom.us/j/123?pwd=synthetic'});
   demoDraft.rules=[rule('RULE-ASSEMBLY','MOD-ASSEMBLY',[2,3,4],'07:30','07:45'),rule('RULE-TUE','MOD-QUDURI',[2],'07:45','09:15'),rule('RULE-WED','MOD-MISHKAAT',[3],'07:45','09:15'),rule('RULE-THU1','MOD-QUDURI',[4],'07:45','08:30'),rule('RULE-THU2','MOD-MISHKAAT',[4],'08:30','09:15'),rule('RULE-LAST','MOD-MISHKAAT',[2],'09:30','10:00')];
   demoDraft.breaks=[{id:'BREAK-DEMO',label:'Break',weekdays:[2,3,4],startTime:'09:15',endTime:'09:30'}];
 }

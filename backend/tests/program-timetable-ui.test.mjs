@@ -8,6 +8,8 @@ import {timetableCoordinator} from '../src/programs/timetable-coordination.js';
 const source=await readFile(new URL('../../js/m4l-program-timetable.js',import.meta.url),'utf8'),markup=await readFile(new URL('../../programs/timetable.html',import.meta.url),'utf8');
 assert.match(markup,/<th>Subject \/ Module<\/th><th>Classes<\/th><th>Teacher<\/th><th>Weekdays<\/th><th>Start<\/th><th>End<\/th>/);
 assert(!/Classes learning together|<th>Pattern|First date|Last date|Publication window|tt-exceptions/.test(markup));
+assert(!/id="tt-view"|id="tt-adjust"|id="tt-layout"|All classes/.test(markup));
+assert.match(markup,/id="tt-preview-type"/);assert.match(markup,/id="tt-preview-target"/);
 assert.equal([...markup.matchAll(/type="date"/g)].length,1);
 const ids=new Set([...markup.matchAll(/id="([^"]+)"/g)].map(m=>m[1])),elements=new Map(),storage=new Map(),requests=[];
 const f=timetableFixture(),service=timetableService(f.repository,f.program,()=>new Date('2026-09-29T09:00:00Z')),coordinator=timetableCoordinator(f.journal,async()=>({service,user:{accountid:'ADMIN'}}));
@@ -15,7 +17,8 @@ f.catalog.classes[0].zoomLink='https://zoom.us/j/111';
 const draft=readWeeklyDraft(f.draft).draft;draft.rules[0].teacherId='';
 await coordinator.run('save',{id:f.program.id,draft,revision:'',operationId:crypto.randomUUID()},'token');
 function element(id){assert(ids.has(id),`Missing ${id}`);if(!elements.has(id))elements.set(id,{hidden:false,disabled:false,value:'',textContent:'',innerHTML:'',events:{},classList:{toggle(){}},addEventListener(event,fn){this.events[event]=fn;}});return elements.get(id);}
-const context={console,URL,Image:class{constructor(){this.complete=false;}},URLSearchParams,structuredClone,crypto,location:{search:`?program=${f.program.id}`},document:{getElementById:element,querySelectorAll:()=>[],addEventListener(){}},localStorage:{getItem:()=> 'token'},sessionStorage:{getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)},window:{M4L_CONFIG:{API_BASE:''},M4L_TIMEZONES:{options:z=>`<option>${z}</option>`,defaultZone:'Asia/Riyadh'},addEventListener(){}},fetch:async(url,options)=>{
+const blockOptions=[];
+const context={console,URL,Image:class{constructor(){this.complete=false;}},URLSearchParams,structuredClone,crypto,location:{search:`?program=${f.program.id}`},document:{getElementById:element,querySelectorAll:()=>[],addEventListener(){},fonts:{ready:Promise.resolve()}},localStorage:{getItem:()=> 'token'},sessionStorage:{getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)},window:{M4L_CONFIG:{API_BASE:''},M4L_TIMEZONES:{options:z=>`<option>${z}</option>`,defaultZone:'Asia/Riyadh'},addEventListener(){}},fetch:async(url,options)=>{
  const action=url.split('/').at(-1),body=JSON.parse(options.body);requests.push({action,body});
  try{const result=['save','publish','recover','prepare'].includes(action)?await coordinator.run(action,body,'token'):await service.read(action,body);return {ok:true,status:200,json:async()=>({success:true,coordinatorAvailable:true,...result})};}
  catch(error){return {ok:false,status:error.status||503,json:async()=>({success:false,error:error.message})};}
@@ -24,6 +27,7 @@ const settled=async()=>{for(let i=0;i<6;i++)await new Promise(r=>setTimeout(r,2)
 const click=async id=>{await element(id).onclick();await settled();};
 function edit(field,value){const target={dataset:{field},value,closest:()=>({dataset:{row:'RULE-DEMO'}})};element('tt-editor').events.input({target});element('tt-editor').events.focusout({target});return target.value;}
 context.window.M4L_TIMETABLE_PRESENTATION ||= {model:()=>({}),html:()=>'<span>Lesson Zoom</span>',canvases:()=>[]};
+context.window.M4L_TIMETABLE_BLOCKS={model:(result,options)=>{blockOptions.push(options);return {timetableName:options.teacherId?'Teacher A':'Year 1'};},html:model=>`<svg>${model.timetableName} block timetable</svg>`,canvases:()=>[]};
 vm.runInNewContext(source,context);await settled();
 assert.match(element('tt-rules').innerHTML,/<summary>Year 1 · Demo, Year 2 · Demo<\/summary>/);
 assert.match(element('tt-rules').innerHTML,/data-field="zoomLink"/);
@@ -39,7 +43,7 @@ vm.runInNewContext(source,context);await settled();assert.match(element('tt-rule
 await click('tt-preview');assert.equal(element('tt-publish-options').hidden,false);assert.equal(element('tt-effective-from').value,'2026-09-29');
 assert.match(element('tt-validation').innerHTML,/Weekly timetable checked/);assert(!/authorised active teacher/.test(element('tt-validation').innerHTML));
 assert.match(element('tt-occurrences').innerHTML,/Not assigned/);
-assert.match(element('tt-occurrences').innerHTML,/href="https:\/\/zoom.us\/j\/222\?pwd=test"/);assert.match(element('tt-calendar').innerHTML,/Lesson Zoom/);
+assert.match(element('tt-occurrences').innerHTML,/href="https:\/\/zoom.us\/j\/222\?pwd=test"/);assert.match(element('tt-calendar').innerHTML,/Year 1 block timetable/);
 await click('tt-publish');assert.equal(element('tt-live-state').textContent,'In effect · Version 1');
 let request=requests.filter(r=>r.action==='publish').at(-1).body;
 assert.equal(request.effectiveFrom,'2026-09-29');assert.equal(request.draft.rules[0].startTime,'08:45');assert.equal(request.draft.rules[0].teacherId,'');assert(!('effectiveFrom' in request.draft));
@@ -81,35 +85,29 @@ await click('tt-preview');await click('tt-publish');
 assert.equal(f.tables.ProgramTimetablePublications.length,3);assert.deepEqual(f.tables.ProgramTimetablePublications[0],firstPublication);
 console.log('Timetable reuse: protected unfinished draft, preserved Zoom snapshot and new immutable publication passed.');
 
-// A break and visual settings survive saves, reloads and publication reuse.
-context.window.M4L_TIMETABLE_PRESENTATION.model=()=>({columns:[{id:1,label:'Monday'}],rows:[{key:'10:15|10:30',label:'10h15 - 10h30'}]});
+// A break survives saves, publication and publication reuse.
 await click('tt-add-break');
 let local=JSON.parse(storage.get(`m4l-timetable-draft:${f.program.id}`)),breakId=local.draft.breaks[0].id;
 function editBreak(field,value){element('tt-editor').events.input({target:{dataset:{field},value,closest:()=>({dataset:{row:breakId}})}});}
 editBreak('label','Morning break');editBreak('startTime','1015');editBreak('endTime','1030');
 element('tt-editor').events.input({target:{dataset:{day:'1'},checked:true,closest:()=>({dataset:{row:breakId}})}});
-await click('tt-preview');assert.equal(element('tt-publish').disabled,false);assert.match(element('tt-calendar').innerHTML,/Lesson Zoom/);
-await click('tt-adjust');
-element('tt-layout').events.input({target:{id:'tt-alignment',value:'left',dataset:{}}});
-element('tt-layout').events.input({target:{id:'',value:'220',dataset:{width:'time'}}});
-element('tt-layout').events.input({target:{id:'',value:'120',dataset:{height:'10:15|10:30'}}});
-assert.equal(element('tt-save').disabled,false);
+await click('tt-preview');assert.equal(element('tt-publish').disabled,false);assert.match(element('tt-calendar').innerHTML,/block timetable/);
 await click('tt-publish');const newest=f.tables.ProgramTimetablePublications.at(-1),snap=JSON.parse(newest.SnapshotJSON);
-assert.equal(snap.breaks[0].label,'Morning break');assert.equal(snap.layout.columnWidths.time,220);assert.equal(snap.layout.alignment,'left');
-await click('tt-history');element('tt-history-list').onclick({target:{dataset:{history:newest.PublicationID}}});assert.equal(element('tt-adjust').hidden,true);
+assert.equal(snap.breaks[0].label,'Morning break');
+await click('tt-history');element('tt-history-list').onclick({target:{dataset:{history:newest.PublicationID}}});assert.equal(element('tt-publish-options').hidden,true);
 element('tt-history-list').onclick({target:{dataset:{reuse:newest.PublicationID}}});await settled();
-local=JSON.parse(storage.get(`m4l-timetable-draft:${f.program.id}`));assert.equal(local.draft.breaks[0].label,'Morning break');assert.equal(local.draft.layout.rowHeights['10:15|10:30'],120);
-console.log('Timetable UI: breaks and layout inputs persist in immutable publications and copied drafts.');
+local=JSON.parse(storage.get(`m4l-timetable-draft:${f.program.id}`));assert.equal(local.draft.breaks[0].label,'Morning break');
+console.log('Timetable UI: breaks persist in immutable publications and copied drafts.');
 
-// View selection is presentation-only, including published history and a saved session.
-context.window.M4L_TIMETABLE_BLOCKS={model:()=>({}),html:()=>'<svg>Time-positioned blocks</svg>',canvases:()=>[]};
-vm.runInNewContext(source,context);await settled();await click('tt-preview');
-assert.equal(element('tt-view').value,'table');
-const draftBeforeView=storage.get(`m4l-timetable-draft:${f.program.id}`),requestsBeforeView=requests.length,saveStateBeforeView=element('tt-save-state').textContent;
-element('tt-view').value='blocks';element('tt-view').onchange();await settled();
-assert.match(element('tt-calendar').innerHTML,/Time-positioned blocks/);assert.equal(element('tt-adjust').hidden,true);assert.equal(element('tt-view-note').hidden,false);
-assert.equal(storage.get(`m4l-timetable-draft:${f.program.id}`),draftBeforeView);assert.equal(requests.length,requestsBeforeView);assert.equal(element('tt-save-state').textContent,saveStateBeforeView);
-vm.runInNewContext(source,context);await settled();assert.equal(element('tt-view').value,'blocks');
-await click('tt-history');element('tt-history-list').onclick({target:{dataset:{history:newest.PublicationID}}});assert.match(element('tt-calendar').innerHTML,/Time-positioned blocks/);assert.equal(element('tt-publish-options').hidden,true);
-element('tt-view').value='table';element('tt-view').onchange();assert.match(element('tt-calendar').innerHTML,/Lesson Zoom/);assert.equal(element('tt-view-note').hidden,true);assert.equal(element('tt-adjust').hidden,true,'Published table remains read-only');
-console.log('Timetable view switch: no writes or draft changes, original table restored, session preference and published history passed.');
+// Class/teacher selection is presentation-only and exactly one audience is selected.
+edit('teacherId',f.catalog.teachers[0].id);await click('tt-preview');
+assert.equal(element('tt-preview-type').value,'class');assert.equal(element('tt-preview-target').value,f.catalog.classes[0].id);
+assert.equal(blockOptions.at(-1).classId,f.catalog.classes[0].id);assert.equal(blockOptions.at(-1).teacherId,undefined);
+assert(!element('tt-preview-target').innerHTML.includes('All classes'));
+const draftBeforeAudience=storage.get(`m4l-timetable-draft:${f.program.id}`),requestsBeforeAudience=requests.length,saveStateBeforeAudience=element('tt-save-state').textContent;
+element('tt-preview-type').value='teacher';element('tt-preview-type').onchange();await settled();
+assert.equal(element('tt-preview-target-label').textContent,'Teacher');assert.equal(element('tt-preview-target').value,f.catalog.teachers[0].id);
+assert.equal(blockOptions.at(-1).teacherId,f.catalog.teachers[0].id);assert.equal(blockOptions.at(-1).classId,undefined);
+assert.match(element('tt-calendar').innerHTML,/Teacher A block timetable/);
+assert.equal(storage.get(`m4l-timetable-draft:${f.program.id}`),draftBeforeAudience);assert.equal(requests.length,requestsBeforeAudience);assert.equal(element('tt-save-state').textContent,saveStateBeforeAudience);
+console.log('Timetable audience switch: one class or assigned teacher, block-only preview and no writes passed.');

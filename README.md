@@ -1,3 +1,9 @@
+# V105.3.3.4 — Class and teacher timetables
+
+Blocks is now the only timetable preview. Select one class or one assigned teacher for the preview and its PNG/PDF export. The Academy and selected name form the heading; version, effective date and timezone appear in the footnote. Lesson blocks omit the name already stated in the heading. [Scope and verification](docs/V105.3.3.4-CLASS-TEACHER-TIMETABLES.md).
+
+Development only; user acceptance remains open.
+
 # V105.3.3.3 — Compact timetable blocks
 
 Blocks now uses 30-minute grid lines and smaller spacing. Short Assembly and Break entries arrange details across the available width, so they do not inflate the entire time scale. The reference morning timetable exports on one page, with all details and linked titles retained. Up to seven days fit across one export page. Table remains unchanged. [Verification and scope](docs/V105.3.3.3-COMPACT-BLOCKS.md).

@@ -7,9 +7,9 @@ const {createCanvas,loadImage}=require('@napi-rs/canvas'),lib=require('pdf-lib')
 const root=new URL('../',import.meta.url),context={window:{},URL};
 new Function('window',await readFile(new URL('js/m4l-timetable-presentation.js',root),'utf8'))(context.window);
 const p=context.window.M4L_TIMETABLE_PRESENTATION;
-const base={teacherName:'',classIds:['C1'],classNames:['Fourth Year'],zoomLink:'https://example.zoom.us/j/123?pwd=synthetic',status:'SCHEDULED'};
+const base={teacherId:'T1',teacherName:'Teacher A',classIds:['C1'],classNames:['Fourth Year'],zoomLink:'https://example.zoom.us/j/123?pwd=synthetic',status:'SCHEDULED'};
 const item=(title,weekday,startTime,endTime,extra={})=>({...base,ruleId:`RULE-${title}-${weekday}`,moduleName:title,weekday,startTime,endTime,...extra});
-const occurrences=[...[2,3,4].map(d=>item('Assembly',d,'07:30','07:45')),item('Quduri',2,'07:45','09:15'),item('Mishkaat',3,'07:45','09:15'),item('Quduri',4,'07:45','08:30',{teacherName:'Teacher A'}),item('Mishkaat',4,'08:30','09:15',{teacherName:'Teacher B'}),...[2,3,4].map(d=>item('Break',d,'09:15','09:30',{kind:'BREAK',zoomLink:'',classIds:[],classNames:[]})),item('Mishkaat',2,'09:30','10:00')];
+const occurrences=[...[2,3,4].map(d=>item('Assembly',d,'07:30','07:45')),item('Quduri',2,'07:45','09:15'),item('Mishkaat',3,'07:45','09:15'),item('Quduri',4,'07:45','08:30',{teacherName:'Teacher A'}),item('Mishkaat',4,'08:30','09:15',{teacherId:'T2',teacherName:'Teacher B'}),...[2,3,4].map(d=>item('Break',d,'09:15','09:30',{kind:'BREAK',teacherId:'',teacherName:'',zoomLink:'',classIds:[],classNames:[]})),item('Mishkaat',2,'09:30','10:00')];
 const result={pattern:'WEEKLY',snapshot:{programName:'Faculty of Aalimiyah',timezone:'Africa/Johannesburg'},occurrences};
 const model=p.model(result,{effectiveFrom:'2026-10-01'}),pages=p.canvases(model,createCanvas,await loadImage(new URL('logo.png',root).pathname));
 const dir=process.argv[2]||'/tmp/maktab-10533-export';await mkdir(dir,{recursive:true});
@@ -36,10 +36,12 @@ console.log('Adjusted layout and seven-day pagination checked.');
 
 new Function('window',await readFile(new URL('js/m4l-timetable-blocks.js',root),'utf8'))(context.window);
 const blocks=context.window.M4L_TIMETABLE_BLOCKS;
-for(const [name,input] of [['blocks',result],['blocks-dense',dense],['blocks-wide',{...result,occurrences:[1,2,3,4,5,6,0].map(d=>item('Shared assembly',d,'07:30','07:45'))}],['blocks-uneven',{...result,occurrences:[item('Quduri',2,'07:45','09:15'),item('Mishkaat',3,'08:10','09:05',{teacherName:'Teacher B'}),item('Fiqh',3,'08:30','09:20',{classIds:['C2'],classNames:['Third Year'],teacherName:'Teacher C'}),item('Tafseer',2,'09:30','10:00')]}]]){
- const m=blocks.model(input,{effectiveFrom:'2026-10-01'}),pages=blocks.canvases(m,createCanvas,await loadImage(new URL('logo.png',root).pathname));
+for(const [name,input,selection] of [['blocks',result,{classId:'C1'}],['blocks-teacher',{...result,occurrences:[item('Quduri',2,'07:45','09:15'),item('Fiqh',3,'08:30','09:20',{classIds:['C2'],classNames:['Third Year']})]},{teacherId:'T1'}],['blocks-dense',dense,{classId:'C1'}],['blocks-wide',{...result,occurrences:[1,2,3,4,5,6,0].map(d=>item('Shared assembly',d,'07:30','07:45'))},{classId:'C1'}],['blocks-uneven',{...result,occurrences:[item('Quduri',2,'07:45','09:15'),item('Mishkaat',3,'08:10','09:05',{teacherId:'T2',teacherName:'Teacher B'}),item('Fiqh',3,'08:30','09:20',{classIds:['C2'],classNames:['Third Year'],teacherId:'T3',teacherName:'Teacher C'}),item('Tafseer',2,'09:30','10:00')]},{classId:'C1'}]]){
+ const m=blocks.model(input,{effectiveFrom:'2026-10-01',...selection}),pages=blocks.canvases(m,createCanvas,await loadImage(new URL('logo.png',root).pathname));
  for(const page of pages)for(const r of page.links)if(r.x<0||r.y<0||r.x+r.width>page.canvas.width||r.y+r.height>page.canvas.height)throw Error('Clipped blocks PDF link');
- if(['blocks','blocks-wide','blocks-uneven'].includes(name)&&pages.length!==1)throw Error(name+' should fit one page');
+ if(['blocks','blocks-teacher','blocks-wide','blocks-uneven'].includes(name)&&pages.length!==1)throw Error(name+' should fit one page');
+ if(name==='blocks'&&m.events.some(event=>event.classes))throw Error('Class timetable repeats its class name in a block');
+ if(name==='blocks-teacher'&&m.events.some(event=>event.teacher))throw Error('Teacher timetable repeats its teacher name in a block');
  const bytes=await p.pdf(pages,lib),doc=await lib.PDFDocument.load(bytes);if(doc.getPageCount()!==pages.length)throw Error('Missing blocks pages');
  let annotations=0;for(const page of doc.getPages())annotations+=page.node.lookup(lib.PDFName.of('Annots'),lib.PDFArray).size();
  if(annotations!==pages.reduce((sum,page)=>sum+page.links.length,0))throw Error('Missing blocks PDF annotations');

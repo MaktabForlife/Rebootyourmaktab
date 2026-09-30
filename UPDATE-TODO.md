@@ -1,3 +1,12 @@
+# V105.3.3.4 — Class and teacher timetable acceptance
+
+- [x] Block-only preview; remove Table, All classes and table layout controls.
+- [x] Exactly one class or assigned teacher per preview and PNG/PDF export.
+- [x] Academy and audience heading; version, effective date and timezone footnote.
+- [x] Avoid repeated class names on class timetables and teacher names on teacher timetables.
+- [x] Automated class/teacher filtering, no-write selection, PDF link and visual export checks.
+- [ ] User review with current class and teacher schedules, downloads and device sharing.
+
 # V105.3.3.3 — Compact Blocks acceptance
 
 - [x] 30-minute grid marks and smaller spacing, preserving exact lesson times and gaps.
