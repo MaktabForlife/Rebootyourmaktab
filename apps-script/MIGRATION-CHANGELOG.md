@@ -50,6 +50,7 @@ as `google-sheets` in both top-level `vars` and `env.development.vars` in
 | Timetable | `getTimetable`, `updateTimetableZoomLink` | DIRECT ONLY | REMOVED IN V98.14 |
 | Weekly Planner | records and archives | DIRECT ONLY | Not present |
 | Weekly Planner | `saveWeeklyPlannerPreviewToDrive` | APPS SCRIPT | ACTIVE |
+| Program Library | `startProgramLibraryUpload` | Signed Worker request; Apps Script owns Drive authorization | ACTIVE IN V105.4 |
 | System configuration | UI read/write of approved keys | DIRECT ONLY | Read-only helper retained for Drive config |
 | Attendance | all routed reads/writes | DIRECT ONLY | REMOVED IN V98.14 |
 | Authentication | routed Student/Admin lookup, login and PIN operations | DIRECT ONLY | REMOVED IN V98.14 |
@@ -411,6 +412,17 @@ Complete and verify this sequence in Development before repeating it in
 Production.
 
 ## Change history
+
+### 2026-10-01 — V105.4
+
+- Added the signed `startProgramLibraryUpload` Drive action for device uploads
+  to the deploying account's My Drive folder. Apps Script starts a resumable
+  session; the Worker validates and relays file chunks. The OAuth token remains
+  in Apps Script.
+- Added `script.external_request` to the manifest. Development requires a
+  matching `M4L_LIBRARY_BRIDGE_SECRET` in Worker secrets and Apps Script Script
+  properties. The historical V98.14 one-action audit below remains the record
+  of that earlier release.
 
 ### 2026-08-05 — V98.14
 

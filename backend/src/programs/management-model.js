@@ -126,8 +126,19 @@ export function applyManagementChange(current, input, shared, program) {
     if(module?.LevelID&&!levelId)throw problem('Choose the module’s level for this resource.');
     const fileId=string('DriveFileID','Drive file',160);
     if(!/^[A-Za-z0-9_-]+$/.test(fileId))throw problem('Choose a valid Drive file.');
+    const book=type==='EBOOK';
+    const optional=(field,label,max)=>source[field]===undefined?'':string(field,label,max,true);
+    const author=book?optional('Author','Author',160):'';
+    const publisher=book?optional('Publisher','Publisher',160):'';
+    const isbn=book?optional('ISBN','ISBN',32):'';
+    const publicationYear=book?optional('PublicationYear','Publication year',4):'';
+    const coverFileId=book?optional('CoverDriveFileID','Cover image',160):'';
+    if(isbn&&(!/^[0-9Xx -]+$/.test(isbn)||!(/^(?:\d{9}[\dXx]|\d{13})$/.test(isbn.replace(/[ -]/g,'')))))throw problem('Enter a 10- or 13-character ISBN using digits, spaces or hyphens.');
+    if(publicationYear&&(!/^\d{4}$/.test(publicationYear)||Number(publicationYear)<1000||Number(publicationYear)>2100))throw problem('Enter a four-digit publication year.');
+    if(coverFileId&&!/^[A-Za-z0-9_-]+$/.test(coverFileId))throw problem('Choose a valid Drive cover image.');
     const record={ResourceID:id,CourseID:program.id,ProgramSubjectID:subjectId,LevelID:levelId,ProgramModuleID:moduleId,TaskID:taskId,ResourceType:type,
-      Name:string('Name','Resource name'),Description:string('Description','Description',1000,true),DriveFileID:fileId,Active:source.Active};
+      Name:string('Name','Resource name'),Description:string('Description','Description',1000,true),DriveFileID:fileId,Active:source.Active,
+      Author:author,Publisher:publisher,ISBN:isbn,PublicationYear:publicationYear,CoverDriveFileID:coverFileId};
     if(rows.some(r=>r.ResourceID!==id&&r.DriveFileID===fileId&&r.ProgramSubjectID===subjectId&&r.LevelID===levelId&&r.ProgramModuleID===moduleId&&r.ResourceType===type))throw problem('This file is already in this Library location. Edit its existing row.');
     if(previous)rows[rows.indexOf(previous)]=record;else rows.push(record);
     return {snapshot,record};

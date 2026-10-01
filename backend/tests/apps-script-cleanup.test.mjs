@@ -17,7 +17,9 @@ const EXPECTED_FUNCTIONS = [
   "getWeeklyPlannerDriveConfig_",
   "jsonResponse",
   "sanitizeWeeklyPlannerDriveFileName_",
-  "saveWeeklyPlannerPreviewToDrive"
+  "saveWeeklyPlannerPreviewToDrive",
+  "startProgramLibraryUpload",
+  "verifyProgramLibraryUploadRequest_"
 ].sort();
 
 const REMOVED_UTILITY_FUNCTIONS = [
@@ -83,7 +85,7 @@ const declaredFunctions = Array.from(
 assert.deepEqual(
   declaredFunctions,
   EXPECTED_FUNCTIONS,
-  "Apps Script must contain only the audited Weekly Planner Drive bridge dependency closure"
+  "Apps Script must contain only the audited Drive bridge dependency closure"
 );
 
 const publicActions = Array.from(new Set([
@@ -92,8 +94,8 @@ const publicActions = Array.from(new Set([
 ])).sort();
 assert.deepEqual(
   publicActions,
-  ["saveWeeklyPlannerPreviewToDrive"],
-  "doPost must expose only the Weekly Planner Drive action"
+  ["saveWeeklyPlannerPreviewToDrive", "startProgramLibraryUpload"],
+  "doPost must expose only the two Drive bridge actions"
 );
 
 for (const functionName of [...REMOVED_UTILITY_FUNCTIONS, ...RETIRED_ROUTE_FUNCTIONS]) {
@@ -127,5 +129,7 @@ assert.ok(
   manifest.oauthScopes.includes("https://www.googleapis.com/auth/drive"),
   "Weekly Planner submission requires the Drive scope"
 );
+assert.ok(manifest.oauthScopes.includes("https://www.googleapis.com/auth/script.external_request"),
+  "Program Library resumable uploads require outbound Drive API requests");
 
-console.log("Apps Script V98.14 final Drive-only bridge checks passed.");
+console.log("Apps Script Drive bridge ownership checks passed.");

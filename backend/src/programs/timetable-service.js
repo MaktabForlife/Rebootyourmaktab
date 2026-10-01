@@ -74,7 +74,10 @@ export function timetableService(repository,program,now=()=>new Date()) {
         const root=input.kind==='library-root'?await repository.verifyLibraryRoot(input.record?.FolderID):null;
         const changeInput=root?{...input,record:root}:input;
         const {snapshot,record}=applyManagementChange(current,changeInput,shared,program);
-        if(input.kind==='resources'&&(record.Active||input.creating||currentRecord?.DriveFileID!==record.DriveFileID))await repository.verifyResource(record,snapshot.ProgramLibraryRoots);
+        if(input.kind==='resources'){
+          if(record.Active||input.creating||currentRecord?.DriveFileID!==record.DriveFileID)await repository.verifyResource(record,snapshot.ProgramLibraryRoots);
+          if(record.CoverDriveFileID&&(record.Active||input.creating||currentRecord?.CoverDriveFileID!==record.CoverDriveFileID))await repository.verifyCover(record,snapshot.ProgramLibraryRoots);
+        }
         const persisted={...snapshot};delete persisted.ProgramTasks;delete persisted.ProgramResources;
         const snapshotJSON=JSON.stringify(persisted);
         if(!separate&&snapshotJSON.length>40000)throw problem('This Program has reached the current management storage limit. No changes were saved.');

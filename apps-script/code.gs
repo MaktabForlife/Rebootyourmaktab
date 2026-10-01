@@ -1,6 +1,6 @@
 /*
 ===============================================================================
-MAKTABHELPER — WEEKLY PLANNER GOOGLE DRIVE BRIDGE
+MAKTABHELPER — GOOGLE DRIVE BRIDGE
 Last updated: 5 August 2026
 Migration milestone: V98.14
 ===============================================================================
@@ -13,13 +13,14 @@ SOURCE OF TRUTH:
 V98.14 FINAL OWNERSHIP:
 - All Google Sheets application reads and writes are owned by authenticated
   Cloudflare Worker routes and the M4L UI.
-- Apps Script is retained only because Weekly Planner PNG submission requires
-  Google Drive access.
+- Apps Script is retained for Weekly Planner PNG and Program Library uploads
+  to the deploying account's Google Drive.
 - Apps Script reads the UI-managed Weekly Planner Drive destination from the
   bound spreadsheet's SystemConfig sheet; it does not administer Sheets data.
 
 CALLABLE doPost ACTION:
 - saveWeeklyPlannerPreviewToDrive
+- startProgramLibraryUpload (signed Worker request only)
 
 MANUAL DEPLOYMENT / AUTHORIZATION FUNCTION:
 - authorizeM4LServices
@@ -195,6 +196,50 @@ function saveWeeklyPlannerPreviewToDrive(data) {
   }
 }
 
+/* The Worker validates the Program, folder and file before signing this request.
+   The Apps Script token never leaves this deployment. */
+function verifyProgramLibraryUploadRequest_(data) {
+  const secret = PropertiesService.getScriptProperties().getProperty("M4L_LIBRARY_BRIDGE_SECRET") || "";
+  if (secret.length < 32) throw new Error("Library upload secret is not configured in Apps Script");
+  const payload = String(data && data.payload || "");
+  const signature = String(data && data.signature || "");
+  if (!/^[A-Za-z0-9_-]{20,2048}$/.test(payload) || !/^[A-Za-z0-9_-]{43}$/.test(signature)) throw new Error("Invalid Library upload request");
+  const expected = Utilities.base64EncodeWebSafe(
+    Utilities.computeHmacSha256Signature(payload, "apps-script-library-start:" + secret)
+  ).replace(/=+$/, "");
+  let different = expected.length ^ signature.length;
+  for (let i = 0; i < Math.max(expected.length, signature.length); i++) different |= (expected.charCodeAt(i) || 0) ^ (signature.charCodeAt(i) || 0);
+  if (different) throw new Error("Invalid Library upload signature");
+  const padded = payload + "=".repeat((4 - payload.length % 4) % 4);
+  const request = JSON.parse(Utilities.newBlob(Utilities.base64DecodeWebSafe(padded)).getDataAsString("UTF-8"));
+  if (request.purpose !== "m4l-library-start" || !Number.isSafeInteger(request.issuedAt) || Math.abs(Date.now() - request.issuedAt) > 5 * 60 * 1000) throw new Error("Library upload request expired");
+  if (!/^[A-Za-z0-9_-]{10,128}$/.test(request.folderId || "") || !request.fileName || request.fileName.length > 160 || !/^[a-z0-9][a-z0-9.+-]*\/[a-z0-9][a-z0-9.+-]*$/.test(request.mimeType || "") || !Number.isSafeInteger(request.size) || request.size < 1 || request.size > 5 * 1024 * 1024 * 1024) throw new Error("Invalid Library upload details");
+  return request;
+}
+
+function startProgramLibraryUpload(data) {
+  const request = verifyProgramLibraryUploadRequest_(data);
+  const folder = DriveApp.getFolderById(request.folderId);
+  if (folder.isTrashed()) throw new Error("The selected Library folder is in Trash");
+  const response = UrlFetchApp.fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=id,name,mimeType,parents", {
+    method: "post",
+    contentType: "application/json; charset=UTF-8",
+    headers: {
+      Authorization: "Bearer " + ScriptApp.getOAuthToken(),
+      "X-Upload-Content-Type": request.mimeType,
+      "X-Upload-Content-Length": String(request.size)
+    },
+    payload: JSON.stringify({name: request.fileName, mimeType: request.mimeType, parents: [request.folderId]}),
+    followRedirects: false,
+    muteHttpExceptions: true
+  });
+  if (response.getResponseCode() !== 200) throw new Error("Google Drive could not start this upload (" + response.getResponseCode() + ")");
+  const headers = response.getAllHeaders();
+  const sessionUrl = String(headers.Location || headers.location || "");
+  if (!/^https:\/\/www\.googleapis\.com\/upload\/drive\/v3\/files\?/.test(sessionUrl)) throw new Error("Google Drive did not return an upload session");
+  return {success: true, sessionUrl: sessionUrl};
+}
+
 function authorizeM4LServices() {
   const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
 
@@ -229,6 +274,9 @@ function doPost(e) {
     if (body.action === "saveWeeklyPlannerPreviewToDrive") {
       return jsonResponse(saveWeeklyPlannerPreviewToDrive(body.data));
     }
+    if (body.action === "startProgramLibraryUpload") {
+      return jsonResponse(startProgramLibraryUpload(body.data));
+    }
 
     return jsonResponse({
       success: false,
@@ -251,7 +299,7 @@ function jsonResponse(obj) {
 function doGet() {
   return jsonResponse({
     status: "success",
-    message: "Connected to M4L Weekly Planner Google Drive bridge",
-    milestone: "V98.14"
+    message: "Connected to M4L Google Drive bridge",
+    milestone: "V105.4"
   });
 }

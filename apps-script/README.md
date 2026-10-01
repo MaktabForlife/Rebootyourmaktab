@@ -2,7 +2,7 @@
 
 The files in `apps-script/` are the authoritative Apps Script source:
 
-- `code.gs` — the V98.14 Weekly Planner Google Drive bridge;
+- `code.gs` — the Weekly Planner and V105.4 Program Library Google Drive bridge;
 - `appsscript.json` — runtime, web-app access and OAuth scopes;
 - `MIGRATION-CHANGELOG.md` — operation-level ownership ledger;
 - `V98.14-AUDIT.md` — final action and dependency audit.
@@ -15,13 +15,21 @@ editing source.
 All application data reads and writes are managed through the M4L UI and
 authenticated Cloudflare Worker routes using the Google Sheets API.
 
-Apps Script exposes exactly one `doPost` action:
+Apps Script exposes two `doPost` actions:
 
 - `saveWeeklyPlannerPreviewToDrive`
+- `startProgramLibraryUpload` (requires a signed Worker request)
 
-This action saves the Weekly Planner PNG to Google Drive. Its only Sheets access
+The first action saves the Weekly Planner PNG to Google Drive. Its only Sheets access
 is a read of the UI-managed `WeeklyPlannerDriveFolderId` and
 `WeeklyPlannerDriveFolderLabel` values in `SystemConfig`.
+
+The Library action starts a resumable Google Drive upload as the deploying
+account. Its OAuth token remains in Apps Script. A shared 32-character-or-longer
+secret must be set in the Development Worker as `M4L_LIBRARY_BRIDGE_SECRET`
+and in Development Apps Script Script properties under the same name. The
+Worker validates the administrator, Program and selected folder before signing
+the request. No Library upload is accepted when this secret is missing.
 
 `authorizeM4LServices` is the only manual function. It confirms access to the
 bound spreadsheet and configured Drive folder without creating a file.
@@ -45,7 +53,9 @@ maintenance utilities. New Sheets features must be built in the UI and Worker.
 ## Drive authorization
 
 The manifest keeps current-spreadsheet access because the bridge reads its Drive
-destination from `SystemConfig`; it keeps Google Drive access to create the PNG.
+destination from `SystemConfig`; it keeps Google Drive access to create the PNG
+and start Library uploads. `script.external_request` allows Drive API upload
+initialization.
 Run `authorizeM4LServices` once in each Apps Script project when scopes are first
 introduced, revoked or changed.
 

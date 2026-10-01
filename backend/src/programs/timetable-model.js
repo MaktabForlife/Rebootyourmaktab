@@ -7,7 +7,7 @@ export const TIMETABLE_HEADERS = Object.freeze({
   ProgramLevels: ["LevelID", "ProgramSubjectID", "Name", "SortOrder", "Active"],
   ProgramModules: ["ProgramModuleID", "ProgramSubjectID", "LevelID", "Name", "SortOrder", "Active"],
   ProgramTasks: ["TaskID", "CourseID", "ProgramSubjectID", "ProgramModuleID", "Name", "SortOrder", "Active"],
-  ProgramResources: ["ResourceID", "CourseID", "ProgramSubjectID", "LevelID", "ProgramModuleID", "TaskID", "ResourceType", "Name", "Description", "DriveFileID", "Active"],
+  ProgramResources: ["ResourceID", "CourseID", "ProgramSubjectID", "LevelID", "ProgramModuleID", "TaskID", "ResourceType", "Name", "Description", "DriveFileID", "Active", "Author", "Publisher", "ISBN", "PublicationYear", "CoverDriveFileID"],
   ProgramClasses: ["ClassID", "CourseID", "Name", "AcademicYear", "Active"],
   ProgramEnrollments: ["EnrollmentID", "CourseID", "ClassID", "AccountID", "StartDate", "EndDate", "Active"],
   ProgramTimetableState: ["Revision", "CourseID", "SchemaVersion", "Sequence", "DraftJSON", "CurrentPublicationID", "ModifiedDate", "ModifiedByAccountID"],

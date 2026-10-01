@@ -64,6 +64,7 @@ globalThis.fetch = async (url, init = {}) => {
     const files={
       'library-root':{id:'library-root',name:'Protected root',mimeType:'application/vnd.google-apps.folder',parents:[]},
       'library-pdf':{id:'library-pdf',name:'Lesson.pdf',mimeType:'application/pdf',parents:['library-root'],capabilities:{canDownload:true}},
+      'library-cover':{id:'library-cover',name:'Cover.png',mimeType:'image/png',parents:['library-root'],capabilities:{canDownload:true}},
       'outside-folder':{id:'outside-folder',name:'Outside',mimeType:'application/vnd.google-apps.folder',parents:[]}
     };
     if(parsed.pathname==='/drive/v3/files')return result({files:[files['library-pdf']],nextPageToken:''});
@@ -187,6 +188,15 @@ try{
  for(const [name,rows] of Object.entries({ProgramSubjects:[['PS-TAFSEER',input.id,'TAFSEER',true]],ProgramModules:[['MOD-DEMO','PS-TAFSEER','','Demo module',1,true]],ProgramClasses:[['CLASS-1',input.id,'Year 1','2026',true],['CLASS-2',input.id,'Year 2','2026',true]]}))table(targetId,name).push(...rows);
  const libraryFiles=await library('browse');assert.equal(libraryFiles.items[0].name,'Lesson.pdf');assert(libraryFiles.items[0].supportedTypes.includes('EBOOK'));
  await library('browse',{folderId:'outside-folder'},token,400);
+ table(targetId,'ProgramResources')[0]=table(targetId,'ProgramResources')[0].slice(0,11);
+ const legacyLibrary=await tt('manage-get');assert.equal(legacyLibrary.libraryPrepared,true);
+ await tt('manage-save',{kind:'resources',creating:true,revision:legacyLibrary.revision,baseRowRevision:legacyLibrary.emptyRowRevision,operationId:crypto.randomUUID(),record:{ResourceID:'RES-BOOK',ProgramSubjectID:'PS-TAFSEER',LevelID:'',ProgramModuleID:'MOD-DEMO',TaskID:'',ResourceType:'EBOOK',Name:'Book',Description:'Example',DriveFileID:'library-pdf',Active:true,Author:'A. Author',Publisher:'Publisher',ISBN:'978-1-23456-789-0',PublicationYear:'2025',CoverDriveFileID:'library-cover'}});
+ const resourceTable=table(targetId,'ProgramResources');
+ assert.deepEqual(resourceTable[0],TIMETABLE_HEADERS.ProgramResources,'The first metadata save upgrades legacy Library headers without replacing resource rows');
+ const metadata=Object.fromEntries(resourceTable[0].map((name,index)=>[name,resourceTable[1][index]]));
+ assert.equal(metadata.Author,'A. Author');assert.equal(metadata.CoverDriveFileID,'library-cover');
+ const cover=await library('cover',{resourceId:'RES-BOOK'});assert.match(cover.url,/\/api\/library\/drive\/file\/library-cover\?access=/);
+ await tt('manage-get');
  table(targetId,'ProgramResources').push(['RES-PREVIEW',input.id,'PS-TAFSEER','','MOD-DEMO','','EBOOK','Lesson','', 'library-pdf',true]);
  const preview=await library('access',{resourceId:'RES-PREVIEW'});assert.match(preview.url,/\/api\/library\/drive\/file\/library-pdf\?access=/);
  table(targetId,'ProgramResources').pop();

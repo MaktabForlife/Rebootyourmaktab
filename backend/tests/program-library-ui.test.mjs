@@ -18,17 +18,15 @@ const f=timetableFixture(),service=timetableService(f.repository,f.program);
 f.repository.verifyResource=async row=>({id:row.DriveFileID});
 f.repository.verifyLibraryRoot=async value=>({FolderID:value,Name:'Second Drive folder'});
 const coordinator=timetableCoordinator(f.journal,async()=>({service,user:{accountid:'ADMIN'}}));
-let failSave=false;
+let failSave=false,lastUploadType='';
 const context={console,URL,URLSearchParams,structuredClone,crypto,
-  location:{search:`?program=${f.program.id}`},window:{M4L_CONFIG:{API_BASE:''},google:{accounts:{oauth2:{initTokenClient:config=>({requestAccessToken(){config.callback({access_token:'google-token',scope:config.scope});}})}}}},document:{getElementById:element},
+  location:{search:`?program=${f.program.id}`},window:{M4L_CONFIG:{API_BASE:''}},document:{getElementById:element},
   localStorage:{getItem:()=> 'token'},sessionStorage:{getItem:key=>storage.get(key)||null,setItem:(key,value)=>storage.set(key,value),removeItem:key=>storage.delete(key)},
   fetch:async(url,options)=>{
-    if(url.startsWith('https://www.googleapis.com/drive/v3/files/'))return {ok:true,json:async()=>({id:'another-root',mimeType:'application/vnd.google-apps.folder',capabilities:{canAddChildren:true}})};
-    if(url.startsWith('https://www.googleapis.com/upload/drive/v3/files?'))return {ok:true,headers:{get:()=> 'https://www.googleapis.com/upload/session'},json:async()=>({})};
-    if(url==='https://www.googleapis.com/upload/session')return {ok:true,json:async()=>({id:'uploaded-pdf',name:'Device.pdf',mimeType:'application/pdf'})};
+    if(url.endsWith('/upload-chunk')){requests.push({action:'upload-chunk',body:options.body});return {ok:true,status:200,json:async()=>({success:true,complete:true,nextOffset:123,file:lastUploadType==='COVER'?{id:'uploaded-cover',name:'Device-cover.png',mimeType:'image/png'}:{id:'uploaded-pdf',name:'Device.pdf',mimeType:'application/pdf'}})};}
     const action=url.split('/').at(-1),body=JSON.parse(options.body);requests.push({action,body});
-    if(action==='upload-config')return {ok:true,status:200,json:async()=>({success:true,clientId:'123-test.apps.googleusercontent.com'})};
-    if(action==='browse')return {ok:true,status:200,json:async()=>({success:true,folder:{id:body.folderId||body.rootId||'root',name:'Selected folder'},breadcrumbs:[{id:body.rootId||'root',name:'Selected root'}],items:body.rootId?[{id:'other-pdf',name:'Other.pdf',isFolder:false,supportedTypes:['EBOOK'],format:'PDF'}]:[{id:'file-pdf',name:'Lesson.pdf',isFolder:false,supportedTypes:['EBOOK'],format:'PDF'},{id:'folder-one',name:'Folder one',isFolder:true,supportedTypes:[],format:''}],nextPageToken:''})};
+    if(action==='upload-start'){lastUploadType=body.resourceType;return {ok:true,status:200,json:async()=>({success:true,ticket:'ticket',chunkSize:4194304})};}
+    if(action==='browse')return {ok:true,status:200,json:async()=>({success:true,folder:{id:body.folderId||body.rootId||'root',name:'Selected folder'},breadcrumbs:[{id:body.rootId||'root',name:'Selected root'}],items:body.rootId?[{id:'other-pdf',name:'Other.pdf',mimeType:'application/pdf',isFolder:false,supportedTypes:['EBOOK'],format:'PDF'},{id:'cover-png',name:'Cover.png',mimeType:'image/png',isFolder:false,supportedTypes:['OTHER'],format:'PNG'}]:[{id:'file-pdf',name:'Lesson.pdf',mimeType:'application/pdf',isFolder:false,supportedTypes:['EBOOK'],format:'PDF'},{id:'cover-png',name:'Cover.png',mimeType:'image/png',isFolder:false,supportedTypes:['OTHER'],format:'PNG'},{id:'folder-one',name:'Folder one',isFolder:true,supportedTypes:[],format:''}],nextPageToken:''})};
     if(action==='manage-save'&&failSave){failSave=false;throw new Error('Offline');}
     try{
       const result=['manage-save','recover'].includes(action)?await coordinator.run(action,body,'token'):await service.read(action,body);
@@ -76,11 +74,25 @@ element('pl-drive-cancel').onclick();
 assert.equal(element('pl-drive').open,false);
 element('pl-device').onclick();
 assert.equal(element('pl-device-file').clicked,true,'Device choice opens the native file picker');
-element('pl-device-file').onchange({target:{files:[{name:'Device.pdf',type:'application/pdf',size:123}],value:'Device.pdf'}});await settled();
+element('pl-device-file').onchange({target:{files:[{name:'Device.pdf',type:'application/pdf',size:123,slice:()=>new Blob(['PDF'])}],value:'Device.pdf'}});await settled();
 assert.equal(element('pl-drive').open,true,'Device file selection opens the Drive destination dialog');
 assert.match(element('pl-drive-title').textContent,/destination/);
 element('pl-upload').onclick();await settled();
 assert.equal(element('pl-drive').open,false,'Successful device upload closes the destination dialog');
 assert.match(element('pl-file').textContent,/Device.pdf/);
 assert.equal(JSON.parse(storage.get(draftKey)).record.DriveFileID,'uploaded-pdf');
-console.log('Program Library UI: centered Drive finder, alternate root, local picker, My Drive upload and retry recovery passed.');
+assert.equal(requests.filter(row=>row.action==='upload-start').at(-1).body.resourceType,'EBOOK');
+element('pl-author').listeners.input({target:{value:'A. Author'}});
+element('pl-publisher').listeners.input({target:{value:'A Publisher'}});
+element('pl-isbn').listeners.input({target:{value:'978-1-23456-789-0'}});
+element('pl-year').listeners.input({target:{value:'2025'}});
+element('pl-cover-browse').onclick();await settled();
+element('pl-drive').onclick({target:{closest:selector=>selector==='[data-file]'?{dataset:{file:'cover-png'}}:null}});
+assert.equal(JSON.parse(storage.get(draftKey)).record.CoverDriveFileID,'cover-png');
+assert.equal(JSON.parse(storage.get(draftKey)).record.Author,'A. Author');
+element('pl-cover-device').onclick();assert.equal(element('pl-cover-device-file').clicked,true);
+element('pl-cover-device-file').onchange({target:{files:[{name:'Device-cover.png',type:'image/png',size:12,slice:()=>new Blob(['image'])}],value:'Device-cover.png'}});await settled();
+element('pl-upload').onclick();await settled();
+assert.equal(requests.filter(row=>row.action==='upload-start').at(-1).body.resourceType,'COVER');
+assert.equal(JSON.parse(storage.get(draftKey)).record.CoverDriveFileID,'uploaded-cover');
+console.log('Program Library UI: centered Drive finder, alternate root, device upload, book details, cover selection and retry recovery passed.');

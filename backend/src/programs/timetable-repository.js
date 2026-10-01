@@ -11,6 +11,7 @@ import { getResourceConfig, getRootFolderId, requireItemInsideRoot, validateFile
 import { listGoogleDriveFolder } from '../lib/google-drive.js';
 import { extractGoogleDriveFolderId } from '../lib/system-config.js';
 const LIBRARY_TABLES=['ProgramTasks','ProgramResources'];
+const LEGACY_RESOURCE_HEADERS=TIMETABLE_HEADERS.ProgramResources.slice(0,11);
 export const cells = values => ({ values:values.map(value=>({ userEnteredValue:typeof value==='boolean'?{boolValue:value}:typeof value==='number'?{numberValue:value}:{stringValue:String(value??'')} })) });
 export function timetableRepository(env, program) {
   const target={spreadsheetId:program.spreadsheetId};
@@ -30,7 +31,13 @@ export function timetableRepository(env, program) {
     const requests=[];let next=Math.max(0,...sheets.map(s=>s.sheetId))+1;
     for(const name of names){
       const headers=TIMETABLE_HEADERS[name];let sheet=sheets.find(s=>s.title===name);
-      if(sheet){const rows=values[existing.indexOf(name)];if(rows.some(row=>row.some(clean))){parseTable(rows,headers,name);continue;}}
+      if(sheet){const rows=values[existing.indexOf(name)];if(rows.some(row=>row.some(clean))){
+        if(name==='ProgramResources'&&JSON.stringify(rows[0])===JSON.stringify(LEGACY_RESOURCE_HEADERS)){
+          parseTable(rows,LEGACY_RESOURCE_HEADERS,name);
+          requests.push({updateCells:{start:{sheetId:sheet.sheetId,rowIndex:0,columnIndex:0},rows:[cells(headers)],fields:'userEnteredValue'}});
+        }else parseTable(rows,headers,name);
+        continue;
+      }}
       else{sheet={sheetId:next++,title:name};requests.push({addSheet:{properties:{...sheet,gridProperties:{frozenRowCount:1}}}});}
       requests.push({updateCells:{start:{sheetId:sheet.sheetId,rowIndex:0,columnIndex:0},rows:[cells(headers)],fields:'userEnteredValue'}});
     }
@@ -68,15 +75,28 @@ export function timetableRepository(env, program) {
       if(!checked.ok)throw problem(checked.error);
       return file;
     },
+    async verifyCover(record, roots=[]) {
+      if(!record.CoverDriveFileID)return null;
+      let file=null;
+      for(const rootId of [getRootFolderId(env),...roots.map(root=>root.FolderID)]){
+        try{file=await requireItemInsideRoot(env,record.CoverDriveFileID,rootId,{requireFile:true});break;}
+        catch(error){if(/outside the configured/i.test(String(error.message)))continue;throw error;}
+      }
+      if(!file)throw problem('Choose a cover image inside a Program Library folder.');
+      if(!['image/jpeg','image/png','image/webp'].includes(clean(file.mimeType).toLowerCase())||file.capabilities?.canDownload===false)throw problem('Choose a downloadable JPG, PNG or WebP cover image.');
+      return file;
+    },
     prepare:()=>prepareNamed(Object.keys(TIMETABLE_HEADERS)),
     prepareLibrary:()=>prepareNamed(LIBRARY_TABLES),
     async load() {
       const sheets=await properties();
       const names=Object.keys(TIMETABLE_HEADERS), present=names.filter(name=>sheets.some(s=>s.title===name));
       const raw=present.length?await read(present):[];
-      const tables=Object.fromEntries(present.map((name,i)=>[name,parseTable(raw[i],TIMETABLE_HEADERS[name],name)]));
+      const legacyResources=present.includes('ProgramResources')&&JSON.stringify(raw[present.indexOf('ProgramResources')][0])===JSON.stringify(LEGACY_RESOURCE_HEADERS);
+      const tables=Object.fromEntries(present.map((name,i)=>[name,parseTable(raw[i],name==='ProgramResources'&&legacyResources?LEGACY_RESOURCE_HEADERS:TIMETABLE_HEADERS[name],name)]));
+      if(legacyResources)tables.ProgramResources=tables.ProgramResources.map(row=>({...row,...Object.fromEntries(TIMETABLE_HEADERS.ProgramResources.slice(11).map(name=>[name,'']))}));
       for (const name of present) assertUnique(tables[name],TIMETABLE_HEADERS[name][0],name);
-      const data={prepared:names.filter(name=>!LIBRARY_TABLES.includes(name)).every(name=>present.includes(name)),libraryPrepared:LIBRARY_TABLES.every(name=>present.includes(name)),tables,sheets};
+      const data={prepared:names.filter(name=>!LIBRARY_TABLES.includes(name)).every(name=>present.includes(name)),libraryPrepared:LIBRARY_TABLES.every(name=>present.includes(name)),legacyResources,tables,sheets};
       if(tables.ProgramManagementState?.length)Object.assign(tables,managementState(data,program).snapshot);
       return data;
     },
@@ -114,6 +134,10 @@ export function timetableRepository(env, program) {
         return {updateCells:{start:{sheetId:sheet.sheetId,rowIndex,columnIndex:0},rows:[cells(headers.map(h=>record[h]??''))],fields:'userEnteredValue'}};
       });
       // Fixed coordinates make an uncertain external response safely replayable.
+      if(data.legacyResources&&records.some(item=>item.table==='ProgramResources')){
+        const sheet=data.sheets.find(item=>item.title==='ProgramResources');
+        requests.unshift({updateCells:{start:{sheetId:sheet.sheetId,rowIndex:0,columnIndex:0},rows:[cells(TIMETABLE_HEADERS.ProgramResources)],fields:'userEnteredValue'}});
+      }
       return {spreadsheetId:program.spreadsheetId,requests:[...growth,...requests]};
     },
     async apply(plan) {

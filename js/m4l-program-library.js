@@ -9,7 +9,7 @@
   const pendingKey=`m4l-program-library-pending:${id}`;
   const draftKey=`m4l-program-library-draft:${id}`;
   const rootPendingKey=`m4l-program-library-root-pending:${id}`;
-  const state={data:null,record:null,creating:false,busy:false,pending:null,rootPending:null,drive:null,rootId:'',folderId:'',selectedFile:null,mode:'select',uploadFile:null,uploadClientId:''};
+  const state={data:null,record:null,creating:false,busy:false,pending:null,rootPending:null,drive:null,rootId:'',folderId:'',selectedFile:null,selectedCover:null,coverUrls:{},mode:'select',uploadFile:null};
   const message=(value,error=false)=>{$('pl-message').textContent=value;$('pl-message').classList.toggle('pl-error',error);};
   const driveMessage=(value,error=false)=>{$('pl-drive-status').textContent=value;$('pl-drive-status').classList.toggle('pl-error',error);};
   async function api(path,body={}){
@@ -41,10 +41,19 @@
       const subjects=[...new Set(resources.map(r=>r.ProgramSubjectID))].sort((a,b)=>subjectName(a).localeCompare(subjectName(b)));
       return `<details><summary>${esc(label)} · ${resources.length}</summary>${subjects.map(subjectId=>{
         const placed=resources.filter(r=>r.ProgramSubjectID===subjectId).sort((a,b)=>levelName(a.LevelID).localeCompare(levelName(b.LevelID))||moduleName(a.ProgramModuleID).localeCompare(moduleName(b.ProgramModuleID))||a.Name.localeCompare(b.Name));
-        return `<details><summary>${esc(subjectName(subjectId))} · ${placed.length}</summary>${placed.map(row=>`<div class="pl-resource ${active(row.Active)?'':'is-archived'}"><div><strong>${esc(row.Name)}</strong><p>${esc(row.LevelID?levelName(row.LevelID)+' · ':'')}${esc(moduleName(row.ProgramModuleID))}${row.TaskID?` · ${esc(taskName(row.TaskID))}`:''}${active(row.Active)?'':' · Archived'}</p>${row.Description?`<p>${esc(row.Description)}</p>`:''}</div><button type="button" class="pb-secondary" data-edit="${esc(row.ResourceID)}">Edit</button></div>`).join('')}</details>`;
+        return `<details><summary>${esc(subjectName(subjectId))} · ${placed.length}</summary>${placed.map(row=>{const cover=state.coverUrls[`${row.ResourceID}:${row.CoverDriveFileID}`];return `<div class="pl-resource ${active(row.Active)?'':'is-archived'}">${row.ResourceType==='EBOOK'&&row.CoverDriveFileID?cover?`<img class="pl-cover-thumb" src="${esc(cover)}" alt="Cover of ${esc(row.Name)}">`:'<span class="pl-cover-placeholder" aria-hidden="true">📘</span>':''}<div><strong>${esc(row.Name)}</strong><p>${esc(row.LevelID?levelName(row.LevelID)+' · ':'')}${esc(moduleName(row.ProgramModuleID))}${row.TaskID?` · ${esc(taskName(row.TaskID))}`:''}${active(row.Active)?'':' · Archived'}</p>${row.Author?`<p>By ${esc(row.Author)}${row.Publisher?` · ${esc(row.Publisher)}`:''}${row.PublicationYear?` · ${esc(row.PublicationYear)}`:''}</p>`:''}${row.Description?`<p>${esc(row.Description)}</p>`:''}</div><button type="button" class="pb-secondary" data-edit="${esc(row.ResourceID)}">Edit</button></div>`;}).join('')}</details>`;
       }).join('')}</details>`;
     }).join('');
     $('pl-list').innerHTML=`<h2>Resources · ${rows.length}</h2>${groups||'<p class="pl-empty">No resources yet. Add a protected Drive file to start this Program Library.</p>'}`;
+  }
+  async function loadCovers(){
+    const rows=(state.data?.rows.resources||[]).filter(row=>row.ResourceType==='EBOOK'&&row.CoverDriveFileID&&!state.coverUrls[`${row.ResourceID}:${row.CoverDriveFileID}`]);
+    if(!rows.length)return;
+    const queue=rows.slice();
+    await Promise.all(Array.from({length:Math.min(4,rows.length)},async()=>{
+      while(queue.length){const row=queue.shift();try{const result=await api('program-library/cover',{resourceId:row.ResourceID});state.coverUrls[`${row.ResourceID}:${row.CoverDriveFileID}`]=result.url;}catch{}}
+    }));
+    renderList();
   }
   function renderChoices(){
     if(!state.record||!state.data)return;
@@ -66,6 +75,11 @@
     $('pl-type').value=r.ResourceType;
     $('pl-name').value=r.Name;
     $('pl-description').value=r.Description;
+    $('pl-book-details').hidden=r.ResourceType!=='EBOOK';
+    for(const [element,field] of [['pl-author','Author'],['pl-publisher','Publisher'],['pl-isbn','ISBN'],['pl-year','PublicationYear']])$(element).value=r[field]||'';
+    $('pl-cover-file').textContent=state.selectedCover?.name||(r.CoverDriveFileID?`Saved Drive cover · ${r.CoverDriveFileID}`:'No cover selected.');
+    $('pl-cover-device').disabled=state.busy||Boolean(state.pending);
+    $('pl-cover-browse').disabled=state.busy||Boolean(state.pending);
     $('pl-active').value=String(active(r.Active));
     renderChoices();
     $('pl-file').textContent=state.selectedFile?.name|| (r.DriveFileID?`Saved Drive file · ${r.DriveFileID}`:'No file selected.');
@@ -80,9 +94,9 @@
     }
   }
   function renderDrive(){
-    const uploading=state.mode==='upload';
-    $('pl-drive-title').textContent=uploading?'Choose a Drive destination':'Choose a Drive file';
-    $('pl-drive-help').textContent=uploading?`Upload ${state.uploadFile?.name||'your file'} into the chosen Library folder.`:'Select a Library folder, then open its subfolders to find a file.';
+    const uploading=state.mode==='upload'||state.mode==='cover-upload',cover=state.mode==='cover-select'||state.mode==='cover-upload';
+    $('pl-drive-title').textContent=uploading?'Choose a Drive destination':cover?'Choose a book cover':'Choose a Drive file';
+    $('pl-drive-help').textContent=uploading?`Upload ${state.uploadFile?.name||'your file'} into the chosen Library folder.`:cover?'Select a JPG, PNG or WebP image in a Library folder.':'Select a Library folder, then open its subfolders to find a file.';
     $('pl-upload').hidden=!uploading;
     $('pl-upload').disabled=state.busy||!state.drive||!state.uploadFile||Boolean(state.rootPending);
     $('pl-drive-cancel').disabled=state.busy;
@@ -95,7 +109,7 @@
     $('pl-root-retry').disabled=state.busy;
     if(!state.drive){$('pl-breadcrumbs').innerHTML='';$('pl-drive-list').innerHTML='';$('pl-more').hidden=true;return;}
     $('pl-breadcrumbs').innerHTML=(state.drive.breadcrumbs||[]).map(part=>`<button type="button" class="pb-secondary pl-breadcrumb" data-folder="${esc(part.id)}">${esc(part.name)}</button>`).join('');
-    $('pl-drive-list').innerHTML=(state.drive.items||[]).map(item=>`<div class="pl-drive-item"><span>${item.isFolder?'📁':'📄'} ${esc(item.name)} <small>${esc(item.format||'')}</small></span>${item.isFolder?`<button type="button" class="pb-secondary" data-folder="${esc(item.id)}">Open folder</button>`:uploading?'':`<button type="button" class="pb-secondary" data-file="${esc(item.id)}" ${item.supportedTypes.includes(state.record.ResourceType)?'':'disabled'}>Choose file</button>`}</div>`).join('')||'<p class="pl-empty">No files in this folder.</p>';
+    $('pl-drive-list').innerHTML=(state.drive.items||[]).map(item=>`<div class="pl-drive-item"><span>${item.isFolder?'📁':'📄'} ${esc(item.name)} <small>${esc(item.format||'')}</small></span>${item.isFolder?`<button type="button" class="pb-secondary" data-folder="${esc(item.id)}">Open folder</button>`:uploading?'':`<button type="button" class="pb-secondary" data-file="${esc(item.id)}" ${(cover?['image/jpeg','image/png','image/webp'].includes(item.mimeType):item.supportedTypes.includes(state.record.ResourceType))?'':'disabled'}>Choose ${cover?'cover':'file'}</button>`}</div>`).join('')||'<p class="pl-empty">No files in this folder.</p>';
     $('pl-more').hidden=!state.drive.nextPageToken;
     $('pl-more').disabled=state.busy;
   }
@@ -106,20 +120,20 @@
       const saved=state.data.rows.resources.find(row=>row.ResourceID===state.record.ResourceID);
       if(!saved)message('This resource was removed elsewhere. Your entry is kept.',true);
     }
-    render();
+    render();void loadCovers();
     if(!state.data.prepared)message('Prepare management tables in Curriculum first.');
     else if(!state.data.libraryPrepared)message('Prepare the Program task and Library tables to begin. Existing records are preserved.');
     else if(!state.data.coordinatorAvailable)message('Saving needs the Program coordinator binding.');
     else message('Choose a resource to edit or add a new protected Drive file.');
   }
-  function start(record,creating){if($('pl-drive').open)$('pl-drive').close();state.record=structuredClone(record);state.creating=creating;state.selectedFile=null;state.drive=null;state.uploadFile=null;saveDraft();render();$('pl-name').focus();}
-  $('pl-add').onclick=()=>{if(state.busy||state.pending)return;start({ResourceID:`RES-${crypto.randomUUID()}`,ProgramSubjectID:'',LevelID:'',ProgramModuleID:'',TaskID:'',ResourceType:'EBOOK',Name:'',Description:'',DriveFileID:'',Active:true},true);};
+  function start(record,creating){if($('pl-drive').open)$('pl-drive').close();state.record=structuredClone(record);state.creating=creating;state.selectedFile=null;state.selectedCover=null;state.drive=null;state.uploadFile=null;saveDraft();render();$('pl-name').focus();}
+  $('pl-add').onclick=()=>{if(state.busy||state.pending)return;start({ResourceID:`RES-${crypto.randomUUID()}`,ProgramSubjectID:'',LevelID:'',ProgramModuleID:'',TaskID:'',ResourceType:'EBOOK',Name:'',Description:'',DriveFileID:'',Active:true,Author:'',Publisher:'',ISBN:'',PublicationYear:'',CoverDriveFileID:''},true);};
   $('pl-list').onclick=event=>{const resourceId=event.target.closest('[data-edit]')?.dataset.edit;if(!resourceId||state.busy||state.pending)return;const row=state.data.rows.resources.find(r=>r.ResourceID===resourceId);if(row)start({...row,Active:active(row.Active)},false);};
   $('pl-cancel').onclick=()=>{if(state.pending)return;if($('pl-drive').open)$('pl-drive').close();state.record=null;state.drive=null;state.selectedFile=null;saveDraft();render();};
   $('pl-refresh').onclick=async()=>{if(state.busy)return;state.busy=true;try{await load();}catch(error){message(error.message,true);}finally{state.busy=false;render();}};
   $('pl-prepare').onclick=async()=>{if(state.busy||state.pending)return;state.busy=true;try{await api('program-timetable/prepare-library');await load();message('Program task and Library tables are ready.');}catch(error){message(error.message,true);}finally{state.busy=false;render();}};
-  for(const [element,field] of [['pl-type','ResourceType'],['pl-name','Name'],['pl-description','Description'],['pl-active','Active']]){
-    $(element).addEventListener(element==='pl-name'||element==='pl-description'?'input':'change',event=>{
+  for(const [element,field] of [['pl-type','ResourceType'],['pl-name','Name'],['pl-description','Description'],['pl-active','Active'],['pl-author','Author'],['pl-publisher','Publisher'],['pl-isbn','ISBN'],['pl-year','PublicationYear']]){
+    $(element).addEventListener(['pl-name','pl-description','pl-author','pl-publisher','pl-isbn','pl-year'].includes(element)?'input':'change',event=>{
       if(!state.record||state.pending)return;
       state.record[field]=field==='Active'?event.target.value==='true':event.target.value;
       if(field==='ResourceType'){
@@ -139,12 +153,13 @@
   async function browse(folderId='',pageToken=''){
     if(state.busy)return;
     state.busy=true;driveMessage('Loading Drive folders and files…');renderDrive();
-    try{state.drive=await api('program-library/browse',{rootId:state.rootId,folderId,pageToken});state.folderId=state.drive.folder.id;driveMessage('Choose a file supported by the selected resource type.');}
+    try{state.drive=await api('program-library/browse',{rootId:state.rootId,folderId,pageToken});state.folderId=state.drive.folder.id;driveMessage(state.mode.includes('cover')?'Choose a JPG, PNG or WebP cover image.':state.mode.includes('upload')?'Choose the destination folder, then upload.':'Choose a file supported by the selected resource type.');}
     catch(error){driveMessage(error.message,true);}
     finally{state.busy=false;renderDrive();}
   }
   function openDrive(mode){if(!state.record||state.busy)return;state.mode=mode;state.drive=null;renderDrive();$('pl-drive').showModal();if(state.rootPending)driveMessage('An earlier folder addition needs confirmation. Choose Retry same folder.',true);else void browse();}
   $('pl-browse').onclick=()=>{state.uploadFile=null;openDrive('select');};
+  $('pl-cover-browse').onclick=()=>{state.uploadFile=null;openDrive('cover-select');};
   const acceptedFiles={EBOOK:'.pdf',PRINTABLE:'.pdf',AUDIO:'audio/*',VIDEO:'video/*',OTHER:'image/*,text/*,.zip,.doc,.docx,.ppt,.pptx'};
   function supportsUpload(file,type){
     const mime=String(file.type||'').toLowerCase(),name=String(file.name||'').toLowerCase();
@@ -154,11 +169,16 @@
     return mime.startsWith('image/')||mime.startsWith('text/')||/\.(zip|doc|docx|ppt|pptx)$/.test(name);
   }
   $('pl-device').onclick=()=>{if(!state.record||state.busy)return;$('pl-device-file').accept=acceptedFiles[state.record.ResourceType]||'';$('pl-device-file').click();};
+  $('pl-cover-device').onclick=()=>{if(!state.record||state.busy)return;$('pl-cover-device-file').accept='image/jpeg,image/png,image/webp';$('pl-cover-device-file').click();};
   $('pl-device-file').onchange=event=>{
     const file=event.target.files?.[0];if(!file)return;
     if(!supportsUpload(file,state.record.ResourceType)){message('Choose a file supported by the selected resource type.',true);event.target.value='';return;}
     state.uploadFile=file;openDrive('upload');
-    if(!state.uploadClientId)void prepareUpload().catch(error=>driveMessage(error.message,true));
+  };
+  $('pl-cover-device-file').onchange=event=>{
+    const file=event.target.files?.[0];if(!file)return;
+    if(!['image/jpeg','image/png','image/webp'].includes(fileMimeType(file))){message('Choose a JPG, PNG or WebP cover image.',true);event.target.value='';return;}
+    state.uploadFile=file;openDrive('cover-upload');
   };
   $('pl-root').onchange=event=>{if(state.busy||state.rootPending)return;state.rootId=event.target.value;state.drive=null;void browse();};
   $('pl-drive').onclick=event=>{
@@ -166,80 +186,57 @@
     const folder=event.target.closest('[data-folder]')?.dataset.folder;
     if(folder){void browse(folder);return;}
     const fileId=event.target.closest('[data-file]')?.dataset.file;
-    if(fileId&&state.mode==='select'){const file=state.drive?.items.find(item=>item.id===fileId);if(!file||!file.supportedTypes.includes(state.record.ResourceType))return;state.record.DriveFileID=file.id;state.selectedFile=file;if(!state.record.Name)state.record.Name=file.name.replace(/\.[^.]+$/,'');$('pl-drive').close();state.drive=null;saveDraft();render();message('Drive file selected. Review the placement and save.');}
+    if(fileId&&(state.mode==='select'||state.mode==='cover-select')){
+      const file=state.drive?.items.find(item=>item.id===fileId);
+      if(!file)return;
+      if(state.mode==='cover-select'){
+        if(!['image/jpeg','image/png','image/webp'].includes(file.mimeType))return;
+        state.record.CoverDriveFileID=file.id;state.selectedCover=file;
+      }else{
+        if(!file.supportedTypes.includes(state.record.ResourceType))return;
+        state.record.DriveFileID=file.id;state.selectedFile=file;if(!state.record.Name)state.record.Name=file.name.replace(/\.[^.]+$/,'');
+      }
+      $('pl-drive').close();state.drive=null;saveDraft();render();message(state.mode==='cover-select'?'Cover image selected. Save the resource to keep it.':'Drive file selected. Review the placement and save.');
+    }
   };
   $('pl-more').onclick=()=>{if(!state.busy&&state.drive?.nextPageToken)void browse(state.folderId,state.drive.nextPageToken);};
   $('pl-drive-cancel').onclick=()=>$('pl-drive').close();
   $('pl-drive').oncancel=event=>{if(state.busy)event.preventDefault();};
-  $('pl-drive').onclose=()=>{state.drive=null;state.uploadFile=null;$('pl-device-file').value='';renderDrive();(state.mode==='upload'?$('pl-device'):$('pl-browse')).focus();};
-  let uploadPreparation=null;
-  async function prepareUpload(){
-    if(uploadPreparation)return uploadPreparation;
-    uploadPreparation=(async()=>{
-      const config=await api('program-library/upload-config');
-      if(!config.clientId)throw new Error('Device upload needs a Google Drive connection configured by an administrator.');
-      state.uploadClientId=config.clientId;
-      if(!window.google?.accounts?.oauth2){
-        await new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='https://accounts.google.com/gsi/client';script.async=true;script.onload=resolve;script.onerror=()=>reject(new Error('Google sign-in could not load.'));document.head.appendChild(script);});
-      }
-    })();
-    try{await uploadPreparation;}catch(error){uploadPreparation=null;throw error;}
-  }
-  function googleToken(){
-    return new Promise((resolve,reject)=>{
-      if(!state.uploadClientId||!window.google?.accounts?.oauth2){reject(new Error('Google sign-in is still loading. Try Upload again.'));return;}
-      const scope='https://www.googleapis.com/auth/drive';
-      const client=window.google.accounts.oauth2.initTokenClient({client_id:state.uploadClientId,scope,
-        callback:response=>{
-          if(response.error||!response.access_token||response.scope&&!response.scope.split(' ').includes(scope))reject(new Error('Google Drive access was not granted.'));
-          else resolve(response.access_token);
-        },
-        error_callback:()=>reject(new Error('Google Drive sign-in was closed.'))
-      });
-      client.requestAccessToken({prompt:'select_account'});
-    });
-  }
-  async function googleJson(response,context){
-    if(response.ok)return response.json();
-    let details={};try{details=await response.json();}catch{}
-    const reason=String(details.error?.message||'').slice(0,180);
-    throw new Error(`${context} failed (${response.status})${reason?`: ${reason}`:''}.`);
-  }
+  $('pl-drive').onclose=()=>{state.drive=null;state.uploadFile=null;$('pl-device-file').value='';$('pl-cover-device-file').value='';renderDrive();(state.mode.includes('cover')?state.mode.includes('upload')?$('pl-cover-device'):$('pl-cover-browse'):state.mode==='upload'?$('pl-device'):$('pl-browse')).focus();};
   function fileMimeType(file){
     if(file.type)return file.type;
     const extension=String(file.name||'').split('.').pop()?.toLowerCase();
     return ({pdf:'application/pdf',mp3:'audio/mpeg',m4a:'audio/mp4',wav:'audio/wav',ogg:'audio/ogg',aac:'audio/aac',flac:'audio/flac',mp4:'video/mp4',m4v:'video/mp4',mov:'video/quicktime',webm:'video/webm',jpg:'image/jpeg',jpeg:'image/jpeg',png:'image/png',gif:'image/gif',txt:'text/plain',zip:'application/zip',doc:'application/msword',docx:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',ppt:'application/vnd.ms-powerpoint',pptx:'application/vnd.openxmlformats-officedocument.presentationml.presentation'})[extension]||'application/octet-stream';
   }
-  async function uploadToDrive(token,file,folderId){
-    const headers={Authorization:`Bearer ${token}`};
-    const folderResponse=await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(folderId)}?fields=id,mimeType,capabilities(canAddChildren)`,{headers});
-    const folder=await googleJson(folderResponse,'Checking the destination');
-    if(folder.mimeType!=='application/vnd.google-apps.folder'||folder.capabilities?.canAddChildren!==true)throw new Error('Your Google account needs permission to add files to this folder.');
-    const mimeType=fileMimeType(file);
-    const initiate=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=id,name,mimeType,parents',{method:'POST',headers:{...headers,'Content-Type':'application/json; charset=UTF-8','X-Upload-Content-Type':mimeType,'X-Upload-Content-Length':String(file.size)},body:JSON.stringify({name:file.name,mimeType,parents:[folderId]})});
-    if(!initiate.ok)await googleJson(initiate,'Starting the upload');
-    const uploadUrl=initiate.headers.get('Location');
-    if(!uploadUrl||new URL(uploadUrl).origin!=='https://www.googleapis.com')throw new Error('Google Drive did not return a valid upload session.');
-    const uploaded=await fetch(uploadUrl,{method:'PUT',headers:{'Content-Type':mimeType},body:file});
-    return googleJson(uploaded,'Uploading the file');
+  async function uploadToDrive(file,folderId,resourceType){
+    const started=await api('program-library/upload-start',{rootId:state.rootId,folderId,fileName:file.name,mimeType:fileMimeType(file),size:file.size,resourceType});
+    const token=localStorage.getItem('m4l_account_token');
+    if(!token)throw new Error('Sign in to your Academy account again.');
+    let offset=0,stalled=0;
+    while(offset<file.size){
+      const end=Math.min(offset+started.chunkSize,file.size);
+      driveMessage(`Uploading ${file.name}… ${Math.floor(offset/file.size*100)}%`);
+      const response=await fetch(`${window.M4L_CONFIG?.API_BASE||''}/api/admin/platform/program-library/upload-chunk`,{method:'POST',headers:{Authorization:`Bearer ${token}`,'X-Library-Upload-Ticket':started.ticket,'X-Library-Upload-Offset':String(offset),'Content-Type':'application/octet-stream'},body:file.slice(offset,end)});
+      let result;try{result=await response.json();}catch{throw new Error('The upload response could not be read. Try the file again.');}
+      if(!response.ok||!result.success)throw new Error(result.error||'The upload stopped. Try the file again.');
+      if(result.complete)return result.file;
+      if(!Number.isSafeInteger(result.nextOffset)||result.nextOffset<0||result.nextOffset>file.size)throw new Error('Google Drive returned an invalid upload position.');
+      stalled=result.nextOffset<=offset?stalled+1:0;if(stalled>2)throw new Error('The upload stopped making progress. Try the file again.');
+      offset=result.nextOffset;
+    }
+    throw new Error('Google Drive did not confirm the uploaded file.');
   }
-  $('pl-upload').onclick=()=>{
+  $('pl-upload').onclick=async()=>{
     if(state.busy||state.rootPending||!state.drive||!state.uploadFile)return;
-    const file=state.uploadFile,folderId=state.folderId,resourceType=state.record.ResourceType;
-    // Start Google's sign-in popup directly from the button click.
+    const file=state.uploadFile,folderId=state.folderId,cover=state.mode==='cover-upload',resourceType=cover?'COVER':state.record.ResourceType;
     state.busy=true;renderDrive();
-    void googleToken().then(async token=>{
-      if(!$('pl-drive').open||state.mode!=='upload'||state.uploadFile!==file||state.folderId!==folderId){state.busy=false;renderDrive();return;}
-      driveMessage(`Uploading ${file.name} to Google Drive…`);
-      try{
-        const uploaded=await uploadToDrive(token,file,folderId);
-        state.record.DriveFileID=uploaded.id;
-        state.selectedFile={id:uploaded.id,name:uploaded.name||file.name,mimeType:uploaded.mimeType||fileMimeType(file),supportedTypes:[resourceType]};
-        if(!state.record.Name)state.record.Name=file.name.replace(/\.[^.]+$/,'');
-        saveDraft();$('pl-drive').close();render();message('File uploaded to Drive. Review the placement and save the resource.');
-      }catch(error){driveMessage(error.message,true);}
-      finally{state.busy=false;renderDrive();}
-    }).catch(error=>{state.busy=false;renderDrive();driveMessage(error.message,true);});
+    try{
+      const uploaded=await uploadToDrive(file,folderId,resourceType);
+      if(cover){state.record.CoverDriveFileID=uploaded.id;state.selectedCover={...uploaded};}
+      else{state.record.DriveFileID=uploaded.id;state.selectedFile={...uploaded,supportedTypes:[resourceType]};if(!state.record.Name)state.record.Name=file.name.replace(/\.[^.]+$/,'');}
+      saveDraft();$('pl-drive').close();render();message(cover?'Cover uploaded to Drive. Save the resource to keep the link.':'File uploaded to Drive. Review the placement and save the resource.');
+    }catch(error){driveMessage(error.message,true);}
+    finally{state.busy=false;renderDrive();}
   };
   async function saveRoot(){
     if(state.busy||!state.data?.coordinatorAvailable)return;
