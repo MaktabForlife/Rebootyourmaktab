@@ -25,6 +25,10 @@ export function managementState(data, program) {
   if(latest){try{snapshot=JSON.parse(latest.SnapshotJSON);}catch{throw problem('Program management history is unreadable.',409);}}
   // Earlier snapshots have no class/module progress; upgrade in memory without touching Sheets.
   if(!Object.hasOwn(snapshot,'ProgramModuleProgress'))snapshot.ProgramModuleProgress=[];
+  if(!Object.hasOwn(snapshot,'ProgramLibraryRoots'))snapshot.ProgramLibraryRoots=[];
+  const roots=snapshot.ProgramLibraryRoots;
+  if(!Array.isArray(roots)||roots.length>20||roots.some(root=>!root||!/^[A-Za-z0-9_-]{10,128}$/.test(clean(root.FolderID))||!clean(root.Name)||clean(root.Name).length>160)
+    ||new Set(roots.map(root=>root.FolderID)).size!==roots.length)throw problem('Program Library folders need repair.',409);
   // Tasks and resources are individual rows in V105.4, outside the bounded management snapshot.
   snapshot.ProgramTasks=data.tables.ProgramTasks||[];
   snapshot.ProgramResources=data.tables.ProgramResources||[];
@@ -49,9 +53,18 @@ export async function managementView(data, repository, program) {
   const referenceRevision=await payloadHash(shared);
   const rowRevisions={};
   for(const [kind,{table,key}] of Object.entries(MANAGEMENT_KINDS))rowRevisions[kind]=Object.fromEntries(await Promise.all(current.snapshot[table].map(async record=>[record[key],await managementRowRevision(record)])));
-  return {program,prepared:data.prepared,libraryPrepared:data.libraryPrepared,revision:current.revision,referenceRevision,rowRevisions,emptyRowRevision:await managementRowRevision(null),rows,standardLevels:STANDARD_LEVELS,sharedSubjects:shared.subjects,accounts:shared.accounts,eligibleTeacherIds:shared.grantedTeachers.map(r=>r.AccountID)};
+  return {program,prepared:data.prepared,libraryPrepared:data.libraryPrepared,libraryRoots:current.snapshot.ProgramLibraryRoots.map(root=>({...root})),revision:current.revision,referenceRevision,rowRevisions,emptyRowRevision:await managementRowRevision(null),rows,standardLevels:STANDARD_LEVELS,sharedSubjects:shared.subjects,accounts:shared.accounts,eligibleTeacherIds:shared.grantedTeachers.map(r=>r.AccountID)};
 }
 export function applyManagementChange(current, input, shared, program) {
+  if(input.kind==='library-root'){
+    const folderId=clean(input.record?.FolderID),name=clean(input.record?.Name);
+    if(!/^[A-Za-z0-9_-]{10,128}$/.test(folderId)||!name||name.length>160)throw problem('Choose an accessible Google Drive folder.');
+    const snapshot=structuredClone(current.snapshot);
+    if(snapshot.ProgramLibraryRoots.some(root=>root.FolderID===folderId))throw problem('This folder is already available in the Program Library.',409);
+    if(snapshot.ProgramLibraryRoots.length>=20)throw problem('This Program has reached its Library folder limit.',409);
+    const record={FolderID:folderId,Name:name};snapshot.ProgramLibraryRoots.push(record);
+    return {snapshot,record};
+  }
   if(input.kind==='subject-import') {
     const ids=input.record?.subjectIds;
     if(!Array.isArray(ids)||!ids.length||ids.length>250||ids.some(id=>typeof id!=='string'||!id||id.length>100))throw problem('Select between 1 and 250 Academy subjects.');

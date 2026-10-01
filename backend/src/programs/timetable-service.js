@@ -71,8 +71,10 @@ export function timetableService(repository,program,now=()=>new Date()) {
         if(changed)throw Object.assign(problem(`The saved ${input.kind==='progress'?'class status':input.kind==='modules'?'module':'record'} changed since editing began. Your draft is kept. Review the saved row and your changes.`,409),{code:'ROW_CHANGED',currentRecord,rowRevision});
         // Validate against fresh references below. An unrelated account/catalogue change
         // must not reject this row; inactive/missing selections still fail validation.
-        const {snapshot,record}=applyManagementChange(current,input,shared,program);
-        if(input.kind==='resources'&&(record.Active||input.creating||currentRecord?.DriveFileID!==record.DriveFileID))await repository.verifyResource(record);
+        const root=input.kind==='library-root'?await repository.verifyLibraryRoot(input.record?.FolderID):null;
+        const changeInput=root?{...input,record:root}:input;
+        const {snapshot,record}=applyManagementChange(current,changeInput,shared,program);
+        if(input.kind==='resources'&&(record.Active||input.creating||currentRecord?.DriveFileID!==record.DriveFileID))await repository.verifyResource(record,snapshot.ProgramLibraryRoots);
         const persisted={...snapshot};delete persisted.ProgramTasks;delete persisted.ProgramResources;
         const snapshotJSON=JSON.stringify(persisted);
         if(!separate&&snapshotJSON.length>40000)throw problem('This Program has reached the current management storage limit. No changes were saved.');

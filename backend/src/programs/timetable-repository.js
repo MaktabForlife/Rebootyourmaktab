@@ -8,6 +8,8 @@ import { parseTable, assertUnique, problem, clean } from './model.js';
 import { managementState } from './management-model.js';
 import { TIMETABLE_HEADERS } from './timetable-model.js';
 import { getResourceConfig, getRootFolderId, requireItemInsideRoot, validateFileForResourceType } from '../routes/drive-library.js';
+import { listGoogleDriveFolder } from '../lib/google-drive.js';
+import { extractGoogleDriveFolderId } from '../lib/system-config.js';
 const LIBRARY_TABLES=['ProgramTasks','ProgramResources'];
 export const cells = values => ({ values:values.map(value=>({ userEnteredValue:typeof value==='boolean'?{boolValue:value}:typeof value==='number'?{numberValue:value}:{stringValue:String(value??'')} })) });
 export function timetableRepository(env, program) {
@@ -35,15 +37,33 @@ export function timetableRepository(env, program) {
     if(requests.length)await batchUpdateGoogleSpreadsheet(env,requests,target);
   }
   return {
-    async verifyResource(record) {
-      const config=getResourceConfig(record.ResourceType);
-      if(!config)throw problem('Choose a Library resource type.');
-      let file;
-      try{file=await requireItemInsideRoot(env,record.DriveFileID,getRootFolderId(env),{requireFile:true});}
-      catch(error){
-        if(/outside the configured|not found or is in Trash|not a folder|Select a file/i.test(String(error.message)))throw problem('Choose a downloadable file inside the configured protected Drive folder.');
+    async verifyLibraryRoot(value) {
+      let folderId;
+      try{folderId=extractGoogleDriveFolderId(value);}catch(error){throw problem(error.message);}
+      if(folderId===getRootFolderId(env))throw problem('The protected Reboot folder is already available.');
+      let folder;
+      try{
+        folder=await requireItemInsideRoot(env,folderId,folderId,{requireFolder:true,allowRoot:true});
+        await listGoogleDriveFolder(env,folderId,{pageSize:1});
+      }catch(error){
+        if(/not found or is in Trash|not a folder|Google Drive API error 40[34]/i.test(String(error.message)))throw problem('Share this folder with the configured Drive service account, then try again.');
         throw error;
       }
+      return {FolderID:folder.id,Name:clean(folder.name).slice(0,160)||folder.id};
+    },
+    async verifyResource(record, roots=[]) {
+      const config=getResourceConfig(record.ResourceType);
+      if(!config)throw problem('Choose a Library resource type.');
+      let file=null;
+      for(const rootId of [getRootFolderId(env),...roots.map(root=>root.FolderID)]){
+        try{file=await requireItemInsideRoot(env,record.DriveFileID,rootId,{requireFile:true});break;}
+        catch(error){
+          if(/outside the configured/i.test(String(error.message)))continue;
+          if(/not found or is in Trash|not a folder|Select a file/i.test(String(error.message)))throw problem('Choose a downloadable file inside a permitted Program Library folder.');
+          throw error;
+        }
+      }
+      if(!file)throw problem('Choose a file inside the protected folder or another folder added to this Program Library.');
       const checked=validateFileForResourceType(file,config);
       if(!checked.ok)throw problem(checked.error);
       return file;

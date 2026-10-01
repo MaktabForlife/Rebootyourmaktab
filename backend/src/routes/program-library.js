@@ -31,12 +31,19 @@ export function programLibraryEndpoint(action){
       const input=await inputJSON(request);
       stage='program';const program=await timetableProgram(env,input.id);
       const repository=timetableRepository(env,program);
+      if(action==='upload-config'){
+        const clientId=clean(env.M4L_GOOGLE_DRIVE_UPLOAD_CLIENT_ID);
+        return json({success:true,clientId:/^[0-9]+-[A-Za-z0-9_-]+\.apps\.googleusercontent\.com$/.test(clientId)?clientId:''});
+      }
       if(action==='browse'){
-        stage='drive';const root=getRootFolderId(env),folderId=clean(input.folderId)||root;
+        stage='drive';
+        const data=await repository.load(),roots=managementState(data,program).snapshot.ProgramLibraryRoots;
+        const root=clean(input.rootId)||getRootFolderId(env),folderId=clean(input.folderId)||root;
+        if(root!==getRootFolderId(env)&&!roots.some(item=>item.FolderID===root))throw problem('Choose a folder added to this Program Library.',403);
         let folder;
         try{folder=await requireItemInsideRoot(env,folderId,root,{requireFolder:true,allowRoot:true});}
         catch(error){
-          if(/outside the configured|not found or is in Trash|not a folder/i.test(String(error.message)))throw problem('Choose a folder inside the configured protected Drive root.',400);
+          if(/outside the configured|not found or is in Trash|not a folder/i.test(String(error.message)))throw problem('Choose a folder inside the selected Library folder.',400);
           throw error;
         }
         const listing=await listGoogleDriveFolder(env,folderId,{pageToken:clean(input.pageToken),pageSize:500});
@@ -61,7 +68,7 @@ export function programLibraryEndpoint(action){
         if(!subject||!active(subject.Active)||(resource.LevelID&&(!level||!active(level.Active)))||(resource.ProgramModuleID&&(!module||!active(module.Active)||module.LevelID!==resource.LevelID))||(resource.TaskID&&(!task||!active(task.Active))))throw problem('This resource is unavailable.',404);
         const shared=await repository.managementReferences(data);
         if(!shared.subjects.some(row=>row.SubjectID===subject.SubjectID&&active(row.Active)))throw problem('This resource is unavailable.',404);
-        const file=await repository.verifyResource(resource);
+        const file=await repository.verifyResource(resource,snapshot.ProgramLibraryRoots);
         const token=await createDriveAccessToken({fileId:file.id,resourceType:resource.ResourceType,resourceId:resource.ResourceID,courseId:program.id,filename:file.name,mimeType:file.mimeType},env);
         const expiresIn=getDriveAccessTtlSeconds(env);
         return json({success:true,url:`${new URL(request.url).origin}/api/library/drive/file/${encodeURIComponent(file.id)}?access=${encodeURIComponent(token)}`,expiresIn,filename:file.name,mimeType:file.mimeType,format:deriveFileFormat(file.name,file.mimeType)});
