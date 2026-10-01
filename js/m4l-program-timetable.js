@@ -58,7 +58,9 @@
     const locked=state.busy||Boolean(state.pending),needsReview=state.conversion?.required&&!state.converted,ready=state.data?.prepared&&state.data?.coordinatorAvailable&&state.data?.program.status==='DRAFT'&&!needsReview;
     $('tt-planner').disabled=locked||!ready;
     for(const name of ['save','validate','preview'])$(`tt-${name}`).disabled=locked||!ready;
-    $('tt-save').disabled||=!dirty()||sharedConflict;$('tt-publish').disabled=locked||!ready||!state.preview?.valid||sharedConflict;
+    $('tt-save').disabled||=!dirty()||sharedConflict;
+    $('tt-open-publish').disabled=locked||!ready||!state.preview?.valid||sharedConflict||Boolean(state.calendarView?.history);
+    $('tt-publish').disabled=locked||!ready||sharedConflict;
     $('tt-effective-from').disabled=locked;$('tt-preview-type').disabled=locked;$('tt-preview-target').disabled=locked||!$('tt-preview-target').value;
     for(const name of ['reload','history','prepare','convert'])$(`tt-${name}`).disabled=state.busy;
     $('tt-convert').disabled||=Boolean(state.pending);$('tt-retry').disabled=state.busy;
@@ -67,7 +69,8 @@
     $('tt-save-state').textContent=state.pending?'Change not confirmed':dirty()?'Unsaved draft changes':'Saved draft';
   }
   async function work(fn){if(state.busy)return;state.busy=true;controls();try{await fn();}catch(error){message(error.message,true);}finally{state.busy=false;controls();}}
-  function invalidate(){exportGeneration++;exportPages=null;exportFiles=null;state.preview=null;$('tt-publish-options').hidden=true;$('tt-preview-panel').hidden=true;$('tt-validation').hidden=true;remember();controls();planner?.render();}
+  function closePublishDialog(){if($('tt-publish-dialog').open)$('tt-publish-dialog').close();}
+  function invalidate(){exportGeneration++;exportPages=null;exportFiles=null;state.preview=null;closePublishDialog();$('tt-preview-panel').hidden=true;$('tt-validation').hidden=true;remember();controls();planner?.render();}
   function modules(){const c=state.data.catalog;return [...c.subjects.filter(s=>s.active).map(s=>({id:'subject:'+s.id,name:s.name+' · Subject only'})),...c.modules.filter(m=>m.active).map(m=>{const s=c.subjects.find(s=>s.id===m.programSubjectId),l=c.levels.find(l=>l.id===m.levelId);return {id:m.id,name:`${m.name} · ${s?.name||'Missing subject'}${l?` / ${l.name}`:''}`};})];}
   const planner=window.M4L_ASSISTED_PLANNER?.mount({state,$,esc,days,modules,changed:()=>{invalidate();render();},locked:()=>state.busy||Boolean(state.pending)||!state.data?.prepared||!state.data?.coordinatorAvailable||state.data?.program.status!=='DRAFT'||Boolean(state.conversion?.required&&!state.converted)});
   if(planner)$('tt-undo-placement').onclick=()=>planner.undo();
@@ -82,7 +85,6 @@
     $('tt-live-state').textContent=(current?`In effect · Version ${current.version}`:'No timetable in effect')+scheduled.map(p=>` · Version ${p.version} from ${p.effectiveFrom}`).join('');
     planner?.render();
     $('tt-effective-from').value=state.effectiveFrom||state.data.today;$('tt-effective-from').min=state.data.today;
-    $('tt-effective-note').textContent=`The new timetable applies from this date in ${state.data.effectiveTimezone}. The current version continues until then; there is no end date.`;
     controls();
   }
   async function load(restore=true){
@@ -106,7 +108,7 @@
       }
     }catch{}
     if(state.pending)state.draft=displayDraft(state.pending.body.draft);
-    $('tt-workspace').hidden=!result.prepared;$('tt-prepare').hidden=result.prepared;$('tt-preview-panel').hidden=true;$('tt-publish-options').hidden=true;$('tt-validation').hidden=true;
+    $('tt-workspace').hidden=!result.prepared;$('tt-prepare').hidden=result.prepared;$('tt-preview-panel').hidden=true;closePublishDialog();$('tt-validation').hidden=true;
     render();remember(true);message(!result.prepared?'Prepare the empty timetable tables to begin.':!result.coordinatorAvailable?'Saving is unavailable until the backend coordinator is configured.':dirty()?'Your unfinished timetable is kept.':!result.catalog.subjects.length?'No subjects yet. Open Program management to add subjects and classes.':'Build the weekly pattern, preview it, then choose its effective date when publishing.');
   }
   function clearPending(){state.pending=null;sessionStorage.removeItem(storageKey);}
@@ -170,7 +172,7 @@
     state.audiences={classes:audienceRows(result,'class'),teachers:audienceRows(result,'teacher')};
     const requested=$('tt-preview-type').value,available=requested==='teacher'?state.audiences.teachers:state.audiences.classes;
     $('tt-preview-type').value=available.length?requested:(state.audiences.classes.length?'class':'teacher');
-    populatePreviewTargets();$('tt-publish-options').hidden=history;controls();
+    populatePreviewTargets();if(history)closePublishDialog();controls();
   }
   let exportGeneration=0,exportPages=null,exportFiles=null;
   const presentation=window.M4L_TIMETABLE_PRESENTATION;
@@ -234,11 +236,31 @@
     if(dirty()&&!window.confirm('You have unsaved timetable changes. Save draft before switching programs. Continue without saving?'))return;
     location.href='/programs/timetable.html?program='+encodeURIComponent(selected);
   };
-  $('tt-effective-from').oninput=event=>{state.effectiveFrom=event.target.value;state.preview=null;exportGeneration++;exportPages=null;exportFiles=null;$('tt-share-image').disabled=$('tt-download-image').disabled=$('tt-download-pdf').disabled=true;$('tt-export-note').textContent='Preview again after changing the effective date.';remember();controls();message('Effective date changed. Preview again to check memberships for this date.');};
+  $('tt-open-publish').onclick=()=>{
+    if($('tt-open-publish').disabled)return;
+    $('tt-effective-from').value=state.effectiveFrom||state.data.today;
+    $('tt-effective-from').min=state.data.today;
+    $('tt-publish-error').hidden=true;
+    $('tt-publish-dialog').showModal();
+  };
+  $('tt-publish-cancel').onclick=closePublishDialog;
   $('tt-save').onclick=()=>work(()=>mutate('save'));$('tt-retry').onclick=()=>work(()=>mutate(state.pending.action));
   $('tt-prepare').onclick=()=>work(async()=>{await api('prepare');await load();});
-  for(const action of ['validate','preview'])$(`tt-${action}`).onclick=()=>work(async()=>{const result=await api(action,{draft:state.draft,...(action==='preview'?{effectiveFrom:state.effectiveFrom||state.data.today}:{})});showValidation(result);state.preview=action==='preview'?result:null;if(action==='preview')showOccurrences(result,'Weekly timetable preview');else {$('tt-preview-panel').hidden=true;$('tt-publish-options').hidden=true;}message(result.valid?(action==='preview'?'Preview ready. Choose the effective date at the top, then publish.':'Validation passed. Preview to review the weekly pattern.'):'Resolve the listed issues before publishing.',!result.valid);});
-  $('tt-publish').onclick=()=>work(async()=>{if(state.preview?.valid)await mutate('publish');});
+  for(const action of ['validate','preview'])$(`tt-${action}`).onclick=()=>work(async()=>{const result=await api(action,{draft:state.draft,...(action==='preview'?{effectiveFrom:state.effectiveFrom||state.data.today}:{})});showValidation(result);state.preview=action==='preview'?result:null;if(action==='preview')showOccurrences(result,'Weekly timetable preview');else {$('tt-preview-panel').hidden=true;closePublishDialog();}message(result.valid?(action==='preview'?'Preview ready. Publish this timetable from the section below to choose the effective date.':'Validation passed. Preview to review the weekly pattern.'):'Resolve the listed issues before publishing.',!result.valid);});
+  $('tt-publish').onclick=()=>work(async()=>{
+    const date=$('tt-effective-from').value;
+    $('tt-publish-error').hidden=true;
+    if(!date||date<state.data.today){$('tt-publish-error').textContent='Choose today or a later effective date.';$('tt-publish-error').hidden=false;return;}
+    try{
+      if(date!==state.effectiveFrom||!state.preview?.valid){
+        const result=await api('preview',{draft:state.draft,effectiveFrom:date});
+        showValidation(result);
+        if(!result.valid){state.preview=null;$('tt-preview-panel').hidden=true;$('tt-publish-error').textContent='This date has validation issues. Close this popup and review them before publishing.';$('tt-publish-error').hidden=false;return;}
+        state.preview=result;state.effectiveFrom=date;remember();
+      }
+      if(state.preview?.valid)await mutate('publish');
+    }catch(error){$('tt-publish-error').textContent=error.message;$('tt-publish-error').hidden=false;throw error;}
+  });
   $('tt-history').onclick=()=>work(async()=>{const result=await api('history');state.history=result.publications;state.data.currentPublicationId=result.currentPublicationId;state.data.publications=result.publications;render();$('tt-history-list').innerHTML=state.history.slice().reverse().map(p=>`<div class="tt-history-item"><strong>Version ${p.version} · ${esc(({CURRENT:'In effect',SCHEDULED:'Scheduled',PAST:'Past',SUPERSEDED:'Superseded'})[p.status]||'Past')}</strong><span>Effective ${esc(p.effectiveFrom)}${p.effectiveUntil?' through '+esc(p.effectiveUntil):''}</span><button class="pb-secondary" data-history="${esc(p.id)}">View snapshot</button><button class="pb-secondary" data-reuse="${esc(p.id)}" ${state.pending?'disabled':''}>Edit as new version</button></div>`).join('')||'<p class="tt-scope">No published timetable yet.</p>';});
   $('tt-history-list').onclick=event=>{if(event.target.dataset.reuse){void reusePublication(event.target.dataset.reuse);return;}const p=state.history.find(p=>p.id===event.target.dataset.history);if(p)showOccurrences(p,`Published version ${p.version}`,true);};
   async function reusePublication(publicationId){
