@@ -1,4 +1,4 @@
-/* V105.3.4.2 — editable timetable boards shared between browser tabs. */
+/* V105.3.4.3 — editable timetable boards shared between browser tabs. */
 (()=>{'use strict';
   const $=id=>document.getElementById(id),esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const id=new URLSearchParams(location.search).get('program'),storageKey=`m4l-timetable-pending:${id}`,draftKey=`m4l-timetable-draft:${id}`,format='105.3.2.2-weekly';

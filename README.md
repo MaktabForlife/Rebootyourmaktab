@@ -1,6 +1,6 @@
-# V105.3.4.2 — Editable timetable boards
+# V105.3.4.3 — Direct timetable board editing
 
-Teachers are optional when placing lessons on the weekly board. Select a lesson to edit its details, move it to another period, or remove it from the selected weekday. Each class or teacher board can be opened in another tab; draft changes are shared and conflicting edits to the same item are blocked. Save, validate and publish still use the existing flow. [Scope, use and verification](docs/V105.3.4.2-BOARD-LESSON-EDITING.md).
+Set up periods once, then edit their start and end times directly in the board's left column. Three-digit time entry such as `745` becomes `07h45`. Existing lessons keep their own times. Use Mark break to place a school-wide break in a day and period. Add a lesson with subject and teacher choices inside its cell, use its pencil icon to edit, drag it to move, or use its delete icon and confirmation to clear that weekday's lesson. Teacher availability accepts several selected days and the same time shorthand. Class and teacher boards, shared tabs, optional teachers, and the existing save and publication flow remain available. [Scope, use and verification](docs/V105.3.4.3-BOARD-PERIODS-AND-BREAKS.md).
 
 Development only; Academy acceptance remains open.
 
