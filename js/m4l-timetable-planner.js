@@ -1,4 +1,4 @@
-/* V105.3.4.4 — manage class and teacher boards as tabs within the timetable screen. */
+/* V105.3.4.5 — keep lesson quick edits in a centered dialog. */
 (()=>{'use strict';
   const timeMinutes=value=>/^([01]\d|2[0-3]):[0-5]\d$/.test(value||'')?Number(value.slice(0,2))*60+Number(value.slice(3)):NaN;
   const clock=minutes=>String(Math.floor(minutes/60)).padStart(2,'0')+':'+String(minutes%60).padStart(2,'0');
@@ -9,7 +9,7 @@
   const dayOrder=[1,2,3,4,5,6,0];
   window.M4L_ASSISTED_PLANNER={
     mount({state,$,esc,days,modules,changed,locked}){
-      let selectedClass='',selectedSubject='',selectedTeacher='',boardView='class',availabilityTeacher='',selectedAvailabilityDays=new Set([1]),selectedMove=null,editing=null,editorDirty=false,editorSource='',placingBreak=false,selectedBreakMove=null,editingBreak=null,breakEditorDirty=false,breakEditorSource='',selectedEmpty=null,inlineSubject='',inlineTeacher='',inlineDirty=false,learnerCache=new Map();
+      let selectedClass='',selectedSubject='',selectedTeacher='',boardView='class',availabilityTeacher='',selectedAvailabilityDays=new Set([1]),selectedMove=null,editing=null,showDetails=false,editorDirty=false,editorSource='',placingBreak=false,selectedBreakMove=null,editingBreak=null,breakEditorDirty=false,breakEditorSource='',selectedEmpty=null,placementError=null,inlineSubject='',inlineTeacher='',inlineDirty=false,learnerCache=new Map();
       const boardParams=new URLSearchParams(location.search),requestedView=boardParams.get('board');
       if(requestedView==='teacher'||requestedView==='class'){boardView=requestedView;selectedClass=boardParams.get('class')||'';selectedTeacher=boardParams.get('teacher')||'';}
       const boardTabs=[{id:'BOARD-1',view:boardView,classId:selectedClass,teacherId:selectedTeacher,subjectId:selectedSubject,emptyCell:null}];
@@ -23,7 +23,11 @@
       const catalog=()=>state.data.catalog;
       const teacher=id=>catalog().teachers.find(row=>row.id===id);
       const subject=row=>row.moduleId?catalog().modules.find(m=>m.id===row.moduleId)?.name:catalog().subjects.find(s=>s.id===row.programSubjectId)?.name;
-      const note=(value,error=false)=>{$('tt-board-message').textContent=value;$('tt-board-message').classList.toggle('is-error',error);};
+      const note=(value,error=false)=>{$('tt-board-message').textContent=value;$('tt-board-message').classList.toggle('is-error',error);if($('tt-quick-lesson-dialog').open){$('tt-quick-error').textContent=error?value:'';$('tt-quick-error').hidden=!error;}};
+      const closeQuickDialog=()=>{if($('tt-quick-lesson-dialog').open)$('tt-quick-lesson-dialog').close();$('tt-quick-error').hidden=true;$('tt-quick-error').textContent='';};
+      const clearPlacementError=()=>{if(placementError){placementError=null;note('');}};
+      const cellError=(day,period)=>placementError?.day===day&&placementError.periodId===period.id?'<p class="tt-board-cell-error">'+esc(placementError.message)+'</p>':'';
+      const rejectPlacement=(day,period,message)=>{placementError={day,periodId:period.id,message};note(message,true);renderBoard();};
       const option=(id,name,selected)=>'<option value="'+esc(id)+'"'+(id===selected?' selected':'')+'>'+esc(name)+'</option>';
       const saveUndo=(before,beforePeriods=null,beforeBreaks=null,hadBreaks=true)=>{undo.push({before,after:JSON.stringify(state.draft.rules),beforePeriods,afterPeriods:JSON.stringify(plan().periods),beforeBreaks,hadBreaks,afterBreaks:JSON.stringify(breaks())});if(undo.length>20)undo.shift();};
       const activeEdit=()=>editing&&state.draft.rules.find(row=>row.id===editing.id&&row.weekdays.includes(editing.day));
@@ -42,7 +46,7 @@
       }
       function activateBoardTab(tab){
         activeBoardTabId=tab.id;boardView=tab.view;selectedClass=tab.classId;selectedTeacher=tab.teacherId;selectedSubject=tab.subjectId;
-        selectedMove=null;selectedBreakMove=null;selectedEmpty=tab.emptyCell||null;editing=null;editingBreak=null;placingBreak=false;
+        selectedMove=null;selectedBreakMove=null;selectedEmpty=tab.emptyCell||null;clearPlacementError();editing=null;editingBreak=null;placingBreak=false;
         render();
       }
       function learnersOverlap(leftClasses,rightClasses,weekday){
@@ -106,10 +110,13 @@
         return '<label>Subject / module<select '+(inline?'data-inline-subject':'data-quick-subject')+'>'+subjectOptions+'</select></label><label>Teacher (optional)<select '+(inline?'data-inline-teacher':'data-quick-teacher')+'>'+teacherOptions+'</select></label>';
       }
       function addLessonForm(day,period){
-        return '<div class="tt-board-quick"><strong>Add lesson</strong>'+lessonDropdowns(selectedSubject,selectedTeacher)+'<div><button type="button" data-place-lesson data-board-day="'+day+'" data-board-period="'+esc(period.id)+'">Add</button><button type="button" class="pb-secondary" data-cancel-quick>Cancel</button></div></div>';
+        return '<div class="tt-board-quick"><strong>Add lesson</strong>'+lessonDropdowns(selectedSubject,selectedTeacher)+'<div><button type="button" data-place-lesson data-board-day="'+day+'" data-board-period="'+esc(period.id)+'">Add</button><button type="button" class="pb-secondary" data-cancel-quick>Cancel</button></div>'+cellError(day,period)+'</div>';
       }
-      function editLessonForm(){
-        return '<div class="tt-board-quick"><strong>Quick edit</strong>'+lessonDropdowns(inlineSubject,inlineTeacher,true)+'<div><button type="button" data-save-inline>Save choices</button><button type="button" class="pb-secondary" data-more-details>More details</button><button type="button" class="pb-secondary" data-close-inline>Close</button></div></div>';
+      function openQuickDialog(){
+        $('tt-quick-lesson-title').textContent='Edit '+days[editing.day]+' lesson';
+        $('tt-quick-fields').innerHTML=lessonDropdowns(inlineSubject,inlineTeacher,true);
+        $('tt-quick-error').textContent='';$('tt-quick-error').hidden=true;
+        $('tt-quick-lesson-dialog').showModal();
       }
       const editIcon='<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L9 17l-4 1 1-4z"/></svg>';
       const deleteIcon='<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 7h16M10 4h4M6 7l1 13h10l1-13M10 11v6M14 11v6"/></svg>';
@@ -142,12 +149,10 @@
           const breakRows=breaks().filter(row=>row.weekdays.includes(day)&&overlap(row,period));
           const moving=selectedMove&&state.draft.rules.find(item=>item.id===selectedMove.id);
           const breakMoving=selectedBreakMove&&breaks().find(item=>item.id===selectedBreakMove.id);
-          const candidate=moving||selectedSubject?{classIds:moving?moving.classIds:[selectedClass],teacherId:moving?moving.teacherId:selectedTeacher,weekday:day,startTime:period.startTime,endTime:period.endTime}:null;
           const marking=placingBreak||breakMoving;
-          const why=!rows.length&&!breakRows.length?(marking?breakReason({weekday:day,startTime:period.startTime,endTime:period.endTime},selectedBreakMove):candidate?reason(candidate,selectedMove):''):'';
           if(!rows.length&&!breakRows.length){
             if(!marking&&!moving&&selectedEmpty?.day===day&&selectedEmpty.periodId===period.id)return '<td>'+addLessonForm(day,period)+'</td>';
-            const label=why||(marking?'＋ Mark break':'＋ Add lesson');return '<td><button type="button" class="tt-board-cell is-empty '+(why?'is-conflict':'')+'" data-board-day="'+day+'" data-board-period="'+esc(period.id)+'" data-open-lesson="'+(marking||moving?'false':'true')+'" aria-label="'+esc(days[day]+' '+period.startTime+'–'+period.endTime+' '+label)+'">'+esc(label)+'</button></td>';
+            const label=marking?'＋ Mark break':'＋ Add lesson';return '<td><button type="button" class="tt-board-cell is-empty" data-board-day="'+day+'" data-board-period="'+esc(period.id)+'" data-open-lesson="'+(marking||moving?'false':'true')+'" aria-label="'+esc(days[day]+' '+period.startTime+'–'+period.endTime+' '+label)+'">'+esc(label)+'</button>'+cellError(day,period)+'</td>';
           }
           return '<td>'+breakRows.map(row=>{
             const selected=selectedBreakMove?.id===row.id&&selectedBreakMove.day===day||editingBreak?.id===row.id&&editingBreak.day===day;
@@ -158,14 +163,14 @@
             const detail=boardView==='teacher'?row.classIds.map(id=>classes.find(item=>item.id===id)?.name||id).join(', '):teacher(row.teacherId)?.name||'No teacher';
             const label=(subject(row)||'Lesson')+' · '+detail+' · '+row.startTime+'–'+row.endTime;
             const attrs=' data-board-day="'+day+'" data-board-period="'+esc(period.id)+'" data-rule-id="'+esc(row.id)+'"';
-            return '<div draggable="true" class="tt-board-cell is-occupied '+(selected?'is-selected':'')+'"'+attrs+'><span class="tt-board-lesson-label">'+esc(label)+'</span><span class="tt-board-lesson-actions"><button type="button" class="tt-board-icon" data-edit-card'+attrs+' aria-label="Edit '+esc(days[day]+' '+label)+'" title="Edit lesson">'+editIcon+'</button><button type="button" class="tt-board-icon is-delete" data-delete-card'+attrs+' aria-label="Delete '+esc(days[day]+' '+label)+'" title="Delete lesson">'+deleteIcon+'</button></span></div>'+(editing?.id===row.id&&editing.day===day?editLessonForm():'');
+            return '<div draggable="true" class="tt-board-cell is-occupied '+(selected?'is-selected':'')+'"'+attrs+'><span class="tt-board-lesson-label">'+esc(label)+'</span><span class="tt-board-lesson-actions"><button type="button" class="tt-board-icon" data-edit-card'+attrs+' aria-label="Edit '+esc(days[day]+' '+label)+'" title="Edit lesson">'+editIcon+'</button><button type="button" class="tt-board-icon is-delete" data-delete-card'+attrs+' aria-label="Delete '+esc(days[day]+' '+label)+'" title="Delete lesson">'+deleteIcon+'</button></span></div>';
           }).join('')+'</td>';
         }).join('')+'</tr>').join('')+'</tbody></table>';
       }
       function renderEditor(){
-        const row=activeEdit(),panel=$('tt-board-editor');panel.hidden=!row;
-        if(editorDirty&&editing){panel.hidden=false;$('tt-save-lesson').disabled=!row;$('tt-delete-lesson').disabled=!row;if(!row)note('This lesson was removed in another tab. Copy any unsaved details, then close this editor.',true);return;}
-        if(!row){editing=null;editorSource='';return;}
+        const row=activeEdit(),panel=$('tt-board-editor');panel.hidden=!row||!showDetails;
+        if(editorDirty&&editing){panel.hidden=!showDetails;$('tt-save-lesson').disabled=!row;$('tt-delete-lesson').disabled=!row;if(!row)note('This lesson was removed in another tab. Copy any unsaved details, then close this editor.',true);return;}
+        if(!row){editing=null;showDetails=false;editorSource='';return;}
         $('tt-save-lesson').disabled=false;$('tt-delete-lesson').disabled=false;editorSource=JSON.stringify(row);
         $('tt-board-editor-title').textContent='Edit '+days[editing.day]+' lesson';
         const subjectId=row.moduleId||'subject:'+row.programSubjectId;
@@ -192,7 +197,7 @@
         $('tt-planner-review').innerHTML=[...teacherIds].map(id=>{const used=total(id),limit=plan().limits.find(row=>row.teacherId===id)?.maxWeeklyMinutes;return '<span class="'+(limit!==undefined&&used>limit?'is-over':'')+'">'+esc(teacher(id)?.name||id)+': '+duration(used)+(limit===undefined?'':' / '+duration(limit)+' max')+'</span>';}).join('')||'<span>No teacher hours scheduled yet.</span>';
       }
       function render(){if(!state.data||!state.draft)return;learnerCache=new Map();$('tt-period-setup').hidden=Boolean(plan().periods.length);renderBoard();renderEditor();renderBreakEditor();renderAvailability();renderReview();$('tt-clear-selection').disabled=!selectedMove&&!selectedBreakMove;$('tt-undo-placement').disabled=!undo.length;}
-      function commit(){changed();render();}
+      function commit(){placementError=null;changed();render();}
       $('tt-create-periods').onclick=()=>{
         if(locked())return;
         if(plan().periods.length){note('Remove the existing periods before setting up a new set.',true);return;}
@@ -212,10 +217,8 @@
       };
       $('tt-board').onchange=event=>{
         if(locked())return;const data=event.target.dataset;
-        if(data.quickSubject!==undefined){selectedSubject=event.target.value;activeBoardTab().subjectId=selectedSubject;$('tt-board-subject').value=selectedSubject;return;}
-        if(data.quickTeacher!==undefined){selectedTeacher=event.target.value;activeBoardTab().teacherId=selectedTeacher;$('tt-board-teacher').value=selectedTeacher;return;}
-        if(data.inlineSubject!==undefined){inlineSubject=event.target.value;inlineDirty=true;return;}
-        if(data.inlineTeacher!==undefined){inlineTeacher=event.target.value;inlineDirty=true;return;}
+        if(data.quickSubject!==undefined){selectedSubject=event.target.value;activeBoardTab().subjectId=selectedSubject;$('tt-board-subject').value=selectedSubject;if(placementError){clearPlacementError();renderBoard();}return;}
+        if(data.quickTeacher!==undefined){selectedTeacher=event.target.value;activeBoardTab().teacherId=selectedTeacher;$('tt-board-teacher').value=selectedTeacher;if(placementError){clearPlacementError();renderBoard();}return;}
         const id=data.period,key=data.time,row=edit().periods.find(item=>item.id===id);
         if(!row||!['startTime','endTime'].includes(key))return;
         const value=normalizeTime(event.target.value),candidate={...row,[key]:value};
@@ -282,15 +285,33 @@
         event.preventDefault();const next=event.key==='Home'?0:event.key==='End'?boardTabs.length-1:(index+(event.key==='ArrowRight'?1:-1)+boardTabs.length)%boardTabs.length;
         activateBoardTab(boardTabs[next]);$('tt-board-tabs').querySelector?.('[data-board-tab="'+boardTabs[next].id+'"]')?.focus?.();
       };
-      $('tt-board-view').onchange=event=>{if(editorDirty||breakEditorDirty||inlineDirty){note('Save or close the open item before switching boards.',true);event.target.value=boardView;return;}boardView=event.target.value==='teacher'?'teacher':'class';selectedMove=null;selectedBreakMove=null;selectedEmpty=null;editing=null;editingBreak=null;renderBoard();renderEditor();renderBreakEditor();};
-      $('tt-board-class').onchange=event=>{if(editorDirty||breakEditorDirty||inlineDirty){note('Save or close the open item before switching boards.',true);event.target.value=selectedClass;return;}selectedClass=event.target.value;selectedMove=null;selectedBreakMove=null;selectedEmpty=null;editing=null;editingBreak=null;renderBoard();renderEditor();renderBreakEditor();};
-      $('tt-board-subject').onchange=event=>{selectedSubject=event.target.value;selectedMove=null;renderBoard();};
-      $('tt-board-teacher').onchange=event=>{selectedTeacher=event.target.value;selectedMove=null;renderBoard();};
-      $('tt-clear-selection').onclick=()=>{selectedMove=null;selectedBreakMove=null;renderBoard();};
-      $('tt-mark-break').onclick=()=>{if(locked())return;if(editorDirty||breakEditorDirty||inlineDirty){note('Save or close the open item before marking breaks.',true);return;}placingBreak=!placingBreak;selectedMove=null;selectedBreakMove=null;selectedEmpty=null;editing=null;editingBreak=null;note(placingBreak?'Enter a break name, then select an empty period on each weekday. Breaks apply to every class.':'Break marking stopped.');renderBoard();renderEditor();renderBreakEditor();};
+      $('tt-board-view').onchange=event=>{if(editorDirty||breakEditorDirty||inlineDirty){note('Save or close the open item before switching boards.',true);event.target.value=boardView;return;}boardView=event.target.value==='teacher'?'teacher':'class';selectedMove=null;selectedBreakMove=null;selectedEmpty=null;clearPlacementError();editing=null;editingBreak=null;renderBoard();renderEditor();renderBreakEditor();};
+      $('tt-board-class').onchange=event=>{if(editorDirty||breakEditorDirty||inlineDirty){note('Save or close the open item before switching boards.',true);event.target.value=selectedClass;return;}selectedClass=event.target.value;selectedMove=null;selectedBreakMove=null;selectedEmpty=null;clearPlacementError();editing=null;editingBreak=null;renderBoard();renderEditor();renderBreakEditor();};
+      $('tt-board-subject').onchange=event=>{selectedSubject=event.target.value;selectedMove=null;clearPlacementError();renderBoard();};
+      $('tt-board-teacher').onchange=event=>{selectedTeacher=event.target.value;selectedMove=null;clearPlacementError();renderBoard();};
+      $('tt-clear-selection').onclick=()=>{selectedMove=null;selectedBreakMove=null;clearPlacementError();renderBoard();};
+      $('tt-mark-break').onclick=()=>{if(locked())return;if(editorDirty||breakEditorDirty||inlineDirty){note('Save or close the open item before marking breaks.',true);return;}placingBreak=!placingBreak;selectedMove=null;selectedBreakMove=null;selectedEmpty=null;placementError=null;editing=null;editingBreak=null;note(placingBreak?'Enter a break name, then select an empty period on each weekday. Breaks apply to every class.':'Break marking stopped.');renderBoard();renderEditor();renderBreakEditor();};
       $('tt-board-editor').oninput=()=>{editorDirty=true;};$('tt-board-editor').onchange=()=>{editorDirty=true;};
       $('tt-break-editor').oninput=()=>{breakEditorDirty=true;};$('tt-break-editor').onchange=()=>{breakEditorDirty=true;};
-      $('tt-close-lesson').onclick=()=>{editing=null;editorDirty=false;inlineDirty=false;renderBoard();renderEditor();};
+      $('tt-quick-lesson-dialog').onchange=event=>{
+        if(event.target.dataset.inlineSubject!==undefined){inlineSubject=event.target.value;inlineDirty=true;}
+        if(event.target.dataset.inlineTeacher!==undefined){inlineTeacher=event.target.value;inlineDirty=true;}
+        $('tt-quick-error').hidden=true;
+      };
+      $('tt-quick-lesson-dialog').oncancel=event=>{event.preventDefault();$('tt-quick-cancel').onclick();};
+      $('tt-quick-cancel').onclick=()=>{$('tt-close-lesson').onclick();};
+      $('tt-quick-more').onclick=()=>{
+        closeQuickDialog();showDetails=true;renderEditor();
+        $('tt-edit-subject').value=inlineSubject;$('tt-edit-teacher').value=inlineTeacher;
+        editorDirty=inlineDirty;inlineDirty=false;
+        $('tt-board-editor').scrollIntoView?.({block:'nearest'});
+      };
+      $('tt-quick-save').onclick=()=>{
+        if(locked()||!activeEdit())return;
+        if(JSON.stringify(activeEdit())!==editorSource){note('This lesson changed in another tab. Close and reopen it before saving.',true);return;}
+        $('tt-edit-subject').value=inlineSubject;$('tt-edit-teacher').value=inlineTeacher;$('tt-save-lesson').onclick();
+      };
+      $('tt-close-lesson').onclick=()=>{closeQuickDialog();editing=null;showDetails=false;editorDirty=false;inlineDirty=false;renderEditor();};
       $('tt-save-lesson').onclick=()=>{
         if(locked())return;const row=activeEdit();if(!row)return;
         if(editorDirty&&JSON.stringify(row)!==editorSource){note('This lesson changed in another tab. Copy your edits, close the editor and reopen the lesson.',true);return;}
@@ -306,7 +327,7 @@
         const before=structuredClone(state.draft.rules),patch={moduleId:subjectId.startsWith('subject:')?'':subjectId,programSubjectId:subjectId.startsWith('subject:')?subjectId.slice(8):catalog().modules.find(item=>item.id===subjectId)?.programSubjectId||'',classIds,teacherId,startTime,endTime,zoomLink};
         if(row.weekdays.length===1)Object.assign(row,patch);
         else{row.weekdays=row.weekdays.filter(day=>day!==editing.day);state.draft.rules.push({...structuredClone(row),...patch,id:'RULE-'+crypto.randomUUID(),weekdays:[editing.day]});}
-        editing=null;editorDirty=false;inlineDirty=false;saveUndo(before);note('Lesson updated for this weekday.');commit();
+        closeQuickDialog();editing=null;showDetails=false;editorDirty=false;inlineDirty=false;saveUndo(before);note('Lesson updated for this weekday.');commit();
       };
       $('tt-delete-lesson').onclick=()=>{
         if(locked())return;const row=activeEdit();if(!row)return;
@@ -315,7 +336,7 @@
         const before=structuredClone(state.draft.rules);
         if(row.weekdays.length===1)state.draft.rules=state.draft.rules.filter(item=>item.id!==row.id);
         else row.weekdays=row.weekdays.filter(day=>day!==editing.day);
-        editing=null;editorDirty=false;inlineDirty=false;saveUndo(before);note('Lesson deleted from this weekday; the period remains.');commit();return true;
+        closeQuickDialog();editing=null;showDetails=false;editorDirty=false;inlineDirty=false;saveUndo(before);note('Lesson deleted from this weekday; the period remains.');commit();return true;
       };
       $('tt-close-break').onclick=()=>{editingBreak=null;breakEditorDirty=false;renderBoard();renderBreakEditor();};
       $('tt-move-break').onclick=()=>{if(locked()||!activeBreakEdit())return;if(breakEditorDirty){note('Save or close your edits before moving the break.',true);return;}selectedBreakMove=editingBreak;editingBreak=null;placingBreak=false;note('Choose an empty period for this break.');renderBoard();renderBreakEditor();};
@@ -342,14 +363,7 @@
       };
       $('tt-board').onclick=event=>{
         const action=event.target.dataset||{};
-        if(action.cancelQuick!==undefined){selectedEmpty=null;renderBoard();return;}
-        if(action.closeInline!==undefined){$('tt-close-lesson').onclick();return;}
-        if(action.moreDetails!==undefined){$('tt-board-editor').scrollIntoView?.({block:'nearest'});return;}
-        if(action.saveInline!==undefined){
-          if(locked()||!activeEdit())return;
-          if(editorDirty){note('Save or close the open lesson details before using quick edit.',true);return;}
-          $('tt-edit-subject').value=inlineSubject;$('tt-edit-teacher').value=inlineTeacher;$('tt-save-lesson').onclick();return;
-        }
+        if(action.cancelQuick!==undefined){selectedEmpty=null;clearPlacementError();renderBoard();return;}
         const deleteCard=event.target.closest?.('[data-delete-card]');
         if(deleteCard){
           if(locked()||editorDirty||breakEditorDirty||inlineDirty){note('Save or close the open item before deleting a lesson.',true);return;}
@@ -369,17 +383,17 @@
         const day=Number(button.dataset.boardDay),period=plan().periods.find(row=>row.id===button.dataset.boardPeriod);if(!period)return;
         if(button.dataset.openLesson==='true'&&!selectedMove&&!selectedBreakMove&&!placingBreak){
           if(editorDirty||breakEditorDirty||inlineDirty){note('Save or close the open item before adding another.',true);return;}
-          selectedEmpty={day,periodId:period.id};editing=null;editingBreak=null;note('Choose a subject and optional teacher in this period, then select Add.');renderBoard();renderEditor();renderBreakEditor();return;
+          selectedEmpty={day,periodId:period.id};placementError=null;editing=null;editingBreak=null;note('Choose a subject and optional teacher in this period, then select Add.');renderBoard();renderEditor();renderBreakEditor();return;
         }
         if(button.dataset.breakId){
           if(editorDirty||breakEditorDirty||inlineDirty){note('Save or close the open item before selecting another.',true);return;}
-          selectedMove=null;selectedBreakMove=null;selectedEmpty=null;placingBreak=false;editing=null;editingBreak={id:button.dataset.breakId,day};breakEditorDirty=false;
+          selectedMove=null;selectedBreakMove=null;selectedEmpty=null;placementError=null;placingBreak=false;editing=null;editingBreak={id:button.dataset.breakId,day};breakEditorDirty=false;
           note('Edit, move or delete this break below.');renderBoard();renderEditor();renderBreakEditor();return;
         }
         if(button.dataset.ruleId){
           if(editorDirty||breakEditorDirty||inlineDirty){note('Save or close the open item before selecting another.',true);return;}
           const row=state.draft.rules.find(item=>item.id===button.dataset.ruleId);if(!row)return;
-          selectedMove=null;selectedBreakMove=null;selectedEmpty=null;placingBreak=false;editingBreak=null;editing={id:row.id,day};inlineSubject=row.moduleId||'subject:'+row.programSubjectId;inlineTeacher=row.teacherId||'';editorDirty=false;inlineDirty=false;note('Edit this lesson in its card or use More details.');renderBoard();renderEditor();renderBreakEditor();return;
+          selectedMove=null;selectedBreakMove=null;selectedEmpty=null;placementError=null;placingBreak=false;editingBreak=null;editing={id:row.id,day};showDetails=false;inlineSubject=row.moduleId||'subject:'+row.programSubjectId;inlineTeacher=row.teacherId||'';editorDirty=false;inlineDirty=false;note('Edit this lesson or use More details.');renderEditor();renderBreakEditor();openQuickDialog();return;
         }
         const sourceBreak=selectedBreakMove&&breaks().find(row=>row.id===selectedBreakMove.id);
         if(sourceBreak||placingBreak){
@@ -398,12 +412,12 @@
           selectedEmpty=null;saveUndo(structuredClone(state.draft.rules),null,before,hadBreaks);commit();return;
         }
         const source=selectedMove&&state.draft.rules.find(row=>row.id===selectedMove.id);
-        if(!source&&(!selectedClass||!selectedSubject)){note('Choose a class and subject before adding a lesson.',true);return;}
+        if(!source&&(!selectedClass||!selectedSubject)){rejectPlacement(day,period,'Choose a class and subject before adding a lesson.');return;}
         const moduleId=selectedSubject.startsWith('subject:')?'':selectedSubject,programSubjectId=moduleId?catalog().modules.find(row=>row.id===moduleId)?.programSubjectId:selectedSubject.slice(8);
         const candidate={classIds:source?source.classIds:[selectedClass],teacherId:source?source.teacherId:selectedTeacher,weekday:day,startTime:period.startTime,endTime:period.endTime};
-        const why=reason(candidate,selectedMove);if(why){note(why,true);return;}
+        const why=reason(candidate,selectedMove);if(why){rejectPlacement(day,period,why);return;}
         const merge=!source&&state.draft.rules.find(row=>row.moduleId===moduleId&&row.programSubjectId===programSubjectId&&row.teacherId===selectedTeacher&&row.classIds.length===1&&row.classIds[0]===selectedClass&&row.startTime===period.startTime&&row.endTime===period.endTime&&!row.zoomLink&&!row.weekdays.includes(day));
-        if(state.draft.rules.length>=100&&(!source&&!merge||source?.weekdays.length>1)){note('The timetable has reached its 100 lesson row limit.',true);return;}
+        if(state.draft.rules.length>=100&&(!source&&!merge||source?.weekdays.length>1)){rejectPlacement(day,period,'The timetable has reached its 100 lesson row limit.');return;}
         const before=structuredClone(state.draft.rules);
         if(source){
           if(source.weekdays.length===1){source.weekdays=[day];source.startTime=period.startTime;source.endTime=period.endTime;}
