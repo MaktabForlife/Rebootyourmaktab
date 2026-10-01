@@ -1,4 +1,4 @@
-/* V105.3.4.12 — simplify timetable and availability boards. */
+/* V105.3.4.13 — timetable and availability boards with draft reset. */
 (()=>{'use strict';
   const timeMinutes=value=>/^([01]\d|2[0-3]):[0-5]\d$/.test(value||'')?Number(value.slice(0,2))*60+Number(value.slice(3)):NaN;
   const clock=minutes=>String(Math.floor(minutes/60)).padStart(2,'0')+':'+String(minutes%60).padStart(2,'0');
@@ -26,6 +26,7 @@
       const note=(value,error=false)=>{$('tt-board-message').textContent=value;$('tt-board-message').classList.toggle('is-error',error);if($('tt-quick-lesson-dialog').open){$('tt-quick-error').textContent=error?value:'';$('tt-quick-error').hidden=!error;}};
       const availabilityNote=(value,error=false)=>{$('tt-availability-message').textContent=value;$('tt-availability-message').classList.toggle('is-error',error);$('tt-availability-error').textContent=error?value:'';$('tt-availability-error').hidden=!error;};
       const closeQuickDialog=()=>{if($('tt-quick-lesson-dialog').open)$('tt-quick-lesson-dialog').close();$('tt-quick-error').hidden=true;$('tt-quick-error').textContent='';};
+      const closeBreakDialog=()=>{if($('tt-break-dialog').open)$('tt-break-dialog').close();};
       const clearPlacementError=()=>{if(placementError){placementError=null;note('');}};
       const cellError=(day,period)=>placementError?.day===day&&placementError.periodId===period.id?'<p class="tt-board-cell-error">'+esc(placementError.message)+'</p>':'';
       const rejectPlacement=(day,period,message)=>{placementError={day,periodId:period.id,message};note(message,true);renderBoard();};
@@ -191,7 +192,8 @@
       function breakCard(row,day,periodId=''){
         const selected=selectedBreakMove?.id===row.id&&selectedBreakMove.day===day||editingBreak?.id===row.id&&editingBreak.day===day;
         const label=(row.label||'Break')+' · '+row.startTime+'–'+row.endTime;
-        return '<button type="button" class="tt-board-cell is-break '+(selected?'is-selected':'')+'" data-board-day="'+day+'"'+(periodId?' data-board-period="'+esc(periodId)+'"':'')+' data-break-id="'+esc(row.id)+'" aria-label="Edit '+esc(days[day]+' '+label)+'">'+esc(label)+'<small>Edit · Move · Delete</small></button>';
+        const attrs=' data-board-day="'+day+'"'+(periodId?' data-board-period="'+esc(periodId)+'"':'')+' data-break-id="'+esc(row.id)+'"';
+        return '<div draggable="true" class="tt-board-cell is-break '+(selected?'is-selected':'')+'"'+attrs+'><span class="tt-board-lesson-label">'+esc(label)+'</span><span class="tt-board-lesson-actions"><button type="button" class="tt-board-icon" data-edit-break-card'+attrs+' aria-label="Edit '+esc(days[day]+' '+label)+'" title="Edit break">'+editIcon+'</button><button type="button" class="tt-board-icon is-delete" data-delete-break-card'+attrs+' aria-label="Delete '+esc(days[day]+' '+label)+'" title="Delete break">'+deleteIcon+'</button></span></div>';
       }
       function boardRowHeading(slot){
         if(slot.kind==='gap')return '<th scope="row" class="tt-board-gap-heading"><strong>Break</strong><span>'+esc(slot.startTime.replace(':','h'))+'–'+esc(slot.endTime.replace(':','h'))+'</span></th>';
@@ -240,7 +242,7 @@
             const rows=gapBreaks.filter(row=>row.startTime===slot.startTime&&row.endTime===slot.endTime&&row.weekdays.includes(day));
             if(rows.length)return '<td class="tt-board-gap-cell">'+rows.map(row=>breakCard(row,day)).join('')+'</td>';
             if(placingBreak||selectedBreakMove)return '<td class="tt-board-gap-cell"><button type="button" class="tt-board-cell is-empty" data-board-day="'+day+'" data-break-gap-start="'+esc(slot.startTime)+'" data-break-gap-end="'+esc(slot.endTime)+'" aria-label="Mark break on '+esc(days[day]+' '+slot.startTime+'–'+slot.endTime)+'">＋ Mark break</button></td>';
-            return '<td class="tt-board-gap-cell is-empty" aria-label="No break on '+esc(days[day])+'"></td>';
+            return '<td class="tt-board-gap-cell is-empty" data-board-day="'+day+'" data-break-gap-start="'+esc(slot.startTime)+'" data-break-gap-end="'+esc(slot.endTime)+'" aria-label="No break on '+esc(days[day])+'"></td>';
           }
           const period=slot.period;
           const span=spans.get(day+':'+i),cellOpen=span?'<td class="tt-board-spanning" rowspan="'+span.rows+'">':'<td>';
@@ -282,7 +284,7 @@
       function renderBreakEditor(){
         const row=activeBreakEdit(),panel=$('tt-break-editor');panel.hidden=!row;
         if(breakEditorDirty&&editingBreak){panel.hidden=false;$('tt-save-break').disabled=!row;$('tt-move-break').disabled=!row;$('tt-delete-break').disabled=!row;if(!row)note('This break was removed in another tab. Copy any unsaved details, then close this editor.',true);return;}
-        if(!row){editingBreak=null;breakEditorSource='';return;}
+        if(!row){editingBreak=null;breakEditorSource='';closeBreakDialog();return;}
         $('tt-save-break').disabled=false;$('tt-move-break').disabled=false;$('tt-delete-break').disabled=false;breakEditorSource=JSON.stringify(row);
         $('tt-break-editor-title').textContent='Edit '+days[editingBreak.day]+' break';
         $('tt-break-label').value=row.label||'Break';$('tt-break-start').value=row.startTime.replace(':','h');$('tt-break-end').value=row.endTime.replace(':','h');
@@ -522,8 +524,9 @@
         else row.weekdays=row.weekdays.filter(day=>day!==editing.day);
         closeQuickDialog();editing=null;showDetails=false;editorDirty=false;inlineDirty=false;saveUndo(before);note('Lesson deleted from this weekday; the period remains.');commit();return true;
       };
-      $('tt-close-break').onclick=()=>{editingBreak=null;breakEditorDirty=false;renderBoard();renderBreakEditor();};
-      $('tt-move-break').onclick=()=>{if(locked()||!activeBreakEdit())return;if(breakEditorDirty){note('Save or close your edits before moving the break.',true);return;}selectedBreakMove=editingBreak;editingBreak=null;placingBreak=false;note('Choose an empty period for this break.');renderBoard();renderBreakEditor();};
+      $('tt-break-dialog').oncancel=event=>{event.preventDefault();$('tt-close-break').onclick();};
+      $('tt-close-break').onclick=()=>{closeBreakDialog();editingBreak=null;breakEditorDirty=false;renderBoard();renderBreakEditor();};
+      $('tt-move-break').onclick=()=>{if(locked()||!activeBreakEdit())return;if(breakEditorDirty){note('Save or close your edits before moving the break.',true);return;}selectedBreakMove=editingBreak;editingBreak=null;placingBreak=false;closeBreakDialog();note('Choose an empty period for this break.');renderBoard();renderBreakEditor();};
       $('tt-save-break').onclick=()=>{
         if(locked())return;const row=activeBreakEdit();if(!row)return;
         if(breakEditorDirty&&JSON.stringify(row)!==breakEditorSource){note('This break changed in another tab. Copy your edits, then reopen it.',true);return;}
@@ -534,15 +537,16 @@
         const before=structuredClone(breaks()),patch={label,startTime,endTime};
         if(row.weekdays.length===1)Object.assign(row,patch);
         else{row.weekdays=row.weekdays.filter(day=>day!==editingBreak.day);editBreaks().push({...structuredClone(row),...patch,id:'BREAK-'+crypto.randomUUID(),weekdays:[editingBreak.day]});}
-        editingBreak=null;breakEditorDirty=false;saveUndo(structuredClone(state.draft.rules),null,before);note('Break updated for this weekday.');commit();
+        editingBreak=null;breakEditorDirty=false;closeBreakDialog();saveUndo(structuredClone(state.draft.rules),null,before);note('Break updated for this weekday.');commit();
       };
       $('tt-delete-break').onclick=()=>{
         if(locked())return;const row=activeBreakEdit();if(!row)return;
-        if(breakEditorDirty){note('Save or close your edits before deleting the break.',true);return;}
+        if(breakEditorDirty){note('Save or close your edits before deleting the break.',true);return false;}
+        if(!window.confirm('Delete the '+days[editingBreak.day]+' break for every class? Other weekdays stay in place.'))return false;
         const before=structuredClone(breaks());
         if(row.weekdays.length===1)state.draft.breaks=breaks().filter(item=>item.id!==row.id);
         else row.weekdays=row.weekdays.filter(day=>day!==editingBreak.day);
-        editingBreak=null;breakEditorDirty=false;saveUndo(structuredClone(state.draft.rules),null,before);note('Break removed from this weekday.');commit();
+        editingBreak=null;breakEditorDirty=false;closeBreakDialog();saveUndo(structuredClone(state.draft.rules),null,before);note('Break removed from this weekday.');commit();return true;
       };
       $('tt-board').onclick=event=>{
         const action=event.target.dataset||{};
@@ -557,6 +561,14 @@
           if(!$('tt-delete-lesson').onclick())editing=previous;
           return;
         }
+        const deleteBreakCard=event.target.closest?.('[data-delete-break-card]');
+        if(deleteBreakCard){
+          if(locked()||editorDirty||breakEditorDirty||inlineDirty){note('Save or close the open item before deleting a break.',true);return;}
+          const previous=editingBreak;
+          editingBreak={id:deleteBreakCard.dataset.breakId,day:Number(deleteBreakCard.dataset.boardDay)};
+          if(!$('tt-delete-break').onclick())editingBreak=previous;
+          return;
+        }
         const removeId=event.target.closest?.('[data-remove-period]')?.dataset.removePeriod;
         if(removeId){
           if(locked())return;const period=plan().periods.find(row=>row.id===removeId);if(!period)return;
@@ -569,7 +581,7 @@
         if(button.dataset.breakId){
           if(editorDirty||breakEditorDirty||inlineDirty){note('Save or close the open item before selecting another.',true);return;}
           selectedMove=null;selectedBreakMove=null;selectedEmpty=null;placementError=null;placingBreak=false;editing=null;editingBreak={id:button.dataset.breakId,day};breakEditorDirty=false;
-          note('Edit, move or delete this break below.');renderBoard();renderEditor();renderBreakEditor();return;
+          renderBoard();renderEditor();renderBreakEditor();$('tt-break-dialog').showModal();return;
         }
         if(button.dataset.breakGapStart&&!placingBreak&&!selectedBreakMove)return;
         const period=plan().periods.find(row=>row.id===button.dataset.boardPeriod)||(button.dataset.breakGapStart&&button.dataset.breakGapEnd?{id:'',startTime:button.dataset.breakGapStart,endTime:button.dataset.breakGapEnd}:null);if(!period)return;
@@ -623,22 +635,43 @@
         commit();
       };
       $('tt-board').ondragstart=event=>{
+        const breakCard=event.target.closest?.('[data-break-id]');
+        if(breakCard?.dataset.breakId){
+          if(locked()||editorDirty||breakEditorDirty||inlineDirty||event.target.closest?.('[data-edit-break-card],[data-delete-break-card]')){event.preventDefault?.();return;}
+          event.dataTransfer?.setData('text/plain',JSON.stringify({program:boardParams.get('program'),kind:'break',id:breakCard.dataset.breakId,day:Number(breakCard.dataset.boardDay)}));
+          if(event.dataTransfer)event.dataTransfer.effectAllowed='move';
+          return;
+        }
         const card=event.target.closest?.('[data-rule-id]');if(!card?.dataset.ruleId||locked()||editorDirty||breakEditorDirty||inlineDirty||event.target.closest?.('[data-edit-card],[data-delete-card]')){event.preventDefault?.();return;}
         event.dataTransfer?.setData('text/plain',JSON.stringify({program:boardParams.get('program'),id:card.dataset.ruleId,day:Number(card.dataset.boardDay)}));
         if(event.dataTransfer)event.dataTransfer.effectAllowed='move';
       };
       $('tt-board').ondragover=event=>{
-        const target=event.target.closest?.('[data-board-period]');
-        if(target?.dataset.openLesson!==undefined&&!locked()){event.preventDefault();if(event.dataTransfer)event.dataTransfer.dropEffect='move';}
+        const period=event.target.closest?.('[data-board-period]'),gap=event.target.closest?.('[data-break-gap-start]');
+        if((period?.dataset.openLesson!==undefined||gap?.dataset.breakGapStart!==undefined)&&!locked()){event.preventDefault();if(event.dataTransfer)event.dataTransfer.dropEffect='move';}
       };
       $('tt-board').ondrop=event=>{
-        const target=event.target.closest?.('[data-board-period]');if(target?.dataset.openLesson===undefined||locked()||editorDirty||breakEditorDirty||inlineDirty)return;
+        const period=event.target.closest?.('[data-board-period]'),gap=event.target.closest?.('[data-break-gap-start]'),target=period?.dataset.openLesson!==undefined?period:gap;
+        if(!target||locked()||editorDirty||breakEditorDirty||inlineDirty)return;
         let payload;try{payload=JSON.parse(event.dataTransfer?.getData('text/plain')||'');}catch{return;}
+        if(payload.kind==='break'){
+          if(payload.program!==boardParams.get('program')||!breaks().some(row=>row.id===payload.id&&row.weekdays.includes(payload.day)))return;
+          event.preventDefault();selectedBreakMove={id:payload.id,day:payload.day};selectedMove=null;selectedEmpty=null;placingBreak=false;editing=null;editingBreak=null;
+          $('tt-board').onclick({target:{dataset:target.dataset,closest:selector=>selector==='[data-board-period]'&&target===period?period:selector==='[data-break-gap-start]'&&target===gap?gap:null}});
+          return;
+        }
+        if(target!==period)return;
         if(payload.program!==boardParams.get('program')||!state.draft.rules.some(row=>row.id===payload.id&&row.weekdays.includes(payload.day)))return;
         event.preventDefault();selectedMove={id:payload.id,day:payload.day};selectedBreakMove=null;selectedEmpty=null;placingBreak=false;editing=null;editingBreak=null;inlineDirty=false;
         $('tt-board').onclick({target:{dataset:target.dataset,closest:selector=>selector==='[data-board-period]'?target:null}});
       };
-      return {render,undo(){if(!undo.length)return;const last=undo.at(-1);if(JSON.stringify(state.draft.rules)!==last.after||JSON.stringify(plan().periods)!==last.afterPeriods||JSON.stringify(breaks())!==last.afterBreaks){undo.length=0;note('The board changed after that action. Review the latest draft before undoing.',true);render();return;}undo.pop();state.draft.rules=last.before;if(last.beforePeriods)edit().periods=last.beforePeriods;if(last.beforeBreaks){if(last.hadBreaks)state.draft.breaks=last.beforeBreaks;else delete state.draft.breaks;}selectedMove=null;selectedBreakMove=null;selectedEmpty=null;editing=null;editingBreak=null;editorDirty=false;inlineDirty=false;breakEditorDirty=false;note('Last board change undone.');commit();}};
+      return {render,reset(){
+        closeQuickDialog();closeBreakDialog();closeAvailabilityDialog();if($('tt-board-view-dialog').open)$('tt-board-view-dialog').close();
+        selectedMove=null;selectedBreakMove=null;selectedEmpty=null;placementError=null;placingBreak=false;editing=null;editingBreak=null;
+        showDetails=false;editorDirty=false;editorSource='';inlineDirty=false;quickClassOverride=null;breakEditorDirty=false;breakEditorSource='';
+        for(const tab of boardTabs)tab.emptyCell=null;
+        undo.length=0;note('');availabilityNote('');
+      },undo(){if(!undo.length)return;const last=undo.at(-1);if(JSON.stringify(state.draft.rules)!==last.after||JSON.stringify(plan().periods)!==last.afterPeriods||JSON.stringify(breaks())!==last.afterBreaks){undo.length=0;note('The board changed after that action. Review the latest draft before undoing.',true);render();return;}undo.pop();state.draft.rules=last.before;if(last.beforePeriods)edit().periods=last.beforePeriods;if(last.beforeBreaks){if(last.hadBreaks)state.draft.breaks=last.beforeBreaks;else delete state.draft.breaks;}selectedMove=null;selectedBreakMove=null;selectedEmpty=null;editing=null;editingBreak=null;editorDirty=false;inlineDirty=false;breakEditorDirty=false;note('Last board change undone.');commit();}};
     }
   };
 })();

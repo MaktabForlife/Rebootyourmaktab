@@ -1,4 +1,4 @@
-/* V105.3.4.12 — editable timetable boards share one draft across in-page and browser tabs. */
+/* V105.3.4.13 — editable timetable boards share one draft across in-page and browser tabs. */
 (()=>{'use strict';
   const $=id=>document.getElementById(id),esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const id=new URLSearchParams(location.search).get('program'),storageKey=`m4l-timetable-pending:${id}`,draftKey=`m4l-timetable-draft:${id}`,format='105.3.2.2-weekly';
@@ -62,7 +62,7 @@
     $('tt-open-publish').disabled=locked||!ready||!state.preview?.valid||sharedConflict||Boolean(state.calendarView?.history);
     $('tt-publish').disabled=locked||!ready||sharedConflict;
     $('tt-effective-from').disabled=locked;$('tt-preview-type').disabled=locked;$('tt-preview-target').disabled=locked||!$('tt-preview-target').value;
-    for(const name of ['reload','history','prepare','convert'])$(`tt-${name}`).disabled=state.busy;
+    for(const name of ['reload','discard-all','history','prepare','convert'])$(`tt-${name}`).disabled=state.busy;
     $('tt-convert').disabled||=Boolean(state.pending);$('tt-retry').disabled=state.busy;
     $('tt-pending').hidden=!state.pending;$('tt-conversion').hidden=!needsReview;
     if(needsReview)$('tt-conversion-message').textContent=`The previous draft contains ${state.conversion.oneOffCount} one-off lessons and ${state.conversion.exceptionCount} dated exceptions. Use weekly lessons to continue with its recurring rows. The original draft and published history remain preserved.`;
@@ -108,6 +108,7 @@
       }
     }catch{}
     if(state.pending)state.draft=displayDraft(state.pending.body.draft);
+    planner?.reset?.();
     $('tt-workspace').hidden=!result.prepared;$('tt-prepare').hidden=result.prepared;$('tt-preview-panel').hidden=true;closePublishDialog();$('tt-validation').hidden=true;
     render();remember(true);message(!result.prepared?'Prepare the empty timetable tables to begin.':!result.coordinatorAvailable?'Saving is unavailable until the backend coordinator is configured.':dirty()?'Your unfinished timetable is kept.':!result.catalog.subjects.length?'No subjects yet. Open Program management to add subjects and classes.':'Build the weekly pattern, preview it, then choose its effective date when publishing.');
   }
@@ -281,8 +282,29 @@
   }
   $('tt-reuse-keep').onclick=()=>{$('tt-reuse-warning').hidden=true;state.reuseId=null;};
   $('tt-reuse-save').onclick=()=>work(async()=>{await mutate('save');const next=state.reuseId;state.reuseId=null;$('tt-reuse-warning').hidden=true;setTimeout(()=>void reusePublication(next),0);});
-  $('tt-reload').onclick=()=>{if(dirty()||state.pending)$('tt-refresh-warning').hidden=false;else void work(()=>load(false));};
-  $('tt-keep').onclick=()=>{$('tt-refresh-warning').hidden=true;};$('tt-discard').onclick=()=>{$('tt-refresh-warning').hidden=true;void work(()=>load(false));};
+  async function openSavedDraft(){
+    if(!window.confirm('Discard all unsaved timetable changes and return to the last saved draft? This cannot be undone.'))return;
+    localStorage.removeItem(sharedKey);
+    sessionStorage.removeItem(draftKey);
+    clearPending();
+    $('tt-refresh-warning').hidden=true;
+    await load(false);
+  }
+  async function loadUnfinishedDraft(){
+    const unfinished=structuredClone(state.draft),wasConverted=state.converted,latest=await api('get');
+    localStorage.removeItem(sharedKey);
+    clearPending();
+    state.data=latest;state.baseline=JSON.stringify(latest.draft);state.draft=displayDraft(unfinished);
+    state.conversion=latest.conversion;state.converted=wasConverted;
+    sharedConflict=false;sharedSnapshot=null;sharedStamp=0;revisionStamp=Date.now();$('tt-tab-warning').hidden=true;
+    planner?.reset?.();
+    invalidate();render();message('Unsaved version loaded. Review the board, then select Save draft to keep these changes.');
+  }
+  $('tt-load-unfinished').onclick=()=>work(loadUnfinishedDraft);
+  $('tt-open-saved').onclick=()=>work(openSavedDraft);
+  $('tt-discard-all').onclick=()=>work(openSavedDraft);
+  $('tt-reload').onclick=()=>{if(sharedConflict){message('Choose a version above to continue.',true);return;}if(dirty()||state.pending)$('tt-refresh-warning').hidden=false;else void work(()=>load(false));};
+  $('tt-keep').onclick=()=>{$('tt-refresh-warning').hidden=true;};$('tt-discard').onclick=()=>work(openSavedDraft);
   function download(draft){const a=document.createElement('a'),url=URL.createObjectURL(new Blob([JSON.stringify({programId:id,draft},null,2)],{type:'application/json'}));a.href=url;a.download='program-timetable-draft.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
   $('tt-original').onclick=()=>download(state.conversion.originalDraft);
   $('tt-convert').onclick=()=>{state.converted=true;state.baseline='';invalidate();render();message('The weekly rows are ready to edit. Saving creates a new draft version; the previous dated draft stays preserved.');};
