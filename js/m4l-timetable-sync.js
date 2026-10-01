@@ -1,4 +1,4 @@
-/* V105.3.4.3 — merge independent timetable changes from browser tabs. */
+/* V105.3.4.4 — merge independent timetable changes from browser tabs. */
 (()=>{'use strict';
   const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
   function merge(base,ours,theirs,path='draft'){

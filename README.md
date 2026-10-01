@@ -1,6 +1,6 @@
-# V105.3.4.3 — Direct timetable board editing
+# V105.3.4.4 — Timetable boards in one screen
 
-Set up periods once, then edit their start and end times directly in the board's left column. Three-digit time entry such as `745` becomes `07h45`. Existing lessons keep their own times. Use Mark break to place a school-wide break in a day and period. Add a lesson with subject and teacher choices inside its cell, use its pencil icon to edit, drag it to move, or use its delete icon and confirmation to clear that weekday's lesson. Teacher availability accepts several selected days and the same time shorthand. Class and teacher boards, shared tabs, optional teachers, and the existing save and publication flow remain available. [Scope, use and verification](docs/V105.3.4.3-BOARD-PERIODS-AND-BREAKS.md).
+Open several class or teacher boards as tabs above the timetable grid, all within the same page. Each tab remembers its board and lesson defaults while sharing the timetable draft. Use **New board tab** to open another board, select a tab to switch, or close it with ×. Saving the draft stores lessons, breaks, periods and availability. [Scope, use and verification](docs/V105.3.4.4-IN-APP-BOARD-TABS.md). The direct board controls from [V105.3.4.3](docs/V105.3.4.3-BOARD-PERIODS-AND-BREAKS.md) remain available.
 
 Development only; Academy acceptance remains open.
 

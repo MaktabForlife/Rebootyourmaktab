@@ -1,4 +1,4 @@
-/* V105.3.4.3 — edit planning periods directly on the timetable board. */
+/* V105.3.4.4 — manage class and teacher boards as tabs within the timetable screen. */
 (()=>{'use strict';
   const timeMinutes=value=>/^([01]\d|2[0-3]):[0-5]\d$/.test(value||'')?Number(value.slice(0,2))*60+Number(value.slice(3)):NaN;
   const clock=minutes=>String(Math.floor(minutes/60)).padStart(2,'0')+':'+String(minutes%60).padStart(2,'0');
@@ -12,6 +12,8 @@
       let selectedClass='',selectedSubject='',selectedTeacher='',boardView='class',availabilityTeacher='',selectedAvailabilityDays=new Set([1]),selectedMove=null,editing=null,editorDirty=false,editorSource='',placingBreak=false,selectedBreakMove=null,editingBreak=null,breakEditorDirty=false,breakEditorSource='',selectedEmpty=null,inlineSubject='',inlineTeacher='',inlineDirty=false,learnerCache=new Map();
       const boardParams=new URLSearchParams(location.search),requestedView=boardParams.get('board');
       if(requestedView==='teacher'||requestedView==='class'){boardView=requestedView;selectedClass=boardParams.get('class')||'';selectedTeacher=boardParams.get('teacher')||'';}
+      const boardTabs=[{id:'BOARD-1',view:boardView,classId:selectedClass,teacherId:selectedTeacher,subjectId:selectedSubject,emptyCell:null}];
+      let activeBoardTabId='BOARD-1';
       const undo=[];
       const empty=()=>({periods:[],availability:[],limits:[]});
       const plan=()=>state.draft?.planner||empty();
@@ -26,12 +28,22 @@
       const saveUndo=(before,beforePeriods=null,beforeBreaks=null,hadBreaks=true)=>{undo.push({before,after:JSON.stringify(state.draft.rules),beforePeriods,afterPeriods:JSON.stringify(plan().periods),beforeBreaks,hadBreaks,afterBreaks:JSON.stringify(breaks())});if(undo.length>20)undo.shift();};
       const activeEdit=()=>editing&&state.draft.rules.find(row=>row.id===editing.id&&row.weekdays.includes(editing.day));
       const activeBreakEdit=()=>editingBreak&&breaks().find(row=>row.id===editingBreak.id&&row.weekdays.includes(editingBreak.day));
-      function updateBoardLink(){
-        const url=new URL(location.href);url.searchParams.set('board',boardView);
-        if(boardView==='teacher'){url.searchParams.set('teacher',selectedTeacher);url.searchParams.delete('class');}
-        else{url.searchParams.set('class',selectedClass);url.searchParams.delete('teacher');}
-        $('tt-open-board').href=url.pathname+url.search;
-        $('tt-open-board').setAttribute('aria-label','Open '+(boardView==='teacher'?'teacher':'class')+' board in a new tab');
+      const activeBoardTab=()=>boardTabs.find(tab=>tab.id===activeBoardTabId);
+      function rememberBoardTab(){Object.assign(activeBoardTab(),{view:boardView,classId:selectedClass,teacherId:selectedTeacher,subjectId:selectedSubject,emptyCell:selectedEmpty});}
+      function renderBoardTabs(){
+        const classes=catalog().classes,teachers=catalog().teachers;
+        $('tt-board-tabs').innerHTML=boardTabs.map(tab=>{
+          const label=tab.view==='teacher'?'Teacher: '+(teachers.find(row=>row.id===tab.teacherId)?.name||'Choose teacher'):'Class: '+(classes.find(row=>row.id===tab.classId)?.name||'Choose class');
+          const active=tab.id===activeBoardTabId;
+          return '<div class="tt-board-tab '+(active?'is-active':'')+'" role="presentation"><button id="tt-board-tab-'+esc(tab.id)+'" type="button" role="tab" data-board-tab="'+esc(tab.id)+'" aria-selected="'+active+'" aria-controls="tt-board" tabindex="'+(active?'0':'-1')+'">'+esc(label)+'</button>'+(boardTabs.length>1?'<button type="button" class="tt-board-tab-close" data-close-board-tab="'+esc(tab.id)+'" aria-label="Close '+esc(label)+'">×</button>':'')+'</div>';
+        }).join('');
+        $('tt-add-board-tab').disabled=boardTabs.length>=24;
+        $('tt-board').setAttribute('aria-labelledby','tt-board-tab-'+activeBoardTabId);
+      }
+      function activateBoardTab(tab){
+        activeBoardTabId=tab.id;boardView=tab.view;selectedClass=tab.classId;selectedTeacher=tab.teacherId;selectedSubject=tab.subjectId;
+        selectedMove=null;selectedBreakMove=null;selectedEmpty=tab.emptyCell||null;editing=null;editingBreak=null;placingBreak=false;
+        render();
       }
       function learnersOverlap(leftClasses,rightClasses,weekday){
         const key=[leftClasses.slice().sort().join(','),rightClasses.slice().sort().join(','),weekday,state.effectiveFrom||state.data.today].join('|');
@@ -114,10 +126,12 @@
         if(!teachers.some(row=>row.id===selectedTeacher))selectedTeacher='';
         $('tt-board-subject').innerHTML='<option value="">Choose subject…</option>'+subjects.map(row=>option(row.id,row.name,selectedSubject)).join('');
         $('tt-board-subject').value=selectedSubject;
-        $('tt-board-teacher').innerHTML='<option value="">Not assigned (optional)</option>'+teachers.map(row=>option(row.id,row.name,selectedTeacher)).join('');
+        $('tt-board-teacher').innerHTML='<option value="">'+(boardView==='teacher'?'Choose teacher…':'Not assigned (optional)')+'</option>'+teachers.map(row=>option(row.id,row.name,selectedTeacher)).join('');
         $('tt-board-teacher').value=selectedTeacher;
         $('tt-board-view').value=boardView;
-        updateBoardLink();
+        $('tt-board-class-text').textContent=boardView==='teacher'?'Class for new lesson':'Class board';
+        $('tt-board-teacher-text').textContent=boardView==='teacher'?'Teacher board':'Default teacher (optional)';
+        rememberBoardTab();renderBoardTabs();
         const periods=plan().periods;
         $('tt-add-period').disabled=!periods.length||periods.length>=16;
         if(!periods.length){$('tt-board').innerHTML='<p class="tt-board-empty">Set up periods above to generate the weekly timetable grid.</p>';return;}
@@ -198,8 +212,8 @@
       };
       $('tt-board').onchange=event=>{
         if(locked())return;const data=event.target.dataset;
-        if(data.quickSubject!==undefined){selectedSubject=event.target.value;$('tt-board-subject').value=selectedSubject;return;}
-        if(data.quickTeacher!==undefined){selectedTeacher=event.target.value;$('tt-board-teacher').value=selectedTeacher;return;}
+        if(data.quickSubject!==undefined){selectedSubject=event.target.value;activeBoardTab().subjectId=selectedSubject;$('tt-board-subject').value=selectedSubject;return;}
+        if(data.quickTeacher!==undefined){selectedTeacher=event.target.value;activeBoardTab().teacherId=selectedTeacher;$('tt-board-teacher').value=selectedTeacher;return;}
         if(data.inlineSubject!==undefined){inlineSubject=event.target.value;inlineDirty=true;return;}
         if(data.inlineTeacher!==undefined){inlineTeacher=event.target.value;inlineDirty=true;return;}
         const id=data.period,key=data.time,row=edit().periods.find(item=>item.id===id);
@@ -237,6 +251,37 @@
         note('Available time range added on '+weekdays.map(day=>days[day]).join(', ')+'.');commit();
       };
       $('tt-availability-grid').onclick=event=>{const id=event.target.closest?.('[data-remove-availability]')?.dataset.removeAvailability;if(!id||locked())return;edit().availability=plan().availability.filter(row=>row.id!==id);note('Available time range removed.');commit();};
+      $('tt-add-board-tab').onclick=()=>{
+        if(editorDirty||breakEditorDirty||inlineDirty){note('Save or close the open item before opening another board.',true);return;}
+        if(boardTabs.length>=24){note('Close a board tab before opening another.',true);return;}
+        const classIds=new Set(boardTabs.filter(tab=>tab.view==='class').map(tab=>tab.classId));
+        const teacherIds=new Set(boardTabs.filter(tab=>tab.view==='teacher').map(tab=>tab.teacherId));
+        const nextClass=catalog().classes.find(row=>row.active&&!classIds.has(row.id));
+        const nextTeacher=catalog().teachers.find(row=>row.active&&!teacherIds.has(row.id));
+        const tab={id:'BOARD-'+crypto.randomUUID(),view:nextClass?'class':nextTeacher?'teacher':boardView,classId:nextClass?.id||selectedClass,teacherId:nextTeacher&&!nextClass?nextTeacher.id:'',subjectId:'',emptyCell:null};
+        boardTabs.push(tab);activateBoardTab(tab);note('Board tab opened. Choose a class or teacher to work on.');
+      };
+      $('tt-board-tabs').onclick=event=>{
+        const closeId=event.target.closest?.('[data-close-board-tab]')?.dataset.closeBoardTab;
+        const openId=event.target.closest?.('[data-board-tab]')?.dataset.boardTab;
+        if(!closeId&&!openId)return;
+        if(editorDirty||breakEditorDirty||inlineDirty){note('Save or close the open item before switching board tabs.',true);return;}
+        if(closeId){
+          if(boardTabs.length===1)return;
+          const index=boardTabs.findIndex(tab=>tab.id===closeId);if(index<0)return;
+          const wasActive=closeId===activeBoardTabId;boardTabs.splice(index,1);
+          if(wasActive)activateBoardTab(boardTabs[Math.min(index,boardTabs.length-1)]);else renderBoardTabs();
+          return;
+        }
+        const tab=boardTabs.find(row=>row.id===openId);if(tab&&tab.id!==activeBoardTabId)activateBoardTab(tab);
+      };
+      $('tt-board-tabs').onkeydown=event=>{
+        if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key)||editorDirty||breakEditorDirty||inlineDirty)return;
+        const current=event.target.closest?.('[data-board-tab]');if(!current)return;
+        const index=boardTabs.findIndex(tab=>tab.id===current.dataset.boardTab);if(index<0)return;
+        event.preventDefault();const next=event.key==='Home'?0:event.key==='End'?boardTabs.length-1:(index+(event.key==='ArrowRight'?1:-1)+boardTabs.length)%boardTabs.length;
+        activateBoardTab(boardTabs[next]);$('tt-board-tabs').querySelector?.('[data-board-tab="'+boardTabs[next].id+'"]')?.focus?.();
+      };
       $('tt-board-view').onchange=event=>{if(editorDirty||breakEditorDirty||inlineDirty){note('Save or close the open item before switching boards.',true);event.target.value=boardView;return;}boardView=event.target.value==='teacher'?'teacher':'class';selectedMove=null;selectedBreakMove=null;selectedEmpty=null;editing=null;editingBreak=null;renderBoard();renderEditor();renderBreakEditor();};
       $('tt-board-class').onchange=event=>{if(editorDirty||breakEditorDirty||inlineDirty){note('Save or close the open item before switching boards.',true);event.target.value=selectedClass;return;}selectedClass=event.target.value;selectedMove=null;selectedBreakMove=null;selectedEmpty=null;editing=null;editingBreak=null;renderBoard();renderEditor();renderBreakEditor();};
       $('tt-board-subject').onchange=event=>{selectedSubject=event.target.value;selectedMove=null;renderBoard();};
