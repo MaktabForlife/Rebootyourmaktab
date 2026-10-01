@@ -1,6 +1,6 @@
 # V105.3.4.12 — Visual timetable planning
 
-Plan lessons and breaks on class and teacher boards, and enter teacher availability on its own weekly board. Open several boards as in-page tabs. Edit and move lessons on the board, including split and merged periods. Quick edit opens again, and each teacher's availability board shows that teacher's assigned hours for the week. Save, validate and preview from the top of the timetable page; publish after reviewing the preview and effective date. The login, program pages, version files and Worker show the same release number. [Earlier board-tab scope and verification](docs/V105.3.4.4-IN-APP-BOARD-TABS.md).
+Plan lessons and breaks on class and teacher boards, and enter teacher availability on its own weekly board. Open several boards as in-page tabs. Use the Program button to choose which program's timetable is open, and the Teacher and Class buttons to choose the board view. Edit and move lessons on the board, including split and merged periods. Quick edit opens again, and each teacher's availability board shows that teacher's assigned hours for the week. Board actions now sit in the board header. Save, validate and preview from the top of the timetable page; publish after reviewing the preview and effective date. [Earlier board-tab scope and verification](docs/V105.3.4.4-IN-APP-BOARD-TABS.md).
 
 Development only; Academy acceptance remains open.
 

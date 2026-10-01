@@ -48,14 +48,20 @@
     const response=await fetch(`${window.M4L_CONFIG?.API_BASE||''}/api/admin/platform/program-timetable/${action}`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({id,...body})});
     const result=await response.json();if(!response.ok||!result.success)throw Object.assign(new Error(result.error||'The request could not be confirmed.'),result,{status:response.status});return result;
   }
+  async function listPrograms(){
+    const token=localStorage.getItem('m4l_account_token');if(!token)throw Error('Sign in through your personal Academy account link first.');
+    const response=await fetch(`${String(window.M4L_CONFIG?.API_BASE||'').replace(/\/$/,'')}/api/admin/platform/programs/list`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:'{}'});
+    const result=await response.json();if(!response.ok||!result.success)throw Error(result.error||'Programs could not be loaded.');
+    return result.programs.filter(row=>row.mode==='PROGRAM'&&row.status==='DRAFT'&&row.id);
+  }
   function controls(){
     const locked=state.busy||Boolean(state.pending),needsReview=state.conversion?.required&&!state.converted,ready=state.data?.prepared&&state.data?.coordinatorAvailable&&state.data?.program.status==='DRAFT'&&!needsReview;
     $('tt-planner').disabled=locked||!ready;
     for(const name of ['save','validate','preview'])$(`tt-${name}`).disabled=locked||!ready;
     $('tt-save').disabled||=!dirty()||sharedConflict;$('tt-publish').disabled=locked||!ready||!state.preview?.valid||sharedConflict;
     $('tt-effective-from').disabled=locked;$('tt-preview-type').disabled=locked;$('tt-preview-target').disabled=locked||!$('tt-preview-target').value;
-    for(const name of ['reload','recover','history','prepare','convert'])$(`tt-${name}`).disabled=state.busy;
-    $('tt-convert').disabled||=Boolean(state.pending);$('tt-retry').disabled=state.busy;$('tt-export').disabled=!state.draft;
+    for(const name of ['reload','history','prepare','convert'])$(`tt-${name}`).disabled=state.busy;
+    $('tt-convert').disabled||=Boolean(state.pending);$('tt-retry').disabled=state.busy;
     $('tt-pending').hidden=!state.pending;$('tt-conversion').hidden=!needsReview;
     if(needsReview)$('tt-conversion-message').textContent=`The previous draft contains ${state.conversion.oneOffCount} one-off lessons and ${state.conversion.exceptionCount} dated exceptions. Use weekly lessons to continue with its recurring rows. The original draft and published history remain preserved.`;
     $('tt-save-state').textContent=state.pending?'Change not confirmed':dirty()?'Unsaved draft changes':'Saved draft';
@@ -107,7 +113,7 @@
   async function mutate(action,retried=false){
     if(sharedConflict)throw Error('Resolve the change from the other tab before saving.');
     const beforeSync=JSON.stringify(state.draft),beforeRevision=state.data.revision;
-    if(!state.pending&&!syncShared())throw Error('The shared draft could not be updated. Download your draft and reload before saving.');
+    if(!state.pending&&!syncShared())throw Error('The shared draft could not be updated. Keep this tab open and copy any unsaved details before reloading.');
     if(beforeSync!==JSON.stringify(state.draft)||beforeRevision!==state.data.revision){invalidate();render();if(action==='publish')throw Error('Another tab changed the timetable. Review the updated board and preview again before publishing.');}
     if(!state.pending){state.pending={action,body:{revision:state.data.revision,draft:structuredClone(state.draft),operationId:crypto.randomUUID(),...(action==='publish'?{effectiveFrom:state.effectiveFrom||state.data.today}:{}),...(state.converted?{convertLegacy:true}:{})}};sessionStorage.setItem(storageKey,JSON.stringify(state.pending));}
     try{
@@ -121,9 +127,9 @@
       if(error.status&&error.status<500){clearPending();if(error.status!==409||action!=='save')remember();}
       if(action==='save'&&!retried&&error.status===409&&!sharedConflict){
         const latest=await api('get');
-        try{state.draft=mergeValue(JSON.parse(state.baseline),state.draft,latest.draft);}catch{showTabConflict();throw Error('Another tab changed the same lesson. Download this draft before reloading the latest version.');}
+        try{state.draft=mergeValue(JSON.parse(state.baseline),state.draft,latest.draft);}catch{showTabConflict();throw Error('Another tab changed the same lesson. Copy any unsaved details before reloading the latest version.');}
         state.data=latest;state.baseline=JSON.stringify(latest.draft);revisionStamp=Math.max(Date.now(),revisionStamp+1);remember(true);render();
-        if(sharedConflict)throw Error('Another tab changed the same lesson. Download this draft before reloading the latest version.');
+        if(sharedConflict)throw Error('Another tab changed the same lesson. Copy any unsaved details before reloading the latest version.');
         return mutate('save',true);
       }
       throw error;
@@ -204,10 +210,33 @@
   };
   $('tt-download-pdf').onclick=()=>work(async()=>{if(exportPages)downloadFile(new Blob([await presentation.pdf(exportPages,window.PDFLib)],{type:'application/pdf'}),`${exportName}.pdf`);});
   $('tt-management').href=`/programs/manage.html?program=${encodeURIComponent(id)}`;
+  $('tt-select-program').onclick=async()=>{
+    const button=$('tt-select-program');if(button.disabled)return;
+    button.disabled=true;
+    $('tt-program-choice').innerHTML='<option value="">Loading programs…</option>';
+    $('tt-program-choice').disabled=true;$('tt-program-open').disabled=true;
+    $('tt-program-error').hidden=true;$('tt-program-error').textContent='';$('tt-program-dialog').showModal();
+    try{
+      const programs=await listPrograms();
+      if(!programs.length)throw Error('No programs are available to open.');
+      $('tt-program-choice').innerHTML=programs.map(row=>'<option value="'+esc(row.id)+'">'+esc(row.name)+'</option>').join('');
+      $('tt-program-choice').value=programs.some(row=>row.id===id)?id:programs[0].id;
+      $('tt-program-choice').disabled=false;$('tt-program-open').disabled=false;
+    }catch(error){$('tt-program-error').textContent=error.message;$('tt-program-error').hidden=false;}finally{button.disabled=false;}
+  };
+  $('tt-program-cancel').onclick=()=>{$('tt-program-dialog').close();};
+  $('tt-program-dialog').oncancel=event=>{event.preventDefault();$('tt-program-dialog').close();};
+  $('tt-program-choice').onchange=()=>{$('tt-program-error').hidden=true;};
+  $('tt-program-open').onclick=()=>{
+    const selected=$('tt-program-choice').value;
+    if(!selected){$('tt-program-error').textContent='Choose a program.';$('tt-program-error').hidden=false;return;}
+    if(selected===id){$('tt-program-dialog').close();return;}
+    if(dirty()&&!window.confirm('You have unsaved timetable changes. Save draft before switching programs. Continue without saving?'))return;
+    location.href='/programs/timetable.html?program='+encodeURIComponent(selected);
+  };
   $('tt-effective-from').oninput=event=>{state.effectiveFrom=event.target.value;state.preview=null;exportGeneration++;exportPages=null;exportFiles=null;$('tt-share-image').disabled=$('tt-download-image').disabled=$('tt-download-pdf').disabled=true;$('tt-export-note').textContent='Preview again after changing the effective date.';remember();controls();message('Effective date changed. Preview again to check memberships for this date.');};
   $('tt-save').onclick=()=>work(()=>mutate('save'));$('tt-retry').onclick=()=>work(()=>mutate(state.pending.action));
   $('tt-prepare').onclick=()=>work(async()=>{await api('prepare');await load();});
-  $('tt-recover').onclick=()=>work(async()=>{const result=await api('recover');if(state.pending){await mutate(state.pending.action);return;}if(dirty())message('Recovery completed. Your unfinished draft is kept.');else{await load(false);message(result.recovered?'Interrupted change recovered.':'No interrupted change needs recovery.');}});
   for(const action of ['validate','preview'])$(`tt-${action}`).onclick=()=>work(async()=>{const result=await api(action,{draft:state.draft,...(action==='preview'?{effectiveFrom:state.effectiveFrom||state.data.today}:{})});showValidation(result);state.preview=action==='preview'?result:null;if(action==='preview')showOccurrences(result,'Weekly timetable preview');else {$('tt-preview-panel').hidden=true;$('tt-publish-options').hidden=true;}message(result.valid?(action==='preview'?'Preview ready. Choose the effective date at the top, then publish.':'Validation passed. Preview to review the weekly pattern.'):'Resolve the listed issues before publishing.',!result.valid);});
   $('tt-publish').onclick=()=>work(async()=>{if(state.preview?.valid)await mutate('publish');});
   $('tt-history').onclick=()=>work(async()=>{const result=await api('history');state.history=result.publications;state.data.currentPublicationId=result.currentPublicationId;state.data.publications=result.publications;render();$('tt-history-list').innerHTML=state.history.slice().reverse().map(p=>`<div class="tt-history-item"><strong>Version ${p.version} · ${esc(({CURRENT:'In effect',SCHEDULED:'Scheduled',PAST:'Past',SUPERSEDED:'Superseded'})[p.status]||'Past')}</strong><span>Effective ${esc(p.effectiveFrom)}${p.effectiveUntil?' through '+esc(p.effectiveUntil):''}</span><button class="pb-secondary" data-history="${esc(p.id)}">View snapshot</button><button class="pb-secondary" data-reuse="${esc(p.id)}" ${state.pending?'disabled':''}>Edit as new version</button></div>`).join('')||'<p class="tt-scope">No published timetable yet.</p>';});
@@ -233,7 +262,7 @@
   $('tt-reload').onclick=()=>{if(dirty()||state.pending)$('tt-refresh-warning').hidden=false;else void work(()=>load(false));};
   $('tt-keep').onclick=()=>{$('tt-refresh-warning').hidden=true;};$('tt-discard').onclick=()=>{$('tt-refresh-warning').hidden=true;void work(()=>load(false));};
   function download(draft){const a=document.createElement('a'),url=URL.createObjectURL(new Blob([JSON.stringify({programId:id,draft},null,2)],{type:'application/json'}));a.href=url;a.download='program-timetable-draft.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
-  $('tt-export').onclick=()=>download(state.draft);$('tt-original').onclick=()=>download(state.conversion.originalDraft);
+  $('tt-original').onclick=()=>download(state.conversion.originalDraft);
   $('tt-convert').onclick=()=>{state.converted=true;state.baseline='';invalidate();render();message('The weekly rows are ready to edit. Saving creates a new draft version; the previous dated draft stays preserved.');};
   document.addEventListener('keydown',event=>{if((event.ctrlKey||event.metaKey)&&event.key==='Enter'&&!$('tt-save').disabled){event.preventDefault();void work(()=>mutate('save'));}});
   window.addEventListener('storage',event=>{

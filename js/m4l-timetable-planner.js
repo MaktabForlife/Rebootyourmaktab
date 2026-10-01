@@ -212,9 +212,10 @@
         $('tt-board-teacher').innerHTML='<option value="">Choose teacher…</option>'+teachers.map(row=>option(row.id,row.name,selectedTeacher)).join('');
         $('tt-board-teacher').value=selectedTeacher;
         $('tt-board-view').value=boardView;
-        $('tt-board-class-wrap').hidden=boardView!=='class';
-        $('tt-board-teacher-wrap').hidden=boardView!=='teacher';
+        for(const button of $('tt-board-modes').querySelectorAll('[data-board-mode]'))button.setAttribute('aria-pressed',String(button.dataset.boardMode===boardView));
         rememberBoardTab();renderBoardTabs();
+        const viewName=boardView==='teacher'?teacher(selectedTeacher)?.name:classes.find(row=>row.id===selectedClass)?.name;
+        $('tt-board-heading').textContent=(boardView==='teacher'?'Teacher: ':'Class: ')+(viewName||'');
         const periods=plan().periods;
         const gapBreaks=breaks().filter(row=>row.weekdays?.length&&Number.isFinite(timeMinutes(row.startTime))&&Number.isFinite(timeMinutes(row.endTime))&&row.startTime<row.endTime&&!periods.some(period=>overlap(row,period)));
         const gapSlots=[...new Map(gapBreaks.map(row=>[row.startTime+'|'+row.endTime,{kind:'gap',startTime:row.startTime,endTime:row.endTime}])).values()];
@@ -222,7 +223,6 @@
         const timelineIndexByPeriod=new Map(timeline.flatMap((slot,index)=>slot.kind==='period'?[[slot.index,index]]:[]));
         if(!timeline.length){$('tt-board').innerHTML='<p class="tt-board-empty">Set up periods above to generate the weekly timetable grid.</p>';return;}
         if(!selectedClass||boardView==='teacher'&&!selectedTeacher){$('tt-board').innerHTML='<p class="tt-board-empty">Choose a '+(boardView==='teacher'?'teacher':'class')+' to view the weekly board.</p>';return;}
-        const viewName=boardView==='teacher'?teacher(selectedTeacher)?.name:classes.find(row=>row.id===selectedClass)?.name;
         const visibleRows=(day,period)=>state.draft.rules.filter(row=>(boardView==='teacher'?row.teacherId===selectedTeacher:row.classIds.includes(selectedClass))&&row.weekdays.includes(day)&&overlap(row,period));
         const spans=new Map(),covered=new Set();
         for(const day of dayOrder)for(const row of state.draft.rules.filter(item=>(boardView==='teacher'?item.teacherId===selectedTeacher:item.classIds.includes(selectedClass))&&item.weekdays.includes(day))){
@@ -234,7 +234,7 @@
           spans.set(day+':'+start,{rows:end-start+1,periods:indices.length});
           for(let index=start+1;index<=end;index++)covered.add(day+':'+index);
         }
-        $('tt-board').innerHTML='<table class="tt-board-grid"><caption><span class="tt-board-caption"><span>'+esc((boardView==='teacher'?'Teacher: ':'Class: ')+(viewName||''))+'</span><button type="button" class="tt-board-icon" data-edit-board-view aria-label="Change class or teacher for this board tab" title="Change board view">'+editIcon+'</button></span></caption><thead><tr><th scope="col">Period and times</th>'+dayOrder.map(day=>'<th scope="col">'+days[day]+'</th>').join('')+'</tr></thead><tbody>'+timeline.map((slot,i)=>'<tr>'+boardRowHeading(slot)+dayOrder.map(day=>{
+        $('tt-board').innerHTML='<table class="tt-board-grid" aria-labelledby="tt-board-heading"><thead><tr><th scope="col">Period and times</th>'+dayOrder.map(day=>'<th scope="col">'+days[day]+'</th>').join('')+'</tr></thead><tbody>'+timeline.map((slot,i)=>'<tr>'+boardRowHeading(slot)+dayOrder.map(day=>{
           if(covered.has(day+':'+i))return '';
           if(slot.kind==='gap'){
             const rows=gapBreaks.filter(row=>row.startTime===slot.startTime&&row.endTime===slot.endTime&&row.weekdays.includes(day));
@@ -408,6 +408,14 @@
         activateBoardTab(boardTabs[next]);$('tt-board-tabs').querySelector?.('[data-board-tab="'+boardTabs[next].id+'"]')?.focus?.();
       };
       $('tt-board-view').onchange=event=>{if(editorDirty||breakEditorDirty||inlineDirty){note('Save or close the open item before switching boards.',true);event.target.value=boardView;return;}boardView=event.target.value==='teacher'?'teacher':'class';selectedMove=null;selectedBreakMove=null;selectedEmpty=null;clearPlacementError();editing=null;editingBreak=null;renderBoard();renderEditor();renderBreakEditor();};
+      $('tt-board-modes').onclick=event=>{
+        const view=event.target.closest?.('[data-board-mode]')?.dataset.boardMode;
+        if(!['teacher','class'].includes(view))return;
+        if(editorDirty||breakEditorDirty||inlineDirty){note('Save or close the open item before switching boards.',true);return;}
+        if(view==='teacher'&&!selectedTeacher){openBoardViewDialog();$('tt-tab-view').value='teacher';updateBoardViewDialog();return;}
+        $('tt-board-view').onchange({target:{value:view}});
+      };
+      $('tt-edit-board-view').onclick=()=>{if(editorDirty||breakEditorDirty||inlineDirty){note('Save or close the open item before changing this board tab.',true);return;}openBoardViewDialog();};
       $('tt-board-class').onchange=event=>{if(editorDirty||breakEditorDirty||inlineDirty){note('Save or close the open item before switching boards.',true);event.target.value=selectedClass;return;}selectedClass=event.target.value;selectedMove=null;selectedBreakMove=null;selectedEmpty=null;clearPlacementError();editing=null;editingBreak=null;renderBoard();renderEditor();renderBreakEditor();};
       $('tt-board-teacher').onchange=event=>{selectedTeacher=event.target.value;selectedMove=null;clearPlacementError();renderBoard();};
       $('tt-clear-selection').onclick=()=>{selectedMove=null;selectedBreakMove=null;clearPlacementError();renderBoard();};

@@ -71,12 +71,14 @@ assert(html.indexOf('id="tt-save"')<html.indexOf('id="tt-board"'),'draft actions
 assert(html.indexOf('id="tt-publish"')<html.indexOf('id="tt-board"'),'publication controls sit above the board');
 assert.match(html,/id="tt-availability-tabs"/);
 assert.match(html,/id="tt-availability-dialog"/);
+assert.match(html,/data-board-mode="teacher"/);assert.match(html,/data-board-mode="class"/);
+assert(html.indexOf('id="tt-board-tabs"')<html.indexOf('id="tt-mark-break"')&&html.indexOf('id="tt-mark-break"')<html.indexOf('id="tt-board"'),'board actions sit in the board header');
 const quickDialogStart=html.indexOf('<dialog id="tt-quick-lesson-dialog"');
 assert(quickDialogStart<html.indexOf('<div id="tt-board-editor"')&&html.indexOf('<div id="tt-board-editor"')<html.indexOf('</dialog>',quickDialogStart),'More details stays inside the quick edit popup');
 const plannerElementIds=new Set([...html.matchAll(/\bid="([^"]+)"/g)].map(match=>match[1]));
 for(const [,id] of source.matchAll(/\$\('([^']+)'\)/g))assert(plannerElementIds.has(id),`planner element ${id} exists in the page`);
 const elements=new Map();
-function $(id){if(!elements.has(id))elements.set(id,{value:'',innerHTML:'',textContent:'',disabled:false,hidden:false,open:false,setAttribute(){},showModal(){this.open=true;},close(){this.open=false;},classList:{toggle(){}}});return elements.get(id);}
+function $(id){if(!elements.has(id))elements.set(id,{value:'',innerHTML:'',textContent:'',disabled:false,hidden:false,open:false,setAttribute(){},querySelectorAll(){return [];},showModal(){this.open=true;},close(){this.open=false;},classList:{toggle(){}}});return elements.get(id);}
 const state={data:{catalog:f.catalog},draft:{format:draft.format,timezone:draft.timezone,rules:[]}};
 const context={window:{confirm:()=>true},crypto,structuredClone,console,location:{search:'?program=DEMO',href:'https://example.test/programs/timetable.html?program=DEMO'},URL,URLSearchParams};
 vm.runInNewContext(source,context);
@@ -98,8 +100,9 @@ const addAvailabilityRange=(day,from,to)=>{
 };
 setQuickSubject('MOD-DEMO');
 $('tt-board-teacher').onchange({target:{value:'TEACHER-1'}});
-$('tt-board-view').onchange({target:{value:'teacher'}});
-assert.match($('tt-board').innerHTML,/Teacher:/,'teacher view uses the same weekly grid');
+const chooseMode=view=>$('tt-board-modes').onclick({target:{closest:selector=>selector==='[data-board-mode]'?{dataset:{boardMode:view}}:null}});
+chooseMode('teacher');
+assert.match($('tt-board-heading').textContent,/Teacher:/,'teacher view uses the same weekly grid');
 assert.match($('tt-board-tabs').innerHTML,/Teacher:/);
 $('tt-add-board-tab').onclick();
 assert.equal($('tt-board-view').value,'class','a new in-page tab can show a class board');
@@ -445,14 +448,12 @@ assert(state.draft.breaks.some(row=>row.label==='Wednesday break'&&row.weekdays.
 $('tt-board-view').onchange({target:{value:'teacher'}});$('tt-board-teacher').onchange({target:{value:'TEACHER-1'}});
 assert.match($('tt-board').innerHTML,/data-break-id="BREAK-SAVED"/,'the saved break also appears on a teacher board');
 $('tt-board-view').onchange({target:{value:'class'}});
-// The board caption changes only its own tab without opening a browser tab.
+// The board header changes only its own tab without opening a browser tab.
 $('tt-add-board-tab').onclick();
 const tabsBeforeViewChange=$('tt-board-tabs').innerHTML,tabIdsForView=[...tabsBeforeViewChange.matchAll(/data-board-tab="([^"]+)"/g)].map(match=>match[1]);
 assert.equal(tabIdsForView.length,2);
 const firstTabLabel=/<button[^>]*data-board-tab="[^"]+"[^>]*>([^<]*)<\/button>/.exec(tabsBeforeViewChange)[1];
-assert.match($('tt-board').innerHTML,/data-edit-board-view/);
-const editBoardView={dataset:{editBoardView:''}};
-const openBoardView=()=>$('tt-board').onclick({target:{dataset:editBoardView.dataset,closest:selector=>selector==='[data-edit-board-view]'?editBoardView:null}});
+const openBoardView=()=>$('tt-edit-board-view').onclick();
 $('tt-board').scrollTop=120;$('tt-board').scrollLeft=90;openBoardView();
 assert.equal($('tt-board-view-dialog').open,true);
 $('tt-tab-view').value='teacher';$('tt-tab-view').onchange();
@@ -461,12 +462,12 @@ assert.equal($('tt-board-view-dialog').open,true,'a teacher must be selected');
 assert.match($('tt-tab-view-error').textContent,/Choose a teacher/);
 $('tt-tab-view-teacher').value='TEACHER-1';$('tt-tab-view-save').onclick();
 assert.equal($('tt-board-view-dialog').open,false);
-assert.match($('tt-board').innerHTML,/Teacher:/);
+assert.match($('tt-board-heading').textContent,/Teacher:/);
 assert.match($('tt-board-tabs').innerHTML,/Teacher:/);
 assert.equal($('tt-board').scrollTop,120);assert.equal($('tt-board').scrollLeft,90);
 assert.equal(/<button[^>]*data-board-tab="[^"]+"[^>]*>([^<]*)<\/button>/.exec($('tt-board-tabs').innerHTML)[1],firstTabLabel,'the other tab keeps its view');
 openBoardView();$('tt-tab-view').value='class';$('tt-tab-view').onchange();$('tt-tab-view-class').value='CLASS-2';$('tt-tab-view-save').onclick();
-assert.match($('tt-board').innerHTML,/Class:/);
+assert.match($('tt-board-heading').textContent,/Class:/);
 assert.match($('tt-board-tabs').innerHTML,/Class:/);
 openBoardView();let boardEscapePrevented=false;
 $('tt-board-view-dialog').oncancel({preventDefault(){boardEscapePrevented=true;}});

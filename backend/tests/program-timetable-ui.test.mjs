@@ -13,16 +13,20 @@ assert(markup.indexOf('id="tt-publish"')<markup.indexOf('id="tt-board"'));
 assert(!/Classes learning together|<th>Pattern|First date|Last date|Publication window|tt-exceptions/.test(markup));
 assert(!/id="tt-view"|id="tt-adjust"|id="tt-layout"|All classes/.test(markup));
 assert.match(markup,/id="tt-preview-type"/);assert.match(markup,/id="tt-preview-target"/);
+assert.doesNotMatch(markup,/id="tt-export"|id="tt-recover"|Choose a teacher tab, then select a day/);
+assert.match(markup,/id="tt-select-program"/);assert.match(markup,/id="tt-program-dialog"/);
 assert.equal([...markup.matchAll(/type="date"/g)].length,1);
 const ids=new Set([...markup.matchAll(/id="([^"]+)"/g)].map(m=>m[1])),elements=new Map(),storage=new Map(),sharedStorage=new Map(),requests=[];
 const f=timetableFixture(),service=timetableService(f.repository,f.program,()=>new Date('2026-09-29T09:00:00Z')),coordinator=timetableCoordinator(f.journal,async()=>({service,user:{accountid:'ADMIN'}}));
+const otherProgram={id:'PRG-0c24864f-5b8d-41e6-9edf-f22469bb1f81',name:'Reboot',status:'DRAFT',mode:'PROGRAM'};
 f.catalog.classes[0].zoomLink='https://zoom.us/j/111';
 const draft=readWeeklyDraft(f.draft).draft;draft.rules[0].teacherId='';draft.rules[0].zoomLink='';
 await coordinator.run('save',{id:f.program.id,draft,revision:'',operationId:crypto.randomUUID()},'token');
-function element(id){assert(ids.has(id),`Missing ${id}`);if(!elements.has(id))elements.set(id,{hidden:false,disabled:false,value:'',textContent:'',innerHTML:'',events:{},classList:{toggle(){}},setAttribute(){},addEventListener(event,fn){this.events[event]=fn;}});return elements.get(id);}
+function element(id){assert(ids.has(id),`Missing ${id}`);if(!elements.has(id))elements.set(id,{hidden:false,disabled:false,value:'',textContent:'',innerHTML:'',events:{},classList:{toggle(){}},setAttribute(){},querySelectorAll(){return [];},showModal(){this.open=true;},close(){this.open=false;},addEventListener(event,fn){this.events[event]=fn;}});return elements.get(id);}
 const blockOptions=[],windowEvents={};
 const context={console,URL,Image:class{constructor(){this.complete=false;}},URLSearchParams,structuredClone,crypto,location:{search:`?program=${f.program.id}`,href:`https://example.test/programs/timetable.html?program=${f.program.id}`},document:{getElementById:element,querySelectorAll:()=>[],addEventListener(){},fonts:{ready:Promise.resolve()}},localStorage:{getItem:k=>k==='m4l_account_token'?'token':sharedStorage.get(k)||null,setItem:(k,v)=>sharedStorage.set(k,v)},sessionStorage:{getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)},window:{M4L_CONFIG:{API_BASE:''},M4L_TIMEZONES:{options:z=>`<option>${z}</option>`,defaultZone:'Asia/Riyadh'},addEventListener:(name,fn)=>{windowEvents[name]=fn;}},fetch:async(url,options)=>{
  const action=url.split('/').at(-1),body=JSON.parse(options.body);requests.push({action,body});
+ if(url.endsWith('/api/admin/platform/programs/list'))return {ok:true,status:200,json:async()=>({success:true,programs:[{...f.program,mode:'PROGRAM'},otherProgram]})};
  try{const result=['save','publish','recover','prepare'].includes(action)?await coordinator.run(action,body,'token'):await service.read(action,body);return {ok:true,status:200,json:async()=>({success:true,coordinatorAvailable:true,...result})};}
  catch(error){return {ok:false,status:error.status||503,json:async()=>({success:false,error:error.message})};}
 }};
@@ -78,4 +82,14 @@ element('tt-history-list').onclick({target:{dataset:{history:f.tables.ProgramTim
 assert.equal(element('tt-publish-options').hidden,true);
 assert.equal(element('tt-preview-type').value,'class');
 assert.equal(blockOptions.at(-1).classId,f.catalog.classes[0].id);
+await click('tt-select-program');
+assert.equal(element('tt-program-dialog').open,true);
+assert.match(element('tt-program-choice').innerHTML,/Reboot/);
+assert.equal(element('tt-program-choice').value,f.program.id);
+element('tt-program-choice').value=otherProgram.id;
+plannerState.draft.rules[0].startTime='10:00';notifyDraftChange();
+context.window.confirm=()=>false;await click('tt-program-open');
+assert.match(context.location.href,new RegExp(f.program.id),'cancel keeps the current program and unsaved draft');
+context.window.confirm=()=>true;await click('tt-program-open');
+assert.equal(context.location.href,`/programs/timetable.html?program=${otherProgram.id}`,'the Program button switches the timetable context');
 console.log('Timetable UI: board-only editing, top publication controls, draft saving, effective-date publication, exact retry and history passed.');
