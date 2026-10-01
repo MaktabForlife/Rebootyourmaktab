@@ -1,4 +1,4 @@
-/* V105.3.4.7 — span lessons across periods and change each board tab in place. */
+/* V105.3.4.8 — show saved breaks between planning periods. */
 (()=>{'use strict';
   const timeMinutes=value=>/^([01]\d|2[0-3]):[0-5]\d$/.test(value||'')?Number(value.slice(0,2))*60+Number(value.slice(3)):NaN;
   const clock=minutes=>String(Math.floor(minutes/60)).padStart(2,'0')+':'+String(minutes%60).padStart(2,'0');
@@ -9,7 +9,7 @@
   const dayOrder=[1,2,3,4,5,6,0];
   window.M4L_ASSISTED_PLANNER={
     mount({state,$,esc,days,modules,changed,locked}){
-      let selectedClass='',selectedSubject='',selectedTeacher='',boardView='class',availabilityTeacher='',selectedAvailabilityDays=new Set([1]),selectedMove=null,editing=null,showDetails=false,editorDirty=false,editorSource='',placingBreak=false,selectedBreakMove=null,editingBreak=null,breakEditorDirty=false,breakEditorSource='',selectedEmpty=null,placementError=null,inlineSubject='',inlineTeacher='',inlineDirty=false,learnerCache=new Map();
+      let selectedClass='',selectedSubject='',selectedTeacher='',boardView='class',availabilityTeacher='',selectedAvailabilityDays=new Set([1]),selectedMove=null,editing=null,showDetails=false,editorDirty=false,editorSource='',placingBreak=false,selectedBreakMove=null,editingBreak=null,breakEditorDirty=false,breakEditorSource='',selectedEmpty=null,placementError=null,inlineSubject='',inlineTeacher='',inlineClass='',quickClassOverride=null,inlineDirty=false,learnerCache=new Map();
       const boardParams=new URLSearchParams(location.search),requestedView=boardParams.get('board');
       if(requestedView==='teacher'||requestedView==='class'){boardView=requestedView;selectedClass=boardParams.get('class')||'';selectedTeacher=boardParams.get('teacher')||'';}
       const boardTabs=[{id:'BOARD-1',view:boardView,classId:selectedClass,teacherId:selectedTeacher,subjectId:selectedSubject,emptyCell:null}];
@@ -76,7 +76,10 @@
           if(ignored.some(item=>row.id===item.id&&candidate.weekday===item.day))continue;
           if(!row.weekdays.includes(candidate.weekday)||!overlap(row,candidate))continue;
           if(candidate.classIds.some(id=>row.classIds.includes(id)))return 'This class already has a lesson.';
-          if(candidate.teacherId&&row.teacherId===candidate.teacherId)return (teacher(candidate.teacherId)?.name||'Teacher')+' already teaches another class.';
+          if(candidate.teacherId&&row.teacherId===candidate.teacherId){
+            const classNames=row.classIds.map(id=>catalog().classes.find(item=>item.id===id)?.name||id).join(', ');
+            return (teacher(candidate.teacherId)?.name||'Teacher')+' already teaches '+(classNames||'another class')+' on '+days[candidate.weekday]+' '+row.startTime.replace(':','h')+'–'+row.endTime.replace(':','h')+'.';
+          }
           if(learnersOverlap(candidate.classIds,row.classIds,candidate.weekday))return 'A learner belongs to both classes at this time.';
         }
         const limit=plan().limits.find(row=>row.teacherId===candidate.teacherId);
@@ -103,11 +106,18 @@
         const rows=ranges(availabilityTeacher).slice().sort((a,b)=>dayOrder.indexOf(a.weekday)-dayOrder.indexOf(b.weekday)||a.startTime.localeCompare(b.startTime));
         $('tt-availability-grid').innerHTML=!availabilityTeacher?'<p class="tt-scope">Add an eligible teacher to set availability.</p>':rows.length?'<table class="tt-availability-table"><thead><tr><th>Day</th><th>Available from</th><th>Available to</th><th></th></tr></thead><tbody>'+rows.map(row=>'<tr><td>'+esc(days[row.weekday])+'</td><td>'+esc(row.startTime.replace(':','h'))+'</td><td>'+esc(row.endTime.replace(':','h'))+'</td><td><button type="button" class="pb-secondary" data-remove-availability="'+esc(row.id)+'" aria-label="Remove '+esc(days[row.weekday]+' '+row.startTime+' to '+row.endTime)+'">Remove</button></td></tr>').join('')+'</tbody></table>':'<p class="tt-scope">No time ranges entered. This teacher has no availability restriction.</p>';
       }
-      function lessonDropdowns(subjectId,teacherId,inline=false){
+      function lessonDropdowns(subjectId,teacherId,inline=false,classId=selectedClass,classIds=[]){
         const subjects=modules(),teachers=catalog().teachers.filter(row=>row.active||row.id===teacherId);
         const subjectOptions='<option value="">Choose subject…</option>'+subjects.map(row=>option(row.id,row.name,subjectId)).join('')+(subjectId&&!subjects.some(row=>row.id===subjectId)?option(subjectId,'Unavailable: '+subjectId,subjectId):'');
         const teacherOptions='<option value="">Not assigned</option>'+teachers.map(row=>option(row.id,row.name,teacherId)).join('');
-        return '<label>Subject / module<select '+(inline?'data-inline-subject':'data-quick-subject')+'>'+subjectOptions+'</select></label><label>Teacher (optional)<select '+(inline?'data-inline-teacher':'data-quick-teacher')+'>'+teacherOptions+'</select></label>';
+        const subjectField='<label>Subject / module<select '+(inline?'data-inline-subject':'data-quick-subject')+'>'+subjectOptions+'</select></label>';
+        if(boardView==='teacher'){
+          const classes=catalog().classes.filter(row=>row.active||row.id===classId||classIds.includes(row.id));
+          const combined=inline&&classIds.length>1?option('__keep__','Keep combined: '+classIds.map(id=>catalog().classes.find(row=>row.id===id)?.name||id).join(', '),classId):'';
+          const classOptions=combined||'<option value="">Choose class…</option>';
+          return subjectField+'<label>Class<select '+(inline?'data-inline-class':'data-quick-class')+'>'+classOptions+classes.map(row=>option(row.id,row.name,classId)).join('')+'</select></label>';
+        }
+        return subjectField+'<label>Teacher (optional)<select '+(inline?'data-inline-teacher':'data-quick-teacher')+'>'+teacherOptions+'</select></label>';
       }
       function addLessonForm(day,period){
         return '<div class="tt-board-quick"><strong>Add lesson</strong>'+lessonDropdowns(selectedSubject,selectedTeacher)+'<div><button type="button" data-place-lesson data-board-day="'+day+'" data-board-period="'+esc(period.id)+'">Add</button><button type="button" class="pb-secondary" data-cancel-quick>Cancel</button></div>'+cellError(day,period)+'</div>';
@@ -128,7 +138,7 @@
       function openQuickDialog(){
         const row=activeEdit(),splitOptions=splitBoundaries(row);
         $('tt-quick-lesson-title').textContent='Edit '+days[editing.day]+' lesson';
-        $('tt-quick-fields').innerHTML=lessonDropdowns(inlineSubject,inlineTeacher,true);
+        $('tt-quick-fields').innerHTML=lessonDropdowns(inlineSubject,inlineTeacher,true,inlineClass,row.classIds);
         $('tt-quick-split-wrap').hidden=!splitOptions.length;$('tt-quick-split').hidden=!splitOptions.length;
         $('tt-quick-split-boundary').innerHTML=splitOptions.map(index=>{const gap=timeMinutes(plan().periods[index+1].startTime)-timeMinutes(plan().periods[index].endTime);return option(String(index),'After Period '+(index+1)+(gap?' ('+gap+' min gap excluded)':''),String(splitOptions[0]));}).join('');
         $('tt-quick-split-boundary').value=String(splitOptions[0]??'');
@@ -155,6 +165,16 @@
       }
       const editIcon='<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L9 17l-4 1 1-4z"/></svg>';
       const deleteIcon='<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 7h16M10 4h4M6 7l1 13h10l1-13M10 11v6M14 11v6"/></svg>';
+      function breakCard(row,day,periodId=''){
+        const selected=selectedBreakMove?.id===row.id&&selectedBreakMove.day===day||editingBreak?.id===row.id&&editingBreak.day===day;
+        const label=(row.label||'Break')+' · '+row.startTime+'–'+row.endTime;
+        return '<button type="button" class="tt-board-cell is-break '+(selected?'is-selected':'')+'" data-board-day="'+day+'"'+(periodId?' data-board-period="'+esc(periodId)+'"':'')+' data-break-id="'+esc(row.id)+'" aria-label="Edit '+esc(days[day]+' '+label)+'">'+esc(label)+'<small>Edit · Move · Delete</small></button>';
+      }
+      function boardRowHeading(slot){
+        if(slot.kind==='gap')return '<th scope="row" class="tt-board-gap-heading"><strong>Break</strong><span>'+esc(slot.startTime.replace(':','h'))+'–'+esc(slot.endTime.replace(':','h'))+'</span></th>';
+        const period=slot.period,index=slot.index;
+        return '<th scope="row"><div class="tt-board-period"><strong>Period '+(index+1)+'</strong><button type="button" class="pb-secondary" data-remove-period="'+esc(period.id)+'" aria-label="Remove period '+(index+1)+'">×</button></div><div class="tt-board-period-times"><input data-period="'+esc(period.id)+'" data-time="startTime" aria-label="Period '+(index+1)+' starts" inputmode="numeric" maxlength="5" value="'+esc(period.startTime.replace(':','h'))+'"><span>–</span><input data-period="'+esc(period.id)+'" data-time="endTime" aria-label="Period '+(index+1)+' ends" inputmode="numeric" maxlength="5" value="'+esc(period.endTime.replace(':','h'))+'"></div></th>';
+      }
       function renderBoard(){
         $('tt-clear-selection').disabled=!selectedMove&&!selectedBreakMove;
         $('tt-mark-break').setAttribute('aria-pressed',String(placingBreak));$('tt-mark-break').textContent=placingBreak?'Marking breaks · Cancel':'Mark break';
@@ -175,8 +195,12 @@
         $('tt-board-teacher-text').textContent=boardView==='teacher'?'Teacher board':'Default teacher (optional)';
         rememberBoardTab();renderBoardTabs();
         const periods=plan().periods;
+        const gapBreaks=breaks().filter(row=>row.weekdays?.length&&Number.isFinite(timeMinutes(row.startTime))&&Number.isFinite(timeMinutes(row.endTime))&&row.startTime<row.endTime&&!periods.some(period=>overlap(row,period)));
+        const gapSlots=[...new Map(gapBreaks.map(row=>[row.startTime+'|'+row.endTime,{kind:'gap',startTime:row.startTime,endTime:row.endTime}])).values()];
+        const timeline=[...periods.map((period,index)=>({kind:'period',period,index,startTime:period.startTime,endTime:period.endTime})),...gapSlots].sort((a,b)=>a.startTime.localeCompare(b.startTime)||a.endTime.localeCompare(b.endTime));
+        const timelineIndexByPeriod=new Map(timeline.flatMap((slot,index)=>slot.kind==='period'?[[slot.index,index]]:[]));
         $('tt-add-period').disabled=!periods.length||periods.length>=16;
-        if(!periods.length){$('tt-board').innerHTML='<p class="tt-board-empty">Set up periods above to generate the weekly timetable grid.</p>';return;}
+        if(!timeline.length){$('tt-board').innerHTML='<p class="tt-board-empty">Set up periods above to generate the weekly timetable grid.</p>';return;}
         if(!selectedClass||boardView==='teacher'&&!selectedTeacher){$('tt-board').innerHTML='<p class="tt-board-empty">Choose a '+(boardView==='teacher'?'teacher':'class')+' to view the weekly board.</p>';return;}
         const viewName=boardView==='teacher'?teacher(selectedTeacher)?.name:classes.find(row=>row.id===selectedClass)?.name;
         const visibleRows=(day,period)=>state.draft.rules.filter(row=>(boardView==='teacher'?row.teacherId===selectedTeacher:row.classIds.includes(selectedClass))&&row.weekdays.includes(day)&&overlap(row,period));
@@ -184,13 +208,22 @@
         for(const day of dayOrder)for(const row of state.draft.rules.filter(item=>(boardView==='teacher'?item.teacherId===selectedTeacher:item.classIds.includes(selectedClass))&&item.weekdays.includes(day))){
           const indices=periodIndices(row);
           if(indices.length<2||indices.some((index,position)=>position&&index!==indices[position-1]+1))continue;
-          if(indices.some(index=>visibleRows(day,periods[index]).length!==1||breaks().some(item=>item.weekdays.includes(day)&&overlap(item,periods[index]))))continue;
-          spans.set(day+':'+indices[0],indices.length);
-          for(const index of indices.slice(1))covered.add(day+':'+index);
+          if(indices.some(index=>visibleRows(day,periods[index]).length!==1)||breaks().some(item=>item.weekdays.includes(day)&&overlap(item,row)))continue;
+          const start=timelineIndexByPeriod.get(indices[0]),end=timelineIndexByPeriod.get(indices.at(-1));
+          if(start===undefined||end===undefined||end<=start)continue;
+          spans.set(day+':'+start,{rows:end-start+1,periods:indices.length});
+          for(let index=start+1;index<=end;index++)covered.add(day+':'+index);
         }
-        $('tt-board').innerHTML='<table class="tt-board-grid"><caption><span class="tt-board-caption"><span>'+esc((boardView==='teacher'?'Teacher: ':'Class: ')+(viewName||''))+'</span><button type="button" class="tt-board-icon" data-edit-board-view aria-label="Change class or teacher for this board tab" title="Change board view">'+editIcon+'</button></span></caption><thead><tr><th scope="col">Period and times</th>'+dayOrder.map(day=>'<th scope="col">'+days[day]+'</th>').join('')+'</tr></thead><tbody>'+periods.map((period,i)=>'<tr><th scope="row"><div class="tt-board-period"><strong>Period '+(i+1)+'</strong><button type="button" class="pb-secondary" data-remove-period="'+esc(period.id)+'" aria-label="Remove period '+(i+1)+'">×</button></div><div class="tt-board-period-times"><input data-period="'+esc(period.id)+'" data-time="startTime" aria-label="Period '+(i+1)+' starts" inputmode="numeric" maxlength="5" value="'+esc(period.startTime.replace(':','h'))+'"><span>–</span><input data-period="'+esc(period.id)+'" data-time="endTime" aria-label="Period '+(i+1)+' ends" inputmode="numeric" maxlength="5" value="'+esc(period.endTime.replace(':','h'))+'"></div></th>'+dayOrder.map(day=>{
+        $('tt-board').innerHTML='<table class="tt-board-grid"><caption><span class="tt-board-caption"><span>'+esc((boardView==='teacher'?'Teacher: ':'Class: ')+(viewName||''))+'</span><button type="button" class="tt-board-icon" data-edit-board-view aria-label="Change class or teacher for this board tab" title="Change board view">'+editIcon+'</button></span></caption><thead><tr><th scope="col">Period and times</th>'+dayOrder.map(day=>'<th scope="col">'+days[day]+'</th>').join('')+'</tr></thead><tbody>'+timeline.map((slot,i)=>'<tr>'+boardRowHeading(slot)+dayOrder.map(day=>{
           if(covered.has(day+':'+i))return '';
-          const span=spans.get(day+':'+i)||1,cellOpen=span>1?'<td class="tt-board-spanning" rowspan="'+span+'">':'<td>';
+          if(slot.kind==='gap'){
+            const rows=gapBreaks.filter(row=>row.startTime===slot.startTime&&row.endTime===slot.endTime&&row.weekdays.includes(day));
+            if(rows.length)return '<td class="tt-board-gap-cell">'+rows.map(row=>breakCard(row,day)).join('')+'</td>';
+            if(placingBreak||selectedBreakMove)return '<td class="tt-board-gap-cell"><button type="button" class="tt-board-cell is-empty" data-board-day="'+day+'" data-break-gap-start="'+esc(slot.startTime)+'" data-break-gap-end="'+esc(slot.endTime)+'" aria-label="Mark break on '+esc(days[day]+' '+slot.startTime+'–'+slot.endTime)+'">＋ Mark break</button></td>';
+            return '<td class="tt-board-gap-cell is-empty" aria-label="No break on '+esc(days[day])+'"></td>';
+          }
+          const period=slot.period;
+          const span=spans.get(day+':'+i),cellOpen=span?'<td class="tt-board-spanning" rowspan="'+span.rows+'">':'<td>';
           const rows=visibleRows(day,period);
           const breakRows=breaks().filter(row=>row.weekdays.includes(day)&&overlap(row,period));
           const moving=selectedMove&&state.draft.rules.find(item=>item.id===selectedMove.id);
@@ -200,16 +233,12 @@
             if(!marking&&!moving&&selectedEmpty?.day===day&&selectedEmpty.periodId===period.id)return cellOpen+addLessonForm(day,period)+'</td>';
             const label=marking?'＋ Mark break':'＋ Add lesson';return cellOpen+'<button type="button" class="tt-board-cell is-empty" data-board-day="'+day+'" data-board-period="'+esc(period.id)+'" data-open-lesson="'+(marking||moving?'false':'true')+'" aria-label="'+esc(days[day]+' '+period.startTime+'–'+period.endTime+' '+label)+'">'+esc(label)+'</button>'+cellError(day,period)+'</td>';
           }
-          return cellOpen+breakRows.map(row=>{
-            const selected=selectedBreakMove?.id===row.id&&selectedBreakMove.day===day||editingBreak?.id===row.id&&editingBreak.day===day;
-            const label=(row.label||'Break')+' · '+row.startTime+'–'+row.endTime;
-            return '<button type="button" class="tt-board-cell is-break '+(selected?'is-selected':'')+'" data-board-day="'+day+'" data-board-period="'+esc(period.id)+'" data-break-id="'+esc(row.id)+'" aria-label="Edit '+esc(days[day]+' '+label)+'">'+esc(label)+'<small>Edit · Move · Delete</small></button>';
-          }).join('')+rows.map(row=>{
+          return cellOpen+breakRows.map(row=>breakCard(row,day,period.id)).join('')+rows.map(row=>{
             const selected=selectedMove?.id===row.id&&selectedMove.day===day||editing?.id===row.id&&editing.day===day;
             const detail=boardView==='teacher'?row.classIds.map(id=>classes.find(item=>item.id===id)?.name||id).join(', '):teacher(row.teacherId)?.name||'No teacher';
             const label=(subject(row)||'Lesson')+' · '+detail+' · '+row.startTime+'–'+row.endTime;
             const attrs=' data-board-day="'+day+'" data-board-period="'+esc(period.id)+'" data-rule-id="'+esc(row.id)+'"';
-            return '<div draggable="true" class="tt-board-cell is-occupied '+(selected?'is-selected':'')+'"'+attrs+'><span class="tt-board-lesson-label">'+esc(label)+'</span>'+(span>1?'<span class="tt-board-span-count">'+span+' periods</span>':'')+'<span class="tt-board-lesson-actions"><button type="button" class="tt-board-icon" data-edit-card'+attrs+' aria-label="Edit '+esc(days[day]+' '+label)+'" title="Edit lesson">'+editIcon+'</button><button type="button" class="tt-board-icon is-delete" data-delete-card'+attrs+' aria-label="Delete '+esc(days[day]+' '+label)+'" title="Delete lesson">'+deleteIcon+'</button></span></div>';
+            return '<div draggable="true" class="tt-board-cell is-occupied '+(selected?'is-selected':'')+'"'+attrs+'><span class="tt-board-lesson-label">'+esc(label)+'</span>'+(span?'<span class="tt-board-span-count">'+span.periods+' periods</span>':'')+'<span class="tt-board-lesson-actions"><button type="button" class="tt-board-icon" data-edit-card'+attrs+' aria-label="Edit '+esc(days[day]+' '+label)+'" title="Edit lesson">'+editIcon+'</button><button type="button" class="tt-board-icon is-delete" data-delete-card'+attrs+' aria-label="Delete '+esc(days[day]+' '+label)+'" title="Delete lesson">'+deleteIcon+'</button></span></div>';
           }).join('')+'</td>';
         }).join('')+'</tr>').join('')+'</tbody></table>';
       }
@@ -265,6 +294,7 @@
         if(locked())return;const data=event.target.dataset;
         if(data.quickSubject!==undefined){selectedSubject=event.target.value;activeBoardTab().subjectId=selectedSubject;$('tt-board-subject').value=selectedSubject;if(placementError){clearPlacementError();renderBoard();}return;}
         if(data.quickTeacher!==undefined){selectedTeacher=event.target.value;activeBoardTab().teacherId=selectedTeacher;$('tt-board-teacher').value=selectedTeacher;if(placementError){clearPlacementError();renderBoard();}return;}
+        if(data.quickClass!==undefined){selectedClass=event.target.value;activeBoardTab().classId=selectedClass;$('tt-board-class').value=selectedClass;if(placementError){clearPlacementError();renderBoard();}return;}
         const id=data.period,key=data.time,row=edit().periods.find(item=>item.id===id);
         if(!row||!['startTime','endTime'].includes(key))return;
         const value=normalizeTime(event.target.value),candidate={...row,[key]:value};
@@ -356,6 +386,7 @@
       $('tt-quick-lesson-dialog').onchange=event=>{
         if(event.target.dataset.inlineSubject!==undefined){inlineSubject=event.target.value;inlineDirty=true;}
         if(event.target.dataset.inlineTeacher!==undefined){inlineTeacher=event.target.value;inlineDirty=true;}
+        if(event.target.dataset.inlineClass!==undefined){inlineClass=event.target.value;inlineDirty=true;}
         $('tt-quick-error').hidden=true;
       };
       $('tt-quick-lesson-dialog').oncancel=event=>{event.preventDefault();$('tt-quick-cancel').onclick();};
@@ -363,17 +394,20 @@
       $('tt-quick-more').onclick=()=>{
         closeQuickDialog();showDetails=true;renderEditor();
         $('tt-edit-subject').value=inlineSubject;$('tt-edit-teacher').value=inlineTeacher;
+        if(boardView==='teacher'&&inlineClass!=='__keep__')for(const input of $('tt-edit-classes').querySelectorAll('input[type="checkbox"]'))input.checked=input.value===inlineClass;
         editorDirty=inlineDirty;inlineDirty=false;
         $('tt-board-editor').scrollIntoView?.({block:'nearest'});
       };
       $('tt-quick-save').onclick=()=>{
         if(locked()||!activeEdit())return;
         if(JSON.stringify(activeEdit())!==editorSource){note('This lesson changed in another tab. Close and reopen it before saving.',true);return;}
-        $('tt-edit-subject').value=inlineSubject;$('tt-edit-teacher').value=inlineTeacher;$('tt-save-lesson').onclick();
+        $('tt-edit-subject').value=inlineSubject;$('tt-edit-teacher').value=inlineTeacher;
+        quickClassOverride=boardView==='teacher'&&inlineClass!=='__keep__'?inlineClass:null;
+        $('tt-save-lesson').onclick();quickClassOverride=null;
       };
       const readyForPeriodChange=()=>{
         if(locked()||!activeEdit())return false;
-        if(inlineDirty){note('Save or cancel the subject and teacher changes before splitting or merging.',true);return false;}
+        if(inlineDirty){note('Save or cancel the lesson changes before splitting or merging.',true);return false;}
         if(JSON.stringify(activeEdit())!==editorSource){note('This lesson changed in another tab. Close and reopen it before changing its periods.',true);return false;}
         return true;
       };
@@ -411,7 +445,7 @@
         if(locked())return;const row=activeEdit();if(!row)return;
         if(editorDirty&&JSON.stringify(row)!==editorSource){note('This lesson changed in another tab. Copy your edits, close the editor and reopen the lesson.',true);return;}
         const subjectId=$('tt-edit-subject').value,entry=modules().find(item=>item.id===subjectId);
-        const classIds=[...$('tt-edit-classes').querySelectorAll('input:checked')].map(input=>input.value);
+        const classIds=quickClassOverride===null?[...$('tt-edit-classes').querySelectorAll('input:checked')].map(input=>input.value):quickClassOverride?[quickClassOverride]:[];
         const teacherId=$('tt-edit-teacher').value,startTime=normalizeTime($('tt-edit-start').value),endTime=normalizeTime($('tt-edit-end').value),zoomLink=$('tt-edit-zoom').value.trim();
         if(!entry||!classIds.length){note('Choose a subject and at least one class.',true);return;}
         if(!Number.isFinite(timeMinutes(startTime))||!Number.isFinite(timeMinutes(endTime))||startTime>=endTime){note('Enter a valid start and end time, such as 08h00 to 08h45.',true);return;}
@@ -441,7 +475,6 @@
         const label=$('tt-break-label').value.trim()||'Break',startTime=normalizeTime($('tt-break-start').value),endTime=normalizeTime($('tt-break-end').value);
         if(label.length>80){note('Keep break names within 80 characters.',true);return;}
         const why=breakReason({weekday:editingBreak.day,startTime,endTime},editingBreak);if(why){note(why,true);return;}
-        if(!plan().periods.some(period=>overlap(period,{startTime,endTime}))){note('This break would disappear from the board. Keep it within a planning period.',true);return;}
         if(row.weekdays.length>1&&breaks().length>=40){note('The timetable allows at most 40 break rows.',true);return;}
         const before=structuredClone(breaks()),patch={label,startTime,endTime};
         if(row.weekdays.length===1)Object.assign(row,patch);
@@ -475,21 +508,23 @@
           const before=structuredClone(plan().periods);edit().periods=plan().periods.filter(row=>row.id!==removeId);selectedMove=null;
           saveUndo(structuredClone(state.draft.rules),before);note('Period removed.');commit();return;
         }
-        const button=event.target.closest?.('[data-board-period]');if(!button||locked())return;
-        const day=Number(button.dataset.boardDay),period=plan().periods.find(row=>row.id===button.dataset.boardPeriod);if(!period)return;
-        if(button.dataset.openLesson==='true'&&!selectedMove&&!selectedBreakMove&&!placingBreak){
-          if(editorDirty||breakEditorDirty||inlineDirty){note('Save or close the open item before adding another.',true);return;}
-          selectedEmpty={day,periodId:period.id};placementError=null;editing=null;editingBreak=null;note('Choose a subject and optional teacher in this period, then select Add.');renderBoard();renderEditor();renderBreakEditor();return;
-        }
+        const button=event.target.closest?.('[data-board-period]')||event.target.closest?.('[data-break-id]')||event.target.closest?.('[data-break-gap-start]');if(!button||locked())return;
+        const day=Number(button.dataset.boardDay);
         if(button.dataset.breakId){
           if(editorDirty||breakEditorDirty||inlineDirty){note('Save or close the open item before selecting another.',true);return;}
           selectedMove=null;selectedBreakMove=null;selectedEmpty=null;placementError=null;placingBreak=false;editing=null;editingBreak={id:button.dataset.breakId,day};breakEditorDirty=false;
           note('Edit, move or delete this break below.');renderBoard();renderEditor();renderBreakEditor();return;
         }
+        if(button.dataset.breakGapStart&&!placingBreak&&!selectedBreakMove)return;
+        const period=plan().periods.find(row=>row.id===button.dataset.boardPeriod)||(button.dataset.breakGapStart&&button.dataset.breakGapEnd?{id:'',startTime:button.dataset.breakGapStart,endTime:button.dataset.breakGapEnd}:null);if(!period)return;
+        if(button.dataset.openLesson==='true'&&!selectedMove&&!selectedBreakMove&&!placingBreak){
+          if(editorDirty||breakEditorDirty||inlineDirty){note('Save or close the open item before adding another.',true);return;}
+          selectedEmpty={day,periodId:period.id};placementError=null;editing=null;editingBreak=null;note(boardView==='teacher'?'Choose a subject and class in this period, then select Add.':'Choose a subject and optional teacher in this period, then select Add.');renderBoard();renderEditor();renderBreakEditor();return;
+        }
         if(button.dataset.ruleId){
           if(editorDirty||breakEditorDirty||inlineDirty){note('Save or close the open item before selecting another.',true);return;}
           const row=state.draft.rules.find(item=>item.id===button.dataset.ruleId);if(!row)return;
-          selectedMove=null;selectedBreakMove=null;selectedEmpty=null;placementError=null;placingBreak=false;editingBreak=null;editing={id:row.id,day};showDetails=false;inlineSubject=row.moduleId||'subject:'+row.programSubjectId;inlineTeacher=row.teacherId||'';editorDirty=false;inlineDirty=false;note('Edit this lesson or use More details.');renderEditor();renderBreakEditor();openQuickDialog();return;
+          selectedMove=null;selectedBreakMove=null;selectedEmpty=null;placementError=null;placingBreak=false;editingBreak=null;editing={id:row.id,day};showDetails=false;inlineSubject=row.moduleId||'subject:'+row.programSubjectId;inlineTeacher=row.teacherId||'';inlineClass=row.classIds.length===1?row.classIds[0]:'__keep__';editorDirty=false;inlineDirty=false;note('Edit this lesson or use More details.');renderEditor();renderBreakEditor();openQuickDialog();return;
         }
         const sourceBreak=selectedBreakMove&&breaks().find(row=>row.id===selectedBreakMove.id);
         if(sourceBreak||placingBreak){

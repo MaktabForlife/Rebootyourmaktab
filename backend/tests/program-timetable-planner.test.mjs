@@ -117,6 +117,8 @@ const event=dataset=>({target:{dataset,closest:selector=>{
   if(selector==='[data-delete-card]')return dataset.deleteCard!==undefined?{dataset}:null;
   if(selector==='[data-remove-period]')return dataset.removePeriod!==undefined?{dataset}:null;
   if(selector==='[data-board-period]')return dataset.boardPeriod!==undefined?{dataset}:null;
+  if(selector==='[data-break-id]')return dataset.breakId!==undefined?{dataset}:null;
+  if(selector==='[data-break-gap-start]')return dataset.breakGapStart!==undefined?{dataset}:null;
   return null;
 }}});
 const dragLesson=(id,fromDay,toDay,periodId)=>{
@@ -126,6 +128,25 @@ const dragLesson=(id,fromDay,toDay,periodId)=>{
   $('tt-board').ondrop({target:{closest:()=>target},dataTransfer:transfer,preventDefault(){}});
   return data;
 };
+// A teacher board fixes the teacher and asks for the class in both quick forms.
+assert.equal($('tt-board-view').value,'teacher');
+$('tt-board').onclick(event({boardDay:'2',boardPeriod:morning.id,openLesson:'true'}));
+assert.match($('tt-board').innerHTML,/data-quick-class/);
+assert.doesNotMatch($('tt-board').innerHTML,/data-quick-teacher/);
+$('tt-board').onchange({target:{dataset:{quickClass:''},value:'CLASS-2'}});
+$('tt-board').onclick(event({boardDay:'2',boardPeriod:morning.id,placeLesson:''}));
+const teacherBoardRule=state.draft.rules.at(-1);
+assert.deepEqual(Array.from(teacherBoardRule.classIds),['CLASS-2']);
+assert.equal(teacherBoardRule.teacherId,'TEACHER-1');
+$('tt-board').onclick(event({boardDay:'2',boardPeriod:morning.id,ruleId:teacherBoardRule.id}));
+assert.match($('tt-quick-fields').innerHTML,/data-inline-class/);
+assert.doesNotMatch($('tt-quick-fields').innerHTML,/data-inline-teacher/);
+$('tt-quick-lesson-dialog').onchange({target:{dataset:{inlineClass:''},value:'CLASS-1'}});
+$('tt-quick-save').onclick();
+assert.deepEqual(Array.from(teacherBoardRule.classIds),['CLASS-1']);
+assert.equal(teacherBoardRule.teacherId,'TEACHER-1');
+planner.undo();planner.undo();
+$('tt-board-class').onchange({target:{value:'CLASS-1'}});
 $('tt-board').onclick(event({boardDay:'1',boardPeriod:morning.id,openLesson:'true'}));
 assert.doesNotMatch($('tt-board').innerHTML,/unavailable during this whole period/,'opening a lesson form does not warn before placement');
 $('tt-board').onclick(event({boardDay:'1',boardPeriod:morning.id,placeLesson:''}));
@@ -350,6 +371,29 @@ $('tt-board').onclick(event({boardDay:'3',boardPeriod:doubleStart.id,ruleId:'RUL
 $('tt-quick-split').onclick();
 assert.deepEqual(state.draft.rules.map(row=>[row.startTime,row.endTime]),[['08:00','09:00'],['09:15','10:00']]);
 assert.match($('tt-board-message').textContent,/gap between them is excluded/);
+// A break saved between planning periods must have its own visible board row.
+state.draft.rules.push(doubleRule('RULE-ACROSS-GAP',[4],'08:00','10:00'));
+state.draft.breaks=[{id:'BREAK-SAVED',label:'Morning break',weekdays:[1,2],startTime:'09:00',endTime:'09:15'}];
+planner.render();
+const boardWithSavedBreak=$('tt-board').innerHTML;
+assert.match(boardWithSavedBreak,/<th scope="row" class="tt-board-gap-heading"><strong>Break<\/strong><span>09h00–09h15<\/span><\/th>/);
+assert.equal([...boardWithSavedBreak.matchAll(/data-break-id="BREAK-SAVED"/g)].length,2,'the saved break appears on both selected weekdays');
+assert.match(boardWithSavedBreak,/<td class="tt-board-spanning" rowspan="3"><div draggable="true"[^>]*data-board-day="4"/,'a lesson spanning the gap still has one merged cell');
+assert.match(boardWithSavedBreak,/2 periods<\/span>/,'the merged lesson counts teaching periods, not the gap row');
+$('tt-board').onclick(event({boardDay:'1',breakId:'BREAK-SAVED'}));
+assert.equal($('tt-break-editor').hidden,false,'the saved break can be edited from its gap row');
+assert.equal($('tt-break-start').value,'09h00');
+$('tt-mark-break').onclick();$('tt-board-break-label').value='Morning break';
+assert.match($('tt-board').innerHTML,/data-break-gap-start="09:00"/);
+$('tt-board').onclick(event({boardDay:'3',breakGapStart:'09:00',breakGapEnd:'09:15'}));
+assert.deepEqual(Array.from(state.draft.breaks[0].weekdays),[1,2,3],'the gap row can mark the same break on another weekday');
+$('tt-mark-break').onclick();
+$('tt-board').onclick(event({boardDay:'3',breakId:'BREAK-SAVED'}));
+$('tt-break-label').value='Wednesday break';$('tt-save-break').onclick();
+assert(state.draft.breaks.some(row=>row.label==='Wednesday break'&&row.weekdays.length===1&&row.weekdays[0]===3),'a break between periods can be edited from the board');
+$('tt-board-view').onchange({target:{value:'teacher'}});$('tt-board-teacher').onchange({target:{value:'TEACHER-1'}});
+assert.match($('tt-board').innerHTML,/data-break-id="BREAK-SAVED"/,'the saved break also appears on a teacher board');
+$('tt-board-view').onchange({target:{value:'class'}});
 // The board caption changes only its own tab without opening a browser tab.
 $('tt-add-board-tab').onclick();
 const tabsBeforeViewChange=$('tt-board-tabs').innerHTML,tabIdsForView=[...tabsBeforeViewChange.matchAll(/data-board-tab="([^"]+)"/g)].map(match=>match[1]);
@@ -376,6 +420,16 @@ assert.match($('tt-board-tabs').innerHTML,/Class:/);
 openBoardView();let boardEscapePrevented=false;
 $('tt-board-view-dialog').oncancel({preventDefault(){boardEscapePrevented=true;}});
 assert.equal(boardEscapePrevented,true);assert.equal($('tt-board-view-dialog').open,false);
+// A teacher booked on another class is identified only when a conflicting lesson is attempted.
+state.draft.rules=[{...doubleRule('RULE-OTHER-CLASS',[3],'09:15','10:15','TEACHER-2'),classIds:['CLASS-2']}];
+$('tt-board-class').onchange({target:{value:'CLASS-1'}});
+$('tt-board-subject').onchange({target:{value:'MOD-DEMO'}});
+$('tt-board-teacher').onchange({target:{value:'TEACHER-2'}});
+assert.doesNotMatch($('tt-board').innerHTML,/already teaches|tt-board-cell-error/,'empty cells do not show speculative clashes');
+$('tt-board').onclick(event({boardDay:'3',boardPeriod:state.draft.planner.periods[1].id}));
+assert.equal(state.draft.rules.length,1);
+assert.match($('tt-board-message').textContent,/Demo teacher B already teaches Year 2 · Demo on Wednesday 09h15–10h15/);
+assert.equal(($('tt-board').innerHTML.match(/tt-board-cell-error/g)||[]).length,1,'the clash appears only in the attempted cell');
 const syncSource=await readFile(new URL('../../js/m4l-timetable-sync.js',import.meta.url),'utf8');
 const syncContext={window:{},structuredClone};vm.runInNewContext(syncSource,syncContext);
 const merge=syncContext.window.M4L_TIMETABLE_SYNC.merge;
