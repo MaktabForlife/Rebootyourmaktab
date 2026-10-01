@@ -7,6 +7,8 @@ import { isActivePlatformValue as active } from '../lib/platform-schema.js';
 import { parseTable, assertUnique, problem, clean } from './model.js';
 import { managementState } from './management-model.js';
 import { TIMETABLE_HEADERS } from './timetable-model.js';
+import { getResourceConfig, getRootFolderId, requireItemInsideRoot, validateFileForResourceType } from '../routes/drive-library.js';
+const LIBRARY_TABLES=['ProgramTasks','ProgramResources'];
 export const cells = values => ({ values:values.map(value=>({ userEnteredValue:typeof value==='boolean'?{boolValue:value}:typeof value==='number'?{numberValue:value}:{stringValue:String(value??'')} })) });
 export function timetableRepository(env, program) {
   const target={spreadsheetId:program.spreadsheetId};
@@ -20,28 +22,41 @@ export function timetableRepository(env, program) {
     const legacy=legacyIds.length?await readPlatformSheet(env,'GlobalSubjectList'):[];
     return [...academy,...[...new Set(legacyIds)].map(id=>{const row=legacy.find(s=>s.SubjectID===id);return {SubjectID:id,SubjectName:row?.SubjectName||id,Active:Boolean(row)&&active(row.Active),Legacy:true};})];
   }
+  async function prepareNamed(names) {
+    const sheets=await properties(),existing=names.filter(name=>sheets.some(s=>s.title===name));
+    const values=existing.length?await read(existing):[];
+    const requests=[];let next=Math.max(0,...sheets.map(s=>s.sheetId))+1;
+    for(const name of names){
+      const headers=TIMETABLE_HEADERS[name];let sheet=sheets.find(s=>s.title===name);
+      if(sheet){const rows=values[existing.indexOf(name)];if(rows.some(row=>row.some(clean))){parseTable(rows,headers,name);continue;}}
+      else{sheet={sheetId:next++,title:name};requests.push({addSheet:{properties:{...sheet,gridProperties:{frozenRowCount:1}}}});}
+      requests.push({updateCells:{start:{sheetId:sheet.sheetId,rowIndex:0,columnIndex:0},rows:[cells(headers)],fields:'userEnteredValue'}});
+    }
+    if(requests.length)await batchUpdateGoogleSpreadsheet(env,requests,target);
+  }
   return {
-    async prepare() {
-      const sheets=await properties(), existing=Object.keys(TIMETABLE_HEADERS).filter(name=>sheets.some(s=>s.title===name));
-      const values=existing.length?await read(existing):[];
-      const requests=[]; let next=Math.max(0,...sheets.map(s=>s.sheetId))+1;
-      for (const [name,headers] of Object.entries(TIMETABLE_HEADERS)) {
-        let sheet=sheets.find(s=>s.title===name);
-        if (sheet) {
-          const rows=values[existing.indexOf(name)];
-          if (rows.some(row=>row.some(clean))) { parseTable(rows,headers,name); continue; }
-        } else { sheet={sheetId:next++,title:name}; requests.push({addSheet:{properties:{...sheet,gridProperties:{frozenRowCount:1}}}}); }
-        requests.push({updateCells:{start:{sheetId:sheet.sheetId,rowIndex:0,columnIndex:0},rows:[cells(headers)],fields:'userEnteredValue'}});
+    async verifyResource(record) {
+      const config=getResourceConfig(record.ResourceType);
+      if(!config)throw problem('Choose a Library resource type.');
+      let file;
+      try{file=await requireItemInsideRoot(env,record.DriveFileID,getRootFolderId(env),{requireFile:true});}
+      catch(error){
+        if(/outside the configured|not found or is in Trash|not a folder|Select a file/i.test(String(error.message)))throw problem('Choose a downloadable file inside the configured protected Drive folder.');
+        throw error;
       }
-      if (requests.length) await batchUpdateGoogleSpreadsheet(env,requests,target);
+      const checked=validateFileForResourceType(file,config);
+      if(!checked.ok)throw problem(checked.error);
+      return file;
     },
+    prepare:()=>prepareNamed(Object.keys(TIMETABLE_HEADERS)),
+    prepareLibrary:()=>prepareNamed(LIBRARY_TABLES),
     async load() {
       const sheets=await properties();
       const names=Object.keys(TIMETABLE_HEADERS), present=names.filter(name=>sheets.some(s=>s.title===name));
       const raw=present.length?await read(present):[];
       const tables=Object.fromEntries(present.map((name,i)=>[name,parseTable(raw[i],TIMETABLE_HEADERS[name],name)]));
       for (const name of present) assertUnique(tables[name],TIMETABLE_HEADERS[name][0],name);
-      const data={prepared:present.length===names.length,tables,sheets};
+      const data={prepared:names.filter(name=>!LIBRARY_TABLES.includes(name)).every(name=>present.includes(name)),libraryPrepared:LIBRARY_TABLES.every(name=>present.includes(name)),tables,sheets};
       if(tables.ProgramManagementState?.length)Object.assign(tables,managementState(data,program).snapshot);
       return data;
     },

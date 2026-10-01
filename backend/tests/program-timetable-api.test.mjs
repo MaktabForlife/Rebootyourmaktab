@@ -44,7 +44,7 @@ const originalLegacy = structuredClone(books.get(legacyId));
 const originalRegistryRow = structuredClone(table(platformId, "CourseRegistry")[1]);
 const keyPair = await crypto.subtle.generateKey({ name: "RSASSA-PKCS1-v1_5", modulusLength: 2048, publicExponent: new Uint8Array([1,0,1]), hash: "SHA-256" }, true, ["sign", "verify"]);
 const privateBytes = new Uint8Array(await crypto.subtle.exportKey("pkcs8", keyPair.privateKey));
-const env = { PLATFORM_SPREADSHEET_ID: platformId, GOOGLE_SPREADSHEET_ID: legacyId, SESSION_SECRET: "program-session-secret",
+const env = { PLATFORM_SPREADSHEET_ID: platformId, GOOGLE_SPREADSHEET_ID: legacyId, SESSION_SECRET: "program-session-secret", M4L_GOOGLE_DRIVE_ROOT_FOLDER_ID:'library-root',
   GOOGLE_SERVICE_ACCOUNT_JSON: JSON.stringify({ type:"service_account", client_email:"program-test@example.iam.gserviceaccount.com", private_key_id:"program-test-key", private_key:`-----BEGIN PRIVATE KEY-----\n${Buffer.from(privateBytes).toString("base64")}\n-----END PRIVATE KEY-----` }) };
 const token = await createSessionToken({ type:"account", accountid:"ACCOUNT1", uniqueid:"ADMIN-LINK", username:"Platform Admin", role:"GLOBAL_ADMIN", scope:"PLATFORM", authrow:2, credentialHash:hash }, env);
 const centralAdminToken = await createSessionToken({ type:"account", accountid:"ACCOUNT2", uniqueid:"LOCAL-LINK", role:"ADMIN", scope:"COURSE", authrow:3, credentialHash:hash, accessrow:2, accessid:"ACCESS2", courseid:"REBOOT", courserecordid:"LOCAL-ADMIN" }, env);
@@ -60,6 +60,16 @@ globalThis.fetch = async (url, init = {}) => {
   const parsed = new URL(url);
   const result = value => new Response(JSON.stringify(value), { status:200 });
   if (parsed.hostname === "oauth2.googleapis.com") return result({ access_token:"program-test-access", expires_in:3600 });
+  if (parsed.hostname === 'www.googleapis.com' && parsed.pathname.startsWith('/drive/v3/files')) {
+    const files={
+      'library-root':{id:'library-root',name:'Protected root',mimeType:'application/vnd.google-apps.folder',parents:[]},
+      'library-pdf':{id:'library-pdf',name:'Lesson.pdf',mimeType:'application/pdf',parents:['library-root'],capabilities:{canDownload:true}},
+      'outside-folder':{id:'outside-folder',name:'Outside',mimeType:'application/vnd.google-apps.folder',parents:[]}
+    };
+    if(parsed.pathname==='/drive/v3/files')return result({files:[files['library-pdf']],nextPageToken:''});
+    const file=files[decodeURIComponent(parsed.pathname.split('/').at(-1))];
+    return file?result(file):new Response(JSON.stringify({error:{message:'Missing file'}}),{status:404});
+  }
   assert.equal(parsed.hostname, "sheets.googleapis.com");
   const match = /^\/v4\/spreadsheets\/([^/:]+)(.*)$/.exec(parsed.pathname);
   const [, id, suffix] = match;
@@ -139,6 +149,10 @@ async function tt(action,body={},auth=token,expected=200,method='POST'){
  const response=await worker.fetch(new Request(`https://worker.test/api/admin/platform/program-timetable/${action}`,{method,headers:{'Content-Type':'application/json',...(auth?{Authorization:`Bearer ${auth}`}:{})},...(method==='POST'?{body:typeof body==='string'?body:JSON.stringify({id:input.id,...body})}:{})}),env);
  const result=await response.json();assert.equal(response.status,expected,JSON.stringify(result));assert.equal(response.headers.get('Cache-Control'),'no-store');return result;
 }
+async function library(action,body={},auth=token,expected=200,method='POST'){
+ const response=await worker.fetch(new Request(`https://worker.test/api/admin/platform/program-library/${action}`,{method,headers:{'Content-Type':'application/json',...(auth?{Authorization:`Bearer ${auth}`}:{})},...(method==='POST'?{body:JSON.stringify({id:input.id,...body})}:{})}),env);
+ const result=await response.json();assert.equal(response.status,expected,JSON.stringify(result));assert.equal(response.headers.get('Cache-Control'),'no-store');return result;
+}
 async function academy(action,body={},auth=token,expected=200){
  const response=await worker.fetch(new Request(`https://worker.test/api/admin/platform/academy-subjects/${action}`,{method:'POST',headers:{'Content-Type':'application/json',...(auth?{Authorization:`Bearer ${auth}`}:{})},body:JSON.stringify(body)}),env);
  const result=await response.json();assert.equal(response.status,expected,JSON.stringify(result));return result;
@@ -149,9 +163,13 @@ async function profiles(action,body={},auth=token,expected=200){
  const result=await response.json();assert.equal(response.status,expected,JSON.stringify(result));assert.equal(response.headers.get('Cache-Control'),'no-store');return result;
 }
 try{
- for(const action of ['get','prepare','save','validate','preview','publish','published','history','recover','manage-get','manage-save']){
+ for(const action of ['get','prepare','prepare-library','save','validate','preview','publish','published','history','recover','manage-get','manage-save']){
   for(const auth of [legacyToken,studentToken,centralAdminToken])await tt(action,{},auth,403);
   await tt(action,{},'',401);
+ }
+ for(const action of ['browse','access']){
+  for(const auth of [legacyToken,studentToken,centralAdminToken])await library(action,{},auth,403);
+  await library(action,{},'',401);
  }
  assert.equal(writes,0);
  await tt('get',{},token,405,'GET');await tt('get','bad',token,400);await tt('save','x'.repeat(65537),token,413);await tt('get',{id:'REBOOT'},token,400);
@@ -161,7 +179,18 @@ try{
  if(!useRuntime)await tt('prepare',{},token,503);env.PROGRAM_TIMETABLE_COORDINATOR=binding;
  loseResponse=true;await tt('prepare',{},token,503);if(!useRuntime)assert.equal(journals.size,1);
  await tt('recover');assert.equal(journals.size,0);const before=writes;await tt('prepare');assert.equal(writes,before,'Preparation is idempotent');
+ // Existing prepared Programs can add the two V105.4 tables without rewriting curriculum.
+ books.set(targetId,books.get(targetId).filter(sheet=>!['ProgramTasks','ProgramResources'].includes(sheet.title)));
+ let libraryView=await tt('manage-get');assert.equal(libraryView.prepared,true);assert.equal(libraryView.libraryPrepared,false);
+ await tt('prepare-library');libraryView=await tt('manage-get');assert.equal(libraryView.libraryPrepared,true);
+ const libraryWrites=writes;await tt('prepare-library');assert.equal(writes,libraryWrites,'Library preparation is idempotent');
  for(const [name,rows] of Object.entries({ProgramSubjects:[['PS-TAFSEER',input.id,'TAFSEER',true]],ProgramModules:[['MOD-DEMO','PS-TAFSEER','','Demo module',1,true]],ProgramClasses:[['CLASS-1',input.id,'Year 1','2026',true],['CLASS-2',input.id,'Year 2','2026',true]]}))table(targetId,name).push(...rows);
+ const libraryFiles=await library('browse');assert.equal(libraryFiles.items[0].name,'Lesson.pdf');assert(libraryFiles.items[0].supportedTypes.includes('EBOOK'));
+ await library('browse',{folderId:'outside-folder'},token,400);
+ table(targetId,'ProgramResources').push(['RES-PREVIEW',input.id,'PS-TAFSEER','','MOD-DEMO','','EBOOK','Lesson','', 'library-pdf',true]);
+ const preview=await library('access',{resourceId:'RES-PREVIEW'});assert.match(preview.url,/\/api\/library\/drive\/file\/library-pdf\?access=/);
+ table(targetId,'ProgramResources').pop();
+ await library('access',{resourceId:'RES-PREVIEW'},token,404);
  table(platformId,'UserAccounts').push(['TEACHER-1','Demo Teacher','TEACHER-LINK',false,'',true]);
  table(platformId,'UserCourseAccess').push(['ACCESS-TEACHER','TEACHER-1',input.id,'TEACHER',true]);
  loaded=await tt('get');assert.equal(loaded.prepared,true);assert.equal(loaded.catalog.modules.length,1);assert.equal(loaded.catalog.teachers.length,1);

@@ -3,15 +3,17 @@ import { problem, clean } from './model.js';
 import { payloadHash, validDate } from './timetable-model.js';
 import { isActivePlatformValue as active } from '../lib/platform-schema.js';
 
-export const REFERENCE_TABLES = ['ProgramSubjects','ProgramLevels','ProgramModules','ProgramClasses','ProgramEnrollments'];
+export const REFERENCE_TABLES = ['ProgramSubjects','ProgramLevels','ProgramModules','ProgramTasks','ProgramClasses','ProgramEnrollments','ProgramResources'];
 export const STANDARD_LEVELS = ['Beginner','Intermediate','Advanced'];
 export const MANAGEMENT_KINDS = {
   subjects:{table:'ProgramSubjects',key:'ProgramSubjectID',prefix:'PS'},
   levels:{table:'ProgramLevels',key:'LevelID',prefix:'LVL'},
   modules:{table:'ProgramModules',key:'ProgramModuleID',prefix:'MOD'},
+  tasks:{table:'ProgramTasks',key:'TaskID',prefix:'TASK'},
   classes:{table:'ProgramClasses',key:'ClassID',prefix:'CLS'},
   enrollments:{table:'ProgramEnrollments',key:'EnrollmentID',prefix:'ENR'},
   progress:{table:'ProgramModuleProgress',key:'ProgressID',prefix:'MP'},
+  resources:{table:'ProgramResources',key:'ResourceID',prefix:'RES'},
   teachers:{table:'ProgramTeachers',key:'AccountID',prefix:''}
 };
 export function managementState(data, program) {
@@ -23,10 +25,13 @@ export function managementState(data, program) {
   if(latest){try{snapshot=JSON.parse(latest.SnapshotJSON);}catch{throw problem('Program management history is unreadable.',409);}}
   // Earlier snapshots have no class/module progress; upgrade in memory without touching Sheets.
   if(!Object.hasOwn(snapshot,'ProgramModuleProgress'))snapshot.ProgramModuleProgress=[];
+  // Tasks and resources are individual rows in V105.4, outside the bounded management snapshot.
+  snapshot.ProgramTasks=data.tables.ProgramTasks||[];
+  snapshot.ProgramResources=data.tables.ProgramResources||[];
   for(const {table,key} of Object.values(MANAGEMENT_KINDS)) {
     if(!Array.isArray(snapshot[table])||snapshot[table].some(r=>!clean(r[key]))||new Set(snapshot[table].map(r=>r[key])).size!==snapshot[table].length) throw problem(`${table} has invalid or duplicate records.`,409);
   }
-  for(const name of ['ProgramSubjects','ProgramClasses','ProgramEnrollments','ProgramModuleProgress'])if(snapshot[name].some(r=>r.CourseID!==program.id))throw problem('A management row belongs to another Program.',409);
+  for(const name of ['ProgramSubjects','ProgramTasks','ProgramClasses','ProgramEnrollments','ProgramModuleProgress','ProgramResources'])if(snapshot[name].some(r=>r.CourseID!==program.id))throw problem('A management row belongs to another Program.',409);
   const progress=snapshot.ProgramModuleProgress;
   if(progress.some(r=>!clean(r.ProgramModuleID)||!clean(r.ClassID)||!['ACTIVE','INACTIVE','COMPLETED'].includes(r.Status))||new Set(progress.map(r=>JSON.stringify([r.ProgramModuleID,r.ClassID]))).size!==progress.length)throw problem('Module progress has invalid or duplicate records.',409);
   return {snapshot,revision:latest?.Revision||'',sequence:Number(latest?.Sequence||0)};
@@ -40,11 +45,11 @@ export async function managementView(data, repository, program) {
   const rows=Object.fromEntries(Object.entries(MANAGEMENT_KINDS).map(([kind,{table}])=>[kind,current.snapshot[table].map(r=>({...r}))]));
   // Preserve legacy assignment records for old drafts; timetable eligibility comes from current roles.
   for(const teacher of shared.grantedTeachers) if(!rows.teachers.some(r=>r.AccountID===teacher.AccountID)) rows.teachers.push({AccountID:teacher.AccountID,Active:true});
-  for(const kind of ['levels','modules'])rows[kind].sort((a,b)=>Number(a.SortOrder||0)-Number(b.SortOrder||0));
+  for(const kind of ['levels','modules','tasks'])rows[kind].sort((a,b)=>Number(a.SortOrder||0)-Number(b.SortOrder||0));
   const referenceRevision=await payloadHash(shared);
   const rowRevisions={};
   for(const [kind,{table,key}] of Object.entries(MANAGEMENT_KINDS))rowRevisions[kind]=Object.fromEntries(await Promise.all(current.snapshot[table].map(async record=>[record[key],await managementRowRevision(record)])));
-  return {program,prepared:data.prepared,revision:current.revision,referenceRevision,rowRevisions,emptyRowRevision:await managementRowRevision(null),rows,standardLevels:STANDARD_LEVELS,sharedSubjects:shared.subjects,accounts:shared.accounts,eligibleTeacherIds:shared.grantedTeachers.map(r=>r.AccountID)};
+  return {program,prepared:data.prepared,libraryPrepared:data.libraryPrepared,revision:current.revision,referenceRevision,rowRevisions,emptyRowRevision:await managementRowRevision(null),rows,standardLevels:STANDARD_LEVELS,sharedSubjects:shared.subjects,accounts:shared.accounts,eligibleTeacherIds:shared.grantedTeachers.map(r=>r.AccountID)};
 }
 export function applyManagementChange(current, input, shared, program) {
   if(input.kind==='subject-import') {
@@ -81,6 +86,39 @@ export function applyManagementChange(current, input, shared, program) {
     if(previous)rows[rows.indexOf(previous)]=record;else rows.push(record);
     return {snapshot,record};
   }
+  if(input.kind==='resources') {
+    if(typeof source.Active!=='boolean')throw problem('Choose Active or Archived.');
+    const string=(field,label,max=160,optional=false)=>{
+      if(typeof source[field]!=='string')throw problem(`${label} must be text.`);
+      const value=clean(source[field]);
+      if((!optional&&!value)||value.length>max)throw problem(`Enter ${label.toLowerCase()}${optional?' or leave it blank':''} (up to ${max} characters).`);
+      return value;
+    };
+    const subjectId=string('ProgramSubjectID','Program subject',100);
+    const levelId=string('LevelID','Level',100,true);
+    const moduleId=string('ProgramModuleID','Module',100,true);
+    const taskId=source.TaskID===undefined?'':string('TaskID','Task',100,true);
+    const type=string('ResourceType','Resource type',20).toUpperCase();
+    if(!['EBOOK','PRINTABLE','AUDIO','VIDEO','OTHER'].includes(type))throw problem('Choose a Library resource type.');
+    const subject=snapshot.ProgramSubjects.find(r=>r.ProgramSubjectID===subjectId&&r.CourseID===program.id);
+    if(!subject||(source.Active&&(!active(subject.Active)||!shared.subjects.some(s=>s.SubjectID===subject.SubjectID&&active(s.Active)))))throw problem('Choose an active subject in this Program.');
+    const level=levelId?snapshot.ProgramLevels.find(r=>r.LevelID===levelId&&r.ProgramSubjectID===subjectId):null;
+    const module=moduleId?snapshot.ProgramModules.find(r=>r.ProgramModuleID===moduleId&&r.ProgramSubjectID===subjectId):null;
+    const task=taskId?snapshot.ProgramTasks.find(r=>r.TaskID===taskId&&r.ProgramSubjectID===subjectId):null;
+    if(levelId&&(!level||(source.Active&&!active(level.Active))))throw problem('The resource level must belong to its subject.');
+    if(moduleId&&(!module||(source.Active&&!active(module.Active))))throw problem('The resource module must belong to its subject.');
+    if(taskId&&(!task||(source.Active&&!active(task.Active))))throw problem('The resource task must belong to its subject.');
+    if(task&&task.ProgramModuleID!==moduleId)throw problem('The resource task and module must match.');
+    if(level&&module&&module.LevelID!==levelId)throw problem('The resource level must match its module.');
+    if(module?.LevelID&&!levelId)throw problem('Choose the module’s level for this resource.');
+    const fileId=string('DriveFileID','Drive file',160);
+    if(!/^[A-Za-z0-9_-]+$/.test(fileId))throw problem('Choose a valid Drive file.');
+    const record={ResourceID:id,CourseID:program.id,ProgramSubjectID:subjectId,LevelID:levelId,ProgramModuleID:moduleId,TaskID:taskId,ResourceType:type,
+      Name:string('Name','Resource name'),Description:string('Description','Description',1000,true),DriveFileID:fileId,Active:source.Active};
+    if(rows.some(r=>r.ResourceID!==id&&r.DriveFileID===fileId&&r.ProgramSubjectID===subjectId&&r.LevelID===levelId&&r.ProgramModuleID===moduleId&&r.ResourceType===type))throw problem('This file is already in this Library location. Edit its existing row.');
+    if(previous)rows[rows.indexOf(previous)]=record;else rows.push(record);
+    return {snapshot,record};
+  }
   if(typeof source.Active!=='boolean') throw problem('Choose Active or Archived.');
   const record={[spec.key]:id,Active:source.Active};
   const text=(name,label,max=160,optional=false)=>{
@@ -91,9 +129,9 @@ export function applyManagementChange(current, input, shared, program) {
     const subjectId=text('ProgramSubjectID','Program subject',100), subject=snapshot.ProgramSubjects.find(r=>r.ProgramSubjectID===subjectId&&r.CourseID===program.id);
     if(!subject||(record.Active&&(!active(subject.Active)||!shared.subjects.some(s=>s.SubjectID===subject.SubjectID&&active(s.Active))))) throw problem('Choose an active subject in this Program.');return subjectId;
   };
-  if(['classes','subjects','enrollments'].includes(input.kind))record.CourseID=program.id;
-  if(['levels','modules','classes'].includes(input.kind))record.Name=text('Name','Name');
-  if(['levels','modules'].includes(input.kind)){
+  if(['classes','subjects','tasks','enrollments'].includes(input.kind))record.CourseID=program.id;
+  if(['levels','modules','tasks','classes'].includes(input.kind))record.Name=text('Name','Name');
+  if(['levels','modules','tasks'].includes(input.kind)){
     record.ProgramSubjectID=requireSubject();
     const order=source.SortOrder===''||source.SortOrder===undefined?0:Number(source.SortOrder);
     if(!Number.isInteger(order)||order<0||order>9999)throw problem('Order must be a whole number from 0 to 9999.');record.SortOrder=order;
@@ -123,6 +161,12 @@ export function applyManagementChange(current, input, shared, program) {
     const selected=snapshot.ProgramLevels.find(r=>r.LevelID===record.LevelID);
     if(selected&&!STANDARD_LEVELS.some(name=>name.toLowerCase()===clean(selected.Name).toLowerCase())&&previous?.LevelID!==selected.LevelID)throw problem('Choose a standard level. An existing custom level may be kept on its current module.');
   }
+  if(input.kind==='tasks'){
+    record.ProgramModuleID=text('ProgramModuleID','Module',100,true);
+    if(record.ProgramModuleID&&!snapshot.ProgramModules.some(r=>r.ProgramModuleID===record.ProgramModuleID&&r.ProgramSubjectID===record.ProgramSubjectID&&(!record.Active||active(r.Active))))throw problem('The task module must belong to its subject. A subject-level task may have no module.');
+    if(previous&&(previous.ProgramSubjectID!==record.ProgramSubjectID||previous.ProgramModuleID!==record.ProgramModuleID)&&snapshot.ProgramResources.some(r=>r.TaskID===id))throw problem('Move or archive linked resources before moving this task.');
+    if(rows.some(r=>r.TaskID!==id&&r.ProgramSubjectID===record.ProgramSubjectID&&r.ProgramModuleID===record.ProgramModuleID&&clean(r.Name).toLowerCase()===record.Name.toLowerCase()))throw problem('That task already exists here. Edit its existing row.');
+  }
   if(input.kind==='classes'){
     record.AcademicYear=text('AcademicYear','Academic year',40,true);
     record.ZoomLink=normalizeZoomLink(Object.hasOwn(source,'ZoomLink')?source.ZoomLink:previous?.ZoomLink);
@@ -137,11 +181,14 @@ export function applyManagementChange(current, input, shared, program) {
   }
   if(input.kind==='teachers'&&record.Active&&!shared.accounts.some(a=>a.AccountID===id&&active(a.Active)))throw problem('Choose an active Academy account.');
   if(input.kind==='teachers'&&record.Active&&!shared.grantedTeachers.some(a=>a.AccountID===id))throw problem('This user needs an active Teacher, Senior or Admin role in this Program before being assigned to teach.');
-  if(record.Name&&rows.some(r=>r[spec.key]!==id&&clean(r.Name).toLowerCase()===record.Name.toLowerCase()&&(!record.ProgramSubjectID||r.ProgramSubjectID===record.ProgramSubjectID)))throw problem('That name already exists here. Edit its existing row.');
-  if(input.kind==='levels'&&previous&&previous.ProgramSubjectID!==record.ProgramSubjectID&&snapshot.ProgramModules.some(r=>r.LevelID===id))throw problem('A level used by modules cannot move to another subject.');
+  if(input.kind!=='tasks'&&record.Name&&rows.some(r=>r[spec.key]!==id&&clean(r.Name).toLowerCase()===record.Name.toLowerCase()&&(!record.ProgramSubjectID||r.ProgramSubjectID===record.ProgramSubjectID)))throw problem('That name already exists here. Edit its existing row.');
+  if(input.kind==='levels'&&previous&&previous.ProgramSubjectID!==record.ProgramSubjectID&&(snapshot.ProgramModules.some(r=>r.LevelID===id)||snapshot.ProgramResources.some(r=>r.LevelID===id)))throw problem('A level used by modules or resources cannot move to another subject.');
+  if(input.kind==='modules'&&previous&&(previous.ProgramSubjectID!==record.ProgramSubjectID||previous.LevelID!==record.LevelID)&&(snapshot.ProgramResources.some(r=>r.ProgramModuleID===id)||snapshot.ProgramTasks.some(r=>r.ProgramModuleID===id)))throw problem('Move or archive linked tasks and resources before moving this module.');
   if(!record.Active){
-    const used=input.kind==='subjects'?snapshot.ProgramModules.some(r=>r.ProgramSubjectID===id&&active(r.Active))
-      :input.kind==='levels'?snapshot.ProgramModules.some(r=>r.LevelID===id&&active(r.Active))
+    const used=input.kind==='subjects'?snapshot.ProgramModules.some(r=>r.ProgramSubjectID===id&&active(r.Active))||snapshot.ProgramTasks.some(r=>r.ProgramSubjectID===id&&active(r.Active))||snapshot.ProgramResources.some(r=>r.ProgramSubjectID===id&&active(r.Active))
+      :input.kind==='levels'?snapshot.ProgramModules.some(r=>r.LevelID===id&&active(r.Active))||snapshot.ProgramResources.some(r=>r.LevelID===id&&active(r.Active))
+      :input.kind==='modules'?snapshot.ProgramTasks.some(r=>r.ProgramModuleID===id&&active(r.Active))||snapshot.ProgramResources.some(r=>r.ProgramModuleID===id&&active(r.Active))
+      :input.kind==='tasks'?snapshot.ProgramResources.some(r=>r.TaskID===id&&active(r.Active))
       :input.kind==='classes'?snapshot.ProgramEnrollments.some(r=>r.ClassID===id&&active(r.Active)):false;
     if(used)throw problem('Archive or move the active dependent rows first.');
   }

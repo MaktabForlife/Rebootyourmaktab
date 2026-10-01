@@ -19,7 +19,7 @@ export function programTimetableEndpoint(action) {
       if (!input||Array.isArray(input)||typeof input!=='object') throw problem('Invalid timetable request.');
       stage='program';const program=await timetableProgram(env,input.id); input.id=program.id;
       const binding=env.PROGRAM_TIMETABLE_COORDINATOR;
-      if (['save','publish','prepare','recover','manage-save'].includes(action)) {
+      if (['save','publish','prepare','prepare-library','recover','manage-save'].includes(action)) {
         if (!binding) throw problem('Timetable saving needs the Program coordinator binding. Ask the administrator to complete V105.2 backend setup.',503);
         stage='coordinator';const result=await binding.getByName(`${getPlatformSpreadsheetId(env)}:${program.id}`).run(action,input,request.headers.get('Authorization')||'');
         return json(result,result.success?200:result.status||503);

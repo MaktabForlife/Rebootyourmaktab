@@ -1,3 +1,15 @@
+# V105.4 — Program curriculum and Library acceptance
+
+- [x] Program tasks under subjects and optional modules, with protected placement and archive rules.
+- [x] Five Reboot resource categories, optional level/module/task placement and protected Drive selection.
+- [x] Separate Program task/resource tables, idempotent preparation, guarded saves and retry recovery.
+- [x] Administrator Library list, editing and protected preview.
+- [x] Automated backend regression and isolated Program/Reboot Library checks.
+- [ ] Development acceptance using actual Program curriculum and protected Drive files on desktop and phone.
+- [ ] Student Program Library, task assignment and completion in V105.5.
+
+See [V105.4 scope and acceptance](docs/V105.4-PROGRAM-LIBRARY.md).
+
 # V105.3.3.4 — Class and teacher timetable acceptance
 
 - [x] Block-only preview; remove Table, All classes and table layout controls.

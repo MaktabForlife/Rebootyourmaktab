@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Program Library · Maktabhelper</title><link rel="icon" href="/admin-favicon-32x32.png"><link rel="stylesheet" href="/css/m4l-program-builder.css?v=105.4"><link rel="stylesheet" href="/css/m4l-program-library.css?v=105.4"></head>
+<body><header class="pb-header"><a class="pb-brand" href="/programs/"><img src="/logo.png" alt="">Maktabhelper <span>/ Programs</span></a><span class="pb-version">V105.4 · Library</span></header>
+<main><div class="pb-heading"><div><p class="pb-eyebrow">﷽ &nbsp; Program administration</p><h1 id="pl-title">Program Library</h1><p>Organise protected files by subject, optional level and module.</p></div><a id="pl-curriculum" href="/programs/">Curriculum →</a></div>
+<p id="pl-message" class="pb-message" role="status" aria-live="polite">Checking your account…</p>
+<div class="pl-actions"><a href="/programs/">← Program setup</a><button id="pl-refresh" class="pb-secondary" type="button">↻ Refresh</button><button id="pl-prepare" class="pb-secondary" type="button" hidden>Prepare Library tables</button><button id="pl-add" type="button">＋ Add resource</button></div>
+<p id="pl-pending" class="pb-refresh-warning" hidden>An earlier save needs confirmation. <button id="pl-retry" type="button">Retry same save</button></p>
+<section id="pl-list" class="pl-card" aria-label="Program resources"></section>
+<section id="pl-editor" class="pl-card" aria-label="Resource editor" hidden><h2 id="pl-editor-title">Resource</h2><div class="pl-form">
+<label>Type<select id="pl-type"><option value="EBOOK">eBooks</option><option value="PRINTABLE">Printables</option><option value="AUDIO">Audio</option><option value="VIDEO">Video</option><option value="OTHER">Other</option></select></label>
+<label>Name<input id="pl-name" maxlength="160" required></label>
+<label>Subject<select id="pl-subject"></select></label><label>Level (optional)<select id="pl-level"></select></label><label>Module (optional)<select id="pl-module"></select></label><label>Task (optional)<select id="pl-task"></select></label>
+<label class="pl-wide">Description (optional)<textarea id="pl-description" maxlength="1000" rows="3"></textarea></label>
+<div class="pl-wide"><strong>Drive file</strong><p id="pl-file">No file selected.</p><button id="pl-browse" class="pb-secondary" type="button">Browse protected Drive files</button></div>
+<label>Status<select id="pl-active"><option value="true">Active</option><option value="false">Archived</option></select></label>
+</div><div class="pl-actions"><button id="pl-save" type="button">Save resource</button><button id="pl-cancel" type="button" class="pb-secondary">Cancel</button><a id="pl-preview" href="#" target="_blank" rel="noopener noreferrer" hidden>Open file preview ↗</a></div></section>
+<section id="pl-drive" class="pl-card" aria-label="Choose a Drive file" hidden><h2>Choose a Drive file</h2><div id="pl-breadcrumbs" class="pl-actions"></div><div id="pl-drive-list"></div><div class="pl-actions"><button id="pl-more" class="pb-secondary" type="button" hidden>More files</button><button id="pl-drive-cancel" class="pb-secondary" type="button">Back to resource</button></div></section>
+<p class="pb-note">Program Library management uses the protected Drive folder configured for Reboot. Student Program access is part of V105.5.</p>
+</main><script src="/js/m4l-config.js?v=102.4"></script><script src="/js/m4l-program-library.js?v=105.4"></script></body></html>

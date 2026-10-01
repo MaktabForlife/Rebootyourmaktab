@@ -100,8 +100,12 @@ assert.equal(element('pm-pending').hidden,true);
 console.log('Management UI: post-save refresh failure and lost server acknowledgement recovery passed.');
 
 // The public tabs are fixed; memberships remain accessible through a user profile.
-assert.deepEqual([...element('pm-tabs').innerHTML.matchAll(/data-tab="([^"]+)"[^>]*>([^<]+)<\/button>/g)].map(m=>[m[1],m[2]]),[['overview','Overview'],['modules','Modules'],['subjects','Subjects'],['classes','Classes'],['profiles','User profiles']]);
+assert.deepEqual([...element('pm-tabs').innerHTML.matchAll(/data-tab="([^"]+)"[^>]*>([^<]+)<\/button>/g)].map(m=>[m[1],m[2]]),[['overview','Overview'],['modules','Modules'],['subjects','Subjects'],['tasks','Tasks'],['classes','Classes'],['profiles','User profiles']]);
 assert(!element('pm-tabs').innerHTML.includes('<small>'));
+element('pm-tabs').onclick({target:{closest:()=>({dataset:{tab:'tasks'}})}});
+element('pm-add').onclick();input('ProgramSubjectID','PS-TAFSEER');input('Name','Read chapter');
+await clickRow({'data-save':true});
+assert.equal((await service.read('manage-get')).rows.tasks.find(r=>r.Name==='Read chapter')?.ProgramModuleID,'');
 element('pm-tabs').onclick({target:{closest:()=>({dataset:{tab:'profiles'}})}});
 assert.match(element('pm-rows').innerHTML,/Teacher/);assert.match(element('pm-rows').innerHTML,/Student/);
 assert.equal(element('pm-add').hidden,true);
@@ -114,7 +118,7 @@ assert.match(element('pm-rows').innerHTML,/data-field="AccountID"[^>]*disabled/)
 element('pm-profiles-back').onclick();assert.equal(element('pm-draft-notice').hidden,false);
 element('pm-return').onclick();assert.match(element('pm-rows').innerHTML,/2027-01-01/);
 await clickRow({'data-cancel':true});
-console.log('Management UI: five tabs, account roles and profile-scoped class membership editor passed.');
+console.log('Management UI: curriculum tasks, account roles and profile-scoped class membership editor passed.');
 
 // A rate-limit response pauses before retrying the same operation; access failures stay pending.
 element('pm-tabs').onclick({target:{closest:()=>({dataset:{tab:'classes'}})}});

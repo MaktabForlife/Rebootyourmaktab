@@ -993,7 +993,7 @@ export function getDriveAccessTtlSeconds(env) {
   return Math.min(MAX_ACCESS_TTL_SECONDS, Math.max(300, Math.floor(requested)));
 }
 
-function getRootFolderId(env) {
+export function getRootFolderId(env) {
   const id = clean(env.M4L_GOOGLE_DRIVE_ROOT_FOLDER_ID);
   if (!id) throw new Error("Missing M4L_GOOGLE_DRIVE_ROOT_FOLDER_ID Worker variable");
   if (!/^[A-Za-z0-9_-]+$/.test(id)) throw new Error("M4L_GOOGLE_DRIVE_ROOT_FOLDER_ID is invalid");

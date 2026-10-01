@@ -3,17 +3,19 @@
   'use strict';
   const $=id=>document.getElementById(id), esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const programId=new URLSearchParams(location.search).get('program'),storageKey=`m4l-management-pending:${programId}`;
+  $('pm-library').href=`/programs/library.html?program=${encodeURIComponent(programId||'')}`;
   const active=value=>value===true||String(value).toUpperCase()==='TRUE';
   const defs={
     subjects:{label:'Subjects',singular:'subject',key:'ProgramSubjectID',prefix:'PS',columns:[['SubjectID','Academy subject','subject'],['Active','Status','active']],help:'Choose an Academy subject or create a new name. Levels and modules belong to this Program.'},
     levels:{label:'Levels',singular:'level',key:'LevelID',prefix:'LVL',columns:[['ProgramSubjectID','Subject','programSubject'],['Name','Level name'],['SortOrder','Order','number'],['Active','Status','active']],help:'Levels are optional and belong to a subject within this Program. They do not represent academic years.'},
     modules:{label:'Modules',singular:'module',key:'ProgramModuleID',prefix:'MOD',columns:[['ProgramSubjectID','Subject','programSubject'],['LevelID','Level (optional)','level'],['Name','Module name'],['SortOrder','Order','number'],['Active','Availability','active']],help:'Choose an optional standard level and record progress separately for each class. Marking one class Completed keeps the module available to other classes. Assign teachers in the timetable.'},
+    tasks:{label:'Tasks',singular:'task',key:'TaskID',prefix:'TASK',columns:[['ProgramSubjectID','Subject','programSubject'],['ProgramModuleID','Module (optional)','module'],['Name','Task name'],['SortOrder','Order','number'],['Active','Status','active']],help:'Create curriculum tasks under a subject and optional module. Student assignment and completion are scheduled for V105.5.'},
     progress:{label:'Module progress',singular:'class status',key:'ProgressID',prefix:'MP',columns:[['ProgramModuleID','Module','module'],['ClassID','Class','class'],['Status','Class status','progress']],help:'Track each class separately: Active = studying, Inactive = not currently studying, Completed = finished. Completing a module for one class does not change its availability or timetable.'},
     classes:{label:'Classes',singular:'class',key:'ClassID',prefix:'CLS',columns:[['Name','Class name'],['AcademicYear','Academic year (optional)'],['ZoomLink','Zoom link (optional)','url'],['Active','Status','active']],help:'Create classes such as Year 1 and Year 2. The class Zoom link is used for single-class lessons unless a lesson link is set. Combined classes require a shared lesson link.'},
     teachers:{label:'Teachers',singular:'teacher',key:'AccountID',columns:[['AccountID','Teacher','teacher'],['Active','Assignment','active']],help:'Choose users with an active Teacher, Senior or Admin role in this Program. Program assignments do not grant roles.'},
     enrollments:{label:'Class memberships',singular:'class membership',key:'EnrollmentID',prefix:'ENR',columns:[['AccountID','User','account'],['ClassID','Class','class'],['StartDate','From','date'],['EndDate','Through (optional)','date'],['Active','Status','active']],help:'Set inclusive membership dates. A blank end date means ongoing membership. These dates support learner-clash checks.'}
   };
-  const tabs=[['overview','Overview'],['modules','Modules'],['subjects','Subjects'],['classes','Classes'],['profiles','User profiles']];
+  const tabs=[['overview','Overview'],['modules','Modules'],['subjects','Subjects'],['tasks','Tasks'],['classes','Classes'],['profiles','User profiles']];
   const tabKind=kind=>({progress:'modules',levels:'modules',enrollments:'profiles',teachers:'profiles'})[kind]||kind;
   const state={data:null,kind:new URLSearchParams(location.search).get('tab')==='classes'?'classes':'subjects',overview:new URLSearchParams(location.search).get('tab')!=='classes',timetable:null,preview:null,timetableError:false,edit:null,busy:false,pending:null,search:'',importPreview:null,importPending:null,expanded:new Set(),refreshWaiting:false,refreshTimer:null,profileAccountId:null};
   const message=(text,error=false)=>{$('pm-message').textContent=text;$('pm-message').classList.toggle('is-error',error);};
@@ -24,10 +26,11 @@
     if(!response.ok||!result.success)throw Object.assign(new Error(result.error||'The change could not be confirmed.'),{status:response.status,code:result.code,currentRecord:result.currentRecord,rowRevision:result.rowRevision,retryable:result.retryable,retryAfterMs:result.retryAfterMs,reference:result.reference});return result;
   }
   function controls(){
-    const locked=state.busy||Boolean(state.pending)||Boolean(state.importPending),editable=state.data?.prepared&&state.data?.coordinatorAvailable&&state.data?.program.status==='DRAFT';
+    const locked=state.busy||Boolean(state.pending)||Boolean(state.importPending),editable=state.data?.prepared&&state.data?.coordinatorAvailable&&state.data?.program.status==='DRAFT'&&(state.kind!=='tasks'||state.data.libraryPrepared);
     $('pm-editor').disabled=locked||!editable||Boolean(state.edit&&!visibleEdit());
     $('pm-add').disabled=locked||!editable||Boolean(state.edit);
     $('pm-prepare').disabled=locked;
+    $('pm-library-prepare').disabled=locked;
     $('pm-reload').disabled=state.busy;$('pm-recover').disabled=state.busy;$('pm-retry').disabled=state.busy;
     $('pm-import-preview').disabled=locked||!editable||Boolean(state.edit);
     $('pm-import-save').disabled=state.busy||Boolean(state.pending)||Boolean(state.edit)||!editable||(!state.importPreview&&!state.importPending);
@@ -42,7 +45,7 @@
     $('pm-overview').querySelectorAll('button').forEach(button=>{button.disabled=locked||!editable||Boolean(state.edit);});
     // A quota cooldown pauses network actions, while browsing and typing stay available.
     if(state.refreshWaiting){
-      for(const id of ['pm-reload','pm-recover','pm-retry','pm-prepare','pm-import-preview','pm-import-save','pm-catalogue-recover','pm-use-mine','pm-use-saved'])$(id).disabled=true;
+      for(const id of ['pm-reload','pm-recover','pm-retry','pm-prepare','pm-library-prepare','pm-import-preview','pm-import-save','pm-catalogue-recover','pm-use-mine','pm-use-saved'])$(id).disabled=true;
     }
     $('pm-rows').querySelectorAll('[data-save]').forEach(button=>{button.disabled=locked||state.refreshWaiting;});
     $('pm-rows').querySelectorAll('[data-progress-module]').forEach(button=>{button.disabled=locked||!editable||Boolean(state.edit);});
@@ -51,7 +54,7 @@
   async function work(fn){if(state.busy||state.refreshWaiting)return;state.busy=true;controls();try{await fn();}catch(error){message(error.message,true);}finally{state.busy=false;controls();}}
   function choices(type,row){const data=state.data;
     if(type==='progress')return [{id:'ACTIVE',name:'Active'},{id:'INACTIVE',name:'Inactive'},{id:'COMPLETED',name:'Completed'}];
-    if(type==='module')return data.rows.modules.map(r=>({id:r.ProgramModuleID,name:`${choices('programSubject',row).find(s=>s.id===r.ProgramSubjectID)?.name||'Subject'} · ${r.Name}`,active:r.Active}));
+    if(type==='module')return data.rows.modules.filter(r=>state.kind!=='tasks'||r.ProgramSubjectID===row.ProgramSubjectID).map(r=>({id:r.ProgramModuleID,name:`${choices('programSubject',row).find(s=>s.id===r.ProgramSubjectID)?.name||'Subject'} · ${r.Name}`,active:r.Active}));
     if(type==='active')return [{id:'true',name:'Active'},{id:'false',name:'Archived'}];
     if(type==='subject')return data.sharedSubjects.filter(r=>!r.Legacy||r.SubjectID===row.SubjectID).slice().sort((a,b)=>a.SubjectName.localeCompare(b.SubjectName)).map(r=>({id:r.SubjectID,name:r.SubjectName+(r.Legacy?' — Review needed':''),active:r.Active}));
     if(type==='programSubject')return data.rows.subjects.map(r=>({id:r.ProgramSubjectID,name:data.sharedSubjects.find(s=>s.SubjectID===r.SubjectID)?.SubjectName||r.SubjectID,active:active(r.Active)&&data.sharedSubjects.some(s=>s.SubjectID===r.SubjectID&&active(s.Active))}));
@@ -169,6 +172,7 @@
     $('pm-title').textContent=`${state.data.program.name} · Management`;
     $('pm-timetable').href=`/programs/timetable.html?program=${encodeURIComponent(programId)}`;
     $('pm-workspace').hidden=!state.data.prepared;$('pm-prepare').hidden=state.data.prepared;
+    $('pm-library-prepare').hidden=!state.data.prepared||state.data.libraryPrepared;
     $('pm-tabs').innerHTML=tabs.map(([key,label])=>`<button type="button" data-tab="${key}" aria-current="${state.overview?key==='overview':key===tabKind(state.kind)}">${label}</button>`).join('');
     $('pm-overview').hidden=!state.overview;$('pm-editor').hidden=state.overview;
     $('pm-add').hidden=!state.overview&&['profiles','teachers','levels'].includes(state.kind);
@@ -178,7 +182,7 @@
     $('pm-section-note').hidden=true;
     if(state.overview){$('pm-add').textContent='＋ Add module';renderOverview();controls();return;}
     if(state.kind==='profiles'){renderProfiles();controls();return;}
-    $('pm-help').textContent=def.help+' Ctrl/⌘ + Enter saves the edited row.';$('pm-caption').textContent=def.label;$('pm-add').textContent=`＋ Add ${def.singular}`;
+    $('pm-help').textContent=def.help+(state.kind==='tasks'&&!state.data.libraryPrepared?' Prepare Library tables first.':' Ctrl/⌘ + Enter saves the edited row.');$('pm-caption').textContent=def.label;$('pm-add').textContent=`＋ Add ${def.singular}`;
     let notice='';
     if(state.kind==='enrollments')notice=`Class memberships for ${state.data.accounts.find(a=>a.AccountID===state.profileAccountId)?.DisplayName||'this user'}. `+(!state.data.rows.classes.some(r=>active(r.Active))?'Add an active class in Classes first.':'Class membership does not grant a program role.');
     if(['teachers','levels'].includes(state.kind))notice='Your earlier unfinished entry is kept. Finish or cancel it to return to the updated tabs.';
@@ -322,8 +326,9 @@
     else if(button.dataset.edit&&!state.edit){if(state.kind==='progress')state.kind='modules';const def=defs[state.kind],row=state.data.rows[state.kind]?.find(r=>r[def.key]===button.dataset.edit);if(!row)return;state.edit={record:{...row,Active:active(row.Active)},creating:false,originalId:button.dataset.edit,originalSubjectID:row.SubjectID};render();}
   };
   $('pm-rows').addEventListener('input',event=>{const key=event.target.dataset.field;if(key&&visibleEdit()&&!state.busy&&!state.pending){state.edit.record[key]=key==='Active'?event.target.value==='true':event.target.value;rememberDraft();if(state.edit.conflict)renderConflict();}});
-  $('pm-rows').addEventListener('change',event=>{const key=event.target.dataset.field;if(!key||!visibleEdit()||state.busy||state.pending)return;state.edit.record[key]=key==='Active'?event.target.value==='true':event.target.value;rememberDraft();if(key==='SubjectID'){render();$('pm-rows').querySelector('[data-field=NewSubjectName]')?.focus();}if(key==='ProgramSubjectID'&&state.kind==='modules'){state.edit.record.LevelID='';render();}});
+  $('pm-rows').addEventListener('change',event=>{const key=event.target.dataset.field;if(!key||!visibleEdit()||state.busy||state.pending)return;state.edit.record[key]=key==='Active'?event.target.value==='true':event.target.value;rememberDraft();if(key==='SubjectID'){render();$('pm-rows').querySelector('[data-field=NewSubjectName]')?.focus();}if(key==='ProgramSubjectID'&&['modules','tasks'].includes(state.kind)){if(state.kind==='modules')state.edit.record.LevelID='';else state.edit.record.ProgramModuleID='';render();}});
   $('pm-prepare').onclick=()=>work(async()=>{await api('prepare');await refresh();});
+  $('pm-library-prepare').onclick=()=>work(async()=>{await api('prepare-library');await refresh();});
   $('pm-retry').onclick=()=>work(save);
   $('pm-reload').onclick=()=>work(refresh);
   $('pm-use-mine').onclick=()=>work(async()=>{

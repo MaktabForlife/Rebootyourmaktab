@@ -25,6 +25,7 @@ export function timetableService(repository,program,now=()=>new Date()) {
   const metadata=p=>{const {snapshot,occurrences,...rest}=p;return rest;};
   return {
     prepare:()=>repository.prepare(),
+    prepareLibrary:()=>repository.prepareLibrary(),
     async read(action,input={}) {
       const data=await repository.load();
       if(action==='manage-get'){
@@ -60,6 +61,8 @@ export function timetableService(repository,program,now=()=>new Date()) {
         if(program.status!=='DRAFT')throw problem('Archived Programs cannot change their records.',409);
         const data=await repository.load();
         if(!data.prepared)throw problem('Prepare the management tables first.',409);
+        const separate=['tasks','resources'].includes(input.kind);
+        if(separate&&!data.libraryPrepared)throw problem('Prepare the Program task and Library tables first.',409);
         const current=managementState(data,program),shared=await repository.managementReferences(data);
         const spec=MANAGEMENT_KINDS[input.kind];
         const currentRecord=spec?current.snapshot[spec.table].find(r=>r[spec.key]===input.record?.[spec.key])||null:null;
@@ -69,12 +72,14 @@ export function timetableService(repository,program,now=()=>new Date()) {
         // Validate against fresh references below. An unrelated account/catalogue change
         // must not reject this row; inactive/missing selections still fail validation.
         const {snapshot,record}=applyManagementChange(current,input,shared,program);
-        const snapshotJSON=JSON.stringify(snapshot);
-        if(snapshotJSON.length>40000)throw problem('This Program has reached the current management storage limit. No changes were saved.');
-        const revision=crypto.randomUUID(),timestamp=new Date().toISOString(),result={revision,record,...(spec?{rowRevision:await managementRowRevision(record)}:{})};
+        if(input.kind==='resources'&&(record.Active||input.creating||currentRecord?.DriveFileID!==record.DriveFileID))await repository.verifyResource(record);
+        const persisted={...snapshot};delete persisted.ProgramTasks;delete persisted.ProgramResources;
+        const snapshotJSON=JSON.stringify(persisted);
+        if(!separate&&snapshotJSON.length>40000)throw problem('This Program has reached the current management storage limit. No changes were saved.');
+        const revision=separate?current.revision:crypto.randomUUID(),timestamp=new Date().toISOString(),result={revision,record,...(spec?{rowRevision:await managementRowRevision(record)}:{})};
         if(input.kind==='modules'&&record.LevelID)result.level=snapshot.ProgramLevels.find(r=>r.LevelID===record.LevelID);
         const records=[
-          {table:'ProgramManagementState',record:{Revision:revision,CourseID:program.id,Sequence:current.sequence+1,SnapshotJSON:snapshotJSON,ModifiedDate:timestamp,ModifiedByAccountID:user.accountid}},
+          separate?{table:spec.table,record}:{table:'ProgramManagementState',record:{Revision:revision,CourseID:program.id,Sequence:current.sequence+1,SnapshotJSON:snapshotJSON,ModifiedDate:timestamp,ModifiedByAccountID:user.accountid}},
           {table:'ProgramTimetableOperations',record:{OperationID:input.operationId,PayloadHash:hash,ResultJSON:boundedJSON(result),DateStamp:timestamp,AccountID:user.accountid,Action:`manage-${input.kind}`}}
         ];
         return {plan:repository.plan(data,records),result};

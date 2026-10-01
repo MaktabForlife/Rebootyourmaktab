@@ -17,6 +17,11 @@ export function timetableCoordinator(journal, open) {
       if (!pending) await journal.set({kind:'prepare'});
       await service.prepare(); await journal.clear(); return {prepared:true};
     }
+    if(action==='prepare-library'){
+      if(pending&&pending.kind!=='prepare-library')throw problem('An earlier change needs recovery first.',409);
+      if(!pending)await journal.set({kind:'prepare-library'});
+      await service.prepareLibrary();await journal.clear();return {libraryPrepared:true};
+    }
     if (!['save','publish','manage-save'].includes(action)) throw problem('Unknown timetable change.');
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(input.operationId||'')) throw problem('This change needs a valid retry identifier.');
     const hash=await payloadHash({action,input});
@@ -33,6 +38,7 @@ export function timetableCoordinator(journal, open) {
   }
   async function finish(service,intent) {
     if (intent.kind==='prepare') {await service.prepare();await journal.clear();return {prepared:true,recovered:true};}
+    if(intent.kind==='prepare-library'){await service.prepareLibrary();await journal.clear();return {libraryPrepared:true,recovered:true};}
     const receipt=await service.receipt(intent.operationId,intent.hash);
     if (!receipt) await service.apply(intent.plan);
     await journal.clear();

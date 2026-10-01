@@ -1,3 +1,9 @@
+# V105.4 — Program curriculum and Library management
+
+Program curriculum now includes subject-level and module-level task definitions. Program administrators can organise protected Drive resources into eBooks, Printables, Audio, Video and Other by subject, optional level, module and task. Existing Program spreadsheets can add two task/resource tables without rewriting earlier curriculum or timetable records. [Workflow and acceptance](docs/V105.4-PROGRAM-LIBRARY.md).
+
+The Library management screen supports file selection, edits, archive/reactivation and protected administrator preview. Program student delivery and task assignment remain in V105.5. This branch has automated verification; Development acceptance with actual records is pending.
+
 # V105.3.3.4 — Class and teacher timetables
 
 Blocks is now the only timetable preview. Select one class or one assigned teacher for the preview and its PNG/PDF export. The Academy and selected name form the heading; version, effective date and timezone appear in the footnote. Lesson blocks omit the name already stated in the heading. [Scope and verification](docs/V105.3.3.4-CLASS-TEACHER-TIMETABLES.md).
