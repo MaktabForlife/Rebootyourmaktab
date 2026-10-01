@@ -50,7 +50,7 @@ as `google-sheets` in both top-level `vars` and `env.development.vars` in
 | Timetable | `getTimetable`, `updateTimetableZoomLink` | DIRECT ONLY | REMOVED IN V98.14 |
 | Weekly Planner | records and archives | DIRECT ONLY | Not present |
 | Weekly Planner | `saveWeeklyPlannerPreviewToDrive` | APPS SCRIPT | ACTIVE |
-| Program Library | `startProgramLibraryUpload` | Signed Worker request; Apps Script owns Drive authorization | ACTIVE IN V105.4 |
+| Program Library | `startProgramLibraryUpload` | Signed Worker request; Apps Script owns Drive authorization | ACTIVE IN V105.4.1 |
 | System configuration | UI read/write of approved keys | DIRECT ONLY | Read-only helper retained for Drive config |
 | Attendance | all routed reads/writes | DIRECT ONLY | REMOVED IN V98.14 |
 | Authentication | routed Student/Admin lookup, login and PIN operations | DIRECT ONLY | REMOVED IN V98.14 |
@@ -413,7 +413,7 @@ Production.
 
 ## Change history
 
-### 2026-10-01 — V105.4
+### 2026-10-01 — V105.4.1
 
 - Added the signed `startProgramLibraryUpload` Drive action for device uploads
   to the deploying account's My Drive folder. Apps Script starts a resumable

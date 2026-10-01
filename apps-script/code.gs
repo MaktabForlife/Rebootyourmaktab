@@ -300,6 +300,6 @@ function doGet() {
   return jsonResponse({
     status: "success",
     message: "Connected to M4L Google Drive bridge",
-    milestone: "V105.4"
+    milestone: "V105.4.1"
   });
 }
