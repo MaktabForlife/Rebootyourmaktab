@@ -1,6 +1,6 @@
-# V105.3.4.4 — Timetable boards in one screen
+# V105.3.4.11 — Visual timetable planning
 
-Open several class or teacher boards as tabs above the timetable grid, all within the same page. Each tab remembers its board and lesson defaults while sharing the timetable draft. Use **New board tab** to open another board, select a tab to switch, or close it with ×. Saving the draft stores lessons, breaks, periods and availability. [Scope, use and verification](docs/V105.3.4.4-IN-APP-BOARD-TABS.md). The direct board controls from [V105.3.4.3](docs/V105.3.4.3-BOARD-PERIODS-AND-BREAKS.md) remain available.
+Plan lessons and breaks on class and teacher boards, and enter teacher availability on its own weekly board. Open several boards as in-page tabs. Edit and move lessons on the board, including split and merged periods. Save, validate and preview from the top of the timetable page; publish after reviewing the preview and effective date. The login, program pages, version files and Worker now show the same release number. [Earlier board-tab scope and verification](docs/V105.3.4.4-IN-APP-BOARD-TABS.md).
 
 Development only; Academy acceptance remains open.
 
