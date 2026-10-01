@@ -1,4 +1,4 @@
-/* V105.3.4.9 — plan teacher availability on a weekday board. */
+/* V105.3.4.10 — add periods directly from the planning board. */
 (()=>{'use strict';
   const timeMinutes=value=>/^([01]\d|2[0-3]):[0-5]\d$/.test(value||'')?Number(value.slice(0,2))*60+Number(value.slice(3)):NaN;
   const clock=minutes=>String(Math.floor(minutes/60)).padStart(2,'0')+':'+String(minutes%60).padStart(2,'0');
@@ -223,7 +223,6 @@
         const gapSlots=[...new Map(gapBreaks.map(row=>[row.startTime+'|'+row.endTime,{kind:'gap',startTime:row.startTime,endTime:row.endTime}])).values()];
         const timeline=[...periods.map((period,index)=>({kind:'period',period,index,startTime:period.startTime,endTime:period.endTime})),...gapSlots].sort((a,b)=>a.startTime.localeCompare(b.startTime)||a.endTime.localeCompare(b.endTime));
         const timelineIndexByPeriod=new Map(timeline.flatMap((slot,index)=>slot.kind==='period'?[[slot.index,index]]:[]));
-        $('tt-add-period').disabled=!periods.length||periods.length>=16;
         if(!timeline.length){$('tt-board').innerHTML='<p class="tt-board-empty">Set up periods above to generate the weekly timetable grid.</p>';return;}
         if(!selectedClass||boardView==='teacher'&&!selectedTeacher){$('tt-board').innerHTML='<p class="tt-board-empty">Choose a '+(boardView==='teacher'?'teacher':'class')+' to view the weekly board.</p>';return;}
         const viewName=boardView==='teacher'?teacher(selectedTeacher)?.name:classes.find(row=>row.id===selectedClass)?.name;
@@ -264,7 +263,7 @@
             const attrs=' data-board-day="'+day+'" data-board-period="'+esc(period.id)+'" data-rule-id="'+esc(row.id)+'"';
             return '<div draggable="true" class="tt-board-cell is-occupied '+(selected?'is-selected':'')+'"'+attrs+'><span class="tt-board-lesson-label">'+esc(label)+'</span>'+(span?'<span class="tt-board-span-count">'+span.periods+' periods</span>':'')+'<span class="tt-board-lesson-actions"><button type="button" class="tt-board-icon" data-edit-card'+attrs+' aria-label="Edit '+esc(days[day]+' '+label)+'" title="Edit lesson">'+editIcon+'</button><button type="button" class="tt-board-icon is-delete" data-delete-card'+attrs+' aria-label="Delete '+esc(days[day]+' '+label)+'" title="Delete lesson">'+deleteIcon+'</button></span></div>';
           }).join('')+'</td>';
-        }).join('')+'</tr>').join('')+'</tbody></table>';
+        }).join('')+'</tr>').join('')+(periods.length<16?'<tr class="tt-board-add-row"><th scope="row"><button type="button" class="tt-board-add-period" data-add-period-board aria-label="Add another period"><span class="tt-board-add-period-icon" aria-hidden="true">＋</span><span>Add another period</span></button></th><td colspan="7"></td></tr>':'')+'</tbody></table>';
       }
       function renderEditor(){
         const row=activeEdit(),panel=$('tt-board-editor');panel.hidden=!row||!showDetails;
@@ -306,14 +305,14 @@
         edit().periods=Array.from({length:count},(_,i)=>({id:'PERIOD-'+(i+1),startTime:clock(start+i*length),endTime:clock(start+(i+1)*length)}));
         note('Periods are ready. Adjust their times if the school day includes gaps.');commit();
       };
-      $('tt-add-period').onclick=()=>{
+      function addPeriod(){
         if(locked()||!plan().periods.length)return;
         const periods=plan().periods;if(periods.length>=16){note('The board allows at most 16 periods.',true);return;}
         const last=periods.at(-1),start=timeMinutes(last.endTime),length=timeMinutes(last.endTime)-timeMinutes(last.startTime);
         if(!Number.isFinite(start)||!Number.isFinite(length)||length<=0||start+length>=1440){note('There is no room for another period at the end of this day.',true);return;}
         const before=structuredClone(periods);edit().periods.push({id:'PERIOD-'+crypto.randomUUID(),startTime:clock(start),endTime:clock(start+length)});
         saveUndo(structuredClone(state.draft.rules),before);note('Period added. Adjust its times in the board.');commit();
-      };
+      }
       $('tt-board').onchange=event=>{
         if(locked())return;const data=event.target.dataset;
         if(data.quickSubject!==undefined){selectedSubject=event.target.value;activeBoardTab().subjectId=selectedSubject;$('tt-board-subject').value=selectedSubject;if(placementError){clearPlacementError();renderBoard();}return;}
@@ -564,6 +563,7 @@
       $('tt-board').onclick=event=>{
         const action=event.target.dataset||{};
         if(action.cancelQuick!==undefined){selectedEmpty=null;clearPlacementError();renderBoard();return;}
+        if(event.target.closest?.('[data-add-period-board]')){addPeriod();return;}
         if(event.target.closest?.('[data-edit-board-view]')){if(editorDirty||breakEditorDirty||inlineDirty){note('Save or close the open item before changing this board tab.',true);return;}openBoardViewDialog();return;}
         const deleteCard=event.target.closest?.('[data-delete-card]');
         if(deleteCard){

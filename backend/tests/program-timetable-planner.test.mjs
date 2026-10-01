@@ -60,6 +60,7 @@ assert.doesNotMatch(html,/Weekly teaching requirements|Place requirement/);
 assert.doesNotMatch(html,/id="tt-timezone"/);
 assert.doesNotMatch(html,/id="tt-move-lesson"/);
 assert.doesNotMatch(html,/id="tt-open-board"/,'board tabs stay inside the timetable screen');
+assert.doesNotMatch(html,/id="tt-add-period"/,'periods are added from the board column');
 assert.match(html,/id="tt-add-board-tab"/);
 assert.match(html,/South Africa time/);
 assert.match(html,/id="tt-availability-days"/);
@@ -119,6 +120,7 @@ assert.equal(state.draft.planner.availability[0].startTime,'08:00');
 assert.doesNotMatch($('tt-board').innerHTML,/unavailable during this whole period/,'availability does not fill empty board cells with warnings');
 const event=dataset=>({target:{dataset,closest:selector=>{
   if(selector==='[data-delete-card]')return dataset.deleteCard!==undefined?{dataset}:null;
+  if(selector==='[data-add-period-board]')return dataset.addPeriodBoard!==undefined?{dataset}:null;
   if(selector==='[data-remove-period]')return dataset.removePeriod!==undefined?{dataset}:null;
   if(selector==='[data-board-period]')return dataset.boardPeriod!==undefined?{dataset}:null;
   if(selector==='[data-break-id]')return dataset.breakId!==undefined?{dataset}:null;
@@ -233,7 +235,8 @@ $('tt-board').onchange({target:{dataset:{period:morning.id,time:'endTime'},value
 assert.equal(state.draft.planner.periods[0].endTime,'09:00','overlapping period changes are rejected');
 assert.match($('tt-board-message').textContent,/cannot overlap/);
 planner.undo();assert.equal(state.draft.planner.periods[0].startTime,'08:00');
-$('tt-add-period').onclick();assert.equal(state.draft.planner.periods.length,3);
+assert.match($('tt-board').innerHTML,/<tr class="tt-board-add-row"><th scope="row"><button[^>]*data-add-period-board[^>]*><span class="tt-board-add-period-icon"/);
+$('tt-board').onclick(event({addPeriodBoard:''}));assert.equal(state.draft.planner.periods.length,3);
 const addedPeriod=state.draft.planner.periods[2];
 $('tt-board').onclick(event({removePeriod:addedPeriod.id}));assert.equal(state.draft.planner.periods.length,2);
 $('tt-board').onclick(event({removePeriod:morning.id}));assert.equal(state.draft.planner.periods.length,2,'occupied periods cannot be removed');
