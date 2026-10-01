@@ -1,4 +1,4 @@
-/* V105.3.4.11 — simplify timetable and availability boards. */
+/* V105.3.4.12 — simplify timetable and availability boards. */
 (()=>{'use strict';
   const timeMinutes=value=>/^([01]\d|2[0-3]):[0-5]\d$/.test(value||'')?Number(value.slice(0,2))*60+Number(value.slice(3)):NaN;
   const clock=minutes=>String(Math.floor(minutes/60)).padStart(2,'0')+':'+String(minutes%60).padStart(2,'0');
@@ -104,7 +104,9 @@
         $('tt-max-hours').value=limit?duration(limit.maxWeeklyMinutes):'';
         $('tt-remove-teacher-settings').disabled=!plan().availability.some(row=>row.teacherId===availabilityTeacher)&&!limit;
         const teacherRanges=ranges(availabilityTeacher);
-        $('tt-availability-grid').innerHTML=!availabilityTeacher?'<p class="tt-scope">Add an eligible teacher to set availability.</p>':'<table class="tt-availability-board"><caption>'+esc(teacher(availabilityTeacher)?.name||availabilityTeacher)+' · '+(teacherRanges.length?'Available during the shown ranges':'No ranges set · no availability restriction')+'</caption><thead><tr>'+dayOrder.map(day=>'<th scope="col">'+esc(days[day])+'</th>').join('')+'</tr></thead><tbody><tr>'+dayOrder.map(day=>{
+        const assigned=total(availabilityTeacher),overLimit=limit&&assigned>limit.maxWeeklyMinutes;
+        const caption='<span class="tt-availability-caption"><span>'+esc(teacher(availabilityTeacher)?.name||availabilityTeacher)+' · '+(teacherRanges.length?'Available during the shown ranges':'No ranges set · no availability restriction')+'</span><span class="tt-availability-hours'+(overLimit?' is-over':'')+'">Assigned teaching hours per week: '+duration(assigned)+(limit?' / '+duration(limit.maxWeeklyMinutes)+' maximum':'')+'</span></span>';
+        $('tt-availability-grid').innerHTML=!availabilityTeacher?'<p class="tt-scope">Add an eligible teacher to set availability.</p>':'<table class="tt-availability-board"><caption>'+caption+'</caption><thead><tr>'+dayOrder.map(day=>'<th scope="col">'+esc(days[day])+'</th>').join('')+'</tr></thead><tbody><tr>'+dayOrder.map(day=>{
           const rows=teacherRanges.filter(row=>row.weekday===day).sort((a,b)=>a.startTime.localeCompare(b.startTime));
           return '<td data-availability-day="'+day+'">'+rows.map(row=>'<div class="tt-availability-range" draggable="true" data-availability-range="'+esc(row.id)+'" data-edit-availability="'+esc(row.id)+'"><button type="button" class="tt-availability-range-time" data-edit-availability="'+esc(row.id)+'" aria-label="Edit '+esc(days[day]+' '+row.startTime+' to '+row.endTime)+'">'+esc(row.startTime.replace(':','h'))+'–'+esc(row.endTime.replace(':','h'))+'</button><button type="button" class="tt-availability-delete" data-remove-availability="'+esc(row.id)+'" aria-label="Delete '+esc(days[day]+' '+row.startTime+' to '+row.endTime)+'" title="Delete range">'+deleteIcon+'</button></div>').join('')+'<button type="button" class="tt-availability-add" data-add-availability-day="'+day+'" aria-label="Add available time on '+esc(days[day])+'"><span class="tt-availability-plus" aria-hidden="true">＋</span><span>'+ (rows.length?'Add another range':'Add range') +'</span></button></td>';
         }).join('')+'</tr></tbody></table>';
@@ -285,11 +287,7 @@
         $('tt-break-editor-title').textContent='Edit '+days[editingBreak.day]+' break';
         $('tt-break-label').value=row.label||'Break';$('tt-break-start').value=row.startTime.replace(':','h');$('tt-break-end').value=row.endTime.replace(':','h');
       }
-      function renderReview(){
-        const teacherIds=new Set([...plan().limits.map(row=>row.teacherId),...state.draft.rules.map(row=>row.teacherId).filter(Boolean)]);
-        $('tt-planner-review').innerHTML=[...teacherIds].map(id=>{const used=total(id),limit=plan().limits.find(row=>row.teacherId===id)?.maxWeeklyMinutes;return '<span class="'+(limit!==undefined&&used>limit?'is-over':'')+'">'+esc(teacher(id)?.name||id)+': '+duration(used)+(limit===undefined?'':' / '+duration(limit)+' max')+'</span>';}).join('')||'<span>No teacher hours scheduled yet.</span>';
-      }
-      function render(){if(!state.data||!state.draft)return;learnerCache=new Map();$('tt-period-setup').hidden=Boolean(plan().periods.length);renderBoard();renderEditor();renderBreakEditor();renderAvailability();renderReview();$('tt-clear-selection').disabled=!selectedMove&&!selectedBreakMove;$('tt-undo-placement').disabled=!undo.length;}
+      function render(){if(!state.data||!state.draft)return;learnerCache=new Map();$('tt-period-setup').hidden=Boolean(plan().periods.length);renderBoard();renderEditor();renderBreakEditor();renderAvailability();$('tt-clear-selection').disabled=!selectedMove&&!selectedBreakMove;$('tt-undo-placement').disabled=!undo.length;}
       function commit(){placementError=null;changed();render();}
       $('tt-create-periods').onclick=()=>{
         if(locked())return;
