@@ -1,4 +1,4 @@
-/* V105.3.4.8 — show saved breaks between planning periods. */
+/* V105.3.4.9 — plan teacher availability on a weekday board. */
 (()=>{'use strict';
   const timeMinutes=value=>/^([01]\d|2[0-3]):[0-5]\d$/.test(value||'')?Number(value.slice(0,2))*60+Number(value.slice(3)):NaN;
   const clock=minutes=>String(Math.floor(minutes/60)).padStart(2,'0')+':'+String(minutes%60).padStart(2,'0');
@@ -9,7 +9,7 @@
   const dayOrder=[1,2,3,4,5,6,0];
   window.M4L_ASSISTED_PLANNER={
     mount({state,$,esc,days,modules,changed,locked}){
-      let selectedClass='',selectedSubject='',selectedTeacher='',boardView='class',availabilityTeacher='',selectedAvailabilityDays=new Set([1]),selectedMove=null,editing=null,showDetails=false,editorDirty=false,editorSource='',placingBreak=false,selectedBreakMove=null,editingBreak=null,breakEditorDirty=false,breakEditorSource='',selectedEmpty=null,placementError=null,inlineSubject='',inlineTeacher='',inlineClass='',quickClassOverride=null,inlineDirty=false,learnerCache=new Map();
+      let selectedClass='',selectedSubject='',selectedTeacher='',boardView='class',availabilityTeacher='',selectedAvailabilityDays=new Set([1]),availabilityEditingId='',availabilityDay=null,selectedMove=null,editing=null,showDetails=false,editorDirty=false,editorSource='',placingBreak=false,selectedBreakMove=null,editingBreak=null,breakEditorDirty=false,breakEditorSource='',selectedEmpty=null,placementError=null,inlineSubject='',inlineTeacher='',inlineClass='',quickClassOverride=null,inlineDirty=false,learnerCache=new Map();
       const boardParams=new URLSearchParams(location.search),requestedView=boardParams.get('board');
       if(requestedView==='teacher'||requestedView==='class'){boardView=requestedView;selectedClass=boardParams.get('class')||'';selectedTeacher=boardParams.get('teacher')||'';}
       const boardTabs=[{id:'BOARD-1',view:boardView,classId:selectedClass,teacherId:selectedTeacher,subjectId:selectedSubject,emptyCell:null}];
@@ -24,6 +24,7 @@
       const teacher=id=>catalog().teachers.find(row=>row.id===id);
       const subject=row=>row.moduleId?catalog().modules.find(m=>m.id===row.moduleId)?.name:catalog().subjects.find(s=>s.id===row.programSubjectId)?.name;
       const note=(value,error=false)=>{$('tt-board-message').textContent=value;$('tt-board-message').classList.toggle('is-error',error);if($('tt-quick-lesson-dialog').open){$('tt-quick-error').textContent=error?value:'';$('tt-quick-error').hidden=!error;}};
+      const availabilityNote=(value,error=false)=>{$('tt-availability-message').textContent=value;$('tt-availability-message').classList.toggle('is-error',error);$('tt-availability-error').textContent=error?value:'';$('tt-availability-error').hidden=!error;};
       const closeQuickDialog=()=>{if($('tt-quick-lesson-dialog').open)$('tt-quick-lesson-dialog').close();$('tt-quick-error').hidden=true;$('tt-quick-error').textContent='';};
       const clearPlacementError=()=>{if(placementError){placementError=null;note('');}};
       const cellError=(day,period)=>placementError?.day===day&&placementError.periodId===period.id?'<p class="tt-board-cell-error">'+esc(placementError.message)+'</p>':'';
@@ -97,14 +98,35 @@
         const teachers=[...catalog().teachers.filter(row=>row.active)];
         for(const id of new Set([...plan().availability.map(row=>row.teacherId),...plan().limits.map(row=>row.teacherId)]))if(!teachers.some(row=>row.id===id))teachers.push({id,name:'Inactive: '+id});
         if(!teachers.some(row=>row.id===availabilityTeacher))availabilityTeacher=teachers[0]?.id||'';
+        $('tt-availability-tabs').innerHTML=teachers.map(row=>'<button id="tt-availability-tab-'+esc(row.id)+'" type="button" role="tab" data-availability-teacher="'+esc(row.id)+'" aria-selected="'+(row.id===availabilityTeacher)+'" aria-controls="tt-availability-grid" class="tt-availability-teacher-tab '+(row.id===availabilityTeacher?'is-active':'')+'">'+esc(row.name)+'</button>').join('');
+        if(availabilityTeacher)$('tt-availability-grid').setAttribute('aria-labelledby','tt-availability-tab-'+availabilityTeacher);
         $('tt-availability-teacher').innerHTML=teachers.map(row=>option(row.id,row.name,availabilityTeacher)).join('');
         $('tt-availability-teacher').value=availabilityTeacher;
         $('tt-availability-days').innerHTML=dayOrder.map(value=>'<label><input type="checkbox" value="'+value+'"'+(selectedAvailabilityDays.has(value)?' checked':'')+'> '+esc(days[value])+'</label>').join('');
         const limit=plan().limits.find(row=>row.teacherId===availabilityTeacher);
         $('tt-max-hours').value=limit?duration(limit.maxWeeklyMinutes):'';
         $('tt-remove-teacher-settings').disabled=!plan().availability.some(row=>row.teacherId===availabilityTeacher)&&!limit;
-        const rows=ranges(availabilityTeacher).slice().sort((a,b)=>dayOrder.indexOf(a.weekday)-dayOrder.indexOf(b.weekday)||a.startTime.localeCompare(b.startTime));
-        $('tt-availability-grid').innerHTML=!availabilityTeacher?'<p class="tt-scope">Add an eligible teacher to set availability.</p>':rows.length?'<table class="tt-availability-table"><thead><tr><th>Day</th><th>Available from</th><th>Available to</th><th></th></tr></thead><tbody>'+rows.map(row=>'<tr><td>'+esc(days[row.weekday])+'</td><td>'+esc(row.startTime.replace(':','h'))+'</td><td>'+esc(row.endTime.replace(':','h'))+'</td><td><button type="button" class="pb-secondary" data-remove-availability="'+esc(row.id)+'" aria-label="Remove '+esc(days[row.weekday]+' '+row.startTime+' to '+row.endTime)+'">Remove</button></td></tr>').join('')+'</tbody></table>':'<p class="tt-scope">No time ranges entered. This teacher has no availability restriction.</p>';
+        const teacherRanges=ranges(availabilityTeacher);
+        $('tt-availability-grid').innerHTML=!availabilityTeacher?'<p class="tt-scope">Add an eligible teacher to set availability.</p>':'<table class="tt-availability-board"><caption>'+esc(teacher(availabilityTeacher)?.name||availabilityTeacher)+' · '+(teacherRanges.length?'Available during the shown ranges':'No ranges set · no availability restriction')+'</caption><thead><tr>'+dayOrder.map(day=>'<th scope="col">'+esc(days[day])+'</th>').join('')+'</tr></thead><tbody><tr>'+dayOrder.map(day=>{
+          const rows=teacherRanges.filter(row=>row.weekday===day).sort((a,b)=>a.startTime.localeCompare(b.startTime));
+          return '<td data-availability-day="'+day+'">'+rows.map(row=>'<div class="tt-availability-range" draggable="true" data-availability-range="'+esc(row.id)+'" data-edit-availability="'+esc(row.id)+'"><button type="button" class="tt-availability-range-time" data-edit-availability="'+esc(row.id)+'" aria-label="Edit '+esc(days[day]+' '+row.startTime+' to '+row.endTime)+'">'+esc(row.startTime.replace(':','h'))+'–'+esc(row.endTime.replace(':','h'))+'</button><button type="button" class="tt-availability-delete" data-remove-availability="'+esc(row.id)+'" aria-label="Delete '+esc(days[day]+' '+row.startTime+' to '+row.endTime)+'" title="Delete range">'+deleteIcon+'</button></div>').join('')+'<button type="button" class="tt-availability-add" data-add-availability-day="'+day+'" aria-label="Add available time on '+esc(days[day])+'"><span class="tt-availability-plus" aria-hidden="true">＋</span><span>'+ (rows.length?'Add another range':'Add range') +'</span></button></td>';
+        }).join('')+'</tr></tbody></table>';
+      }
+      function closeAvailabilityDialog(){if($('tt-availability-dialog').open)$('tt-availability-dialog').close();availabilityEditingId='';availabilityDay=null;$('tt-availability-error').hidden=true;}
+      function openAvailabilityDialog(day,id=''){
+        if(locked()||!availabilityTeacher||!dayOrder.includes(day))return;
+        const row=id?ranges(availabilityTeacher).find(item=>item.id===id&&item.weekday===day):null;
+        if(id&&!row)return;
+        availabilityDay=day;availabilityEditingId=id;
+        $('tt-availability-dialog-title').textContent=(row?'Edit':'Add')+' '+days[day]+' availability';
+        $('tt-availability-dialog-from').value=row?row.startTime.replace(':','h'):'';
+        $('tt-availability-dialog-to').value=row?row.endTime.replace(':','h'):'';
+        $('tt-availability-save').textContent=row?'Save range':'Add range';
+        availabilityNote('');$('tt-availability-dialog').showModal();
+      }
+      function switchAvailabilityTeacher(id){
+        if(!id||id===availabilityTeacher||!catalog().teachers.some(row=>row.id===id)&&!plan().availability.some(row=>row.teacherId===id)&&!plan().limits.some(row=>row.teacherId===id))return;
+        closeAvailabilityDialog();availabilityTeacher=id;availabilityNote('');renderAvailability();
       }
       function lessonDropdowns(subjectId,teacherId,inline=false,classId=selectedClass,classIds=[]){
         const subjects=modules(),teachers=catalog().teachers.filter(row=>row.active||row.id===teacherId);
@@ -137,6 +159,8 @@
       }
       function openQuickDialog(){
         const row=activeEdit(),splitOptions=splitBoundaries(row);
+        $('tt-quick-lesson-dialog').classList.toggle('is-detailed',false);
+        $('tt-quick-fields').hidden=false;$('tt-quick-actions').hidden=false;
         $('tt-quick-lesson-title').textContent='Edit '+days[editing.day]+' lesson';
         $('tt-quick-fields').innerHTML=lessonDropdowns(inlineSubject,inlineTeacher,true,inlineClass,row.classIds);
         $('tt-quick-split-wrap').hidden=!splitOptions.length;$('tt-quick-split').hidden=!splitOptions.length;
@@ -305,15 +329,16 @@
         const before=structuredClone(plan().periods);row[key]=value;event.target.value=value.replace(':','h');
         saveUndo(structuredClone(state.draft.rules),before);note('Period time updated. Existing lessons keep their own times.');commit();
       };
-      $('tt-availability-teacher').onchange=event=>{availabilityTeacher=event.target.value;renderAvailability();};
+      $('tt-availability-teacher').onchange=event=>{switchAvailabilityTeacher(event.target.value);};
+      $('tt-availability-tabs').onclick=event=>{const id=event.target.closest?.('[data-availability-teacher]')?.dataset.availabilityTeacher;if(id)switchAvailabilityTeacher(id);};
       $('tt-availability-days').onchange=event=>{if(event.target.type!=='checkbox')return;const day=Number(event.target.value);if(!dayOrder.includes(day))return;if(event.target.checked)selectedAvailabilityDays.add(day);else selectedAvailabilityDays.delete(day);};
       $('tt-select-weekdays').onclick=()=>{selectedAvailabilityDays=new Set([1,2,3,4,5]);renderAvailability();};
       for(const id of ['tt-availability-from','tt-availability-to'])$(id).onchange=event=>{const value=normalizeTime(event.target.value);if(value)event.target.value=value.replace(':','h');};
-      $('tt-remove-teacher-settings').onclick=()=>{if(locked()||!availabilityTeacher)return;edit().availability=plan().availability.filter(row=>row.teacherId!==availabilityTeacher);edit().limits=plan().limits.filter(row=>row.teacherId!==availabilityTeacher);note('Teacher availability and hour limit cleared.');commit();};
+      $('tt-remove-teacher-settings').onclick=()=>{if(locked()||!availabilityTeacher)return;edit().availability=plan().availability.filter(row=>row.teacherId!==availabilityTeacher);edit().limits=plan().limits.filter(row=>row.teacherId!==availabilityTeacher);availabilityNote('Teacher availability and hour limit cleared.');commit();};
       $('tt-max-hours').onchange=event=>{
         if(locked()||!availabilityTeacher)return;
         const raw=event.target.value,limit=durationMinutes(raw);
-        if(raw!==''&&(!Number.isInteger(limit)||limit<0||limit>10080)){note('Enter a weekly limit such as 12h30.',true);renderAvailability();return;}
+        if(raw!==''&&(!Number.isInteger(limit)||limit<0||limit>10080)){availabilityNote('Enter a weekly limit such as 12h30.',true);renderAvailability();return;}
         edit().limits=plan().limits.filter(row=>row.teacherId!==availabilityTeacher);
         if(raw!=='')edit().limits.push({teacherId:availabilityTeacher,maxWeeklyMinutes:limit});
         commit();
@@ -321,15 +346,60 @@
       $('tt-add-availability').onclick=()=>{
         if(locked()||!availabilityTeacher)return;
         const weekdays=dayOrder.filter(day=>selectedAvailabilityDays.has(day)),startTime=normalizeTime($('tt-availability-from').value),endTime=normalizeTime($('tt-availability-to').value);
-        if(!weekdays.length){note('Select at least one day for this teacher.',true);return;}
-        if(!Number.isFinite(timeMinutes(startTime))||!Number.isFinite(timeMinutes(endTime))||startTime>=endTime){note('Enter a valid available time range, for example 745 for 07h45.',true);return;}
+        if(!weekdays.length){availabilityNote('Select at least one day for this teacher.',true);return;}
+        if(!Number.isFinite(timeMinutes(startTime))||!Number.isFinite(timeMinutes(endTime))||startTime>=endTime){availabilityNote('Enter a valid available time range, for example 745 for 07h45.',true);return;}
         const overlapping=weekdays.filter(weekday=>ranges(availabilityTeacher).some(row=>row.weekday===weekday&&startTime<row.endTime&&row.startTime<endTime));
-        if(overlapping.length){note('This teacher already has an overlapping range on '+overlapping.map(day=>days[day]).join(', ')+'. No days were added.',true);return;}
+        if(overlapping.length){availabilityNote('This teacher already has an overlapping range on '+overlapping.map(day=>days[day]).join(', ')+'. No days were added.',true);return;}
+        if(plan().availability.length+weekdays.length>240){availabilityNote('The timetable allows at most 240 availability ranges.',true);return;}
         edit().availability.push(...weekdays.map(weekday=>({id:'AVAIL-'+crypto.randomUUID(),teacherId:availabilityTeacher,weekday,startTime,endTime})));
         $('tt-availability-from').value='';$('tt-availability-to').value='';
-        note('Available time range added on '+weekdays.map(day=>days[day]).join(', ')+'.');commit();
+        availabilityNote('Available time range added on '+weekdays.map(day=>days[day]).join(', ')+'.');commit();
       };
-      $('tt-availability-grid').onclick=event=>{const id=event.target.closest?.('[data-remove-availability]')?.dataset.removeAvailability;if(!id||locked())return;edit().availability=plan().availability.filter(row=>row.id!==id);note('Available time range removed.');commit();};
+      $('tt-availability-grid').onclick=event=>{
+        if(locked())return;
+        const removeId=event.target.closest?.('[data-remove-availability]')?.dataset.removeAvailability;
+        if(removeId){
+          const row=ranges(availabilityTeacher).find(item=>item.id===removeId);if(!row)return;
+          if(!window.confirm('Delete '+days[row.weekday]+' '+row.startTime.replace(':','h')+'–'+row.endTime.replace(':','h')+' availability for '+(teacher(availabilityTeacher)?.name||'this teacher')+'?'))return;
+          edit().availability=plan().availability.filter(item=>item.id!==removeId);availabilityNote('Availability range deleted.');commit();return;
+        }
+        const editId=event.target.closest?.('[data-edit-availability]')?.dataset.editAvailability;
+        if(editId){const row=ranges(availabilityTeacher).find(item=>item.id===editId);if(row)openAvailabilityDialog(row.weekday,row.id);return;}
+        const day=Number(event.target.closest?.('[data-add-availability-day]')?.dataset.addAvailabilityDay??event.target.closest?.('[data-availability-day]')?.dataset.availabilityDay);
+        if(dayOrder.includes(day))openAvailabilityDialog(day);
+      };
+      $('tt-availability-grid').ondragstart=event=>{
+        const id=event.target.closest?.('[data-availability-range]')?.dataset.availabilityRange;
+        if(locked()||!ranges(availabilityTeacher).some(row=>row.id===id)){event.preventDefault?.();return;}
+        event.dataTransfer.setData('application/x-m4l-availability',id);event.dataTransfer.setData('text/plain',id);event.dataTransfer.effectAllowed='copy';
+      };
+      $('tt-availability-grid').ondragover=event=>{const cell=event.target.closest?.('[data-availability-day]');if(!locked()&&cell){event.preventDefault();event.dataTransfer.dropEffect='copy';cell.classList?.toggle('is-drag-over',true);}};
+      $('tt-availability-grid').ondragleave=event=>{const cell=event.target.closest?.('[data-availability-day]');if(cell&&!cell.contains?.(event.relatedTarget))cell.classList?.toggle('is-drag-over',false);};
+      $('tt-availability-grid').ondragend=()=>{$('tt-availability-grid').querySelectorAll?.('.is-drag-over').forEach(cell=>cell.classList.toggle('is-drag-over',false));};
+      $('tt-availability-grid').ondrop=event=>{
+        const cell=event.target.closest?.('[data-availability-day]');if(!cell||locked())return;
+        event.preventDefault();cell.classList?.toggle('is-drag-over',false);
+        const id=event.dataTransfer.getData('application/x-m4l-availability')||event.dataTransfer.getData('text/plain'),row=ranges(availabilityTeacher).find(item=>item.id===id),day=Number(cell.dataset.availabilityDay);
+        if(!row||!dayOrder.includes(day))return;
+        if(row.weekday===day){availabilityNote('Choose another day to copy this range.',true);return;}
+        if(ranges(availabilityTeacher).some(item=>item.weekday===day&&overlap(item,row))){availabilityNote(days[day]+' already has an overlapping range.',true);return;}
+        if(plan().availability.length>=240){availabilityNote('The timetable allows at most 240 availability ranges.',true);return;}
+        edit().availability.push({...row,id:'AVAIL-'+crypto.randomUUID(),weekday:day});availabilityNote('Copied '+row.startTime.replace(':','h')+'–'+row.endTime.replace(':','h')+' to '+days[day]+'.');commit();
+      };
+      $('tt-availability-dialog').oncancel=event=>{event.preventDefault();closeAvailabilityDialog();availabilityNote('');};
+      $('tt-availability-cancel').onclick=()=>{closeAvailabilityDialog();availabilityNote('');};
+      for(const id of ['tt-availability-dialog-from','tt-availability-dialog-to'])$(id).onchange=event=>{const value=normalizeTime(event.target.value);if(value)event.target.value=value.replace(':','h');};
+      $('tt-availability-save').onclick=()=>{
+        if(locked()||!availabilityTeacher||!dayOrder.includes(availabilityDay))return;
+        const startTime=normalizeTime($('tt-availability-dialog-from').value),endTime=normalizeTime($('tt-availability-dialog-to').value);
+        if(!startTime||!endTime||startTime>=endTime){availabilityNote('Enter valid times, for example 745 for 07h45.',true);return;}
+        if(ranges(availabilityTeacher).some(row=>row.id!==availabilityEditingId&&row.weekday===availabilityDay&&startTime<row.endTime&&row.startTime<endTime)){availabilityNote('This day already has an overlapping range.',true);return;}
+        if(!availabilityEditingId&&plan().availability.length>=240){availabilityNote('The timetable allows at most 240 availability ranges.',true);return;}
+        const row=availabilityEditingId?ranges(availabilityTeacher).find(item=>item.id===availabilityEditingId):null;
+        if(availabilityEditingId&&!row){availabilityNote('This range changed. Close and reopen it.',true);return;}
+        if(row){row.startTime=startTime;row.endTime=endTime;}else edit().availability.push({id:'AVAIL-'+crypto.randomUUID(),teacherId:availabilityTeacher,weekday:availabilityDay,startTime,endTime});
+        closeAvailabilityDialog();availabilityNote(row?'Availability range updated.':'Availability range added.');commit();
+      };
       $('tt-add-board-tab').onclick=()=>{
         if(editorDirty||breakEditorDirty||inlineDirty){note('Save or close the open item before opening another board.',true);return;}
         if(boardTabs.length>=24){note('Close a board tab before opening another.',true);return;}
@@ -392,11 +462,13 @@
       $('tt-quick-lesson-dialog').oncancel=event=>{event.preventDefault();$('tt-quick-cancel').onclick();};
       $('tt-quick-cancel').onclick=()=>{$('tt-close-lesson').onclick();};
       $('tt-quick-more').onclick=()=>{
-        closeQuickDialog();showDetails=true;renderEditor();
+        showDetails=true;renderEditor();
         $('tt-edit-subject').value=inlineSubject;$('tt-edit-teacher').value=inlineTeacher;
         if(boardView==='teacher'&&inlineClass!=='__keep__')for(const input of $('tt-edit-classes').querySelectorAll('input[type="checkbox"]'))input.checked=input.value===inlineClass;
         editorDirty=inlineDirty;inlineDirty=false;
-        $('tt-board-editor').scrollIntoView?.({block:'nearest'});
+        $('tt-quick-fields').hidden=true;$('tt-quick-period-actions').hidden=true;$('tt-quick-actions').hidden=true;
+        $('tt-quick-lesson-dialog').classList.toggle('is-detailed',true);
+        $('tt-edit-subject').focus?.();
       };
       $('tt-quick-save').onclick=()=>{
         if(locked()||!activeEdit())return;
