@@ -1,8 +1,8 @@
 /*
 ===============================================================================
 MAKTABHELPER — GOOGLE DRIVE BRIDGE
-Last updated: 5 August 2026
-Migration milestone: V98.14
+Last updated: 1 October 2026
+Library milestone: V105.4.1
 ===============================================================================
 
 SOURCE OF TRUTH:
@@ -10,7 +10,7 @@ SOURCE OF TRUTH:
 - Synchronize the complete file to the bound Apps Script project; do not
   maintain an independent dashboard copy.
 
-V98.14 FINAL OWNERSHIP:
+V105.4.1 OWNERSHIP:
 - All Google Sheets application reads and writes are owned by authenticated
   Cloudflare Worker routes and the M4L UI.
 - Apps Script is retained for Weekly Planner PNG and Program Library uploads
@@ -18,7 +18,7 @@ V98.14 FINAL OWNERSHIP:
 - Apps Script reads the UI-managed Weekly Planner Drive destination from the
   bound spreadsheet's SystemConfig sheet; it does not administer Sheets data.
 
-CALLABLE doPost ACTION:
+CALLABLE doPost ACTIONS:
 - saveWeeklyPlannerPreviewToDrive
 - startProgramLibraryUpload (signed Worker request only)
 
