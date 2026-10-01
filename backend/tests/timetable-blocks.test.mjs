@@ -36,8 +36,22 @@ const pages=blocks.canvases(seven,canvas);assert.equal(pages.length,1);
 assert(pages[0].canvas.text.some(t=>t.value.includes('DRAFT PREVIEW')),'Version and effective date remain in the export footnote');
 for(const page of pages){for(const r of page.canvas.rectangles)assert(r.x>=0&&r.y>=0&&r.x+r.w<=page.canvas.width&&r.y+r.h<=page.canvas.height,'Block and heading bounds');for(const r of page.links)assert(r.x>=0&&r.y>=0&&r.x+r.width<=page.canvas.width&&r.y+r.height<=page.canvas.height,'Link bounds');}
 const dense=blocks.model(source([item('All day',2,'07:30','16:00'),...Array.from({length:12},(_,i)=>item('Short '+i,3,`${String(8+Math.floor(i/2)).padStart(2,'0')}:${i%2?'30':'00'}`,`${String(8+Math.floor(i/2)).padStart(2,'0')}:${i%2?'45':'15'}`))]));
-const densePages=blocks.canvases(dense,canvas);assert(densePages.length>1);assert(densePages.some(p=>p.canvas.text.some(t=>t.value==='Continues on adjacent page')));
-console.log('Blocks: proportional placement, uneven times, gaps, overlap lanes, safe shared entries, filters, escaping and export pagination passed.');
+const densePages=blocks.canvases(dense,canvas),denseScene=blocks.scene(dense,canvas);
+assert.equal(densePages.length,1,'A dense timetable exports as one image');
+assert(densePages[0].canvas.height>1132,'The image grows to fit all lessons');
+assert.equal(densePages[0].canvas.rectangles.length,denseScene.columns.length+denseScene.blocks.length,'Every lesson appears in the single image');
+assert(!densePages[0].canvas.text.some(t=>t.value==='Continues on adjacent page'));
+for(const r of densePages[0].canvas.rectangles)assert(r.y>=0&&r.y+r.h<=densePages[0].canvas.height,'Dense block stays on the image');
+const pdfSizes=[],pdfImages=[],pdfLinks=[];
+const pdfLib={PDFDocument:{create:async()=>({setTitle(){},addPage(size){pdfSizes.push(size);return {drawImage(image,options){pdfImages.push(options);},node:{set(){}}};},embedPng:async()=>({}),context:{obj:value=>value,register(value){pdfLinks.push(value);return value;}},save:async()=>new Uint8Array()})},PDFName:{of:value=>value},PDFString:{of:value=>value}};
+densePages[0].canvas.toDataURL=()=>'';
+await ctx.window.M4L_TIMETABLE_PRESENTATION.pdf(densePages,pdfLib);
+assert.equal(pdfSizes.length,1,'The PDF contains one page');
+assert([[841.89,595.28],[595.28,841.89]].some(size=>size.every((value,i)=>value===pdfSizes[0][i])),'The PDF page is A4');
+assert(Math.abs(pdfImages[0].width/pdfImages[0].height-densePages[0].canvas.width/densePages[0].canvas.height)<1e-10,'The PDF keeps the image proportions');
+assert(pdfImages[0].x>=0&&pdfImages[0].y>=0&&pdfImages[0].x+pdfImages[0].width<=pdfSizes[0][0]&&pdfImages[0].y+pdfImages[0].height<=pdfSizes[0][1],'The complete image fits on A4');
+assert.equal(pdfLinks.length,densePages[0].links.length,'Every lesson link remains clickable');
+console.log('Blocks: proportional placement, uneven times, gaps, overlap lanes, safe shared entries, filters, escaping and single-image/PDF export passed.');
 
 // The reported morning timetable, including a shared short Assembly, fits one page.
 const morning=source([

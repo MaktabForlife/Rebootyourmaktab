@@ -191,7 +191,7 @@
       if(logo.decode)try{await logo.decode();}catch{}
       if(generation!==exportGeneration)return;
       const pages=blocks.canvases(model,createCanvas,logo.complete&&logo.naturalWidth?logo:null);
-      const files=await Promise.all(pages.map((p,i)=>new Promise((resolve,reject)=>p.canvas.toBlob(blob=>blob?resolve(new File([blob],`${exportName}-${i+1}.png`,{type:'image/png'})):reject(Error('Image export failed.')),'image/png'))));
+      const files=await Promise.all(pages.map(p=>new Promise((resolve,reject)=>p.canvas.toBlob(blob=>blob?resolve(new File([blob],`${exportName}.png`,{type:'image/png'})):reject(Error('Image export failed.')),'image/png'))));
       if(generation!==exportGeneration)return;exportPages=pages;exportFiles=files;
       $('tt-share-image').disabled=$('tt-download-image').disabled=$('tt-download-pdf').disabled=false;
       $('tt-export-note').textContent='Module names are links in the PDF. Images do not contain clickable links.';

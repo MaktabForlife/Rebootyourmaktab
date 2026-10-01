@@ -103,48 +103,31 @@
   function rounded(ctx,x,y,w,h,fill,stroke){ctx.beginPath();ctx.roundRect(x,y,w,h,14);ctx.fillStyle=fill;ctx.fill();ctx.strokeStyle=stroke;ctx.lineWidth=1.5;ctx.stroke();}
   function canvases(m,createCanvas,logo){
     if(!m.events.length)throw Error('There are no lessons to export.');
-    const pages=[],W=1600,H=1132;
-    for(let offset=0;offset<m.columns.length;offset+=7){
-      const s=scene(m,createCanvas,offset,Math.min(7,m.columns.length-offset));let from=m.start;
-      // Estimate the heading once; repeat it on every exported page.
-      const measure=createCanvas(1,1).getContext('2d'),headings=[];
-      for(const [text,size,bold] of [[m.academy,22,true],[`${m.timetableName} ${m.title}`,30,true]]){font(measure,size,bold);for(const line of wrap(measure,text,W-350))headings.push({text:line,size,bold});}
-      const gridTop=30+headings.reduce((n,l)=>n+l.size+7,0)+66,capacity=H-gridTop-58;
-      while(from<m.end){
-        if(pages.length>=40)throw Error('This timetable needs too many pages. Choose a class or teacher with fewer sessions.');
-        let to=Math.min(m.end,Math.floor(from+capacity/s.scale));
-        // Avoid cutting a short block into fragments too small for its full details.
-        const candidates=Array.from({length:Math.max(0,to-from)},(_,i)=>to-i);
-        const fits=t=>s.blocks.every(b=>{
-          const duration=Math.min(b.end,t)-Math.max(b.start,from),continued=b.start<from||b.end>t;
-          if(duration>0&&duration*s.scale<b.needed+6+(continued?20:0))return false;
-          return !(b.start<t&&b.end>t&&(b.end-t)*s.scale<b.needed+26);
-        });
-        to=candidates.find(fits);
-        if(to===undefined)throw Error('A block is too tall for a PDF page. Choose a class or teacher with fewer overlapping sessions.');
-        const canvas=createCanvas(W,H),ctx=canvas.getContext('2d'),links=[];ctx.fillStyle='#fffdf8';ctx.fillRect(0,0,W,H);ctx.textAlign='center';ctx.textBaseline='top';
-        if(logo)ctx.drawImage(logo,42,30,78,78);let y=28;
-        for(const line of headings){font(ctx,line.size,line.bold);ctx.fillStyle='#42304b';ctx.fillText(line.text,W/2,y);y+=line.size+7;}
-        s.columns.forEach((day,i)=>{rounded(ctx,s.left+i*s.dayWidth+3,gridTop-54,s.dayWidth-6,42,'#e4d5eb','#e4d5eb');font(ctx,23,true);ctx.fillStyle='#4c3058';ctx.fillText(day.label,s.left+(i+.5)*s.dayWidth,gridTop-46);});
-        const bottom=gridTop+(to-from)*s.scale;
-        ctx.strokeStyle='#e5dce9';ctx.lineWidth=1;for(let i=0;i<=s.columns.length;i++){const x=s.left+i*s.dayWidth;ctx.beginPath();ctx.moveTo(x,gridTop);ctx.lineTo(x,bottom);ctx.stroke();}
-        const times=[from,...Array.from({length:Math.max(0,Math.floor(to/30)-Math.ceil(from/30)+1)},(_,i)=>(Math.ceil(from/30)+i)*30),to];
-        for(const t of [...new Set(times)]){const ty=gridTop+(t-from)*s.scale;ctx.strokeStyle=t%30?'#eee6f0':'#d9cddd';ctx.beginPath();ctx.moveTo(s.left,ty);ctx.lineTo(W-s.right,ty);ctx.stroke();font(ctx,17);ctx.textAlign='right';ctx.fillStyle='#6c5a74';ctx.fillText(clock(Math.round(t)),s.left-18,Math.min(bottom-17,Math.max(gridTop,ty-8)));}
-        ctx.textAlign='center';
-        for(const b of s.blocks.filter(b=>b.start<to&&b.end>from)){
-          const by=gridTop+(Math.max(b.start,from)-from)*s.scale+3,height=(Math.min(b.end,to)-Math.max(b.start,from))*s.scale-6;
-          rounded(ctx,b.x,by,b.width,height,b.cancelled?'#eeeef0':b.kind==='BREAK'?'#edf4f1':'#f7f0fb',b.kind==='BREAK'?'#91b0a2':'#b598c3');
-          const continued=b.start<from||b.end>to;
-          const textTop=by+(height-b.needed+10-(continued?20:0))/2;
-          ctx.textAlign='left';
-          for(const line of b.lines){const lx=b.x+line.dx,ly=textTop+line.dy;font(ctx,line.size,line.bold);ctx.fillStyle=line.color;ctx.fillText(line.text,lx,ly);if(line.title&&b.url){ctx.fillRect(lx,ly+line.size+1,line.width,1);links.push({url:b.url,x:lx,y:ly,width:line.width,height:line.size+3});}}
-          ctx.textAlign='center';
-          if(continued){font(ctx,12);ctx.fillStyle='#6c5a74';ctx.fillText('Continues on adjacent page',b.x+b.width/2,by+height-15);}
-        }
-        pages.push({canvas,links});from=to;
-      }
+    const s=scene(m,createCanvas),W=s.width;
+    const measure=createCanvas(1,1).getContext('2d'),headings=[];
+    for(const [text,size,bold] of [[m.academy,22,true],[`${m.timetableName} ${m.title}`,30,true]]){font(measure,size,bold);for(const line of wrap(measure,text,W-350))headings.push({text:line,size,bold});}
+    const gridTop=30+headings.reduce((n,l)=>n+l.size+7,0)+66;
+    // Grow the export vertically so a complete class or teacher timetable stays together.
+    const H=Math.max(1132,Math.ceil(gridTop+s.height+60));
+    const canvas=createCanvas(W,H),ctx=canvas.getContext('2d'),links=[];ctx.fillStyle='#fffdf8';ctx.fillRect(0,0,W,H);ctx.textAlign='center';ctx.textBaseline='top';
+    if(logo)ctx.drawImage(logo,42,30,78,78);let y=28;
+    for(const line of headings){font(ctx,line.size,line.bold);ctx.fillStyle='#42304b';ctx.fillText(line.text,W/2,y);y+=line.size+7;}
+    s.columns.forEach((day,i)=>{rounded(ctx,s.left+i*s.dayWidth+3,gridTop-54,s.dayWidth-6,42,'#e4d5eb','#e4d5eb');font(ctx,23,true);ctx.fillStyle='#4c3058';ctx.fillText(day.label,s.left+(i+.5)*s.dayWidth,gridTop-46);});
+    const bottom=gridTop+s.height;
+    ctx.strokeStyle='#e5dce9';ctx.lineWidth=1;for(let i=0;i<=s.columns.length;i++){const x=s.left+i*s.dayWidth;ctx.beginPath();ctx.moveTo(x,gridTop);ctx.lineTo(x,bottom);ctx.stroke();}
+    const times=[s.start,...Array.from({length:Math.max(0,Math.floor(s.end/30)-Math.ceil(s.start/30)+1)},(_,i)=>(Math.ceil(s.start/30)+i)*30),s.end];
+    for(const t of [...new Set(times)]){const ty=gridTop+(t-s.start)*s.scale;ctx.strokeStyle=t%30?'#eee6f0':'#d9cddd';ctx.beginPath();ctx.moveTo(s.left,ty);ctx.lineTo(W-s.right,ty);ctx.stroke();font(ctx,17);ctx.textAlign='right';ctx.fillStyle='#6c5a74';ctx.fillText(clock(Math.round(t)),s.left-18,Math.min(bottom-17,Math.max(gridTop,ty-8)));}
+    ctx.textAlign='center';
+    for(const b of s.blocks){
+      const by=gridTop+b.y+3,height=b.height-6;
+      rounded(ctx,b.x,by,b.width,height,b.cancelled?'#eeeef0':b.kind==='BREAK'?'#edf4f1':'#f7f0fb',b.kind==='BREAK'?'#91b0a2':'#b598c3');
+      const textTop=by+(height-b.needed+10)/2;
+      ctx.textAlign='left';
+      for(const line of b.lines){const lx=b.x+line.dx,ly=textTop+line.dy;font(ctx,line.size,line.bold);ctx.fillStyle=line.color;ctx.fillText(line.text,lx,ly);if(line.title&&b.url){ctx.fillRect(lx,ly+line.size+1,line.width,1);links.push({url:b.url,x:lx,y:ly,width:line.width,height:line.size+3});}}
+      ctx.textAlign='center';
     }
-    pages.forEach((page,i)=>{const ctx=page.canvas.getContext('2d');font(ctx,15);ctx.fillStyle='#685f6e';ctx.textAlign='center';ctx.fillText(`${m.stamp} · ${m.timezone}`,800,1100);ctx.textAlign='right';ctx.fillText(`Page ${i+1} of ${pages.length}`,1560,1100);});return pages;
+    font(ctx,15);ctx.fillStyle='#685f6e';ctx.fillText(`${m.stamp} · ${m.timezone}`,W/2,H-32);
+    return [{canvas,links}];
   }
   window.M4L_TIMETABLE_BLOCKS={model,position,scene,html,canvases};
 })();

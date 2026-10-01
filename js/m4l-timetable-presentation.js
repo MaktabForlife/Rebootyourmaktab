@@ -124,9 +124,14 @@
   async function pdf(pages,lib){
     const doc=await lib.PDFDocument.create();doc.setTitle('Academy timetable');
     for(const source of pages){
-      const width=841.89,height=595.28,page=doc.addPage([width,height]),sx=width/source.canvas.width,sy=height/source.canvas.height;
-      const png=await doc.embedPng(source.canvas.toDataURL('image/png'));page.drawImage(png,{x:0,y:0,width,height});
-      const annotations=source.links.map(rect=>doc.context.register(doc.context.obj({Type:'Annot',Subtype:'Link',Rect:[rect.x*sx,height-(rect.y+rect.height)*sy,(rect.x+rect.width)*sx,height-rect.y*sy],Border:[0,0,0],A:{Type:'Action',S:'URI',URI:lib.PDFString.of(rect.url)}})));
+      // Fit the whole image on one A4 sheet, using the orientation with larger text.
+      const cw=source.canvas.width,ch=source.canvas.height;
+      const landscape=[841.89,595.28],portrait=[595.28,841.89];
+      const [width,height]=Math.min(landscape[0]/cw,landscape[1]/ch)>=Math.min(portrait[0]/cw,portrait[1]/ch)?landscape:portrait;
+      const scale=Math.min(width/cw,height/ch),drawWidth=cw*scale,drawHeight=ch*scale,x=(width-drawWidth)/2,y=(height-drawHeight)/2;
+      const page=doc.addPage([width,height]),png=await doc.embedPng(source.canvas.toDataURL('image/png'));
+      page.drawImage(png,{x,y,width:drawWidth,height:drawHeight});
+      const annotations=source.links.map(rect=>doc.context.register(doc.context.obj({Type:'Annot',Subtype:'Link',Rect:[x+rect.x*scale,y+(ch-rect.y-rect.height)*scale,x+(rect.x+rect.width)*scale,y+(ch-rect.y)*scale],Border:[0,0,0],A:{Type:'Action',S:'URI',URI:lib.PDFString.of(rect.url)}})));
       page.node.set(lib.PDFName.of('Annots'),doc.context.obj(annotations));
     }
     return doc.save();
