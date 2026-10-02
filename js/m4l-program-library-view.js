@@ -1,4 +1,4 @@
-/* V105.4.2 · Read-only Program Library viewer, following Reboot's subject and resource ribbons. */
+/* V105.4.2.1 · Read-only Program Library viewer, following Reboot's subject and resource ribbons. */
 (() => {
   'use strict';
   const $ = id => document.getElementById(id);
@@ -47,7 +47,10 @@
       : row.hasCover
         ? `<span class="lv-cover-placeholder" data-cover="${esc(row.id)}" aria-hidden="true">▣</span>`
         : `<span class="lv-cover-placeholder" aria-hidden="true"><img src="${esc(icons[row.type] || icons.OTHER)}" alt="" width="34" height="34"></span>`;
-    return `<button type="button" class="lv-card" data-resource="${esc(row.id)}" aria-label="Open ${esc(row.name)}">${cover}<small>${esc(types[row.type] || 'Resource')}</small><strong>${esc(row.name)}</strong>${row.author?`<span class="lv-author">${esc(row.author)}</span>`:''}</button>`;
+    const caption = row.hasCover
+      ? `<span class="lv-card-caption"><img class="lv-media-icon" src="${esc(icons[row.type] || icons.OTHER)}" alt=""><strong>${esc(row.name)}</strong></span>`
+      : `<small>${esc(types[row.type] || 'Resource')}</small><strong>${esc(row.name)}</strong>${row.author?`<span class="lv-author">${esc(row.author)}</span>`:''}`;
+    return `<button type="button" class="lv-card" data-resource="${esc(row.id)}" aria-label="Open ${esc(row.name)}">${cover}${caption}</button>`;
   }
 
   function renderResults() {
