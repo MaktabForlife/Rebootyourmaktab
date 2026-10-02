@@ -9,7 +9,7 @@ import { managementState } from './management-model.js';
 import { TIMETABLE_HEADERS } from './timetable-model.js';
 import { getResourceConfig, getRootFolderId, requireItemInsideRoot, validateFileForResourceType } from '../routes/drive-library.js';
 import { listGoogleDriveFolder } from '../lib/google-drive.js';
-import { extractGoogleDriveFolderId } from '../lib/system-config.js';
+import { extractGoogleDriveFolderId, findSystemConfigRowIndexes, getSystemConfigValue, PROGRAM_LIBRARY_DRIVE_FOLDER_ID_KEY, PROGRAM_LIBRARY_PREVIOUS_FOLDER_IDS_KEY, readSystemConfigRows } from '../lib/system-config.js';
 const LIBRARY_TABLES=['ProgramTasks','ProgramResources'];
 const LEGACY_RESOURCE_HEADERS=TIMETABLE_HEADERS.ProgramResources.slice(0,11);
 export const cells = values => ({ values:values.map(value=>({ userEnteredValue:typeof value==='boolean'?{boolValue:value}:typeof value==='number'?{numberValue:value}:{stringValue:String(value??'')} })) });
@@ -44,6 +44,18 @@ export function timetableRepository(env, program) {
     if(requests.length)await batchUpdateGoogleSpreadsheet(env,requests,target);
   }
   return {
+    async libraryRootIds(){
+      const rows=await readSystemConfigRows(env);
+      if(findSystemConfigRowIndexes(rows,PROGRAM_LIBRARY_DRIVE_FOLDER_ID_KEY).length>1||findSystemConfigRowIndexes(rows,PROGRAM_LIBRARY_PREVIOUS_FOLDER_IDS_KEY).length>1)throw problem('SystemConfig has duplicate Program Library folder settings. Ask a global admin to correct them.',409);
+      const current=getSystemConfigValue(rows,PROGRAM_LIBRARY_DRIVE_FOLDER_ID_KEY);
+      if(!/^[A-Za-z0-9_-]{10,128}$/.test(current))throw problem('Ask a global admin to set the Program Library Resources folder.',409);
+      const previous=getSystemConfigValue(rows,PROGRAM_LIBRARY_PREVIOUS_FOLDER_IDS_KEY).split(',').map(clean).filter(Boolean);
+      if(previous.some(id=>!/^[A-Za-z0-9_-]{10,128}$/.test(id)))throw problem('The previous Library folder settings need administrator repair.',409);
+      return [...new Set([current,...previous])];
+    },
+    async libraryDestination() {
+      return (await this.libraryRootIds())[0];
+    },
     async verifyLibraryRoot(value) {
       let folderId;
       try{folderId=extractGoogleDriveFolderId(value);}catch(error){throw problem(error.message);}
@@ -58,11 +70,11 @@ export function timetableRepository(env, program) {
       }
       return {FolderID:folder.id,Name:clean(folder.name).slice(0,160)||folder.id};
     },
-    async verifyResource(record, roots=[]) {
+    async verifyResource(record, roots=[], requiredRoot='') {
       const config=getResourceConfig(record.ResourceType);
       if(!config)throw problem('Choose a Library resource type.');
       let file=null;
-      for(const rootId of [getRootFolderId(env),...roots.map(root=>root.FolderID)]){
+      for(const rootId of requiredRoot?[requiredRoot]:[getRootFolderId(env),...roots.map(root=>root.FolderID),...await this.libraryRootIds()]){
         try{file=await requireItemInsideRoot(env,record.DriveFileID,rootId,{requireFile:true});break;}
         catch(error){
           if(/outside the configured/i.test(String(error.message)))continue;
@@ -70,15 +82,15 @@ export function timetableRepository(env, program) {
           throw error;
         }
       }
-      if(!file)throw problem('Choose a file inside the protected folder or another folder added to this Program Library.');
+      if(!file)throw problem('Choose a file in the designated Resources folder.');
       const checked=validateFileForResourceType(file,config);
       if(!checked.ok)throw problem(checked.error);
       return file;
     },
-    async verifyCover(record, roots=[]) {
+    async verifyCover(record, roots=[], requiredRoot='') {
       if(!record.CoverDriveFileID)return null;
       let file=null;
-      for(const rootId of [getRootFolderId(env),...roots.map(root=>root.FolderID)]){
+      for(const rootId of requiredRoot?[requiredRoot]:[getRootFolderId(env),...roots.map(root=>root.FolderID),...await this.libraryRootIds()]){
         try{file=await requireItemInsideRoot(env,record.CoverDriveFileID,rootId,{requireFile:true});break;}
         catch(error){if(/outside the configured/i.test(String(error.message)))continue;throw error;}
       }

@@ -1,16 +1,22 @@
 import { json } from '../lib/http.js';
 import { verifySessionToken } from '../lib/auth.js';
-import { startLibraryUpload, openLibraryUploadTicket, forwardLibraryUploadChunk, LIBRARY_UPLOAD_CHUNK_SIZE } from '../lib/library-upload-bridge.js';
+import { startLibraryUpload, copyLibraryFile, openLibraryUploadTicket, forwardLibraryUploadChunk, LIBRARY_UPLOAD_CHUNK_SIZE } from '../lib/library-upload-bridge.js';
 import { listGoogleDriveFolder } from '../lib/google-drive.js';
+import { getPlatformSpreadsheetId } from '../lib/platform-sheet.js';
+import { getAuthUser } from '../lib/auth.js';
+import { extractGoogleDriveFolderId, findSystemConfigRowIndexes, getSystemConfigValue, readSystemConfigRows, upsertSystemConfigValues, PROGRAM_LIBRARY_DRIVE_FOLDER_ID_KEY, PROGRAM_LIBRARY_PREVIOUS_FOLDER_IDS_KEY } from '../lib/system-config.js';
 import { problem, clean } from '../programs/model.js';
-import { timetableUser, timetableProgram } from '../programs/timetable-context.js';
+import { programLibraryUser, timetableProgram } from '../programs/timetable-context.js';
 import { timetableRepository } from '../programs/timetable-repository.js';
-import { managementState } from '../programs/management-model.js';
+import { managementState, managementView } from '../programs/management-model.js';
 import { programFailure } from '../programs/errors.js';
+import { programService } from '../programs/service.js';
+import { sheetsProgramRepository } from '../programs/sheets-repository.js';
+import { readProgramRoleAccountsForPrograms } from '../profiles/program-roles.js';
 import { isActivePlatformValue as active } from '../lib/platform-schema.js';
 import {
   buildDriveBreadcrumbs, createDriveAccessToken, deriveFileFormat,
-  getDriveAccessTtlSeconds, getRootFolderId, getSupportedResourceTypes,
+  getDriveAccessTtlSeconds, getSupportedResourceTypes,
   requireItemInsideRoot
 } from './drive-library.js';
 
@@ -24,6 +30,15 @@ async function inputJSON(request) {
   if(!input||typeof input!=='object'||Array.isArray(input))throw problem('Invalid Library request.');
   return input;
 }
+function driveFileId(value){
+  const text=clean(value);
+  if(/^[A-Za-z0-9_-]{10,128}$/.test(text))return text;
+  let url;try{url=new URL(text);}catch{throw problem('Paste a Google Drive file link or ID.');}
+  if(url.protocol!=='https:'||!['drive.google.com','docs.google.com'].includes(url.hostname))throw problem('Paste a Google Drive file link or ID.');
+  const candidate=url.pathname.match(/\/d\/([A-Za-z0-9_-]{10,128})(?:\/|$)/)?.[1]||url.searchParams.get('id');
+  if(!/^[A-Za-z0-9_-]{10,128}$/.test(candidate||''))throw problem('The link does not contain a Google Drive file ID.');
+  return candidate;
+}
 
 export function programLibraryEndpoint(action){
   return async(request,env)=>{
@@ -35,7 +50,7 @@ export function programLibraryEndpoint(action){
         const ticket=await openLibraryUploadTicket(env,request.headers.get('X-Library-Upload-Ticket'));
         const auth=request.headers.get('Authorization')||'';
         const session=auth.startsWith('Bearer ')?await verifySessionToken(auth.slice(7).trim(),env):null;
-        if(!ticket||!session||session.type!=='account'||session.role!=='GLOBAL_ADMIN'||
+        if(!ticket||!session||session.type!=='account'||
             session.accountid!==ticket.accountId||
             !Number.isInteger(session.authrow)||session.authrow<2||!session.cv){
           throw problem('This upload session has expired. Choose the file again.',401);
@@ -50,18 +65,78 @@ export function programLibraryEndpoint(action){
         // The signed ticket and session protect intermediate chunks. Recheck
         // current account access and Program status before Drive completes the file.
         if(offset+length===ticket.size){
-          const user=await timetableUser(request,env);
+          const user=await programLibraryUser(request,env,ticket.programId);
           if(user.accountid!==ticket.accountId)throw problem('This upload session has expired. Choose the file again.',401);
           const program=await timetableProgram(env,ticket.programId);
           if(program.status!=='DRAFT')throw problem('Archived Programs cannot accept uploads.',409);
+          if(await timetableRepository(env,program).libraryDestination()!==ticket.folderId)throw problem('The Resources folder changed during upload. Choose the file again.',409);
         }
         const bytes=new Uint8Array(length);let position=0;for(const chunk of chunks){bytes.set(chunk,position);position+=chunk.byteLength;}
         return json({success:true,...await forwardLibraryUploadChunk(ticket,offset,bytes)});
       }
-      const user=await timetableUser(request,env);
       const input=await inputJSON(request);
+      if(action==='available'){
+        const account=await getAuthUser(request,env,{allowProgram:true});
+        if(!account||account.type!=='account')throw problem('Sign in through your personal Academy account link.',401);
+        const {programs}=await programService(sheetsProgramRepository(env)).list();
+        const available=[];
+        const candidates=programs.filter(row=>row.mode==='PROGRAM');
+        const roleAccounts=account.role==='GLOBAL_ADMIN'?{}:await readProgramRoleAccountsForPrograms(env,candidates.map(row=>row.id));
+        for(const item of candidates){
+          if(account.role==='GLOBAL_ADMIN'){available.push({id:item.id,name:item.name});continue;}
+          const roles=roleAccounts[item.id];
+          if(roles.some(row=>row.AccountID===account.accountid&&row.Active&&row.Roles.some(role=>['ADMIN','SENIOR','TEACHER'].includes(role))))available.push({id:item.id,name:item.name});
+        }
+        return json({success:true,programs:available});
+      }
+      const user=await programLibraryUser(request,env,input.id,{adminOnly:action==='folder-set'||action==='prepare-library'});
       stage='program';const program=await timetableProgram(env,input.id);
       const repository=timetableRepository(env,program);
+      if(action==='manage'){
+        const data=await repository.load();
+        const view=await managementView(data,repository,program);
+        let destinationId='';try{destinationId=await repository.libraryDestination();}catch{}
+        const {subjects,levels,modules,tasks,resources}=view.rows;
+        return json({success:true,program:view.program,prepared:view.prepared,libraryPrepared:view.libraryPrepared,revision:view.revision,emptyRowRevision:view.emptyRowRevision,rowRevisions:{resources:view.rowRevisions.resources},sharedSubjects:view.sharedSubjects,rows:{subjects,levels,modules,tasks,resources},coordinatorAvailable:Boolean(env.PROGRAM_TIMETABLE_COORDINATOR),canManageFolder:user.role==='GLOBAL_ADMIN',accountPath:user.uniqueid?`/account/${encodeURIComponent(user.uniqueid)}`:'/',destinationId});
+      }
+      if(action==='save'||action==='recover'||action==='prepare-library'){
+        if(action==='save'&&input.kind!=='resources')throw problem('Only resource changes are allowed here.',403);
+        if(action==='recover')input.kind='resources';
+        if(!env.PROGRAM_TIMETABLE_COORDINATOR)throw problem('Library saving needs the Program coordinator binding.',503);
+        const coordinator=env.PROGRAM_TIMETABLE_COORDINATOR.getByName(`${getPlatformSpreadsheetId(env)}:${program.id}`);
+        const result=await coordinator.run(action==='save'?'manage-save':action,input,request.headers.get('Authorization')||'');
+        return json(result,result.success?200:result.status||503);
+      }
+      if(action==='folder-set'){
+        let folderId;try{folderId=extractGoogleDriveFolderId(input.folder);}catch(error){throw problem(error.message);}
+        let folder;try{folder=await requireItemInsideRoot(env,folderId,folderId,{requireFolder:true,allowRoot:true});}
+        catch(error){if(/not found or is in Trash|Google Drive API error 40[34]/i.test(String(error.message)))throw problem('Share this folder with the Library service account, then try again.',403);throw error;}
+        const rows=await readSystemConfigRows(env);
+        if(findSystemConfigRowIndexes(rows,PROGRAM_LIBRARY_DRIVE_FOLDER_ID_KEY).length>1||findSystemConfigRowIndexes(rows,PROGRAM_LIBRARY_PREVIOUS_FOLDER_IDS_KEY).length>1)throw problem('Repair duplicate Library folder settings in SystemConfig first.',409);
+        const current=getSystemConfigValue(rows,PROGRAM_LIBRARY_DRIVE_FOLDER_ID_KEY);
+        if(current&&!/^[A-Za-z0-9_-]{10,128}$/.test(current))throw problem('Repair the current Library folder setting before changing Resources.',409);
+        const previous=getSystemConfigValue(rows,PROGRAM_LIBRARY_PREVIOUS_FOLDER_IDS_KEY).split(',').map(clean).filter(Boolean);
+        if(previous.some(id=>!/^[A-Za-z0-9_-]{10,128}$/.test(id)))throw problem('Repair the previous Library folder setting before changing Resources.',409);
+        if(current&&current!==folderId&&!previous.includes(current)){
+          const saved=await upsertSystemConfigValues(env,{[PROGRAM_LIBRARY_PREVIOUS_FOLDER_IDS_KEY]:[...previous,current].join(',')},{updatedBy:user.accountid,updatedByName:user.username||user.accountid,rows});
+          if(!saved.ok)throw problem(saved.error,saved.status);
+        }
+        const result=await upsertSystemConfigValues(env,{[PROGRAM_LIBRARY_DRIVE_FOLDER_ID_KEY]:folderId},{updatedBy:user.accountid,updatedByName:user.username||user.accountid});
+        if(!result.ok)throw problem(result.error,result.status);
+        return json({success:true,folder:{id:folder.id,name:folder.name}});
+      }
+      if(action==='copy'){
+        stage='drive';
+        if(program.status!=='DRAFT')throw problem('Archived Programs cannot accept new resources.',409);
+        const resourceType=clean(input.resourceType);
+        if(!['EBOOK','PRINTABLE','AUDIO','VIDEO','OTHER','COVER'].includes(resourceType))throw problem('Choose a Library category.');
+        const folderId=await repository.libraryDestination();
+        await requireItemInsideRoot(env,folderId,folderId,{requireFolder:true,allowRoot:true});
+        if(!clean(env.APPS_SCRIPT_URL)||clean(env.M4L_LIBRARY_BRIDGE_SECRET).length<32)throw problem('Library Drive copy needs the Apps Script connection and shared secret.',503);
+        let file;try{file=await copyLibraryFile(env,{sourceFileId:driveFileId(input.file),folderId,resourceType});}
+        catch(error){if(/Unknown action/i.test(String(error.message)))throw problem('Update the Development Apps Script deployment to enable shared Drive file copying.',503);throw error;}
+        return json({success:true,file});
+      }
       if(action==='upload-start'){
         stage='upload';
         if(program.status!=='DRAFT')throw problem('Archived Programs cannot accept uploads.',409);
@@ -69,11 +144,8 @@ export function programLibraryEndpoint(action){
         if(clean(env.M4L_LIBRARY_BRIDGE_SECRET).length<32)throw problem('Library device upload needs its shared secret configured in the Worker and Apps Script.',503);
         const data=await repository.load();
         if(!data.prepared||!data.libraryPrepared)throw problem('Prepare the Program Library tables first.',409);
-        const roots=managementState(data,program).snapshot.ProgramLibraryRoots;
-        const root=clean(input.rootId)||getRootFolderId(env),folderId=clean(input.folderId)||root;
-        if(root!==getRootFolderId(env)&&!roots.some(item=>item.FolderID===root))throw problem('Choose a folder added to this Program Library.',403);
-        try{await requireItemInsideRoot(env,folderId,root,{requireFolder:true,allowRoot:true});}
-        catch(error){if(/outside the configured|not found or is in Trash|not a folder/i.test(String(error.message)))throw problem('Choose a folder inside the selected Library folder.',400);throw error;}
+        const folderId=await repository.libraryDestination();
+        await requireItemInsideRoot(env,folderId,folderId,{requireFolder:true,allowRoot:true});
         const fileName=clean(input.fileName),mimeType=clean(input.mimeType).toLowerCase(),size=Number(input.size),resourceType=clean(input.resourceType);
         if(!fileName||fileName.length>160||/[\\/\x00-\x1f]/.test(fileName))throw problem('Choose a file with a valid name up to 160 characters.');
         if(!Number.isSafeInteger(size)||size<1||size>5*1024*1024*1024)throw problem('Choose a nonempty file up to 5 GB.');
@@ -93,9 +165,7 @@ export function programLibraryEndpoint(action){
       }
       if(action==='browse'){
         stage='drive';
-        const data=await repository.load(),roots=managementState(data,program).snapshot.ProgramLibraryRoots;
-        const root=clean(input.rootId)||getRootFolderId(env),folderId=clean(input.folderId)||root;
-        if(root!==getRootFolderId(env)&&!roots.some(item=>item.FolderID===root))throw problem('Choose a folder added to this Program Library.',403);
+        const root=await repository.libraryDestination(),folderId=clean(input.folderId)||root;
         let folder;
         try{folder=await requireItemInsideRoot(env,folderId,root,{requireFolder:true,allowRoot:true});}
         catch(error){

@@ -413,6 +413,12 @@ Production.
 
 ## Change history
 
+### 2026-10-02 — V105.4.1.3
+
+- Added signed `copyProgramLibraryFile` for files shared with the Library Google account.
+- Device uploads and copies now use `ProgramLibraryDriveFolderId` from SystemConfig as their fixed destination.
+- The Worker restricts destination changes to global administrators and preserves previous folder IDs for existing resources.
+
 ### 2026-10-02 — V105.4.1.2
 
 - Aligned the bridge milestone with the Library upload form fix. Apps Script

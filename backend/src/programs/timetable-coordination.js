@@ -6,10 +6,11 @@ import { payloadHash } from './timetable-model.js';
 export function timetableCoordinator(journal, open) {
   let tail=Promise.resolve();
   async function execute(action,input,credential) {
-    const {service,user}=await open(input.id,credential); // Fresh authority INSIDE the queue.
+    const {service,user}=await open(input.id,credential,action,input); // Fresh authority INSIDE the queue.
     const pending=await journal.get();
     if (action==='recover') {
       if (!pending) return {recovered:false};
+      if(input.kind==='resources'&&(pending.kind!=='write'||pending.inputKind!=='resources'))throw problem('A different Program change needs administrator recovery.',403);
       return finish(service,pending);
     }
     if (action==='prepare') {
@@ -32,7 +33,7 @@ export function timetableCoordinator(journal, open) {
     const receipt=await service.receipt(input.operationId,hash);
     if (receipt) return receipt;
     const planned=await service.plan(action,input,user,hash);
-    const intent={kind:'write',operationId:input.operationId,hash,...planned};
+    const intent={kind:'write',inputKind:action==='manage-save'?input.kind:'',operationId:input.operationId,hash,...planned};
     await journal.set(intent); // Storage output gate persists intent before external I/O.
     return finish(service,intent);
   }

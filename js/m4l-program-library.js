@@ -8,8 +8,7 @@
   const id=new URLSearchParams(location.search).get('program');
   const pendingKey=`m4l-program-library-pending:${id}`;
   const draftKey=`m4l-program-library-draft:${id}`;
-  const rootPendingKey=`m4l-program-library-root-pending:${id}`;
-  const state={data:null,record:null,creating:false,busy:false,pending:null,rootPending:null,drive:null,rootId:'',folderId:'',selectedFile:null,selectedCover:null,coverUrls:{},mode:'select',uploadFile:null,uploadSession:null};
+  const state={data:null,record:null,creating:false,busy:false,pending:null,drive:null,folderId:'',selectedFile:null,selectedCover:null,coverUrls:{},mode:'select',uploadFile:null,uploadSession:null};
   const message=(value,error=false)=>{$('pl-message').textContent=value;$('pl-message').classList.toggle('pl-error',error);};
   const driveMessage=(value,error=false)=>{$('pl-drive-status').textContent=value;$('pl-drive-status').classList.toggle('pl-error',error);};
   async function api(path,body={}){
@@ -30,8 +29,13 @@
     if(!state.data)return;
     const rows=state.data.rows.resources||[];
     $('pl-title').textContent=`${state.data.program.name} Library`;
+    $('pl-brand').href=state.data.canManageFolder?'/programs/':state.data.accountPath||'/';
     $('pl-curriculum').href=`/programs/manage.html?program=${encodeURIComponent(id)}`;
-    $('pl-prepare').hidden=!state.data.prepared||state.data.libraryPrepared;
+    $('pl-curriculum').hidden=!state.data.canManageFolder;
+    $('pl-setup-link').hidden=!state.data.canManageFolder;
+    $('pl-folder-settings').hidden=!state.data.canManageFolder;
+    $('pl-destination').textContent=state.data.destinationId?`New files are saved in the shared Resources folder (${state.data.destinationId}).`:'A global admin needs to set the shared Resources folder before new files can be added.';
+    $('pl-prepare').hidden=!state.data.canManageFolder||!state.data.prepared||state.data.libraryPrepared;
     $('pl-prepare').disabled=state.busy||Boolean(state.pending)||!state.data.coordinatorAvailable;
     $('pl-add').disabled=state.busy||Boolean(state.pending)||!state.data.libraryPrepared||state.data.program.status!=='DRAFT'||!state.data.coordinatorAvailable;
     $('pl-pending').hidden=!state.pending;
@@ -83,7 +87,7 @@
     $('pl-active').value=String(active(r.Active));
     renderChoices();
     $('pl-file').textContent=state.selectedFile?.name|| (r.DriveFileID?`Saved Drive file · ${r.DriveFileID}`:'No file selected.');
-    $('pl-save').disabled=state.busy||!state.data?.libraryPrepared||!state.data?.coordinatorAvailable||Boolean(state.pending)||Boolean(state.rootPending);
+    $('pl-save').disabled=state.busy||!state.data?.libraryPrepared||!state.data?.coordinatorAvailable||Boolean(state.pending);
     $('pl-browse').disabled=state.busy||Boolean(state.pending);
     $('pl-device').disabled=state.busy||Boolean(state.pending);
     $('pl-preview').hidden=true;
@@ -95,27 +99,22 @@
   }
   function renderDrive(){
     const uploading=state.mode==='upload'||state.mode==='cover-upload',cover=state.mode==='cover-select'||state.mode==='cover-upload';
-    $('pl-drive-title').textContent=uploading?'Choose a Drive destination':cover?'Choose a book cover':'Choose a Drive file';
-    $('pl-drive-help').textContent=uploading?`Upload ${state.uploadFile?.name||'your file'} into the chosen Library folder.`:cover?'Select a JPG, PNG or WebP image in a Library folder.':'Select a Library folder, then open its subfolders to find a file.';
+    $('pl-drive-title').textContent=uploading?'Upload to Resources':cover?'Choose a book cover':'Choose a Drive file';
+    $('pl-drive-help').textContent=uploading?`Upload ${state.uploadFile?.name||'your file'} to the shared Resources folder.`:cover?'Copy a shared JPG, PNG or WebP file, or choose one already in Resources.':'Copy a file shared with the Library account, or choose one already in Resources.';
+    $('pl-shared-choice').hidden=uploading;
     $('pl-upload').hidden=!uploading;
-    $('pl-upload').disabled=state.busy||!state.drive||!state.uploadFile||Boolean(state.rootPending);
+    $('pl-upload').disabled=state.busy||!state.data?.destinationId||!state.uploadFile;
+    $('pl-copy').disabled=state.busy||!state.data?.destinationId;
     $('pl-drive-cancel').disabled=state.busy;
-    const roots=[['','Protected Reboot folder'],...(state.data?.libraryRoots||[]).map(root=>[root.FolderID,root.Name])];
-    $('pl-root').innerHTML=roots.map(([folderId,name])=>option(folderId,name,state.rootId)).join('');
-    $('pl-root').disabled=state.busy||Boolean(state.rootPending);
-    $('pl-root-input').disabled=state.busy||Boolean(state.rootPending);
-    $('pl-add-root').disabled=state.busy||Boolean(state.rootPending)||!state.data?.coordinatorAvailable;
-    $('pl-root-retry').hidden=!state.rootPending;
-    $('pl-root-retry').disabled=state.busy;
     if(!state.drive){$('pl-breadcrumbs').innerHTML='';$('pl-drive-list').innerHTML='';$('pl-more').hidden=true;return;}
     $('pl-breadcrumbs').innerHTML=(state.drive.breadcrumbs||[]).map(part=>`<button type="button" class="pb-secondary pl-breadcrumb" data-folder="${esc(part.id)}">${esc(part.name)}</button>`).join('');
-    $('pl-drive-list').innerHTML=(state.drive.items||[]).map(item=>`<div class="pl-drive-item"><span>${item.isFolder?'📁':'📄'} ${esc(item.name)} <small>${esc(item.format||'')}</small></span>${item.isFolder?`<button type="button" class="pb-secondary" data-folder="${esc(item.id)}">Open folder</button>`:uploading?'':`<button type="button" class="pb-secondary" data-file="${esc(item.id)}" ${(cover?['image/jpeg','image/png','image/webp'].includes(item.mimeType):item.supportedTypes.includes(state.record.ResourceType))?'':'disabled'}>Choose ${cover?'cover':'file'}</button>`}</div>`).join('')||'<p class="pl-empty">No files in this folder.</p>';
+    $('pl-drive-list').innerHTML=uploading?'':(state.drive.items||[]).map(item=>`<div class="pl-drive-item"><span>${item.isFolder?'📁':'📄'} ${esc(item.name)} <small>${esc(item.format||'')}</small></span>${item.isFolder?`<button type="button" class="pb-secondary" data-folder="${esc(item.id)}">Open folder</button>`:`<button type="button" class="pb-secondary" data-file="${esc(item.id)}" ${(cover?['image/jpeg','image/png','image/webp'].includes(item.mimeType):item.supportedTypes.includes(state.record.ResourceType))?'':'disabled'}>Choose ${cover?'cover':'file'}</button>`}</div>`).join('')||'<p class="pl-empty">No files in Resources yet.</p>';
     $('pl-more').hidden=!state.drive.nextPageToken;
     $('pl-more').disabled=state.busy;
   }
   function render(){renderList();renderEditor();renderDrive();}
   async function load(){
-    state.data=await api('program-timetable/manage-get');state.data.rows.resources||=[];
+    state.data=await api('program-library/manage');state.data.rows.resources||=[];
     if(state.record&&!state.creating){
       const saved=state.data.rows.resources.find(row=>row.ResourceID===state.record.ResourceID);
       if(!saved)message('This resource was removed elsewhere. Your entry is kept.',true);
@@ -124,14 +123,14 @@
     if(!state.data.prepared)message('Prepare management tables in Curriculum first.');
     else if(!state.data.libraryPrepared)message('Prepare the Program task and Library tables to begin. Existing records are preserved.');
     else if(!state.data.coordinatorAvailable)message('Saving needs the Program coordinator binding.');
-    else message('Choose a resource to edit or add a new protected Drive file.');
+    else message('Choose a resource to edit or add a new file.');
   }
   function start(record,creating){if($('pl-drive').open)$('pl-drive').close();state.record=structuredClone(record);state.creating=creating;state.selectedFile=null;state.selectedCover=null;state.drive=null;state.uploadFile=null;saveDraft();render();$('pl-name').focus();}
   $('pl-add').onclick=()=>{if(state.busy||state.pending)return;start({ResourceID:`RES-${crypto.randomUUID()}`,ProgramSubjectID:'',LevelID:'',ProgramModuleID:'',TaskID:'',ResourceType:'EBOOK',Name:'',Description:'',DriveFileID:'',Active:true,Author:'',Publisher:'',ISBN:'',PublicationYear:'',CoverDriveFileID:''},true);};
   $('pl-list').onclick=event=>{const resourceId=event.target.closest('[data-edit]')?.dataset.edit;if(!resourceId||state.busy||state.pending)return;const row=state.data.rows.resources.find(r=>r.ResourceID===resourceId);if(row)start({...row,Active:active(row.Active)},false);};
   $('pl-cancel').onclick=()=>{if(state.pending)return;if($('pl-drive').open)$('pl-drive').close();state.record=null;state.drive=null;state.selectedFile=null;saveDraft();render();};
   $('pl-refresh').onclick=async()=>{if(state.busy)return;state.busy=true;try{await load();}catch(error){message(error.message,true);}finally{state.busy=false;render();}};
-  $('pl-prepare').onclick=async()=>{if(state.busy||state.pending)return;state.busy=true;try{await api('program-timetable/prepare-library');await load();message('Program task and Library tables are ready.');}catch(error){message(error.message,true);}finally{state.busy=false;render();}};
+  $('pl-prepare').onclick=async()=>{if(state.busy||state.pending)return;state.busy=true;try{await api('program-library/prepare-library');await load();message('Program task and Library tables are ready.');}catch(error){message(error.message,true);}finally{state.busy=false;render();}};
   for(const [element,field] of [['pl-type','ResourceType'],['pl-name','Name'],['pl-description','Description'],['pl-active','Active'],['pl-author','Author'],['pl-publisher','Publisher'],['pl-isbn','ISBN'],['pl-year','PublicationYear']]){
     $(element).addEventListener(['pl-name','pl-description','pl-author','pl-publisher','pl-isbn','pl-year'].includes(element)?'input':'change',event=>{
       if(!state.record||state.pending)return;
@@ -153,11 +152,11 @@
   async function browse(folderId='',pageToken=''){
     if(state.busy)return;
     state.busy=true;driveMessage('Loading Drive folders and files…');renderDrive();
-    try{state.drive=await api('program-library/browse',{rootId:state.rootId,folderId,pageToken});state.folderId=state.drive.folder.id;driveMessage(state.mode.includes('cover')?'Choose a JPG, PNG or WebP cover image.':state.mode.includes('upload')?'Choose the destination folder, then upload.':'Choose a file supported by the selected resource type.');}
+    try{state.drive=await api('program-library/browse',{folderId,pageToken});state.folderId=state.drive.folder.id;driveMessage(state.mode.includes('cover')?'Choose a JPG, PNG or WebP cover image.':'Choose a file supported by the selected resource type.');}
     catch(error){driveMessage(error.message,true);}
     finally{state.busy=false;renderDrive();}
   }
-  function openDrive(mode){if(!state.record||state.busy)return;state.mode=mode;state.drive=null;renderDrive();$('pl-drive').showModal();if(state.rootPending)driveMessage('An earlier folder addition needs confirmation. Choose Retry same folder.',true);else void browse();}
+  function openDrive(mode){if(!state.record||state.busy)return;state.mode=mode;state.drive=null;state.folderId=state.data?.destinationId||'';renderDrive();$('pl-drive').showModal();if(mode.includes('upload'))driveMessage('Ready to upload to Resources.');else void browse();}
   $('pl-browse').onclick=()=>{state.uploadFile=null;openDrive('select');};
   $('pl-cover-browse').onclick=()=>{state.uploadFile=null;openDrive('cover-select');};
   const acceptedFiles={EBOOK:'.pdf',PRINTABLE:'.pdf',AUDIO:'audio/*',VIDEO:'video/*',OTHER:'image/*,text/*,.zip,.doc,.docx,.ppt,.pptx'};
@@ -180,7 +179,6 @@
     if(!['image/jpeg','image/png','image/webp'].includes(fileMimeType(file))){message('Choose a JPG, PNG or WebP cover image.',true);event.target.value='';return;}
     state.uploadFile=file;state.uploadSession=null;openDrive('cover-upload');
   };
-  $('pl-root').onchange=event=>{if(state.busy||state.rootPending)return;state.rootId=event.target.value;state.drive=null;void browse();};
   $('pl-drive').onclick=event=>{
     if(state.busy)return;
     const folder=event.target.closest('[data-folder]')?.dataset.folder;
@@ -200,6 +198,20 @@
     }
   };
   $('pl-more').onclick=()=>{if(!state.busy&&state.drive?.nextPageToken)void browse(state.folderId,state.drive.nextPageToken);};
+  $('pl-copy').onclick=async()=>{
+    if(state.busy||!state.record)return;
+    const file=$('pl-shared-file').value.trim();
+    if(!file){driveMessage('Paste a Drive file link or ID shared with the Library account.',true);return;}
+    const cover=state.mode==='cover-select';
+    state.busy=true;renderDrive();driveMessage('Copying the shared file into Resources…');
+    try{
+      const result=await api('program-library/copy',{file,resourceType:cover?'COVER':state.record.ResourceType});
+      if(cover){state.record.CoverDriveFileID=result.file.id;state.selectedCover=result.file;}
+      else{state.record.DriveFileID=result.file.id;state.selectedFile={...result.file,supportedTypes:[state.record.ResourceType]};if(!state.record.Name)state.record.Name=result.file.name.replace(/\.[^.]+$/,'');}
+      saveDraft();$('pl-shared-file').value='';$('pl-drive').close();render();message('File copied into Resources. Review the details and save the resource.');
+    }catch(error){driveMessage(error.message,true);}
+    finally{state.busy=false;render();}
+  };
   $('pl-drive-cancel').onclick=()=>$('pl-drive').close();
   $('pl-drive').oncancel=event=>{if(state.busy)event.preventDefault();};
   $('pl-drive').onclose=()=>{state.drive=null;state.uploadFile=null;state.uploadSession=null;$('pl-device-file').value='';$('pl-cover-device-file').value='';renderDrive();(state.mode.includes('cover')?state.mode.includes('upload')?$('pl-cover-device'):$('pl-cover-browse'):state.mode==='upload'?$('pl-device'):$('pl-browse')).focus();};
@@ -210,9 +222,9 @@
   }
   async function uploadToDrive(file,folderId,resourceType){
     let session=state.uploadSession;
-    if(!session||session.file!==file||session.folderId!==folderId||session.rootId!==state.rootId||session.resourceType!==resourceType){
-      const started=await api('program-library/upload-start',{rootId:state.rootId,folderId,fileName:file.name,mimeType:fileMimeType(file),size:file.size,resourceType});
-      session={file,folderId,rootId:state.rootId,resourceType,ticket:started.ticket,chunkSize:started.chunkSize,offset:0};
+    if(!session||session.file!==file||session.folderId!==folderId||session.resourceType!==resourceType){
+      const started=await api('program-library/upload-start',{fileName:file.name,mimeType:fileMimeType(file),size:file.size,resourceType});
+      session={file,folderId,resourceType,ticket:started.ticket,chunkSize:started.chunkSize,offset:0};
       state.uploadSession=session;
     }
     const token=localStorage.getItem('m4l_account_token');
@@ -226,7 +238,7 @@
       if(!response.ok||!result.success){
         if(result.code==='SHEETS_RATE_LIMITED'){
           const seconds=Math.max(1,Math.ceil(Number(result.retryAfterMs||60000)/1000));
-          throw new Error(`Google Sheets is busy. Wait ${seconds} seconds, then click Upload into this folder again. The upload will continue from ${Math.floor(offset/file.size*100)}%.`);
+          throw new Error(`Google Sheets is busy. Wait ${seconds} seconds, then click Upload to Resources again. The upload will continue from ${Math.floor(offset/file.size*100)}%.`);
         }
         throw new Error(result.error||'The upload stopped. Try the file again.');
       }
@@ -238,47 +250,32 @@
     throw new Error('Google Drive did not confirm the uploaded file.');
   }
   $('pl-upload').onclick=async()=>{
-    if(state.busy||state.rootPending||!state.drive||!state.uploadFile)return;
-    const file=state.uploadFile,folderId=state.folderId,cover=state.mode==='cover-upload',resourceType=cover?'COVER':state.record.ResourceType;
+    if(state.busy||!state.data?.destinationId||!state.uploadFile)return;
+    const file=state.uploadFile,folderId=state.data.destinationId,cover=state.mode==='cover-upload',resourceType=cover?'COVER':state.record.ResourceType;
     state.busy=true;renderDrive();
     try{
       const uploaded=await uploadToDrive(file,folderId,resourceType);
       if(cover){state.record.CoverDriveFileID=uploaded.id;state.selectedCover={...uploaded};}
       else{state.record.DriveFileID=uploaded.id;state.selectedFile={...uploaded,supportedTypes:[resourceType]};if(!state.record.Name)state.record.Name=file.name.replace(/\.[^.]+$/,'');}
       saveDraft();$('pl-drive').close();render();message(cover?'Cover uploaded to Drive. Save the resource to keep the link.':'File uploaded to Drive. Review the placement and save the resource.');
-    }catch(error){driveMessage(error.code==='SHEETS_RATE_LIMITED'?`${error.message} Wait one minute, then click Upload into this folder again.`:error.message,true);}
+    }catch(error){driveMessage(error.code==='SHEETS_RATE_LIMITED'?`${error.message} Wait one minute, then click Upload to Resources again.`:error.message,true);}
     finally{state.busy=false;render();}
   };
-  async function saveRoot(){
-    if(state.busy||!state.data?.coordinatorAvailable)return;
-    if(!state.rootPending){
-      const folderId=$('pl-root-input').value.trim();
-      if(!folderId){driveMessage('Paste a Google Drive folder link or ID.',true);return;}
-      state.rootPending={kind:'library-root',body:{kind:'library-root',record:{FolderID:folderId},revision:state.data.revision,operationId:crypto.randomUUID()}};
-      sessionStorage.setItem(rootPendingKey,JSON.stringify(state.rootPending));
-    }
-    state.busy=true;renderDrive();driveMessage('Checking and adding the Drive folder…');
-    let addedRoot='';
+  $('pl-folder-save').onclick=async()=>{
+    if(state.busy||!state.data?.canManageFolder)return;
+    const folder=$('pl-folder-input').value.trim();
+    if(!folder){$('pl-folder-status').textContent='Paste a Google Drive folder link or ID.';return;}
+    state.busy=true;$('pl-folder-status').textContent='Checking the Resources folder…';render();
     try{
-      let result;
-      try{result=await api('program-timetable/manage-save',state.rootPending.body);}
-      catch(error){if(error.code!=='RECOVERY_REQUIRED')throw error;await api('program-timetable/recover');result=await api('program-timetable/manage-save',state.rootPending.body);}
-      addedRoot=result.record.FolderID;
-      state.rootPending=null;sessionStorage.removeItem(rootPendingKey);$('pl-root-input').value='';
-      try{await load();}catch{driveMessage('Folder added. Refresh the Library to show it in the folder list.',true);}
-      state.rootId=addedRoot;driveMessage('Folder added. Opening its files.');
-    }catch(error){
-      if(error.code==='ROW_CHANGED'||error.status&&error.status<500&&error.code!=='RECOVERY_REQUIRED'){
-        state.rootPending=null;sessionStorage.removeItem(rootPendingKey);
-        driveMessage(error.message,true);
-      }else driveMessage(`${error.message} Retry the same folder to confirm it.`,true);
-    }finally{state.busy=false;renderDrive();renderEditor();}
-    if(addedRoot)void browse();
-  }
-  $('pl-add-root').onclick=()=>{void saveRoot();};
-  $('pl-root-retry').onclick=()=>{void saveRoot();};
+      const result=await api('program-library/folder-set',{folder});
+      $('pl-folder-input').value='';
+      await load();
+      $('pl-folder-status').textContent=`Resources folder set to ${result.folder.name}. New uploads and copies will use it.`;
+    }catch(error){$('pl-folder-status').textContent=error.message;}
+    finally{state.busy=false;render();}
+  };
   async function save(){
-    if(!state.record||state.busy||state.rootPending)return;
+    if(!state.record||state.busy)return;
     if(!state.pending){
       const row=state.record;
       if(!row.Name.trim()||!row.ProgramSubjectID||!row.DriveFileID){message('Enter a name, choose a subject and select a Drive file.',true);return;}
@@ -288,11 +285,11 @@
     state.busy=true;render();message('Saving resource…');
     try{
       let result;
-      try{result=await api('program-timetable/manage-save',state.pending.body);}
+      try{result=await api('program-library/save',state.pending.body);}
       catch(error){
         if(error.code!=='RECOVERY_REQUIRED')throw error;
-        await api('program-timetable/recover');
-        result=await api('program-timetable/manage-save',state.pending.body);
+        await api('program-library/recover');
+        result=await api('program-library/save',state.pending.body);
       }
       sessionStorage.removeItem(pendingKey);state.pending=null;state.record=null;state.selectedFile=null;saveDraft();
       try{await load();message(result.replayed?'Resource save confirmed after retry.':'Resource saved.');}
@@ -318,11 +315,7 @@
     state.pending=JSON.parse(sessionStorage.getItem(pendingKey)||'null');
     if(state.pending?.kind!=='resources'||!state.pending.body?.operationId||!state.pending.body?.record)throw new Error('Invalid pending save');
   }catch{state.pending=null;sessionStorage.removeItem(pendingKey);}
-  try{
-    state.rootPending=JSON.parse(sessionStorage.getItem(rootPendingKey)||'null');
-    if(state.rootPending?.kind!=='library-root'||!state.rootPending.body?.operationId||!state.rootPending.body?.record?.FolderID)throw new Error('Invalid pending folder');
-  }catch{state.rootPending=null;sessionStorage.removeItem(rootPendingKey);}
   try{const draft=JSON.parse(sessionStorage.getItem(draftKey)||'null');if(draft?.record){state.record=draft.record;state.creating=Boolean(draft.creating);state.selectedFile=draft.selectedFile;}}catch{sessionStorage.removeItem(draftKey);}
   if(state.pending&&!state.record){state.record=structuredClone(state.pending.body.record);state.creating=Boolean(state.pending.body.creating);saveDraft();}
-  void load().then(()=>{if(state.pending)message('An earlier resource save needs confirmation. Choose Retry same save.',true);else if(state.rootPending)message('An earlier folder addition needs confirmation. Open the file finder and choose Retry same folder.',true);}).catch(error=>message(error.message,true));
+  void load().then(()=>{if(state.pending)message('An earlier resource save needs confirmation. Choose Retry same save.',true);}).catch(error=>message(error.message,true));
 })();

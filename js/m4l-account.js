@@ -174,13 +174,17 @@
       clearCourseDataCaches();
     }
     renderContextView();
-    await loadAcademyTimetable({ resetWeek: true });
+    void loadAvailableProgramLibraries();
+    if(!/^PRG-[0-9a-f-]{36}$/i.test(String(state.context?.courseId||'')))await loadAcademyTimetable({ resetWeek: true });
     if (options.autoOpen === true && ["COURSE", "GLOBAL"].includes(state.context?.scope)) {
       await openCurrentWorkspace();
     }
   }
 
   function renderContextView() {
+    const isProgram=/^PRG-[0-9a-f-]{36}$/i.test(String(state.context?.courseId||''));
+    byId('academy-timetable-card')?.classList.toggle('hidden',isProgram);
+    byId('academy-refresh')?.classList.toggle('hidden',isProgram);
     byId("program-builder-link")?.classList.toggle("hidden", state.context?.role !== "GLOBAL_ADMIN");
     byId("user-profiles-link")?.classList.toggle("hidden", state.context?.role !== "GLOBAL_ADMIN");
     byId("context-account-name").textContent = state.account?.displayName || "Account";
@@ -195,9 +199,28 @@
     );
     openWorkspaceButton.textContent = state.context?.scope === "GLOBAL"
       ? "Open Global Library"
-      : `Open ${state.context?.courseName || "selected Program"}`;
+      : isProgram
+        ? "Open Program Library"
+        : `Open ${state.context?.courseName || "selected Program"}`;
     renderContextList();
     showView("context-view");
+  }
+
+  async function loadAvailableProgramLibraries(){
+    const holder=byId('program-library-links');
+    if(!holder||!state.token)return;
+    holder.classList.add('hidden');holder.replaceChildren();
+    try{
+      const result=await api('/api/admin/platform/program-library/available',{},state.token);
+      if(!Array.isArray(result.programs))return;
+      for(const program of result.programs){
+        const link=document.createElement('a');
+        link.href=`/programs/library.html?program=${encodeURIComponent(program.id)}`;
+        link.textContent=`Manage ${program.name} Library →`;
+        const row=document.createElement('p');row.appendChild(link);holder.appendChild(row);
+      }
+      holder.classList.toggle('hidden',!result.programs.length);
+    }catch{holder.classList.add('hidden');}
   }
 
   function renderContextList() {
@@ -259,6 +282,10 @@
 
   async function openCurrentWorkspace() {
     if (state.workspaceOpening || !["COURSE", "GLOBAL"].includes(state.context?.scope) || !state.token) return false;
+    if(/^PRG-[0-9a-f-]{36}$/i.test(String(state.context?.courseId||''))){
+      window.location.assign(`/programs/library.html?program=${encodeURIComponent(state.context.courseId)}`);
+      return true;
+    }
     state.workspaceOpening = true;
     const openButton = byId("open-workspace-button");
     openButton.disabled = true;

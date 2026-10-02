@@ -5,7 +5,7 @@ import { academySubjectRepository, academySubjectService } from './academy-subje
 import { DurableObject } from 'cloudflare:workers';
 import { createRequestEnvironment } from '../lib/request-context.js';
 import { timetableCoordinator } from './timetable-coordination.js';
-import { timetableUser, timetableProgram } from './timetable-context.js';
+import { timetableUser, timetableProgram, programLibraryUser } from './timetable-context.js';
 import { timetableService } from './timetable-service.js';
 import { timetableRepository } from './timetable-repository.js';
 import { programFailure } from './errors.js';
@@ -41,9 +41,11 @@ export class ProgramTimetableCoordinator extends DurableObject {
       const user=await timetableUser(new Request('https://internal.invalid/catalogue',{headers:{Authorization:authorization}}),fresh);
       return {user,service:academySubjectService(academySubjectRepository(fresh))};
     });
-    this.coordinator=timetableCoordinator(journal,async(id,authorization)=>{
+    this.coordinator=timetableCoordinator(journal,async(id,authorization,action,input)=>{
       const fresh=createRequestEnvironment(env);
-      const user=await timetableUser(new Request('https://internal.invalid/timetable',{headers:{Authorization:authorization}}),fresh);
+      const request=new Request('https://internal.invalid/timetable',{headers:{Authorization:authorization}});
+      const resourceChange=(action==='manage-save'||action==='recover')&&input.kind==='resources';
+      const user=resourceChange?await programLibraryUser(request,fresh,id):await timetableUser(request,fresh);
       const program=await timetableProgram(fresh,id);
       return {user,service:timetableService(timetableRepository(fresh,program),program)};
     });

@@ -18,7 +18,7 @@ const f=timetableFixture(),service=timetableService(f.repository,f.program);
 f.repository.verifyResource=async row=>({id:row.DriveFileID});
 f.repository.verifyLibraryRoot=async value=>({FolderID:value,Name:'Second Drive folder'});
 const coordinator=timetableCoordinator(f.journal,async()=>({service,user:{accountid:'ADMIN'}}));
-let failSave=false,lastUploadType='',multiChunkUpload=false,rateLimitedChunkOnce=false;
+let failSave=false,lastUploadType='',multiChunkUpload=false,rateLimitedChunkOnce=false,destinationId='resources-folder-123';
 const context={console,URL,URLSearchParams,structuredClone,crypto,
   location:{search:`?program=${f.program.id}`},window:{M4L_CONFIG:{API_BASE:''}},document:{getElementById:element},
   localStorage:{getItem:()=> 'token'},sessionStorage:{getItem:key=>storage.get(key)||null,setItem:(key,value)=>storage.set(key,value),removeItem:key=>storage.delete(key)},
@@ -32,11 +32,13 @@ const context={console,URL,URLSearchParams,structuredClone,crypto,
     }
     const action=url.split('/').at(-1),body=JSON.parse(options.body);requests.push({action,body});
     if(action==='upload-start'){lastUploadType=body.resourceType;return {ok:true,status:200,json:async()=>({success:true,ticket:'ticket',chunkSize:4194304})};}
-    if(action==='browse')return {ok:true,status:200,json:async()=>({success:true,folder:{id:body.folderId||body.rootId||'root',name:'Selected folder'},breadcrumbs:[{id:body.rootId||'root',name:'Selected root'}],items:body.rootId?[{id:'other-pdf',name:'Other.pdf',mimeType:'application/pdf',isFolder:false,supportedTypes:['EBOOK'],format:'PDF'},{id:'cover-png',name:'Cover.png',mimeType:'image/png',isFolder:false,supportedTypes:['OTHER'],format:'PNG'}]:[{id:'file-pdf',name:'Lesson.pdf',mimeType:'application/pdf',isFolder:false,supportedTypes:['EBOOK'],format:'PDF'},{id:'cover-png',name:'Cover.png',mimeType:'image/png',isFolder:false,supportedTypes:['OTHER'],format:'PNG'},{id:'folder-one',name:'Folder one',isFolder:true,supportedTypes:[],format:''}],nextPageToken:''})};
-    if(action==='manage-save'&&failSave){failSave=false;throw new Error('Offline');}
+    if(action==='browse')return {ok:true,status:200,json:async()=>({success:true,folder:{id:body.folderId||destinationId,name:'Resources'},breadcrumbs:[{id:destinationId,name:'Resources'}],items:[{id:'file-pdf',name:'Lesson.pdf',mimeType:'application/pdf',isFolder:false,supportedTypes:['EBOOK'],format:'PDF'},{id:'cover-png',name:'Cover.png',mimeType:'image/png',isFolder:false,supportedTypes:['OTHER'],format:'PNG'},{id:'folder-one',name:'Folder one',isFolder:true,supportedTypes:[],format:''}],nextPageToken:''})};
+    if(action==='save'&&failSave){failSave=false;throw new Error('Offline');}
+    if(action==='folder-set'){destinationId='new-resources-folder-123';return {ok:true,status:200,json:async()=>({success:true,folder:{id:destinationId,name:'New Resources'}})};}
+    if(action==='copy')return {ok:true,status:200,json:async()=>({success:true,file:{id:'copied-file-123',name:'Shared book.pdf',mimeType:'application/pdf'}})};
     try{
-      const result=['manage-save','recover'].includes(action)?await coordinator.run(action,body,'token'):await service.read(action,body);
-      return {ok:true,status:200,json:async()=>({success:true,coordinatorAvailable:true,...result})};
+      const result=['save','recover'].includes(action)?await coordinator.run(action==='save'?'manage-save':action,body,'token'):await service.read(action==='manage'?'manage-get':action,body);
+      return {ok:true,status:200,json:async()=>({success:true,coordinatorAvailable:true,canManageFolder:true,destinationId,...result})};
     }catch(error){return {ok:false,status:error.status||503,json:async()=>({success:false,error:error.message,code:error.code})};}
   }
 };
@@ -66,23 +68,22 @@ vm.runInNewContext(source,context);await settled();
 assert.equal(element('pl-editor').hidden,false,'A pending resource restores the editor without a separate draft');
 element('pl-retry').onclick();await settled();
 assert.equal((await service.read('manage-get')).rows.resources.length,1);
-assert.equal(requests.filter(row=>row.action==='manage-save').at(-1).body.operationId,operation);
+assert.equal(requests.filter(row=>row.action==='save').at(-1).body.operationId,operation);
 assert.equal(storage.has(pendingKey),false);
 assert.equal(element('pl-pending').hidden,true);
 element('pl-add').onclick();
 element('pl-browse').onclick();await settled();
-element('pl-root-input').value='another-root';
-element('pl-add-root').onclick();await settled();
-assert.equal((await service.read('manage-get')).libraryRoots[0].FolderID,'another-root');
-assert.equal(requests.filter(row=>row.action==='browse').at(-1).body.rootId,'another-root');
-assert.match(element('pl-root').innerHTML,/Second Drive folder/);
 element('pl-drive-cancel').onclick();
+element('pl-folder-input').value='new-resources-folder-123';
+element('pl-folder-save').onclick();await settled();
+assert.equal(destinationId,'new-resources-folder-123');
+assert.match(element('pl-destination').textContent,/new-resources-folder-123/);
 assert.equal(element('pl-drive').open,false);
 element('pl-device').onclick();
 assert.equal(element('pl-device-file').clicked,true,'Device choice opens the native file picker');
 element('pl-device-file').onchange({target:{files:[{name:'Device.pdf',type:'application/pdf',size:123,slice:()=>new Blob(['PDF'])}],value:'Device.pdf'}});await settled();
 assert.equal(element('pl-drive').open,true,'Device file selection opens the Drive destination dialog');
-assert.match(element('pl-drive-title').textContent,/destination/);
+assert.match(element('pl-drive-title').textContent,/Upload to Resources/);
 element('pl-upload').onclick();await settled();
 assert.equal(element('pl-drive').open,false,'Successful device upload closes the destination dialog');
 assert.match(element('pl-file').textContent,/Device.pdf/);
@@ -118,4 +119,9 @@ assert.equal(element('pl-drive').open,false,'Retrying the final chunk completes 
 assert.equal(element('pl-save').disabled,false,'Saving is enabled after a resumed upload finishes');
 assert.equal(requests.filter(row=>row.action==='upload-start').length,startsBeforeResume+1,'Retry keeps the original Drive upload session');
 assert.deepEqual(requests.filter(row=>row.action==='upload-chunk').slice(chunksBeforeResume).map(row=>row.offset),[0,4194304,4194304]);
-console.log('Program Library UI: centered Drive finder, alternate root, device upload, book details, cover selection and retry recovery passed.');
+element('pl-browse').onclick();await settled();
+element('pl-shared-file').value='https://drive.google.com/file/d/teacher-file-123/view';
+element('pl-copy').onclick();await settled();
+assert.equal(JSON.parse(storage.get(draftKey)).record.DriveFileID,'copied-file-123','A shared teacher file is copied into Resources');
+assert.equal(element('pl-drive').open,false);
+console.log('Program Library UI: centered Drive finder, admin Resources folder, device upload, book details, cover selection and retry recovery passed.');

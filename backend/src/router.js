@@ -163,7 +163,7 @@ import { json } from "./lib/http.js";
 import { createRequestEnvironment } from "./lib/request-context.js";
 
 const ROUTES = new Map([
-  ...["browse", "access", "cover", "upload-start", "upload-chunk"].map(action => [
+  ...["available", "manage", "save", "recover", "prepare-library", "folder-set", "copy", "browse", "access", "cover", "upload-start", "upload-chunk"].map(action => [
     `/api/admin/platform/program-library/${action}`, workerRoute("program-timetable", programLibraryEndpoint(action))
   ]),
   ...["get", "link", "save", "recover"].map(action => [

@@ -25,6 +25,7 @@ import {
   isGlobalAdminAccount,
   normalizePlatformIdentifier
 } from "../lib/platform-schema.js";
+import { readProgramRoleAccountsForPrograms } from "../profiles/program-roles.js";
 
 const SUPPORTED_PLATFORM_SCHEMA_VERSIONS = new Set(["102.0.3", "102.0.4", "102.0.5", "102.0.6", "102.0.7", "102.0.8", "102.0.9", "102.0.10", "102.0.11", "102.0.12"]);
 const LOGIN_RATE_LIMIT_SECONDS = 60;
@@ -155,7 +156,7 @@ export async function accountLoginEndpoint(request, env) {
 
 export async function accountSessionEndpoint(request, env) {
   try {
-    const authUser = await getAuthUser(request, env);
+    const authUser = await getAuthUser(request, env, {allowProgram:true});
     if (!authUser || authUser.type !== "account") {
       return json({ success: false, error: "Unauthorized" }, 401);
     }
@@ -278,7 +279,7 @@ export async function accountGlobalWorkspaceEndpoint(request, env) {
 
 export async function switchAccountContextEndpoint(request, env) {
   try {
-    const authUser = await getAuthUser(request, env);
+    const authUser = await getAuthUser(request, env, {allowProgram:true});
     if (!authUser || authUser.type !== "account") {
       return json({ success: false, error: "Unauthorized" }, 401);
     }
@@ -309,15 +310,13 @@ export async function switchAccountContextEndpoint(request, env) {
         scope: "PLATFORM"
       };
     } else if (requestedScope === "COURSE" && requestedCourseId) {
-      selected = assertCourseContextAccess(
-        state.account,
-        state.accessRecords,
-        state.account.AccountID,
-        requestedCourseId,
-        requestedRole
-      );
-      selected = attachAccessRow(state, selected);
-      await resolveActiveCourseRegistration(env, selected.courseId);
+      const libraryContext=state.contexts.find(context=>context.programLibrary===true&&
+        normalizePlatformIdentifier(context.courseId)===normalizePlatformIdentifier(requestedCourseId)&&
+        normalizePlatformIdentifier(context.role)===requestedRole);
+      selected=libraryContext?{accountId:state.account.AccountID,courseId:libraryContext.courseId,role:libraryContext.role,scope:'COURSE',accessId:'',accessRow:0,courseRecordId:''}
+        :attachAccessRow(state,assertCourseContextAccess(state.account,state.accessRecords,state.account.AccountID,requestedCourseId,requestedRole));
+      const course=await resolveActiveCourseRegistration(env, selected.courseId, {allowProgram:true});
+      if(course.schemaVersion.includes('-program')&&!['GLOBAL_ADMIN','ADMIN','SENIOR','TEACHER'].includes(selected.role))throw new Error('Program Library access requires a teacher or administrator role');
     } else if (requestedScope === "GLOBAL") {
       selected = selectGlobalOnlyContext(state);
     } else {
@@ -407,7 +406,7 @@ export async function loadCentralAccountState(env, uniqueId, options = {}) {
   const accountGlobalAccess = globalAccessRecords.filter(access => (
     normalizePlatformIdentifier(access.AccountID) === accountId
   ));
-  const contexts = buildAvailableContexts(
+  let contexts = buildAvailableContexts(
     account,
     accountAccess,
     courses,
@@ -415,6 +414,22 @@ export async function loadCentralAccountState(env, uniqueId, options = {}) {
     globalSubjects,
     globalPolicies
   );
+  if(!isGlobalAdminAccount(account)){
+    const programCourses=courses.filter(course=>String(course.SchemaVersion||'').includes('-program'));
+    const programIds=new Set(programCourses.map(course=>normalizePlatformIdentifier(course.CourseID)));
+    let roleAccounts;
+    try{roleAccounts=await readProgramRoleAccountsForPrograms(env,programCourses.map(course=>course.CourseID));}
+    catch(error){if(!contexts.length)throw error;roleAccounts={};}
+    contexts=contexts.filter(context=>!programIds.has(normalizePlatformIdentifier(context.courseId)));
+    for(const course of programCourses){
+      const roles=roleAccounts[course.CourseID]||[];
+      const accountRoles=roles.find(row=>normalizePlatformIdentifier(row.AccountID)===accountId&&row.Active)?.Roles||[];
+      for(const role of accountRoles.filter(role=>['ADMIN','SENIOR','TEACHER'].includes(role))){
+        contexts.push({scope:'COURSE',courseId:course.CourseID,courseName:course.CourseName,role,programLibrary:true});
+      }
+    }
+    contexts.sort((a,b)=>authorityRank(a.role)-authorityRank(b.role)||a.courseName.localeCompare(b.courseName)||a.role.localeCompare(b.role));
+  }
   return {
     account,
     accessRecords: accountAccess,
@@ -461,6 +476,7 @@ export function buildAvailableContexts(account, accessRecords, courses, globalAc
     accessIds.add(accessId);
     const course = activeCourses.get(courseIdKey);
     if (!course) continue;
+    if (String(course.SchemaVersion || '').includes('-program') && role === 'STUDENT') continue;
     const key = `${courseIdKey}|${role}`;
     if (seen.has(key)) throw new Error("Active course-role membership is ambiguous");
     seen.add(key);
@@ -492,12 +508,15 @@ function selectUsableAutomaticContext(state) {
   if (state.contexts.length === 1 && state.contexts[0].scope === "GLOBAL") {
     return selectGlobalOnlyContext(state);
   }
-  const activeCourseIds = new Set(state.contexts
-    .filter(context => context.scope === "COURSE")
-    .map(context => normalizePlatformIdentifier(context.courseId)));
   const usableAccess = state.accessRecords.filter(access => (
-    activeCourseIds.has(normalizePlatformIdentifier(access.CourseID))
+    state.contexts.some(context=>context.scope==='COURSE'&&!context.programLibrary&&
+      normalizePlatformIdentifier(context.courseId)===normalizePlatformIdentifier(access.CourseID)&&
+      normalizePlatformIdentifier(context.role)===normalizePlatformIdentifier(access.Role))
   ));
+  if(!usableAccess.length){
+    const programContext=state.contexts.find(context=>context.programLibrary===true);
+    if(programContext)return {scope:'COURSE',courseId:programContext.courseId,role:programContext.role,accountId:state.account.AccountID,accessId:'',accessRow:0,courseRecordId:''};
+  }
   const selected = selectAutomaticAccountContext(state.account, usableAccess);
   return attachAccessRow(state, selected);
 }
@@ -537,7 +556,8 @@ function attachAccessRow(state, selected) {
 async function createAccountSession(env, state, selected, credentialHash) {
   let courseName = "M4L Platform";
   if (selected.scope === "COURSE") {
-    const course = await resolveActiveCourseRegistration(env, selected.courseId);
+    const course = await resolveActiveCourseRegistration(env, selected.courseId, {allowProgram:true});
+    if(course.schemaVersion.includes('-program')&&!['GLOBAL_ADMIN','ADMIN','SENIOR','TEACHER'].includes(selected.role))throw new Error('Program Library access requires a teacher or administrator role');
     courseName = course.courseName;
   } else if (selected.scope === "GLOBAL") {
     courseName = "Global Subjects";

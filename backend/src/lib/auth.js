@@ -12,6 +12,7 @@ import {
   normalizePlatformIdentifier
 } from "./platform-schema.js";
 import { getRequestAuthUser } from "./request-context.js";
+import { readProgramRoleAccounts } from "../profiles/program-roles.js";
 
 const PIN_HASH_VERSION = "v2";
 const PIN_HASH_ALGORITHM = "pbkdf2-sha256";
@@ -178,7 +179,7 @@ export async function requireResourceCreator(request, env) {
   };
 }
 
-export async function getAuthUser(request, env) {
+export async function getAuthUser(request, env, {allowProgram=false}={}) {
   const requestUser = getRequestAuthUser(request);
   if (requestUser) return requestUser;
 
@@ -198,14 +199,14 @@ export async function getAuthUser(request, env) {
   // Central V102 account tokens are always revalidated. The legacy feature flag
   // remains only for the pre-V102 admin/student sessions during staged cutover.
   if (payload.type === "account") {
-    return validateCredentialBoundSession(payload, env);
+    return validateCredentialBoundSession(payload, env, {allowProgram});
   }
 
   if (!requiresCredentialBoundSessions(env)) {
     return payload;
   }
 
-  return validateCredentialBoundSession(payload, env);
+  return validateCredentialBoundSession(payload, env, {allowProgram});
 }
 
 /*
@@ -392,7 +393,7 @@ async function createCredentialVersion(credentialHash, sessionSecret) {
   return sign(`credential:${String(credentialHash || "")}`, sessionSecret);
 }
 
-async function validateCredentialBoundSession(payload, env) {
+async function validateCredentialBoundSession(payload, env, {allowProgram=false}={}) {
   if (
     payload.sv !== CREDENTIAL_SESSION_VERSION ||
     !Number.isInteger(payload.authrow) ||
@@ -404,7 +405,7 @@ async function validateCredentialBoundSession(payload, env) {
   }
 
   if (payload.type === "account") {
-    return validateCentralAccountSession(payload, env);
+    return validateCentralAccountSession(payload, env, {allowProgram});
   }
 
   let range;
@@ -481,7 +482,7 @@ async function validateCredentialBoundSession(payload, env) {
   };
 }
 
-async function validateCentralAccountSession(payload, env) {
+async function validateCentralAccountSession(payload, env, {allowProgram=false}={}) {
   const platformSpreadsheetId = getPlatformSpreadsheetId(env);
   const accountId = normalizePlatformIdentifier(payload.accountid);
   const uniqueId = String(payload.uniqueid || "").trim();
@@ -570,7 +571,10 @@ async function validateCentralAccountSession(payload, env) {
 
   const courseId = String(payload.courseid || "").trim();
   if (!courseId) return null;
-  const course = await resolveActiveCourseRegistration(env, courseId);
+  let course;
+  try{course=await resolveActiveCourseRegistration(env, courseId, {allowProgram});}
+  catch(error){if(/Program teaching is not enabled in this release/.test(String(error.message)))return null;throw error;}
+  if(course.schemaVersion.includes('-program')&&!['GLOBAL_ADMIN','ADMIN','SENIOR','TEACHER'].includes(tokenRole))return null;
 
   if (isGlobalAdmin) {
     if (tokenRole !== "GLOBAL_ADMIN") return null;
@@ -586,6 +590,14 @@ async function validateCentralAccountSession(payload, env) {
       courserecordid: "",
       accessid: ""
     };
+  }
+
+  if(course.schemaVersion.includes('-program')){
+    const roles=await readProgramRoleAccounts(env,course.courseId);
+    if(!roles.some(row=>normalizePlatformIdentifier(row.AccountID)===accountId&&row.Active&&row.Roles.includes(tokenRole)))return null;
+    if(!payload.accessrow&&!payload.accessid&&!payload.courserecordid){
+      return {...payload,accountid:String(accountRow[0]||'').trim(),username:String(accountRow[1]||'').trim(),role:tokenRole,scope:'COURSE',courseid:course.courseId,coursename:course.courseName,coursespreadsheetid:course.spreadsheetId,courserecordid:'',accessid:''};
+    }
   }
 
   if (!Number.isInteger(payload.accessrow) || payload.accessrow < 2) return null;

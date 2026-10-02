@@ -33,6 +33,15 @@ export async function startLibraryUpload(env,details){
   const ciphertext=new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv},aes,encoder.encode(JSON.stringify(ticket))));
   return {ticket:`${base64url(iv)}.${base64url(ciphertext)}`,chunkSize:CHUNK_SIZE};
 }
+export async function copyLibraryFile(env,{sourceFileId,folderId,resourceType}){
+  const payload=base64url(encoder.encode(JSON.stringify({purpose:'m4l-library-copy',issuedAt:Date.now(),nonce:crypto.randomUUID(),sourceFileId,folderId,resourceType})));
+  const hmac=await crypto.subtle.importKey('raw',encoder.encode(`apps-script-library-copy:${secret(env)}`),{name:'HMAC',hash:'SHA-256'},false,['sign']);
+  const signature=base64url(new Uint8Array(await crypto.subtle.sign('HMAC',hmac,encoder.encode(payload))));
+  const result=await callAppsScript(env,{action:'copyProgramLibraryFile',data:{payload,signature}});
+  if(!result?.success)throw new Error(result?.error||'The Library account could not copy this Drive file. Share the file with that account and try again.');
+  if(!/^[A-Za-z0-9_-]{10,128}$/.test(String(result.file?.id||'')))throw new Error('Google Drive did not confirm the copied file.');
+  return result.file;
+}
 export async function openLibraryUploadTicket(env,value){
   try{
     const parts=String(value||'').split('.');if(parts.length!==2)return null;

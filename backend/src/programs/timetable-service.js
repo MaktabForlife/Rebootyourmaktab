@@ -75,8 +75,11 @@ export function timetableService(repository,program,now=()=>new Date()) {
         const changeInput=root?{...input,record:root}:input;
         const {snapshot,record}=applyManagementChange(current,changeInput,shared,program);
         if(input.kind==='resources'){
-          if(record.Active||input.creating||currentRecord?.DriveFileID!==record.DriveFileID)await repository.verifyResource(record,snapshot.ProgramLibraryRoots);
-          if(record.CoverDriveFileID&&(record.Active||input.creating||currentRecord?.CoverDriveFileID!==record.CoverDriveFileID))await repository.verifyCover(record,snapshot.ProgramLibraryRoots);
+          const destination=repository.libraryDestination?await repository.libraryDestination():'';
+          const fileChanged=input.creating||currentRecord?.DriveFileID!==record.DriveFileID;
+          const coverChanged=input.creating||currentRecord?.CoverDriveFileID!==record.CoverDriveFileID;
+          if(record.Active||fileChanged)await repository.verifyResource(record,snapshot.ProgramLibraryRoots,fileChanged?destination:'');
+          if(record.CoverDriveFileID&&(record.Active||coverChanged))await repository.verifyCover(record,snapshot.ProgramLibraryRoots,coverChanged?destination:'');
         }
         const persisted={...snapshot};delete persisted.ProgramTasks;delete persisted.ProgramResources;
         const snapshotJSON=JSON.stringify(persisted);

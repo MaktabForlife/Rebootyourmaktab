@@ -6,7 +6,7 @@ import { academySubjectRepository, academySubjectService } from '../src/programs
 import { timetableCoordinator } from '../src/programs/timetable-coordination.js';
 import { timetableService } from '../src/programs/timetable-service.js';
 import { timetableRepository } from '../src/programs/timetable-repository.js';
-import { timetableProgram,timetableUser } from '../src/programs/timetable-context.js';
+import { timetableProgram,timetableUser,programLibraryUser } from '../src/programs/timetable-context.js';
 import { createRequestEnvironment } from '../src/lib/request-context.js';
 import { TIMETABLE_HEADERS } from '../src/programs/timetable-model.js';
 import { readWeeklyDraft } from '../src/programs/weekly-timetable.js';
@@ -36,11 +36,11 @@ book(platformId, {
   PlatformAuditLog: [PLATFORM_SHEET_HEADERS.PlatformAuditLog]
 });
 book(targetId, { Setup: [["Development only"]] });
-book(legacyId, { SubjectList:[['SubjectID','SubjectName','Active'],['REBOOT-AR','Arabic',true],['REBOOT-TF','Tafseer',true],['REBOOT-DUP','  ARABIC  ',true],['REBOOT-OLD','Old subject',false]], StudentRecords: [["Legacy records must remain unchanged"]] });
+book(legacyId, { SubjectList:[['SubjectID','SubjectName','Active'],['REBOOT-AR','Arabic',true],['REBOOT-TF','Tafseer',true],['REBOOT-DUP','  ARABIC  ',true],['REBOOT-OLD','Old subject',false]], StudentRecords: [["Legacy records must remain unchanged"]], SystemConfig:[['Key','Value','UpdatedAt','UpdatedBy','UpdatedByName'],['ProgramLibraryDriveFolderId','library-root','','',''],['ProgramLibraryPreviousFolderIds','','','','']] });
 books.get(platformId).find(sheet => sheet.title === "UserAccounts").rows.push(["ACCOUNT2", "Local Admin", "LOCAL-LINK", true, hash, true]);
 books.get(platformId).find(sheet => sheet.title === "UserCourseAccess").rows.push(["ACCESS2", "ACCOUNT2", "REBOOT", "ADMIN", true, true, "", "", "", "", "", "", "", "LOCAL-ADMIN"]);
 const table = (id, title) => books.get(id).find(sheet => sheet.title === title).rows;
-const originalLegacy = structuredClone(books.get(legacyId));
+let originalLegacy = structuredClone(books.get(legacyId));
 const originalRegistryRow = structuredClone(table(platformId, "CourseRegistry")[1]);
 const keyPair = await crypto.subtle.generateKey({ name: "RSASSA-PKCS1-v1_5", modulusLength: 2048, publicExponent: new Uint8Array([1,0,1]), hash: "SHA-256" }, true, ["sign", "verify"]);
 const privateBytes = new Uint8Array(await crypto.subtle.exportKey("pkcs8", keyPair.privateKey));
@@ -59,6 +59,14 @@ const originalFetch = globalThis.fetch;
 globalThis.fetch = async (url, init = {}) => {
   const parsed = new URL(url);
   const result = value => new Response(JSON.stringify(value), { status:200 });
+  if(parsed.hostname==='script.google.com'){
+    const body=JSON.parse(init.body);
+    const payload=JSON.parse(Buffer.from(body.data.payload,'base64url').toString());
+    assert.equal(payload.folderId,table(legacyId,'SystemConfig')[1][1],'The signed Drive operation uses the global Resources folder');
+    if(body.action==='startProgramLibraryUpload')return result({success:true,sessionUrl:'https://www.googleapis.com/upload/drive/v3/files?upload_id=teacher-test'});
+    if(body.action==='copyProgramLibraryFile')return result({success:true,file:{id:'copied-file-123',name:'Shared.pdf',mimeType:'application/pdf'}});
+    throw new Error(`Unexpected Apps Script action ${body.action}`);
+  }
   if (parsed.hostname === "oauth2.googleapis.com") return result({ access_token:"program-test-access", expires_in:3600 });
   if (parsed.hostname === 'www.googleapis.com' && parsed.pathname.startsWith('/drive/v3/files')) {
     const files={
@@ -87,6 +95,15 @@ globalThis.fetch = async (url, init = {}) => {
   if (suffix === "") return result({ sheets:sheets.map(({ sheetId, title, tables }) => ({ properties:{ sheetId,title },tables })) });
   if (suffix.startsWith("/values/")) return result({ values:rangeValues(decodeURIComponent(suffix.slice(8))) });
   if (suffix === "/values:batchGet") return result({ valueRanges:parsed.searchParams.getAll("ranges").map(range => ({ values:rangeValues(range) })) });
+  if (suffix === "/values:batchUpdate") {
+    for(const update of JSON.parse(init.body).data){
+      const matched=/^SystemConfig!B(\d+):E\1$/.exec(update.range);
+      assert(matched,'Only SystemConfig values may change here');
+      const row=table(legacyId,'SystemConfig')[Number(matched[1])-1];
+      update.values[0].forEach((value,index)=>{row[index+1]=value;});
+    }
+    writes++;return result({totalUpdatedRows:1});
+  }
   assert.equal(suffix, ":batchUpdate");
   writes++;
   if (failWrite) { failWrite = false; return new Response(JSON.stringify({ error:{ message:"Injected write failure" } }), { status:500 }); }
@@ -137,10 +154,11 @@ const input={id:f.program.id,name:'Aalimiya',spreadsheetId:targetId,durationYear
 const journals=new Map(),coordinators=new Map(),names=[];
 const binding={getByName(name){names.push(name);if(!coordinators.has(name)){
  const journal={get:async()=>journals.get(name)||null,set:async p=>journals.set(name,structuredClone(p)),clear:async()=>journals.delete(name)};
- coordinators.set(name,timetableCoordinator(journal,async(id,authorization)=>{
+ coordinators.set(name,timetableCoordinator(journal,async(id,authorization,action,body)=>{
   const fresh=createRequestEnvironment(env),request=new Request('https://test.invalid',{headers:{Authorization:authorization}});
   if(name.endsWith(':user-profiles'))return {user:await profileUser(request,fresh),service:profileService(profileRepository(fresh))};
-  const user=await timetableUser(request,fresh);
+  const libraryWrite=(action==='manage-save'||action==='recover')&&body.kind==='resources';
+  const user=libraryWrite?await programLibraryUser(request,fresh,id):await timetableUser(request,fresh);
   if(name.endsWith(':academy-subjects'))return {user,service:academySubjectService(academySubjectRepository(fresh))};
   const program=await timetableProgram(fresh,id);return {user,service:timetableService(timetableRepository(fresh,program),program)};
  }));}
@@ -201,8 +219,23 @@ try{
  const preview=await library('access',{resourceId:'RES-PREVIEW'});assert.match(preview.url,/\/api\/library\/drive\/file\/library-pdf\?access=/);
  table(targetId,'ProgramResources').pop();
  await library('access',{resourceId:'RES-PREVIEW'},token,404);
- table(platformId,'UserAccounts').push(['TEACHER-1','Demo Teacher','TEACHER-LINK',false,'',true]);
- table(platformId,'UserCourseAccess').push(['ACCESS-TEACHER','TEACHER-1',input.id,'TEACHER',true]);
+ table(platformId,'UserAccounts').push(['TEACHER-1','Demo Teacher','TEACHER-LINK',true,hash,true]);
+ table(platformId,'UserCourseAccess').push(['ACCESS-TEACHER','TEACHER-1',input.id,'TEACHER',true,true,'','','','','','','','TEACHER-REC']);
+ const teacherToken=await createSessionToken({type:'account',accountid:'TEACHER-1',uniqueid:'TEACHER-LINK',role:'TEACHER',scope:'COURSE',courseid:input.id,authrow:4,accessrow:3,accessid:'ACCESS-TEACHER',courserecordid:'TEACHER-REC',credentialHash:hash},env);
+ const teacherLibrary=await library('manage',{},teacherToken);assert.equal(teacherLibrary.canManageFolder,false);
+ await library('folder-set',{folder:'outside-folder'},teacherToken,403);
+ await library('prepare-library',{},teacherToken,403);
+ await library('save',{kind:'resources',creating:false,baseRowRevision:teacherLibrary.rowRevisions.resources['RES-BOOK'],revision:teacherLibrary.revision,operationId:crypto.randomUUID(),record:{...teacherLibrary.rows.resources.find(r=>r.ResourceID==='RES-BOOK'),Description:'Updated by teacher'}},teacherToken);
+ assert.equal((await library('manage')).rows.resources.find(r=>r.ResourceID==='RES-BOOK').Description,'Updated by teacher');
+ env.APPS_SCRIPT_URL='https://script.google.com/macros/s/test/exec';env.M4L_LIBRARY_BRIDGE_SECRET='program-library-test-secret-long-enough';
+ assert((await library('upload-start',{fileName:'Teacher.pdf',mimeType:'application/pdf',size:42,resourceType:'EBOOK'},teacherToken)).ticket);
+ assert.equal((await library('copy',{file:'https://drive.google.com/file/d/teacher-file-123/view',resourceType:'EBOOK'},teacherToken)).file.id,'copied-file-123');
+ const destinationChange=await library('folder-set',{folder:'outside-folder'});
+ assert.equal(destinationChange.folder.id,'outside-folder');
+ assert.equal(table(legacyId,'SystemConfig')[1][1],'outside-folder');
+ assert.equal(table(legacyId,'SystemConfig')[2][1],'library-root','The previous Resources folder remains available for existing resources');
+ assert.match((await library('access',{resourceId:'RES-BOOK'})).url,/library-pdf/);
+ originalLegacy=structuredClone(books.get(legacyId));
  loaded=await tt('get');assert.equal(loaded.prepared,true);assert.equal(loaded.catalog.modules.length,1);assert.equal(loaded.catalog.teachers.length,1);
  assert((await tt('preview',{draft:f.draft})).valid);
  const noSharedZoom=structuredClone(f.draft);noSharedZoom.rules[0].zoomLink='';assert.equal((await tt('preview',{draft:noSharedZoom})).valid,false);
@@ -389,6 +422,10 @@ try{
  await profiles('save',profileInput('ACCOUNT1',{active:false}),token,409);
  await profiles('save',roleInput('ACCOUNT2','PROGRAM',input.id,['GLOBAL_ADMIN']),token,400);
  await profiles('save',roleInput('ACCOUNT2','PROGRAM',input.id,['TEACHER','STUDENT'],{subscriptionConfirmed:true}));
+ assert((await library('available',{},centralAdminToken)).programs.some(row=>row.id===input.id),'A Reboot context can discover a Program Library granted by the Academy matrix');
+ assert.equal((await library('manage',{},centralAdminToken)).canManageFolder,false);
+ const matrixOnlyToken=await createSessionToken({type:'account',accountid:'ACCOUNT2',uniqueid:'LOCAL-LINK',role:'TEACHER',scope:'COURSE',courseid:input.id,authrow:3,credentialHash:hash},env);
+ assert.equal((await library('manage',{},matrixOnlyToken)).canManageFolder,false,'A Program Library session can use the Academy matrix without a legacy Course membership');
  assert.deepEqual(table(platformId,'UserCourseAccess'),beforeMatrixSetup[0]);
  directory=await profiles('get');
  const paidRoles=roleInput('ACCOUNT2','SUBJECT','TAFSEER',['STUDENT','TEACHER','ADMIN'],{subscriptionConfirmed:true});

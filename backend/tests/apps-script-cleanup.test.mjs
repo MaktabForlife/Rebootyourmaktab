@@ -10,6 +10,7 @@ const manifest = JSON.parse(readFileSync(
 
 const EXPECTED_FUNCTIONS = [
   "authorizeM4LServices",
+  "copyProgramLibraryFile",
   "doGet",
   "doPost",
   "extractWeeklyPlannerPreviewBase64_",
@@ -19,6 +20,7 @@ const EXPECTED_FUNCTIONS = [
   "sanitizeWeeklyPlannerDriveFileName_",
   "saveWeeklyPlannerPreviewToDrive",
   "startProgramLibraryUpload",
+  "verifyProgramLibraryCopyRequest_",
   "verifyProgramLibraryUploadRequest_"
 ].sort();
 
@@ -94,8 +96,8 @@ const publicActions = Array.from(new Set([
 ])).sort();
 assert.deepEqual(
   publicActions,
-  ["saveWeeklyPlannerPreviewToDrive", "startProgramLibraryUpload"],
-  "doPost must expose only the two Drive bridge actions"
+  ["copyProgramLibraryFile", "saveWeeklyPlannerPreviewToDrive", "startProgramLibraryUpload"],
+  "doPost must expose only the three Drive bridge actions"
 );
 
 for (const functionName of [...REMOVED_UTILITY_FUNCTIONS, ...RETIRED_ROUTE_FUNCTIONS]) {
@@ -118,7 +120,7 @@ assert.match(code, /DriveApp\.getFolderById/);
 assert.match(code, /folder\.createFile\(/);
 assert.match(code, /WeeklyPlannerDriveFolderId/);
 assert.match(code, /WeeklyPlannerDriveFolderLabel/);
-assert.ok(code.split("\n").length < 400, "Apps Script should remain a narrow Drive bridge");
+assert.ok(code.split("\n").length < 460, "Apps Script should remain a narrow Drive bridge");
 
 assert.equal(manifest.runtimeVersion, "V8");
 assert.ok(

@@ -158,6 +158,7 @@ globalThis.fetch = async (input, init = {}) => {
   }
   assert.equal(init.headers.Authorization, "Bearer mock-account-token");
   assert.match(url.pathname, /spreadsheets\/platform-sheet-test/);
+  if(url.pathname==='/v4/spreadsheets/platform-sheet-test')return response({sheets:Object.keys(tables).map((title,sheetId)=>({properties:{title,sheetId}}))});
 
   if (url.pathname.endsWith("/values:batchUpdate")) {
     const payload = JSON.parse(init.body);
@@ -418,6 +419,23 @@ try {
   tables.PlatformConfig[2][1] = "102.0.12";
   const v10453SchemaCheck = await post("/api/account/check", { uniqueid: "ADMIN-LINK" });
   assert.equal(v10453SchemaCheck.response.status, 200, "Central account login/revalidation must accept current Platform schema 102.0.12");
+
+  const programId='PRG-11111111-1111-4111-8111-111111111111';
+  const programHash=await createSaltedPinHash('1357',pinSecret);
+  tables.CourseRegistry.push([programId,'Program Library','program-sheet-test',false,'105.1-program']);
+  tables.UserAccounts.push(['ACCOUNT7','Program Teacher','PROGRAM-TEACHER-LINK',true,programHash,true,'','','','','','','','']);
+  tables.UserCourseAccess.push(['ACCESS5','ACCOUNT7',programId,'TEACHER',true,true,'','','','','','','','TEACHER-REC']);
+  const programLogin=await post('/api/account/login',{uniqueid:'PROGRAM-TEACHER-LINK',pin:'1357'});
+  assert.equal(programLogin.response.status,200,JSON.stringify(programLogin.data));
+  assert.equal(programLogin.data.context.courseId,programId);
+  assert.equal(programLogin.data.context.role,'TEACHER');
+  const programSession=await post('/api/account/session',{},programLogin.data.token);
+  assert.equal(programSession.response.status,200,'A teacher with only Program Library access can restore their account session');
+  const programSwitched=await post('/api/account/switch-context',{scope:'COURSE',courseId:programId,role:'TEACHER'},programLogin.data.token);
+  assert.equal(programSwitched.response.status,200,'A teacher can select their Program Library context');
+  const programRequest=new Request('https://worker.test/api/account/session',{headers:{Authorization:`Bearer ${programLogin.data.token}`}});
+  assert.equal(await getAuthUser(programRequest,env),null,'Program Library tokens cannot open unfinished teaching routes');
+  assert.equal((await getAuthUser(programRequest,env,{allowProgram:true})).role,'TEACHER');
 } finally {
   globalThis.fetch = originalFetch;
 }
