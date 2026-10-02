@@ -11,7 +11,7 @@ const ids=new Set([...markup.matchAll(/id="([^"]+)"/g)].map(match=>match[1]));
 const elements=new Map(),storage=new Map(),requests=[];
 function element(id){
   assert(ids.has(id),`Missing Library element ${id}`);
-  if(!elements.has(id))elements.set(id,{hidden:false,open:false,disabled:false,value:'',textContent:'',innerHTML:'',dataset:{},listeners:{},classList:{toggle(){}},focus(){},click(){this.clicked=true;},removeAttribute(name){delete this[name];},showModal(){this.open=true;},close(){this.open=false;this.onclose?.();},addEventListener(type,fn){this.listeners[type]=fn;}});
+  if(!elements.has(id))elements.set(id,{hidden:false,open:false,disabled:false,value:'',textContent:'',innerHTML:'',dataset:{},listeners:{},classList:{toggle(){}},focus(){this.focused=true;},click(){this.clicked=true;},removeAttribute(name){delete this[name];},showModal(){this.open=true;},close(){this.open=false;this.onclose?.();},addEventListener(type,fn){this.listeners[type]=fn;}});
   return elements.get(id);
 }
 const f=timetableFixture(),service=timetableService(f.repository,f.program);
@@ -123,6 +123,23 @@ assert.equal(element('pl-cover-search').open,false);
 assert.equal(element('pl-cover-device-file').clicked,true,'A saved web image can use the existing cover upload');
 assert.equal(JSON.parse(storage.get(draftKey)).record.CoverDriveFileID,'uploaded-cover');
 assert.equal(requests.some(row=>['cover-search','cover-image'].includes(row.action)),false,'No external cover source is requested by the app');
+element('pl-cover-paste').onclick();
+assert.equal(element('pl-cover-search').open,true,'Paste cover opens the centered paste area');
+assert.equal(element('pl-cover-paste-target').focused,true,'The paste area receives keyboard focus');
+let pastePrevented=false;
+element('pl-cover-paste-target').onpaste({clipboardData:{items:[{kind:'string',type:'text/plain'}]},preventDefault(){pastePrevented=true;}});
+assert.equal(pastePrevented,true);
+assert.match(element('pl-cover-paste-status').textContent,/No image was found/);
+assert.equal(element('pl-cover-search').open,true,'Pasting a link keeps the dialog open');
+const pastedImage=new Blob(['pasted image'],{type:'image/png'});
+element('pl-cover-paste-target').onpaste({clipboardData:{items:[{kind:'file',type:'image/png',getAsFile:()=>pastedImage}]},preventDefault(){}});
+assert.equal(element('pl-cover-search').open,false);
+assert.equal(element('pl-drive').open,true,'A pasted image enters the existing cover upload flow');
+assert.match(element('pl-drive-help').textContent,/book-cover-\d+\.png/);
+element('pl-upload').onclick();await settled();
+assert.equal(requests.filter(row=>row.action==='upload-start').at(-1).body.resourceType,'COVER');
+assert.match(requests.filter(row=>row.action==='upload-start').at(-1).body.fileName,/^book-cover-\d+\.png$/);
+assert.equal(JSON.parse(storage.get(draftKey)).record.CoverDriveFileID,'uploaded-cover');
 multiChunkUpload=true;rateLimitedChunkOnce=true;
 const startsBeforeResume=requests.filter(row=>row.action==='upload-start').length;
 const chunksBeforeResume=requests.filter(row=>row.action==='upload-chunk').length;
@@ -149,4 +166,4 @@ element('pl-device-file').onchange({target:{files:[{name:'Lesson.mp3',type:'audi
 assert.equal(element('pl-type').value,'AUDIO','A selected audio file sets the matching category');
 assert.equal(element('pl-drive-type').value,'AUDIO');
 element('pl-drive-cancel').onclick();
-console.log('Program Library UI: centered Drive finder, admin Resources folder, device upload, book details, cover selection and retry recovery passed.');
+console.log('Program Library UI: centered Drive finder, admin Resources folder, device upload, book details, pasted cover and retry recovery passed.');

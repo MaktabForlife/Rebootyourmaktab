@@ -86,6 +86,7 @@
     $('pl-cover-file').textContent=state.selectedCover?.name||(r.CoverDriveFileID?`Saved Drive cover · ${r.CoverDriveFileID}`:'No cover selected.');
     $('pl-cover-device').disabled=state.busy||Boolean(state.pending);
     $('pl-cover-browse').disabled=state.busy||Boolean(state.pending);
+    $('pl-cover-paste').disabled=state.busy||Boolean(state.pending)||!state.data?.destinationId;
     $('pl-cover-online').disabled=state.busy||Boolean(state.pending)||!state.data?.destinationId;
     $('pl-active').value=String(active(r.Active));
     renderChoices();
@@ -173,14 +174,19 @@
   function openDrive(mode){if(!state.record||state.busy)return;state.mode=mode;state.drive=null;state.folderId=state.data?.destinationId||'';renderDrive();$('pl-drive').showModal();if(mode.includes('upload'))driveMessage('Ready to upload to Resources.');else void browse();}
   $('pl-browse').onclick=()=>{state.uploadFile=null;openDrive('select');};
   $('pl-cover-browse').onclick=()=>{state.uploadFile=null;openDrive('cover-select');};
-  $('pl-cover-online').onclick=()=>{
+  let coverDialogTrigger='pl-cover-online';
+  function openCoverDialog(trigger){
     if(!state.record||state.busy||state.pending||!state.data?.destinationId)return;
+    coverDialogTrigger=trigger;
     $('pl-cover-title').value=state.record.Name||'';
     $('pl-cover-author').value=state.record.Author||'';
     $('pl-cover-publisher').value=state.record.Publisher||'';
     $('pl-cover-query').value='';
-    $('pl-cover-search').showModal();$('pl-cover-title').focus();
-  };
+    $('pl-cover-paste-status').textContent='Copy the image itself, not its address.';
+    $('pl-cover-search').showModal();$(trigger==='pl-cover-paste'?'pl-cover-paste-target':'pl-cover-title').focus();
+  }
+  $('pl-cover-online').onclick=()=>openCoverDialog('pl-cover-online');
+  $('pl-cover-paste').onclick=()=>openCoverDialog('pl-cover-paste');
   $('pl-cover-search-form').onsubmit=event=>{
     const title=$('pl-cover-title').value.trim();
     if(!title){event.preventDefault();$('pl-cover-title').focus();return;}
@@ -188,7 +194,22 @@
   };
   $('pl-cover-use-device').onclick=()=>{$('pl-cover-search').close();$('pl-cover-device-file').click();};
   $('pl-cover-search-close').onclick=()=>$('pl-cover-search').close();
-  $('pl-cover-search').onclose=()=>{if(!$('pl-drive').open)$('pl-cover-online').focus();};
+  $('pl-cover-search').onclose=()=>{if(!$('pl-drive').open)$(coverDialogTrigger).focus();};
+  $('pl-cover-paste-target').onpaste=event=>{
+    event.preventDefault();
+    if(!state.record||state.busy||state.pending)return;
+    const items=Array.from(event.clipboardData?.items||[]);
+    const pasted=items.filter(item=>item.kind==='file'&&item.type.startsWith('image/')).map(item=>item.getAsFile()).find(Boolean)
+      ||Array.from(event.clipboardData?.files||[]).find(file=>fileMimeType(file).startsWith('image/'));
+    if(!pasted){$('pl-cover-paste-status').textContent='No image was found. Choose Copy image, then paste here.';return;}
+    const mimeType=fileMimeType(pasted);
+    const extension=({'image/jpeg':'jpg','image/png':'png','image/webp':'webp'})[mimeType];
+    if(!extension){$('pl-cover-paste-status').textContent='Paste a JPG, PNG or WebP image.';return;}
+    if(!pasted.size||pasted.size>20*1024*1024){$('pl-cover-paste-status').textContent='Choose a cover image up to 20 MB.';return;}
+    state.uploadFile=new File([pasted],`book-cover-${Date.now()}.${extension}`,{type:mimeType});
+    state.uploadSession=null;
+    $('pl-cover-search').close();openDrive('cover-upload');
+  };
   const acceptedFiles={EBOOK:'.pdf',PRINTABLE:'.pdf',AUDIO:'audio/*',VIDEO:'video/*',OTHER:'image/*,text/*,.zip,.doc,.docx,.ppt,.pptx'};
   function supportsUpload(file,type){
     const mime=String(file.type||file.mimeType||'').toLowerCase(),name=String(file.name||'').toLowerCase();
