@@ -1,7 +1,7 @@
 /* M4L V102.10 - Account-authorised multi-course and policy-aware global Library catalogue. */
 
 import { getAuthUser } from "../lib/auth.js";
-import { readAcademyLibraryPolicies, academyResourceDecision } from '../lib/academy-library-policy.js';
+import { readAcademyLibraryPolicies, academyResourceDecision, canonicalCourseResourceType } from '../lib/academy-library-policy.js';
 import {
   createCourseEnvironment,
   resolveOperationalAccountUser
@@ -105,7 +105,7 @@ function filterPublishedLibrary(library, policies, user, tables) {
         module.resources = (module.resources || []).filter(resource => {
           const key = library.scope === 'GLOBAL'
             ? `GLOBAL:${resource.originresourceid}`
-            : `COURSE:${library.courseId}:${resource.type}:${resource.originresourceid}`;
+            : `COURSE:${library.courseId}:${canonicalCourseResourceType(resource.type)}:${resource.originresourceid}`;
           const decision = academyResourceDecision({ key, source: library.scope,
             sourceActive: true, assigned: library.scope === 'COURSE',
             role: library.role || user.role, accountId: user.accountid,

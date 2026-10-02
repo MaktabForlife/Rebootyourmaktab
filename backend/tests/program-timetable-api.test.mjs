@@ -38,6 +38,12 @@ book(platformId, {
 });
 book(targetId, { Setup: [["Development only"]] });
 book(legacyId, { SubjectList:[['SubjectID','SubjectName','Active'],['REBOOT-AR','Arabic',true],['REBOOT-TF','Tafseer',true],['REBOOT-DUP','  ARABIC  ',true],['REBOOT-OLD','Old subject',false]], StudentRecords: [["Legacy records must remain unchanged"]], SystemConfig:[['Key','Value','UpdatedAt','UpdatedBy','UpdatedByName'],['ProgramLibraryDriveFolderId','library-root','','',''],['ProgramLibraryPreviousFolderIds','','','','']] });
+const rebootResourceHeaders=['ResourceID','ResourceName','SubjectID','Subject','ModuleID','Module','TaskID','ClassGroup','Format','Description','Link','Active','CreatedDate'];
+for(const [title,rows] of Object.entries({
+ eBooks:[['REBOOT-BOOK','Reboot book','REBOOT-AR','Arabic','MOD-1','Reading','','ALL','PDF','','/api/library/drive/file/library-pdf',true,'']],
+ Printable:[['REBOOT-PRINT','Reboot printable','REBOOT-AR','Arabic','MOD-1','Reading','','ALL','PDF','','/api/library/drive/file/library-pdf',true,'']],
+ Audio:[],Video:[],OtherResource:[]
+}))books.get(legacyId).push({title,sheetId:20+books.get(legacyId).length,rows:[rebootResourceHeaders,...rows]});
 books.get(platformId).find(sheet => sheet.title === "UserAccounts").rows.push(["ACCOUNT2", "Local Admin", "LOCAL-LINK", true, hash, true]);
 books.get(platformId).find(sheet => sheet.title === "UserCourseAccess").rows.push(["ACCESS2", "ACCOUNT2", "REBOOT", "ADMIN", true, true, "", "", "", "", "", "", "", "LOCAL-ADMIN"]);
 const table = (id, title) => books.get(id).find(sheet => sheet.title === title).rows;
@@ -231,7 +237,10 @@ try{
  table(platformId,'AcademyLibraryAccess')[0]=['ResourceKey','Status','AccessState','EntitlementSource','SubscriptionScope'];
  const combinedLibrary=await academyLibrary('catalogue');
  assert(combinedLibrary.resources.some(row=>row.id===`PROGRAM:${input.id}:RES-BOOK`&&row.forYou));
+ assert(combinedLibrary.resources.some(row=>row.id==='COURSE:REBOOT:EBOOK:REBOOT-BOOK'&&row.type==='EBOOK'&&row.forYou));
+ assert(combinedLibrary.resources.some(row=>row.id==='COURSE:REBOOT:PRINTABLE:REBOOT-PRINT'&&row.type==='PRINTABLE'&&row.forYou));
  assert(!JSON.stringify(combinedLibrary).includes('library-pdf'),'Academy catalogue must not disclose Drive IDs');
+ assert.match((await academyLibrary('access',{resourceId:'COURSE:REBOOT:EBOOK:REBOOT-BOOK'})).url,/library-pdf/);
  assert.match((await academyLibrary('access',{resourceId:`PROGRAM:${input.id}:RES-BOOK`})).url,/\/api\/library\/drive\/file\/library-pdf\?access=/);
  await academyLibrary('access',{resourceId:`PROGRAM:${input.id}:RES-UNKNOWN`},token,403);
  const outsiderAccountRow=table(platformId,'UserAccounts').length+1;

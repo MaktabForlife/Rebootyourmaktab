@@ -1,5 +1,5 @@
 import { getAuthUser } from '../lib/auth.js';
-import { readAcademyLibraryPolicies, academyResourceDecision } from '../lib/academy-library-policy.js';
+import { readAcademyLibraryPolicies, academyResourceDecision, canonicalCourseResourceType } from '../lib/academy-library-policy.js';
 import { createCourseEnvironment, resolveOperationalAccountUser } from '../lib/course-routing.js';
 import { readPlatformSheets } from '../lib/platform-sheet.js';
 import { isActivePlatformValue, normalizePlatformIdentifier } from '../lib/platform-schema.js';
@@ -119,10 +119,10 @@ export async function collectAcademyLibrary(env, user, requested = '') {
           coursespreadsheetid: access.spreadsheetId, courserecordid: access.courseRecordId
         });
         assignedIds = new Set(items(await readResourcesGoogleSheetsCatalogue(courseEnv, operational))
-          .map(item => `${item.resource.type}:${clean(item.resource.resourceid)}`));
+          .map(item => `${canonicalCourseResourceType(item.resource.type)}:${clean(item.resource.resourceid)}`));
       }
       for (const { resource, subject, module } of items(raw)) {
-        const type = normalizePlatformIdentifier(resource.type);
+        const type = canonicalCourseResourceType(resource.type);
         const originId = clean(resource.resourceid);
         const fileId = extractDriveFileId(resource.link);
         if (!TYPES.has(type) || !originId || !fileId) continue;

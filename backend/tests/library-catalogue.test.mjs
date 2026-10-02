@@ -162,6 +162,11 @@ globalThis.fetch = async (input, init = {}) => {
     })) });
   }
   const spreadsheetId = decodeURIComponent(url.pathname.match(/\/spreadsheets\/([^/]+)/)?.[1] || "");
+  if (spreadsheetId === 'platform-sheet-test' && url.pathname.endsWith('/values:batchGet')) {
+    return response({ valueRanges: url.searchParams.getAll('ranges').map(range => ({
+      values: platformTables[range.match(/^'([^']+)'!/)?.[1]] || []
+    })) });
+  }
   const range = decodeURIComponent(url.pathname.split("/values/")[1] || "");
   reads.push({ spreadsheetId, range });
 
@@ -219,6 +224,16 @@ try {
   assert.equal(JSON.stringify(result.data).includes("course-sheet-two"), false);
   assert.equal(reads.some(read => read.spreadsheetId === "course-sheet-three"), false);
   assert.equal(reads.some(read => read.spreadsheetId === "legacy-sheet-must-not-be-used"), false);
+
+  platformTables.AcademyLibraryAccess = [
+    ['ResourceKey', 'Status', 'AccessState', 'EntitlementSource', 'SubscriptionScope'],
+    ['COURSE:COURSE1:EBOOK:C1-ALL', 'ARCHIVED', 'ASSIGNED', '', '']
+  ];
+  const archived = await post('/api/library/catalogue', {});
+  assert.equal(archived.response.status, 200);
+  assert.deepEqual(resourceNames(archived.data.libraries.find(library => library.id === 'COURSE:COURSE1')),
+    ['Course 1 Group 1'], 'The legacy EBOOKS category must match the canonical EBOOK policy key');
+  delete platformTables.AcademyLibraryAccess;
 
   const forbidden = await post("/api/library/course-resource/access", {
     courseId: "COURSE3",

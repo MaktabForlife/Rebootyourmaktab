@@ -10,6 +10,13 @@ export const ACADEMY_LIBRARY_HEADERS = Object.freeze([
 ]);
 const STATES = new Set(['ASSIGNED', 'ACADEMY_LEARNERS', 'SUBSCRIPTION', 'STAFF_ONLY']);
 
+export function canonicalCourseResourceType(type) {
+  const value = normalizePlatformIdentifier(type);
+  if (value === 'EBOOKS') return 'EBOOK';
+  if (value === 'PRINTABLES') return 'PRINTABLE';
+  return value;
+}
+
 export async function readAcademyLibraryPolicies(env) {
   const target = { spreadsheetId: getPlatformSpreadsheetId(env) };
   const sheets = await readGoogleSpreadsheetSheetProperties(env, target);
