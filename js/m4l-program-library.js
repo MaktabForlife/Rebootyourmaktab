@@ -1,4 +1,4 @@
-/* V105.4.2.6 Program Library management. The Worker owns references and Drive access. */
+/* V105.4.2.7 Program Library management. The Worker owns references and Drive access. */
 (() => {
   'use strict';
   const $=id=>document.getElementById(id);
@@ -85,13 +85,14 @@
     $('pl-book-details').hidden=r.ResourceType!=='EBOOK';
     for(const [element,field] of [['pl-author','Author'],['pl-publisher','Publisher'],['pl-isbn','ISBN'],['pl-year','PublicationYear']])$(element).value=r[field]||'';
     $('pl-cover-file').textContent=state.selectedCover?.name||(r.CoverDriveFileID?`Saved Drive cover · ${r.CoverDriveFileID}`:'No cover selected.');
-    $('pl-cover-device').disabled=state.busy||Boolean(state.pending);
-    $('pl-cover-browse').disabled=state.busy||Boolean(state.pending);
-    $('pl-cover-paste').disabled=state.busy||Boolean(state.pending)||!state.data?.destinationId;
-    $('pl-cover-online').disabled=state.busy||Boolean(state.pending)||!state.data?.destinationId;
+    $('pl-cover-choose').disabled=state.busy||Boolean(state.pending)||!state.data?.destinationId;
     $('pl-active').value=String(active(r.Active));
     renderChoices();
     $('pl-file').textContent=state.selectedFile?.name|| (r.DriveFileID?`Saved Drive file · ${r.DriveFileID}`:'No file selected.');
+    $('pl-replace-file').hidden=state.creating&&Boolean(r.DriveFileID);
+    $('pl-replace-label').textContent=state.creating?'Choose a file for this unfinished resource':'Replace resource file';
+    $('pl-device').textContent=state.creating?'Choose from device':'Upload replacement from device';
+    $('pl-browse').textContent=state.creating?'Choose from Library Drive':'Choose replacement from Library Drive';
     $('pl-save').disabled=state.busy||!state.data?.libraryPrepared||!state.data?.coordinatorAvailable||Boolean(state.pending);
     $('pl-browse').disabled=state.busy||Boolean(state.pending);
     $('pl-device').disabled=state.busy||Boolean(state.pending);
@@ -148,8 +149,8 @@
       const disabled=locked||item.saved?'disabled':'';
       const field=(label,key,max=160)=>`<label>${label}<input data-bulk-index="${index}" data-bulk-field="${key}" value="${esc(item[key])}" maxlength="${max}" ${disabled}></label>`;
       const category=`<label>Category<select data-bulk-index="${index}" data-bulk-field="type" ${disabled}>${types.filter(([type])=>item.supportedTypes.includes(type)).map(([type,label])=>option(type,label,item.type)).join('')}</select></label>`;
-      const bookFields=item.type==='EBOOK'?`${field('Author (optional)','author')}${field('Publisher (optional)','publisher')}${field('ISBN (optional)','isbn',32)}${field('Publication year (optional)','year',4)}<label class="pl-bulk-cover">Cover image (optional) · ${esc(item.coverFile?.name||(item.coverDriveFileId?'Cover selected':'none selected'))}<input type="file" data-bulk-cover="${index}" accept="image/jpeg,image/png,image/webp" ${disabled}></label><div class="pl-bulk-cover pl-source-actions"><button type="button" class="pb-secondary" data-bulk-cover-drive="${index}" ${disabled}>Choose cover from Library Drive</button><button type="button" class="pb-secondary" data-bulk-cover-online="${index}" ${disabled}>Find cover online</button><button type="button" class="pb-secondary" data-bulk-cover-paste="${index}" ${disabled}>Paste cover</button>${(item.coverFile||item.coverDriveFileId)&&!item.saved?`<button type="button" class="pb-secondary" data-bulk-clear-cover="${index}" ${locked?'disabled':''}>Remove cover</button>`:''}</div>`:'';
-      return `<div class="pl-bulk-row"><div class="pl-bulk-head"><div><h3>File ${index+1}</h3><p>${esc(item.file.name)}</p></div>${item.saved?'':`<button type="button" class="pb-secondary" data-bulk-remove="${index}" ${locked?'disabled':''}>Remove</button>`}</div><div class="pl-bulk-fields">${category}${field('Title','name')}${bookFields}<label class="pl-bulk-cover">Description (optional)<textarea data-bulk-index="${index}" data-bulk-field="description" maxlength="1000" rows="2" ${disabled}>${esc(item.description)}</textarea></label></div><p class="pl-bulk-row-status ${item.error?'pl-error':''}">${esc(item.status||'Ready to save')}</p></div>`;
+      const bookFields=item.type==='EBOOK'?`${field('Author (optional)','author')}${field('Publisher (optional)','publisher')}${field('ISBN (optional)','isbn',32)}${field('Publication year (optional)','year',4)}<div class="pl-bulk-cover pl-source-actions"><span>Cover · ${esc(item.coverFile?.name||(item.coverDriveFileId?'Cover selected':'none selected'))}</span><button type="button" class="pb-secondary" data-bulk-choose-cover="${index}" ${disabled}>Choose cover</button>${(item.coverFile||item.coverDriveFileId)&&!item.saved?`<button type="button" class="pb-secondary" data-bulk-clear-cover="${index}" ${locked?'disabled':''}>Remove cover</button>`:''}</div>`:'';
+      return `<div class="pl-bulk-row"><div class="pl-bulk-head"><div><h3>File ${index+1}</h3><p>${esc(item.file.name)}</p></div>${item.saved?'':`<button type="button" class="pb-secondary" data-bulk-remove="${index}" ${locked?'disabled':''}>Remove</button>`}</div><div class="pl-bulk-sheet-scroll"><div class="pl-bulk-fields ${item.type==='EBOOK'?'is-book':''}">${category}${field('Title','name')}${bookFields}<label class="pl-bulk-cover">Description (optional)<textarea data-bulk-index="${index}" data-bulk-field="description" maxlength="1000" rows="2" ${disabled}>${esc(item.description)}</textarea></label></div></div><p class="pl-bulk-row-status ${item.error?'pl-error':''}">${esc(item.status||'Ready to save')}</p></div>`;
     }).join('');
     const remaining=bulk.items.filter(item=>!item.saved).length;
     $('pl-bulk-start').textContent=bulk.source==='drive'?`Save ${remaining} resource${remaining===1?'':'s'}`:bulk.items.some(item=>item.driveFileId||item.uploadSession||item.coverUploadSession||item.pending)?`Continue upload · ${remaining} remaining`:`Upload and save ${remaining} resource${remaining===1?'':'s'}`;
@@ -173,7 +174,7 @@
     else if(!state.data.coordinatorAvailable)message('Saving needs the Program coordinator binding.');
     else message('Choose a resource to edit, or add a file from your device or Library Drive.');
   }
-  function start(record,creating){if($('pl-drive').open)$('pl-drive').close();state.record=structuredClone(record);state.creating=creating;state.selectedFile=null;state.selectedCover=null;state.drive=null;state.uploadFile=null;saveDraft();render();$('pl-name').focus();}
+  function start(record,creating){if($('pl-drive').open)$('pl-drive').close();state.record=structuredClone(record);state.creating=creating;state.selectedFile=null;state.selectedCover=null;state.drive=null;state.uploadFile=null;$('pl-replace-file').open=creating&&!record.DriveFileID;saveDraft();render();$('pl-name').focus();}
   $('pl-add-device').onclick=()=>chooseDeviceFile({anyType:true,multiple:true,fromTop:true});
   $('pl-add-drive').onclick=()=>{if(!state.busy&&!state.pending&&!state.bulk){state.uploadFile=null;openDrive('select',true);}};
   function ensureBulk(source){
@@ -225,8 +226,6 @@
       }
       return;
     }
-    if(!event.target.dataset||!Object.hasOwn(event.target.dataset,'bulkCover'))return;
-    setBulkCover(Number(event.target.dataset.bulkCover),event.target.files?.[0]);
   };
   function setBulkCover(index,file){
     const item=state.bulk?.items[index];
@@ -239,14 +238,10 @@
   }
   $('pl-bulk-cover-file').onchange=event=>{setBulkCover(state.bulkCoverIndex,event.target.files?.[0]);event.target.value='';};
   $('pl-bulk-list').onclick=event=>{
-    for(const [attribute,mode] of [['bulkCoverDrive','drive'],['bulkCoverOnline','online'],['bulkCoverPaste','paste']]){
-      const button=event.target.closest(`[data-${attribute.replace(/[A-Z]/g,letter=>'-'+letter.toLowerCase())}]`);
-      if(!button)continue;
-      const index=Number(button.dataset[attribute]),item=state.bulk?.items[index];
-      if(!item||item.saved||item.type!=='EBOOK'||state.busy)return;
-      state.bulkCoverIndex=index;
-      if(mode==='drive')openDrive('bulk-cover-select');
-      else openCoverDialog(mode==='paste'?'pl-cover-paste':'pl-cover-online',index);
+    const choose=event.target.closest('[data-bulk-choose-cover]');
+    if(choose){
+      const index=Number(choose.dataset.bulkChooseCover),item=state.bulk?.items[index];
+      if(item&&!item.saved&&item.type==='EBOOK'&&!state.busy)openCoverDialog(index);
       return;
     }
     const clear=event.target.closest('[data-bulk-clear-cover]');
@@ -294,30 +289,39 @@
   }
   function openDrive(mode,fromTop=false){if((!state.record&&!fromTop&&mode!=='bulk-cover-select')||state.busy)return;state.mode=mode;state.driveTop=fromTop;state.driveType=fromTop?'EBOOK':state.record?.ResourceType||'EBOOK';state.driveSelections=new Map();state.drive=null;state.folderId=state.data?.destinationId||'';renderDrive();$('pl-drive').showModal();if(mode.includes('upload'))driveMessage('Ready to upload to Resources.');else void browse();}
   $('pl-browse').onclick=()=>{state.uploadFile=null;openDrive('select');};
-  $('pl-cover-browse').onclick=()=>{state.uploadFile=null;openDrive('cover-select');};
-  let coverDialogTrigger='pl-cover-online';
-  function openCoverDialog(trigger,bulkIndex=-1){
+  function showCoverPanel(panel){
+    $('pl-cover-online-panel').hidden=panel!=='search';
+    $('pl-cover-paste-panel').hidden=panel==='options';
+    if(panel==='search')$('pl-cover-title').focus();
+    if(panel==='paste')$('pl-cover-paste-target').focus();
+  }
+  function openCoverDialog(bulkIndex=-1){
     const bulkItem=bulkIndex>=0?state.bulk?.items[bulkIndex]:null;
     if((!state.record&&!bulkItem)||state.busy||state.pending||!state.data?.destinationId)return;
     state.bulkCoverIndex=bulkIndex;
-    coverDialogTrigger=trigger;
     $('pl-cover-title').value=bulkItem?.name||state.record?.Name||'';
     $('pl-cover-author').value=bulkItem?.author||state.record?.Author||'';
     $('pl-cover-publisher').value=bulkItem?.publisher||state.record?.Publisher||'';
     $('pl-cover-query').value='';
     $('pl-cover-paste-status').textContent='Copy the image itself, not its address.';
-    $('pl-cover-search').showModal();$(trigger==='pl-cover-paste'?'pl-cover-paste-target':'pl-cover-title').focus();
+    for(const button of ['pl-cover-device','pl-cover-browse','pl-cover-paste','pl-cover-online'])$(button).disabled=false;
+    showCoverPanel('options');
+    $('pl-cover-search').showModal();$('pl-cover-device').focus();
   }
-  $('pl-cover-online').onclick=()=>openCoverDialog('pl-cover-online');
-  $('pl-cover-paste').onclick=()=>openCoverDialog('pl-cover-paste');
+  $('pl-cover-choose').onclick=()=>openCoverDialog();
+  $('pl-cover-online').onclick=()=>showCoverPanel('search');
+  $('pl-cover-paste').onclick=()=>showCoverPanel('paste');
+  $('pl-cover-browse').onclick=()=>{const bulk=state.bulkCoverIndex>=0;$('pl-cover-search').close();state.uploadFile=null;openDrive(bulk?'bulk-cover-select':'cover-select');};
   $('pl-cover-search-form').onsubmit=event=>{
     const title=$('pl-cover-title').value.trim();
     if(!title){event.preventDefault();$('pl-cover-title').focus();return;}
     $('pl-cover-query').value=[title,$('pl-cover-author').value.trim(),$('pl-cover-publisher').value.trim(),'book cover'].filter(Boolean).join(' ');
   };
-  $('pl-cover-use-device').onclick=()=>{const bulk=state.bulkCoverIndex>=0;$('pl-cover-search').close();$(bulk?'pl-bulk-cover-file':'pl-cover-device-file').click();};
+  function chooseCoverDevice(){const bulk=state.bulkCoverIndex>=0;$('pl-cover-search').close();$(bulk?'pl-bulk-cover-file':'pl-cover-device-file').click();}
+  $('pl-cover-device').onclick=chooseCoverDevice;
+  $('pl-cover-use-device').onclick=chooseCoverDevice;
   $('pl-cover-search-close').onclick=()=>$('pl-cover-search').close();
-  $('pl-cover-search').onclose=()=>{if(!$('pl-drive').open)$(state.bulkCoverIndex>=0?'pl-bulk-subject':coverDialogTrigger).focus();};
+  $('pl-cover-search').onclose=()=>{if(!$('pl-drive').open)$(state.bulkCoverIndex>=0?'pl-bulk-subject':'pl-cover-choose').focus();};
   $('pl-cover-paste-target').onpaste=event=>{
     event.preventDefault();
     if((!state.record&&state.bulkCoverIndex<0)||state.busy||state.pending)return;
@@ -357,7 +361,6 @@
     $('pl-device-file').click();
   }
   $('pl-device').onclick=()=>chooseDeviceFile();
-  $('pl-cover-device').onclick=()=>{if(!state.record||state.busy)return;$('pl-cover-device-file').accept='image/jpeg,image/png,image/webp';$('pl-cover-device-file').click();};
   $('pl-device-file').onchange=event=>{
     const files=Array.from(event.target.files||[]);if(!files.length)return;
     event.target.value='';
@@ -592,7 +595,15 @@
     state.pending=JSON.parse(sessionStorage.getItem(pendingKey)||'null');
     if(state.pending?.kind!=='resources'||!state.pending.body?.operationId||!state.pending.body?.record)throw new Error('Invalid pending save');
   }catch{state.pending=null;sessionStorage.removeItem(pendingKey);}
-  try{const draft=JSON.parse(sessionStorage.getItem(draftKey)||'null');if(draft?.record){state.record=draft.record;state.creating=Boolean(draft.creating);state.selectedFile=draft.selectedFile;}}catch{sessionStorage.removeItem(draftKey);}
+  try{
+    const draft=JSON.parse(sessionStorage.getItem(draftKey)||'null');
+    if(draft?.record){
+      const row=draft.record;
+      const empty=Boolean(draft.creating)&&!draft.selectedFile&&['Name','Description','ProgramSubjectID','LevelID','ProgramModuleID','TaskID','DriveFileID','Author','Publisher','ISBN','PublicationYear','CoverDriveFileID'].every(field=>!String(row[field]||'').trim());
+      if(empty)sessionStorage.removeItem(draftKey);
+      else{state.record=row;state.creating=Boolean(draft.creating);state.selectedFile=draft.selectedFile;$('pl-replace-file').open=state.creating&&!row.DriveFileID;}
+    }
+  }catch{sessionStorage.removeItem(draftKey);}
   if(state.pending&&!state.record){state.record=structuredClone(state.pending.body.record);state.creating=Boolean(state.pending.body.creating);saveDraft();}
   void load().then(()=>{if(state.pending)message('An earlier resource save needs confirmation. Choose Retry same save.',true);}).catch(error=>message(error.message,true));
 })();
