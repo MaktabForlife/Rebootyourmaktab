@@ -32,6 +32,21 @@
         .some(value => String(value || '').toLocaleLowerCase().includes(query))));
   }
 
+  function showSignedOut() {
+    state.rows = [];
+    state.covers.clear();
+    $('al-content').hidden = true;
+    $('al-status').innerHTML = 'Signed out. <a href="/academy/#overview">Sign in to Academy →</a>';
+    if ($('al-preview').open) $('al-preview').close();
+  }
+
+  window.addEventListener('storage', event => {
+    if (event.key === 'm4l_account_token' && !event.newValue) showSignedOut();
+  });
+  window.addEventListener('pageshow', () => {
+    if (!localStorage.getItem('m4l_account_token')) showSignedOut();
+  });
+
   function card(row) {
     const cover = state.covers.get(row.id);
     const art = cover && cover.expires > Date.now()
@@ -105,6 +120,7 @@
   async function start() {
     try {
       const result = await api('catalogue');
+      if (!localStorage.getItem('m4l_account_token')) return showSignedOut();
       state.rows = Array.isArray(result.resources) ? result.resources : [];
       const sources = [...new Set(state.rows.map(row => `${row.source}:${row.sourceName}`))];
       for (const source of sources) {

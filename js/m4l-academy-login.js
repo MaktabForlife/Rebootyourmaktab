@@ -15,6 +15,7 @@
   const maktabLink = document.getElementById("academy-maktab-link");
   const signOutButton = document.getElementById("academy-sign-out");
   const avatar = document.getElementById("academy-avatar");
+  let activeToken = "";
 
   if (!form || !linkInput || !pinInput || !apiBase) return;
 
@@ -30,9 +31,41 @@
   });
   signOutButton.addEventListener("click", () => {
     clearStoredAccountState();
-    window.location.assign("/academy/#overview");
+    showSignedOut();
+  });
+  window.addEventListener("storage", event => {
+    if (event.key === tokenKey) {
+      sessionStorage.removeItem(academySessionKey);
+      showSignedOut();
+    }
+  });
+  window.addEventListener("pageshow", () => {
+    if (homeCard.hidden || (activeToken && localStorage.getItem(tokenKey) === activeToken && sessionStorage.getItem(academySessionKey))) return;
+    showSignedOut();
   });
   void restoreAcademySession();
+
+  function showSignedOut() {
+    activeToken = "";
+    homeCard.hidden = true;
+    signOutButton.hidden = true;
+    sessionLoading.hidden = true;
+    form.hidden = false;
+    linkInput.value = "";
+    pinInput.value = "";
+    pinInput.type = "password";
+    pinToggle.textContent = "Show";
+    pinToggle.setAttribute("aria-label", "Show PIN");
+    accountName.textContent = "";
+    maktabLink.href = "/academy/";
+    avatar.textContent = "A";
+    avatar.setAttribute("aria-label", "Illustrative learner profile");
+    document.body.classList.remove("academy-signed-in");
+    showStatus("");
+    setBusy(false);
+    window.location.hash = "overview";
+    linkInput.focus();
+  }
 
   async function restoreAcademySession() {
     const expectedId = sessionStorage.getItem(academySessionKey);
@@ -46,6 +79,9 @@
     setBusy(true);
     try {
       const result = await api("/api/account/session", {}, token);
+      if (localStorage.getItem(tokenKey) !== token || sessionStorage.getItem(academySessionKey) !== expectedId) {
+        throw new Error("The Academy session has ended.");
+      }
       const account = result.account;
       if (String(account?.uniqueid || "").trim().toUpperCase() !== expectedId.toUpperCase()) {
         throw new Error("The signed-in account has changed.");
@@ -61,6 +97,7 @@
   }
 
   function showSignedIn(account) {
+    activeToken = localStorage.getItem(tokenKey) || "";
     const uniqueId = String(account.uniqueid || "").trim();
     const name = String(account.displayName || "Academy member").trim();
     accountName.textContent = name;

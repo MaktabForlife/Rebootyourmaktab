@@ -31,6 +31,18 @@
   };
 
   document.addEventListener("DOMContentLoaded", init);
+  window.addEventListener("storage", event => {
+    if (event.key === TOKEN_KEY && !event.newValue && state.token) {
+      state.token = "";
+      window.location.reload();
+    }
+  });
+  window.addEventListener("pageshow", () => {
+    if (state.token && !localStorage.getItem(TOKEN_KEY)) {
+      state.token = "";
+      window.location.reload();
+    }
+  });
 
   async function init() {
     bindEvents();

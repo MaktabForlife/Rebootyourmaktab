@@ -31,10 +31,12 @@ async function loadPage({ id = '', pin = '', replies = {}, storedToken = 'OLD_SE
   const storage = new Map(storedToken ? [['m4l_account_token', storedToken]] : []);
   const session = new Map(academyId ? [['m4l_academy_signed_in', academyId]] : []);
   const calls = [];
+  const windowHandlers = {};
   let destination = '';
   const context = {
-    window: { M4L_CONFIG: { API_BASE: 'https://test.example' }, location: { assign(path) { destination = path; } } },
-    document: { getElementById(name) { return elements.get(name); }, body: { classList: { add() {} } } },
+    window: { M4L_CONFIG: { API_BASE: 'https://test.example' }, location: { hash: '', assign(path) { destination = path; } },
+      addEventListener(type, handler) { windowHandlers[type] = handler; } },
+    document: { getElementById(name) { return elements.get(name); }, body: { classList: { add() {}, remove() {} } } },
     localStorage: {
       get length() { return storage.size; },
       key(index) { return [...storage.keys()][index] || null; },
@@ -62,8 +64,10 @@ async function loadPage({ id = '', pin = '', replies = {}, storedToken = 'OLD_SE
   return {
     elements, storage, session, calls,
     get destination() { return destination; },
+    get hash() { return context.window.location.hash; },
     async submit() { await elements.get('login-preview').handlers.submit({ preventDefault() {} }); },
-    signOut() { elements.get('academy-sign-out').handlers.click(); }
+    signOut() { elements.get('academy-sign-out').handlers.click(); },
+    storageChanged(event) { windowHandlers.storage(event); }
   };
 }
 
@@ -101,7 +105,19 @@ assert.equal(signedIn.elements.get('academy-maktab-link').href, '/account/TEST-U
 signedIn.signOut();
 assert.equal(signedIn.storage.get('m4l_account_token'), undefined);
 assert.equal(signedIn.session.get('m4l_academy_signed_in'), undefined);
-assert.equal(signedIn.destination, '/academy/#overview');
+assert.equal(signedIn.destination, '');
+assert.equal(signedIn.hash, 'overview');
+assert.equal(signedIn.elements.get('login-preview').hidden, false);
+assert.equal(signedIn.elements.get('academy-home-card').hidden, true);
+assert.equal(signedIn.elements.get('academy-sign-out').hidden, true);
+
+const otherTab = await loadPage({ academyId: 'TEST-USER', storedToken: 'NEW_SESSION', replies: {
+  '/api/account/session': { body: { success: true, account: { uniqueid: 'TEST-USER' } } }
+} });
+otherTab.storage.delete('m4l_account_token');
+otherTab.storageChanged({ key: 'm4l_account_token', newValue: null });
+assert.equal(otherTab.elements.get('login-preview').hidden, false);
+assert.equal(otherTab.elements.get('academy-home-card').hidden, true);
 
 const wrongAccount = await loadPage({ academyId: 'TEST-USER', replies: {
   '/api/account/session': { body: { success: true, account: { uniqueid: 'OTHER-USER' } } }
