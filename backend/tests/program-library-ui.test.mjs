@@ -16,9 +16,10 @@ function element(id){
 }
 const f=timetableFixture(),service=timetableService(f.repository,f.program);
 f.repository.verifyResource=async row=>({id:row.DriveFileID});
+f.repository.verifyCover=async row=>({id:row.CoverDriveFileID});
 f.repository.verifyLibraryRoot=async value=>({FolderID:value,Name:'Second Drive folder'});
 const coordinator=timetableCoordinator(f.journal,async()=>({service,user:{accountid:'ADMIN'}}));
-let failSave=false,lastUploadType='',multiChunkUpload=false,rateLimitedChunkOnce=false,destinationId='resources-folder-123';
+let failSave=false,lastUploadType='',lastUploadName='',multiChunkUpload=false,rateLimitedChunkOnce=false,destinationId='resources-folder-123';
 class TestFile extends Blob { constructor(parts,name,options){super(parts,options);this.name=name;} }
 const context={console,URL,URLSearchParams,structuredClone,crypto,File:TestFile,
   location:{search:`?program=${f.program.id}`},window:{M4L_CONFIG:{API_BASE:''}},document:{getElementById:element},
@@ -29,10 +30,10 @@ const context={console,URL,URLSearchParams,structuredClone,crypto,File:TestFile,
       requests.push({action:'upload-chunk',offset,body:options.body});
       if(multiChunkUpload&&offset===0)return {ok:true,status:200,json:async()=>({success:true,complete:false,nextOffset:4194304})};
       if(rateLimitedChunkOnce&&offset===4194304){rateLimitedChunkOnce=false;return {ok:false,status:503,json:async()=>({success:false,code:'SHEETS_RATE_LIMITED',retryAfterMs:60000,error:'Google Sheets is temporarily limiting requests.'})};}
-      return {ok:true,status:200,json:async()=>({success:true,complete:true,nextOffset:123,file:lastUploadType==='COVER'?{id:'uploaded-cover',name:'Device-cover.png',mimeType:'image/png'}:{id:'uploaded-pdf',name:'Device.pdf',mimeType:'application/pdf'}})};
+      return {ok:true,status:200,json:async()=>({success:true,complete:true,nextOffset:123,file:lastUploadName.startsWith('Bulk')?{id:`bulk-${lastUploadName.replace(/[^A-Za-z0-9_-]/g,'-')}`,name:lastUploadName,mimeType:lastUploadType==='COVER'?'image/png':'application/pdf'}:lastUploadType==='COVER'?{id:'uploaded-cover',name:'Device-cover.png',mimeType:'image/png'}:{id:'uploaded-pdf',name:'Device.pdf',mimeType:'application/pdf'}})};
     }
     const action=url.split('/').at(-1),body=JSON.parse(options.body);requests.push({action,body});
-    if(action==='upload-start'){lastUploadType=body.resourceType;return {ok:true,status:200,json:async()=>({success:true,ticket:'ticket',chunkSize:4194304})};}
+    if(action==='upload-start'){lastUploadType=body.resourceType;lastUploadName=body.fileName;return {ok:true,status:200,json:async()=>({success:true,ticket:'ticket',chunkSize:4194304})};}
     if(action==='browse')return {ok:true,status:200,json:async()=>({success:true,folder:{id:body.folderId||destinationId,name:'Resources'},breadcrumbs:[{id:destinationId,name:'Resources'}],items:[{id:'file-pdf',name:'Lesson.pdf',mimeType:'application/pdf',isFolder:false,supportedTypes:['EBOOK'],format:'PDF'},{id:'cover-png',name:'Cover.png',mimeType:'image/png',isFolder:false,supportedTypes:['OTHER'],format:'PNG'},{id:'folder-one',name:'Folder one',isFolder:true,supportedTypes:[],format:''}],nextPageToken:''})};
     if(action==='save'&&failSave){failSave=false;throw new Error('Offline');}
     if(action==='folder-set'){destinationId='new-resources-folder-123';return {ok:true,status:200,json:async()=>({success:true,folder:{id:destinationId,name:'New Resources'}})};}
@@ -166,4 +167,47 @@ element('pl-device-file').onchange({target:{files:[{name:'Lesson.mp3',type:'audi
 assert.equal(element('pl-type').value,'AUDIO','A selected audio file sets the matching category');
 assert.equal(element('pl-drive-type').value,'AUDIO');
 element('pl-drive-cancel').onclick();
-console.log('Program Library UI: centered Drive finder, admin Resources folder, device upload, book details, pasted cover and retry recovery passed.');
+element('pl-cancel').onclick();
+multiChunkUpload=false;
+element('pl-bulk-add').onclick();
+assert.equal(element('pl-bulk-files').clicked,true,'Bulk add opens the native multi-file picker');
+assert.match(markup,/id="pl-bulk-files"[^>]*multiple/);
+const bulkOne=new TestFile([new Uint8Array(4194314)],'Bulk-one.pdf',{type:'application/pdf'}),bulkTwo=new TestFile(['second PDF'],'Bulk-two.pdf',{type:'application/pdf'});
+element('pl-bulk-files').onchange({target:{files:[bulkOne,bulkTwo],value:'Bulk-one.pdf'}});
+assert.equal(element('pl-bulk').hidden,false);
+assert.match(element('pl-bulk-list').innerHTML,/Bulk-one\.pdf/);
+const uploadsBeforePlacement=requests.filter(row=>row.action==='upload-start').length;
+await element('pl-bulk-start').onclick();
+assert.equal(requests.filter(row=>row.action==='upload-start').length,uploadsBeforePlacement,'Books are not uploaded before a subject is selected');
+element('pl-bulk-subject').onchange({target:{value:'PS-TAFSEER'}});
+element('pl-bulk-list').oninput({target:{dataset:{bulkIndex:'0',bulkField:'name'},value:'First book'}});
+element('pl-bulk-list').oninput({target:{dataset:{bulkIndex:'0',bulkField:'description'},value:'First description'}});
+element('pl-bulk-list').oninput({target:{dataset:{bulkIndex:'1',bulkField:'author'},value:'Second author'}});
+const bulkCover=new TestFile(['cover'],'Bulk-cover.png',{type:'image/png'});
+element('pl-bulk-list').onchange({target:{dataset:{bulkCover:'0'},files:[bulkCover]}});
+multiChunkUpload=true;rateLimitedChunkOnce=true;failSave=true;
+const bulkStartsBefore=requests.filter(row=>row.action==='upload-start').length;
+const bulkChunksBefore=requests.filter(row=>row.action==='upload-chunk').length;
+await element('pl-bulk-start').onclick();
+assert.match(element('pl-bulk-status').textContent,/continue from 99%/);
+assert.match(element('pl-bulk-start').textContent,/Continue bulk upload/);
+assert.equal(storage.has(pendingKey),false,'No save is started before the PDF upload completes');
+multiChunkUpload=false;
+await element('pl-bulk-start').onclick();
+assert.equal(element('pl-bulk-start').disabled,false,'An uncertain bulk save can be retried');
+assert.match(element('pl-bulk-status').textContent,/paused at book 1/);
+const bulkOperation=JSON.parse(storage.get(pendingKey)).body.operationId;
+assert.equal(JSON.parse(storage.get(pendingKey)).body.record.Name,'First book');
+assert.equal(JSON.parse(storage.get(pendingKey)).body.record.Description,'First description');
+await element('pl-bulk-start').onclick();
+assert.equal(storage.has(pendingKey),false);
+assert.match(element('pl-bulk-status').textContent,/All 2 eBooks saved/);
+assert.equal(requests.filter(row=>row.action==='upload-start').length,bulkStartsBefore+3,'Each PDF and the selected cover upload once');
+assert.deepEqual(requests.filter(row=>row.action==='upload-chunk').slice(bulkChunksBefore,bulkChunksBefore+3).map(row=>row.offset),[0,4194304,4194304],'The interrupted PDF resumes at its last confirmed offset');
+const bulkSaves=requests.filter(row=>row.action==='save'&&row.body.record.ResourceID.startsWith('RES-')).slice(-3);
+assert.equal(bulkSaves[0].body.operationId,bulkOperation);
+assert.equal(bulkSaves[1].body.operationId,bulkOperation,'Retry uses the same save operation');
+assert.equal(bulkSaves[2].body.record.Author,'Second author');
+assert.equal((await service.read('manage-get')).rows.resources.filter(row=>['First book','Bulk-two'].includes(row.Name)).length,2);
+assert.equal(element('pl-bulk-start').disabled,true,'A completed batch cannot be saved again');
+console.log('Program Library UI: centered Drive finder, admin Resources folder, device and bulk eBook upload, book details, covers and retry recovery passed.');
