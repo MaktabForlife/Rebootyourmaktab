@@ -176,6 +176,10 @@ async function viewer(action,body={},auth=token,expected=200){
  const response=await worker.fetch(new Request(`https://worker.test/api/program-library/${action}`,{method:'POST',headers:{'Content-Type':'application/json',...(auth?{Authorization:`Bearer ${auth}`}:{})},body:JSON.stringify({id:input.id,...body})}),env);
  const result=await response.json();assert.equal(response.status,expected,JSON.stringify(result));assert.equal(response.headers.get('Cache-Control'),'no-store');return result;
 }
+async function academyLibrary(action,body={},auth=token,expected=200){
+ const response=await worker.fetch(new Request(`https://worker.test/api/academy/library/${action}`,{method:'POST',headers:{'Content-Type':'application/json',...(auth?{Authorization:`Bearer ${auth}`}:{})},body:JSON.stringify(body)}),env);
+ const result=await response.json();assert.equal(response.status,expected,JSON.stringify(result));return result;
+}
 async function academy(action,body={},auth=token,expected=200){
  const response=await worker.fetch(new Request(`https://worker.test/api/admin/platform/academy-subjects/${action}`,{method:'POST',headers:{'Content-Type':'application/json',...(auth?{Authorization:`Bearer ${auth}`}:{})},body:JSON.stringify(body)}),env);
  const result=await response.json();assert.equal(response.status,expected,JSON.stringify(result));return result;
@@ -222,6 +226,46 @@ try{
  assert.deepEqual(visibleLibrary.resources.map(row=>row.id),['RES-BOOK']);
  assert.equal(visibleLibrary.resources[0].author,'A. Author');
  assert(!JSON.stringify(visibleLibrary).includes('library-pdf'),'Read-only catalogue must not disclose Drive IDs');
+ const academyTables=['GlobalSubjectAccessMatrix','GlobalSubjectAccessPolicy','GlobalSubjectRuns','GlobalModuleList','GlobalTaskList','GlobalResources','PlatformConfig','AcademyLibraryAccess'];
+ for(const title of academyTables)books.get(platformId).push({title,sheetId:30+academyTables.indexOf(title),rows:[PLATFORM_SHEET_HEADERS[title]]});
+ table(platformId,'AcademyLibraryAccess')[0]=['ResourceKey','Status','AccessState','EntitlementSource','SubscriptionScope'];
+ const combinedLibrary=await academyLibrary('catalogue');
+ assert(combinedLibrary.resources.some(row=>row.id===`PROGRAM:${input.id}:RES-BOOK`&&row.forYou));
+ assert(!JSON.stringify(combinedLibrary).includes('library-pdf'),'Academy catalogue must not disclose Drive IDs');
+ assert.match((await academyLibrary('access',{resourceId:`PROGRAM:${input.id}:RES-BOOK`})).url,/\/api\/library\/drive\/file\/library-pdf\?access=/);
+ await academyLibrary('access',{resourceId:`PROGRAM:${input.id}:RES-UNKNOWN`},token,403);
+ const outsiderAccountRow=table(platformId,'UserAccounts').length+1;
+ const outsiderAccessRow=table(platformId,'UserCourseAccess').length+1;
+ table(platformId,'UserAccounts').push(['LEARNER-OUTSIDE','Unassigned Learner','OUTSIDE-LINK',true,hash,true]);
+ table(platformId,'UserCourseAccess').push(['ACCESS-OUTSIDE','LEARNER-OUTSIDE','REBOOT','STUDENT',true,false,'','','','','','','','REBOOT-STUDENT']);
+ const outsiderToken=await createSessionToken({type:'account',accountid:'LEARNER-OUTSIDE',uniqueid:'OUTSIDE-LINK',role:'STUDENT',scope:'COURSE',courseid:'REBOOT',authrow:outsiderAccountRow,accessrow:outsiderAccessRow,accessid:'ACCESS-OUTSIDE',courserecordid:'REBOOT-STUDENT',credentialHash:hash},env);
+ const publication=['PROGRAM:'+input.id+':RES-BOOK','ACTIVE','ACADEMY_LEARNERS','',''];
+ table(platformId,'AcademyLibraryAccess').push(publication);
+ assert((await academyLibrary('catalogue',{},outsiderToken)).resources.some(row=>row.id===publication[0]&&!row.forYou&&!row.locked));
+ assert.match((await academyLibrary('access',{resourceId:publication[0]},outsiderToken)).url,/library-pdf/);
+ assert.deepEqual((await viewer('catalogue',{},outsiderToken)).resources.map(row=>row.id),['RES-BOOK']);
+ resourceTable[1][10]=false;await academyLibrary('access',{resourceId:publication[0]},outsiderToken,403);resourceTable[1][10]=true;
+ table(platformId,'UserAccounts')[outsiderAccountRow-1][5]=false;
+ await academyLibrary('access',{resourceId:publication[0]},outsiderToken,401);
+ table(platformId,'UserAccounts')[outsiderAccountRow-1][5]=true;
+ publication[2]='ASSIGNED';
+ assert(!(await academyLibrary('catalogue',{},outsiderToken)).resources.some(row=>row.id===publication[0]));
+ await academyLibrary('access',{resourceId:publication[0]},outsiderToken,403);
+ publication[2]='STAFF_ONLY';await academyLibrary('access',{resourceId:publication[0]},outsiderToken,403);
+ publication[2]='SUBSCRIPTION';publication[3]='GLOBAL_SUBJECT';publication[4]='TAFSEER';
+ assert((await academyLibrary('catalogue',{},outsiderToken)).resources.some(row=>row.id===publication[0]&&row.locked));
+ await academyLibrary('access',{resourceId:publication[0]},outsiderToken,403);
+ table(platformId,'GlobalSubjectAccessMatrix')[0]=['AccountID','TAFSEER'];
+ table(platformId,'GlobalSubjectAccessMatrix').push(['LEARNER-OUTSIDE',true]);
+ assert((await academyLibrary('catalogue',{},outsiderToken)).resources.some(row=>row.id===publication[0]&&row.forYou&&!row.locked));
+ assert.match((await academyLibrary('access',{resourceId:publication[0]},outsiderToken)).url,/library-pdf/);
+ table(platformId,'GlobalSubjectAccessMatrix')[1][1]=false;
+ await academyLibrary('access',{resourceId:publication[0]},outsiderToken,403);
+ publication[1]='ARCHIVED';
+ assert(!(await academyLibrary('catalogue',{},outsiderToken)).resources.some(row=>row.id===publication[0]));
+ await academyLibrary('access',{resourceId:publication[0]},outsiderToken,403);
+ table(platformId,'UserAccounts').pop();table(platformId,'UserCourseAccess').pop();
+ books.set(platformId,books.get(platformId).filter(sheet=>!academyTables.includes(sheet.title)));
  assert.match((await viewer('cover',{resourceId:'RES-BOOK'})).url,/\/api\/library\/drive\/file\/library-cover\?access=/);
  assert.deepEqual((await viewer('covers',{resourceIds:['RES-BOOK','RES-UNKNOWN']})).covers.map(row=>row.id),['RES-BOOK']);
  assert.match((await viewer('access',{resourceId:'RES-BOOK'})).url,/\/api\/library\/drive\/file\/library-pdf\?access=/);

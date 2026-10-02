@@ -2,7 +2,8 @@ import { json } from '../lib/http.js';
 import { verifySessionToken } from '../lib/auth.js';
 import { startLibraryUpload, openLibraryUploadTicket, forwardLibraryUploadChunk, LIBRARY_UPLOAD_CHUNK_SIZE } from '../lib/library-upload-bridge.js';
 import { listGoogleDriveFolder } from '../lib/google-drive.js';
-import { getPlatformSpreadsheetId } from '../lib/platform-sheet.js';
+import { getPlatformSpreadsheetId, readPlatformSheet } from '../lib/platform-sheet.js';
+import { readAcademyLibraryPolicies, academyResourceDecision } from '../lib/academy-library-policy.js';
 import { getAuthUser } from '../lib/auth.js';
 import { extractGoogleDriveFolderId, findSystemConfigRowIndexes, getSystemConfigValue, readSystemConfigRows, upsertSystemConfigValues, PROGRAM_LIBRARY_DRIVE_FOLDER_ID_KEY, PROGRAM_LIBRARY_PREVIOUS_FOLDER_IDS_KEY } from '../lib/system-config.js';
 import { problem, clean } from '../programs/model.js';
@@ -14,6 +15,7 @@ import { programService } from '../programs/service.js';
 import { sheetsProgramRepository } from '../programs/sheets-repository.js';
 import { readProgramRoleAccountsForPrograms } from '../profiles/program-roles.js';
 import { isActivePlatformValue as active } from '../lib/platform-schema.js';
+import { requireVisibleProgramResource } from '../programs/library-viewer.js';
 import {
   buildDriveBreadcrumbs, createDriveAccessToken, deriveFileFormat,
   getDriveAccessTtlSeconds, getSupportedResourceTypes,
@@ -29,6 +31,16 @@ async function inputJSON(request) {
   let input;try{input=JSON.parse(raw||'{}');}catch{throw problem('Invalid JSON request.');}
   if(!input||typeof input!=='object'||Array.isArray(input))throw problem('Invalid Library request.');
   return input;
+}
+async function assertProgramViewAccess(env, user, program, resource) {
+  const key = `PROGRAM:${program.id}:${resource.ResourceID}`;
+  const policy = (await readAcademyLibraryPolicies(env)).get(key);
+  const [globalMatrix, globalSubjects] = policy?.state === 'SUBSCRIPTION' ? await Promise.all([
+    readPlatformSheet(env, 'GlobalSubjectAccessMatrix'), readPlatformSheet(env, 'GlobalSubjectList')
+  ]) : [[], []];
+  const decision = academyResourceDecision({ key, source: 'PROGRAM', sourceActive: true,
+    assigned: true, role: user.role, accountId: user.accountid, policy, globalMatrix, globalSubjects });
+  if (!decision.open) throw problem('This resource is unavailable.', 403);
 }
 export function programLibraryEndpoint(action){
   return async(request,env)=>{
@@ -172,6 +184,7 @@ export function programLibraryEndpoint(action){
         if(!subject||!active(subject.Active)||(resource.LevelID&&(!level||!active(level.Active)))||(resource.ProgramModuleID&&(!module||!active(module.Active)||module.LevelID!==resource.LevelID))||(resource.TaskID&&(!task||!active(task.Active))))throw problem('This resource is unavailable.',404);
         const shared=await repository.managementReferences(data);
         if(!shared.subjects.some(row=>row.SubjectID===subject.SubjectID&&active(row.Active)))throw problem('This resource is unavailable.',404);
+        await assertProgramViewAccess(env,user,program,resource);
         const file=await repository.verifyResource(resource,snapshot.ProgramLibraryRoots);
         const token=await createDriveAccessToken({fileId:file.id,resourceType:resource.ResourceType,resourceId:resource.ResourceID,courseId:program.id,filename:file.name,mimeType:file.mimeType},env);
         const expiresIn=getDriveAccessTtlSeconds(env);
@@ -183,6 +196,8 @@ export function programLibraryEndpoint(action){
         const snapshot=managementState(data,program).snapshot;
         const resource=snapshot.ProgramResources.find(row=>row.ResourceID===clean(input.resourceId));
         if(!resource||!resource.CoverDriveFileID)throw problem('This resource has no cover image.',404);
+        requireVisibleProgramResource(data,program,await repository.subjectReferences(data),resource.ResourceID);
+        await assertProgramViewAccess(env,user,program,resource);
         const file=await repository.verifyCover(resource,snapshot.ProgramLibraryRoots);
         const token=await createDriveAccessToken({fileId:file.id,resourceId:resource.ResourceID,courseId:program.id,filename:file.name,mimeType:file.mimeType},env);
         return json({success:true,url:`${new URL(request.url).origin}/api/library/drive/file/${encodeURIComponent(file.id)}?access=${encodeURIComponent(token)}`});

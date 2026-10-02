@@ -203,7 +203,7 @@ export function buildResourcesResponse(sheets = {}, options = {}) {
 
       const rowGroupNo = clean(getCell(row, columns.groupNo));
 
-      if (!groupMatches(rowGroupNo, studentGroup)) {
+      if ((options.filterByGroup ?? Boolean(studentId || studentGroup)) && !groupMatches(rowGroupNo, studentGroup)) {
         return;
       }
 
@@ -340,7 +340,6 @@ function groupMatches(rowGroup, studentGroup) {
   return studentValue === "0" ||
     !rowValue ||
     rowValue === "all" ||
-    !studentValue ||
     rowValue === studentValue;
 }
 

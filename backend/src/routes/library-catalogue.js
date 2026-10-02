@@ -1,6 +1,7 @@
 /* M4L V102.10 - Account-authorised multi-course and policy-aware global Library catalogue. */
 
 import { getAuthUser } from "../lib/auth.js";
+import { readAcademyLibraryPolicies, academyResourceDecision } from '../lib/academy-library-policy.js';
 import {
   createCourseEnvironment,
   resolveOperationalAccountUser
@@ -18,7 +19,7 @@ import {
   normalizePlatformIdentifier
 } from "../lib/platform-schema.js";
 import { setRequestAuthUser } from "../lib/request-context.js";
-import { createDriveFileAccessEndpoint } from "./drive-library.js";
+import { createDriveFileAccessEndpoint, extractDriveFileId } from "./drive-library.js";
 import {
   readResourcesGoogleSheetsCatalogue,
   RESOURCE_TAB_DEFINITIONS
@@ -40,12 +41,16 @@ export async function getAccountLibraryCatalogueEndpoint(request, env) {
   }
 
   try {
-    const tables = await readLibraryPlatformTables(env);
+    const [tables, policies] = await Promise.all([
+      readLibraryPlatformTables(env), readAcademyLibraryPolicies(env)
+    ]);
     const courses = resolveAuthorisedCourses(user, tables);
     const courseLibraries = await Promise.all(courses.map(course => (
       readCourseLibrary(env, user, course)
     )));
     const globalLibrary = buildGlobalLibrary(user, tables);
+    for (const library of courseLibraries) filterPublishedLibrary(library, policies, user, tables);
+    filterPublishedLibrary(globalLibrary, policies, user, tables);
     const availableCourseLibraries = courseLibraries.filter(library => library.available);
     const libraries = [
       ...courseLibraries,
@@ -86,6 +91,42 @@ export async function getAccountLibraryCatalogueEndpoint(request, env) {
     });
   } catch (error) {
     return libraryError(error, env);
+  }
+}
+
+function filterPublishedLibrary(library, policies, user, tables) {
+  const catalogue = library.catalogue;
+  if (!catalogue) return;
+  let total = 0;
+  for (const group of catalogue.groups || []) {
+    let count = 0;
+    group.subjects = (group.subjects || []).filter(subject => {
+      subject.modules = (subject.modules || []).filter(module => {
+        module.resources = (module.resources || []).filter(resource => {
+          const key = library.scope === 'GLOBAL'
+            ? `GLOBAL:${resource.originresourceid}`
+            : `COURSE:${library.courseId}:${resource.type}:${resource.originresourceid}`;
+          const decision = academyResourceDecision({ key, source: library.scope,
+            sourceActive: true, assigned: library.scope === 'COURSE',
+            role: library.role || user.role, accountId: user.accountid,
+            policy: policies.get(key), globalAccessModel: subject.accessmodel,
+            globalSubjectId: subject.originsubjectid,
+            globalMatrix: tables.GlobalSubjectAccessMatrix,
+            globalSubjects: tables.GlobalSubjectList });
+          if (decision.open) count += 1;
+          return decision.open;
+        });
+        return module.resources.length > 0;
+      });
+      return subject.modules.length > 0;
+    });
+    group.count = count;
+    total += count;
+  }
+  catalogue.count = total;
+  if (library.scope === 'GLOBAL') {
+    library.subjectCount = new Set((catalogue.groups || []).flatMap(group =>
+      (group.subjects || []).map(subject => subject.subjectid))).size;
   }
 }
 
@@ -182,7 +223,7 @@ export function resolveAuthorisedCourses(user, tables) {
     .map(([courseId, row]) => courseDescriptor(row, bestByCourse.get(courseId)));
 }
 
-export function buildGlobalLibrary(user, tables, now = new Date()) {
+export function buildGlobalLibrary(user, tables, now = new Date(), { includeProtectedLinks = false } = {}) {
   const accountId = normalizePlatformIdentifier(user.accountid);
   const accountMatches = (tables.UserAccounts || []).filter(account => (
     normalizePlatformIdentifier(account.AccountID) === accountId
@@ -296,8 +337,10 @@ export function buildGlobalLibrary(user, tables, now = new Date()) {
       resourceTypeLabel: globalTypeLabel(type),
       format: clean(resource.ResourceFormat),
       description: clean(resource.ResourceDescription),
-      link: clean(resource.ResourceLink),
-      resourceLink: clean(resource.ResourceLink),
+      link: includeProtectedLinks ? clean(resource.ResourceLink) :
+        extractDriveFileId(resource.ResourceLink) ? '/api/library/drive/file/protected' : clean(resource.ResourceLink),
+      resourceLink: includeProtectedLinks ? clean(resource.ResourceLink) :
+        extractDriveFileId(resource.ResourceLink) ? '/api/library/drive/file/protected' : clean(resource.ResourceLink),
       accessscope: "GLOBAL",
       sourcescope: "GLOBAL",
       sourceid: "GLOBAL",
@@ -396,6 +439,9 @@ function namespaceCourseCatalogue(catalogue, course) {
           resource.sourcelabel = course.courseName;
           resource.courseid = course.courseId;
           resource.courserole = course.role;
+          if (extractDriveFileId(resource.link)) {
+            resource.link = '/api/library/drive/file/protected';
+          }
         }
       }
     }

@@ -156,6 +156,11 @@ globalThis.fetch = async (input, init = {}) => {
     throw new Error(`Unexpected Library test fetch: ${url}`);
   }
   assert.equal(init.headers.Authorization, "Bearer mock-library-token");
+  if (url.pathname.endsWith('/spreadsheets/platform-sheet-test')) {
+    return response({ sheets: Object.keys(platformTables).map((title, sheetId) => ({
+      properties: { title, sheetId: sheetId + 1 }
+    })) });
+  }
   const spreadsheetId = decodeURIComponent(url.pathname.match(/\/spreadsheets\/([^/]+)/)?.[1] || "");
   const range = decodeURIComponent(url.pathname.split("/values/")[1] || "");
   reads.push({ spreadsheetId, range });

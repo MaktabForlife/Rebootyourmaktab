@@ -11,6 +11,8 @@ import { timetableProgram } from '../programs/timetable-context.js';
 import { timetableRepository } from '../programs/timetable-repository.js';
 import { programFailure } from '../programs/errors.js';
 import { createDriveAccessToken, deriveFileFormat, getDriveAccessTtlSeconds } from './drive-library.js';
+import { readAcademyLibraryPolicies, academyResourceDecision } from '../lib/academy-library-policy.js';
+import { readPlatformSheet } from '../lib/platform-sheet.js';
 
 async function requestBody(request) {
   if (request.method !== 'POST') throw problem('Use POST for the Program Library.', 405);
@@ -65,16 +67,30 @@ export function programLibraryViewerEndpoint(action) {
       const currentProgramSession = user.scope === 'COURSE' && user.courseid === program.id;
       const roleAccounts = user.role === 'GLOBAL_ADMIN' || currentProgramSession ? [] : await readProgramRoleAccounts(env, program.id);
       const role = currentProgramSession ? user.role : programViewerRole(user, roleAccounts);
-      if (!role) throw problem('This Program Library is not available to your account.', 403);
       const sharedSubjects = await repository.subjectReferences(data);
+      const policies = await readAcademyLibraryPolicies(env);
+      const subscriptionPolicy = [...policies.entries()].some(([key, policy]) =>
+        key.startsWith(`PROGRAM:${program.id}:`) && policy.state === 'SUBSCRIPTION');
+      const [globalMatrix, globalSubjects] = subscriptionPolicy ? await Promise.all([
+        readPlatformSheet(env, 'GlobalSubjectAccessMatrix'), readPlatformSheet(env, 'GlobalSubjectList')
+      ]) : [[], []];
+      const resources = visibleProgramResources(data, program, sharedSubjects).filter(row => {
+        const decision = academyResourceDecision({
+          key: `PROGRAM:${program.id}:${row.id}`, source: 'PROGRAM', sourceActive: true,
+          assigned: Boolean(role), role: role || user.role, accountId: user.accountid,
+          policy: policies.get(`PROGRAM:${program.id}:${row.id}`), globalMatrix, globalSubjects
+        });
+        return decision.open;
+      });
+      if (!role && !resources.length) throw problem('This Program Library is not available to your account.', 403);
 
       if (action === 'catalogue') return json({
         success: true,
         program: { id: program.id, name: program.name },
         role,
-        canManage: role !== 'STUDENT',
+        canManage: Boolean(role && role !== 'STUDENT'),
         accountPath: `/account/${encodeURIComponent(user.uniqueid)}`,
-        resources: visibleProgramResources(data, program, sharedSubjects)
+        resources
       });
 
       if (action === 'covers') {
@@ -82,13 +98,13 @@ export function programLibraryViewerEndpoint(action) {
         if (!Array.isArray(ids) || !ids.length || ids.length > 16 ||
           ids.some(value => typeof value !== 'string' || value.length > 100))
           throw problem('Choose up to 16 visible book covers.');
-        const visible = new Set(visibleProgramResources(data, program, sharedSubjects)
+        const visible = new Set(resources
           .filter(row => row.type === 'EBOOK' && row.hasCover).map(row => row.id));
-        const resources = new Map(snapshot.ProgramResources.map(row => [row.ResourceID, row]));
+        const resourceRows = new Map(snapshot.ProgramResources.map(row => [row.ResourceID, row]));
         const covers = [];
         for (const id of new Set(ids)) {
           if (!visible.has(id)) continue;
-          const resource = resources.get(id);
+          const resource = resourceRows.get(id);
           try {
             const file = await repository.verifyCover(resource, snapshot.ProgramLibraryRoots);
             const token = await createDriveAccessToken({
@@ -103,6 +119,7 @@ export function programLibraryViewerEndpoint(action) {
 
       if (action === 'access' || action === 'cover') {
         const resource = requireVisibleProgramResource(data, program, sharedSubjects, body.resourceId);
+        if (!resources.some(row => row.id === body.resourceId)) throw problem('This resource is unavailable.', 403);
         if (action === 'cover' && !resource.CoverDriveFileID) throw problem('This resource has no cover image.', 404);
         const file = action === 'cover'
           ? await repository.verifyCover(resource, snapshot.ProgramLibraryRoots)

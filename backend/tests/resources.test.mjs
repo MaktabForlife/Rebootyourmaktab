@@ -102,6 +102,14 @@ const normalStudentResources = buildResourcesResponse({
   classgroup: "1"
 });
 
+const missingGroupResources = buildResourcesResponse({
+  eBooks: { rows: [headers,
+    ["E1", "Restricted", "S1", "Quran", "M1", "Basics", "T1", "1", "PDF", "One", "https://example.test/one", true, ""],
+    ["E2", "All learners", "S1", "Quran", "M1", "Basics", "T2", "ALL", "PDF", "All", "https://example.test/all", true, ""]
+  ] }
+}, { studentid: "STUDENT-NO-GROUP", classgroup: "" });
+assert.equal(missingGroupResources.count, 1, 'An empty learner group cannot open a restricted group resource');
+
 assert.deepEqual(
   normalStudentResources.ebooks.subjects[0].modules[0].resources.map(resource => resource.name),
   ["Global", "Group One"],
