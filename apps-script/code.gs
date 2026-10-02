@@ -1,7 +1,7 @@
 /*
 ===============================================================================
 MAKTABHELPER — GOOGLE DRIVE BRIDGE
-Last updated: 1 October 2026
+Last updated: 2 October 2026
 Library milestone: V105.4.1
 ===============================================================================
 
@@ -15,9 +15,13 @@ V105.4.1 OWNERSHIP:
   Cloudflare Worker routes and the M4L UI.
 - Apps Script is retained for Weekly Planner PNG and Program Library uploads
   to the deploying account's Google Drive.
-- Apps Script reads the Weekly Planner destination and manual Library access
-  check folder from the bound spreadsheet's SystemConfig sheet; it does not
-  administer Sheets data.
+- The Weekly Planner reads WeeklyPlannerDriveFolderId and
+  WeeklyPlannerDriveFolderLabel from the bound spreadsheet's SystemConfig sheet.
+- The manual authorizeM4LServices check reads ProgramLibraryDriveFolderId from
+  SystemConfig and verifies that the deploying account can add files there.
+- Library uploads use the folder selected in the M4L UI and signed by the
+  Worker. ProgramLibraryDriveFolderId is only for the manual access check.
+- Apps Script does not administer Sheets data.
 
 CALLABLE doPost ACTIONS:
 - saveWeeklyPlannerPreviewToDrive
@@ -25,6 +29,7 @@ CALLABLE doPost ACTIONS:
 
 MANUAL DEPLOYMENT / AUTHORIZATION FUNCTION:
 - authorizeM4LServices
+  Run as the deploying Google account after adding or changing OAuth scopes.
 
 Do not add Sheets administration, maintenance or compatibility actions back to
 Apps Script. New Sheets features must be implemented through the UI and Worker.
@@ -249,8 +254,8 @@ function authorizeM4LServices() {
     throw new Error("This Apps Script project is not bound to a Google Sheet");
   }
 
-  const driveConfig = getWeeklyPlannerDriveConfig_();
-  const folder = DriveApp.getFolderById(driveConfig.folderId);
+  const plannerConfig = getWeeklyPlannerDriveConfig_();
+  const plannerFolder = DriveApp.getFolderById(plannerConfig.folderId);
 
   // This read-only check exercises the Drive API token used for uploads.
   const libraryFolderId = getSystemConfigValue_(
@@ -286,16 +291,15 @@ function authorizeM4LServices() {
       libraryDetails.trashed ||
       !libraryDetails.capabilities ||
       libraryDetails.capabilities.canAddChildren !== true) {
-    throw new Error("The Apps Script account cannot add files to the Library Resources folder");
+    throw new Error("The Apps Script account cannot add files to the configured Library folder");
   }
 
   const result = {
     success: true,
     spreadsheetId: spreadsheet.getId(),
     spreadsheetName: spreadsheet.getName(),
-    folderId: folder.getId(),
-    folderName: folder.getName(),
-    folderUrl: driveConfig.folderUrl,
+    plannerFolderId: plannerFolder.getId(),
+    plannerFolderName: plannerFolder.getName(),
     libraryFolderId: libraryFolder.getId(),
     libraryFolderName: libraryFolder.getName(),
     libraryCanAddFiles: true
