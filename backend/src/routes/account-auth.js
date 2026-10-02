@@ -26,9 +26,6 @@ import {
   normalizePlatformIdentifier
 } from "../lib/platform-schema.js";
 import { readProgramRoleAccountsForPrograms } from "../profiles/program-roles.js";
-import { timetableRepository } from "../programs/timetable-repository.js";
-import { managementState } from "../programs/management-model.js";
-import { currentProgramEnrollment } from "../programs/library-viewer.js";
 import { programService } from "../programs/service.js";
 import { sheetsProgramRepository } from "../programs/sheets-repository.js";
 
@@ -438,11 +435,7 @@ export async function loadCentralAccountState(env, uniqueId, options = {}) {
       }
       if(accountRoles.includes('STUDENT')){
         const program=programDefinitions.find(row=>row.id===course.CourseID&&row.mode==='PROGRAM'&&row.status==='DRAFT');
-        if(program){
-          const data=await timetableRepository(env,program).load();
-          if(data.prepared&&currentProgramEnrollment(managementState(data,program).snapshot,program,account.AccountID))
-            contexts.push({scope:'COURSE',courseId:course.CourseID,courseName:course.CourseName,role:'STUDENT',programLibrary:true});
-        }
+        if(program)contexts.push({scope:'COURSE',courseId:course.CourseID,courseName:course.CourseName,role:'STUDENT',programLibrary:true});
       }
     }
     contexts.sort((a,b)=>authorityRank(a.role)-authorityRank(b.role)||a.courseName.localeCompare(b.courseName)||a.role.localeCompare(b.role));

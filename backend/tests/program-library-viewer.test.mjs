@@ -1,8 +1,7 @@
 import assert from 'node:assert/strict';
-import { currentProgramEnrollment, programViewerRole, visibleProgramResources, requireVisibleProgramResource } from '../src/programs/library-viewer.js';
+import { programViewerRole, visibleProgramResources, requireVisibleProgramResource } from '../src/programs/library-viewer.js';
 
 const program={id:'PRG-DEMO',timezone:'Africa/Johannesburg'};
-const on=new Date('2026-10-02T10:00:00Z');
 const tables={
   ProgramClasses:[{ClassID:'CLASS-1',CourseID:program.id,Active:true}],
   ProgramEnrollments:[{EnrollmentID:'ENR-1',CourseID:program.id,ClassID:'CLASS-1',AccountID:'STUDENT-1',StartDate:'2026-01-01',EndDate:'2026-12-31',Active:true}],
@@ -21,11 +20,10 @@ const shared=[{SubjectID:'ARABIC',SubjectName:'Arabic',Active:true}];
 const student={accountid:'STUDENT-1',role:'STUDENT'};
 const roles=[{AccountID:'STUDENT-1',Active:true,Roles:['STUDENT']}];
 
-assert.equal(currentProgramEnrollment(tables,program,student.accountid,on),true);
-assert.equal(programViewerRole(student,roles,tables,program,on),'STUDENT');
-assert.equal(programViewerRole({accountid:'OTHER',role:'STUDENT'},roles,tables,program,on),'');
-assert.equal(programViewerRole({accountid:'STAFF-1',role:'STUDENT'},[{AccountID:'STAFF-1',Active:true,Roles:['TEACHER']}],tables,program,on),'TEACHER');
-assert.equal(programViewerRole({accountid:'ADMIN',role:'GLOBAL_ADMIN'},[],tables,program,on),'GLOBAL_ADMIN');
+assert.equal(programViewerRole(student,roles),'STUDENT');
+assert.equal(programViewerRole({accountid:'OTHER',role:'STUDENT'},roles),'');
+assert.equal(programViewerRole({accountid:'STAFF-1',role:'STUDENT'},[{AccountID:'STAFF-1',Active:true,Roles:['TEACHER']}]),'TEACHER');
+assert.equal(programViewerRole({accountid:'ADMIN',role:'GLOBAL_ADMIN'},[]),'GLOBAL_ADMIN');
 const visible=visibleProgramResources(data,program,shared);
 assert.deepEqual(visible.map(row=>row.id),['RES-1','RES-3']);
 assert.equal(visible[0].subjectName,'Arabic');
@@ -35,14 +33,20 @@ assert.equal(requireVisibleProgramResource(data,program,shared,'RES-1').DriveFil
 assert.throws(()=>requireVisibleProgramResource(data,program,shared,'RES-2'),/unavailable/);
 
 tables.ProgramEnrollments[0].Active=false;
-assert.equal(programViewerRole(student,roles,tables,program,on),'');
+assert.equal(programViewerRole(student,roles),'STUDENT','Library access follows the Program Student role without class enrollment');
 tables.ProgramEnrollments[0].Active=true;
 tables.ProgramClasses[0].Active=false;
-assert.equal(programViewerRole(student,roles,tables,program,on),'');
+assert.equal(programViewerRole(student,roles),'STUDENT');
 tables.ProgramClasses[0].Active=true;
 tables.ProgramEnrollments[0].EndDate='2026-09-30';
-assert.equal(programViewerRole(student,roles,tables,program,on),'');
+assert.equal(programViewerRole(student,roles),'STUDENT');
 tables.ProgramEnrollments[0].EndDate='2026-12-31';
+roles[0].Active=false;
+assert.equal(programViewerRole(student,roles),'','An inactive account loses Library access');
+roles[0].Active=true;
+roles[0].Roles=[];
+assert.equal(programViewerRole(student,roles),'','Removing the Student role revokes Library access');
+roles[0].Roles=['STUDENT'];
 tables.ProgramModules[0].Active=false;
 assert.deepEqual(visibleProgramResources(data,program,shared),[]);
 tables.ProgramModules[0].Active=true;

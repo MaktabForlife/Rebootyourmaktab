@@ -1,9 +1,10 @@
 import { getAuthUser } from '../lib/auth.js';
 import { json } from '../lib/http.js';
+import { normalizePlatformIdentifier } from '../lib/platform-schema.js';
 import { readProgramRoleAccounts, readProgramRoleAccountsForPrograms } from '../profiles/program-roles.js';
 import { managementState } from '../programs/management-model.js';
 import { clean, problem } from '../programs/model.js';
-import { currentProgramEnrollment, programViewerRole, requireVisibleProgramResource, visibleProgramResources } from '../programs/library-viewer.js';
+import { programViewerRole, requireVisibleProgramResource, visibleProgramResources } from '../programs/library-viewer.js';
 import { programService } from '../programs/service.js';
 import { sheetsProgramRepository } from '../programs/sheets-repository.js';
 import { timetableProgram } from '../programs/timetable-context.js';
@@ -44,13 +45,11 @@ export function programLibraryViewerEndpoint(action) {
         const visible = [];
         for (const program of candidates) {
           let role = user.role === 'GLOBAL_ADMIN' ? 'GLOBAL_ADMIN' : '';
-          const account = roleAccounts[program.id]?.find(row => row.AccountID === user.accountid && row.Active);
+          const account = roleAccounts[program.id]?.find(row =>
+            normalizePlatformIdentifier(row.AccountID) === normalizePlatformIdentifier(user.accountid) && row.Active);
           if (!role) role = account?.Roles.find(value => ['ADMIN', 'SENIOR', 'TEACHER'].includes(value)) || '';
           if (!role && user.scope === 'COURSE' && user.courseid === program.id && user.role === 'STUDENT') role = 'STUDENT';
-          if (!role && account?.Roles.includes('STUDENT')) {
-            const data = await timetableRepository(env, program).load();
-            if (data.prepared && currentProgramEnrollment(managementState(data, program).snapshot, program, user.accountid)) role = 'STUDENT';
-          }
+          if (!role && account?.Roles.includes('STUDENT')) role = 'STUDENT';
           if (role) visible.push({ id: program.id, name: program.name, role });
         }
         return json({ success: true, programs: visible });
@@ -65,7 +64,7 @@ export function programLibraryViewerEndpoint(action) {
       const snapshot = managementState(data, program).snapshot;
       const currentProgramSession = user.scope === 'COURSE' && user.courseid === program.id;
       const roleAccounts = user.role === 'GLOBAL_ADMIN' || currentProgramSession ? [] : await readProgramRoleAccounts(env, program.id);
-      const role = currentProgramSession ? user.role : programViewerRole(user, roleAccounts, snapshot, program);
+      const role = currentProgramSession ? user.role : programViewerRole(user, roleAccounts);
       if (!role) throw problem('This Program Library is not available to your account.', 403);
       const sharedSubjects = await repository.subjectReferences(data);
 

@@ -13,9 +13,6 @@ import {
 } from "./platform-schema.js";
 import { getRequestAuthUser } from "./request-context.js";
 import { readProgramRoleAccounts } from "../profiles/program-roles.js";
-import { timetableRepository } from "../programs/timetable-repository.js";
-import { managementState } from "../programs/management-model.js";
-import { currentProgramEnrollment } from "../programs/library-viewer.js";
 import { programService } from "../programs/service.js";
 import { sheetsProgramRepository } from "../programs/sheets-repository.js";
 
@@ -604,8 +601,6 @@ async function validateCentralAccountSession(payload, env, {allowProgram=false}=
       const {programs}=await programService(sheetsProgramRepository(env)).list();
       const program=programs.find(row=>row.id===course.courseId&&row.mode==='PROGRAM'&&row.status==='DRAFT');
       if(!program)return null;
-      const data=await timetableRepository(env,program).load();
-      if(!data.prepared||!currentProgramEnrollment(managementState(data,program).snapshot,program,accountId))return null;
     }
     if(!payload.accessrow&&!payload.accessid&&!payload.courserecordid){
       return {...payload,accountid:String(accountRow[0]||'').trim(),username:String(accountRow[1]||'').trim(),role:tokenRole,scope:'COURSE',courseid:course.courseId,coursename:course.courseName,coursespreadsheetid:course.spreadsheetId,courserecordid:'',accessid:''};

@@ -264,6 +264,8 @@ try{
  await viewer('access',{resourceId:'RES-BOOK'},programStudentToken,404);
  table(targetId,'ProgramResources')[1][10]=true;
  table(targetId,'ProgramEnrollments')[1][6]=false;
+ assert.equal((await viewer('catalogue',{},programStudentToken)).role,'STUDENT','Library access does not require a current class enrollment');
+ table(platformId,'UserCourseAccess').at(-1)[4]=false;
  await viewer('catalogue',{},programStudentToken,401);
  table(targetId,'ProgramEnrollments').pop();
  table(platformId,'UserCourseAccess').pop();

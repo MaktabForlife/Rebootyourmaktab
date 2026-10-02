@@ -5,6 +5,8 @@ import {
   verifySessionToken
 } from "../src/lib/auth.js";
 import { PLATFORM_SHEET_HEADERS } from "../src/lib/platform-schema.js";
+import { DEFINITION_HEADERS } from "../src/programs/model.js";
+import { ACADEMY_HEADERS, MATRIX_BASE } from "../src/profiles/academy-access.js";
 import { buildAvailableContexts } from "../src/routes/account-auth.js";
 import worker from "../src/worker.js";
 
@@ -436,6 +438,34 @@ try {
   const programRequest=new Request('https://worker.test/api/account/session',{headers:{Authorization:`Bearer ${programLogin.data.token}`}});
   assert.equal(await getAuthUser(programRequest,env),null,'Program Library tokens cannot open unfinished teaching routes');
   assert.equal((await getAuthUser(programRequest,env,{allowProgram:true})).role,'TEACHER');
+
+  tables.ProgramDefinitions=[DEFINITION_HEADERS,[programId,4,'Africa/Johannesburg','DRAFT','REV-1','','ACCOUNT2']];
+  const studentHash=await createSaltedPinHash('1234',pinSecret);
+  tables.UserAccounts.push(['ACCOUNT8','Program Student','PROGRAM-STUDENT-LINK',true,studentHash,true,'','','','','','','','']);
+  tables.UserCourseAccess.push(['ACCESS6','ACCOUNT8',programId,'STUDENT',true,false,'','','','','','','','STUDENT-REC']);
+  const studentLogin=await post('/api/account/login',{uniqueid:'PROGRAM-STUDENT-LINK',pin:'1234'});
+  assert.equal(studentLogin.response.status,200,JSON.stringify(studentLogin.data));
+  assert.equal(studentLogin.data.contexts.some(context=>context.courseId===programId&&context.role==='STUDENT'),true,
+    'A registered Program student sees the Library without a class enrollment');
+  const studentSwitched=await post('/api/account/switch-context',{scope:'COURSE',courseId:programId,role:'STUDENT'},studentLogin.data.token);
+  assert.equal(studentSwitched.response.status,200,JSON.stringify(studentSwitched.data));
+  const studentSession=await post('/api/account/session',{},studentSwitched.data.token);
+  assert.equal(studentSession.response.status,200,'The Program Student Library session remains valid without enrollment');
+  const studentAvailable=await post('/api/program-library/available',{},studentSwitched.data.token);
+  assert.equal(studentAvailable.response.status,200,JSON.stringify(studentAvailable.data));
+  assert.equal(studentAvailable.data.programs.some(program=>program.id===programId&&program.role==='STUDENT'),true);
+  tables.UserCourseAccess.at(-1)[4]=false;
+  const studentRevoked=await post('/api/account/session',{},studentSwitched.data.token);
+  assert.equal(studentRevoked.response.status,401,'Removing the Program role revokes an existing Student Library session');
+  const scopeKey=`PROGRAM:${programId}`;
+  tables.AcademyAccessScopes=[ACADEMY_HEADERS.AcademyAccessScopes,[scopeKey,'PROGRAM',programId,'Program Library','PAID','CONFIRMED','SETUP','','','','']];
+  tables.AcademyAccessMatrix=[[...MATRIX_BASE,scopeKey],['ACCOUNT8','Program Student','ACTIVE','STUDENT']];
+  tables.AcademyAccessReview=[ACADEMY_HEADERS.AcademyAccessReview,[`ACCOUNT8|${scopeKey}`,'ACCOUNT8',scopeKey,'CONFIRMED','','','','']];
+  const matrixSession=await post('/api/account/session',{},studentSwitched.data.token);
+  assert.equal(matrixSession.response.status,200,'A confirmed Student role in User profiles grants Program Library access');
+  tables.AcademyAccessReview[1][3]='REQUIRED';
+  const unreviewedSession=await post('/api/account/session',{},studentSwitched.data.token);
+  assert.equal(unreviewedSession.response.status,401,'An unreviewed imported Student role does not grant access');
 } finally {
   globalThis.fetch = originalFetch;
 }

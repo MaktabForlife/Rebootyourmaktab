@@ -1,38 +1,18 @@
 import { isActivePlatformValue as active, normalizePlatformIdentifier } from '../lib/platform-schema.js';
 import { clean, problem } from './model.js';
 import { managementState } from './management-model.js';
-import { validDate } from './timetable-model.js';
 
 const STAFF_ROLES = new Set(['ADMIN', 'SENIOR', 'TEACHER']);
 const TYPES = new Set(['EBOOK', 'PRINTABLE', 'AUDIO', 'VIDEO', 'OTHER']);
 
-export function currentProgramEnrollment(snapshot, program, accountId, now = new Date()) {
-  const parts = new Intl.DateTimeFormat('en-GB', {
-    timeZone: program.timezone || 'UTC', year: 'numeric', month: '2-digit', day: '2-digit'
-  }).formatToParts(now);
-  const fields = Object.fromEntries(parts.map(part => [part.type, part.value]));
-  const date = `${fields.year}-${fields.month}-${fields.day}`;
-  const classes = new Set((snapshot.ProgramClasses || [])
-    .filter(row => row.CourseID === program.id && active(row.Active))
-    .map(row => row.ClassID));
-  return (snapshot.ProgramEnrollments || []).some(row =>
-    row.CourseID === program.id &&
-    normalizePlatformIdentifier(row.AccountID) === normalizePlatformIdentifier(accountId) &&
-    active(row.Active) && classes.has(row.ClassID) &&
-    (!row.StartDate || validDate(row.StartDate) && row.StartDate <= date) &&
-    (!row.EndDate || validDate(row.EndDate) && row.EndDate >= date)
-  );
-}
-
-export function programViewerRole(user, roleAccounts, snapshot, program, now = new Date()) {
+export function programViewerRole(user, roleAccounts) {
   if (user.role === 'GLOBAL_ADMIN') return 'GLOBAL_ADMIN';
   const account = (roleAccounts || []).find(row =>
     normalizePlatformIdentifier(row.AccountID) === normalizePlatformIdentifier(user.accountid) && row.Active);
   if (!account) return '';
   const staff = account.Roles.find(role => STAFF_ROLES.has(role));
   if (staff) return staff;
-  return account.Roles.includes('STUDENT') && currentProgramEnrollment(snapshot, program, user.accountid, now)
-    ? 'STUDENT' : '';
+  return account.Roles.includes('STUDENT') ? 'STUDENT' : '';
 }
 
 export function visibleProgramResources(data, program, sharedSubjects) {
