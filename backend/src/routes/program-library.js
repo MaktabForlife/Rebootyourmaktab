@@ -1,7 +1,6 @@
 import { json } from '../lib/http.js';
 import { verifySessionToken } from '../lib/auth.js';
 import { startLibraryUpload, openLibraryUploadTicket, forwardLibraryUploadChunk, LIBRARY_UPLOAD_CHUNK_SIZE } from '../lib/library-upload-bridge.js';
-import { searchBookCovers, downloadBookCover } from '../lib/book-cover-search.js';
 import { listGoogleDriveFolder } from '../lib/google-drive.js';
 import { getPlatformSpreadsheetId } from '../lib/platform-sheet.js';
 import { getAuthUser } from '../lib/auth.js';
@@ -83,17 +82,6 @@ export function programLibraryEndpoint(action){
       const user=await programLibraryUser(request,env,input.id,{adminOnly:action==='folder-set'||action==='prepare-library'});
       stage='program';const program=await timetableProgram(env,input.id);
       const repository=timetableRepository(env,program);
-      if(action==='cover-search'){
-        stage='cover-search';
-        if(program.status!=='DRAFT')throw problem('Archived Programs cannot add book covers.',409);
-        return json({success:true,covers:await searchBookCovers(input.query)});
-      }
-      if(action==='cover-image'){
-        stage='cover-image';
-        if(program.status!=='DRAFT')throw problem('Archived Programs cannot add book covers.',409);
-        const bytes=await downloadBookCover(input.coverId);
-        return new Response(bytes,{status:200,headers:{'Content-Type':'image/jpeg','Content-Length':String(bytes.byteLength),'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Access-Control-Allow-Origin':'*','Access-Control-Expose-Headers':'Content-Length, Content-Type'}});
-      }
       if(action==='manage'){
         const data=await repository.load();
         const view=await managementView(data,repository,program);

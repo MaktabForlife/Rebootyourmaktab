@@ -8,7 +8,7 @@
   const id=new URLSearchParams(location.search).get('program');
   const pendingKey=`m4l-program-library-pending:${id}`;
   const draftKey=`m4l-program-library-draft:${id}`;
-  const state={data:null,record:null,creating:false,busy:false,pending:null,drive:null,folderId:'',selectedFile:null,selectedCover:null,coverUrls:{},coverResults:[],mode:'select',uploadFile:null,uploadSession:null};
+  const state={data:null,record:null,creating:false,busy:false,pending:null,drive:null,folderId:'',selectedFile:null,selectedCover:null,coverUrls:{},mode:'select',uploadFile:null,uploadSession:null};
   const message=(value,error=false)=>{$('pl-message').textContent=value;$('pl-message').classList.toggle('pl-error',error);};
   const driveMessage=(value,error=false)=>{$('pl-drive-status').textContent=value;$('pl-drive-status').classList.toggle('pl-error',error);};
   async function api(path,body={}){
@@ -173,52 +173,21 @@
   function openDrive(mode){if(!state.record||state.busy)return;state.mode=mode;state.drive=null;state.folderId=state.data?.destinationId||'';renderDrive();$('pl-drive').showModal();if(mode.includes('upload'))driveMessage('Ready to upload to Resources.');else void browse();}
   $('pl-browse').onclick=()=>{state.uploadFile=null;openDrive('select');};
   $('pl-cover-browse').onclick=()=>{state.uploadFile=null;openDrive('cover-select');};
-  function coverSearchMessage(value,error=false){$('pl-cover-search-status').textContent=value;$('pl-cover-search-status').classList.toggle('pl-error',error);}
-  function renderCoverResults(){
-    $('pl-cover-search-submit').disabled=state.busy;
-    $('pl-cover-search-close').disabled=state.busy;
-    $('pl-cover-results').innerHTML=state.coverResults.map(item=>`<div class="pl-cover-result"><img src="${esc(item.imageUrl)}" alt="Cover of ${esc(item.title)}" loading="lazy"><div><strong>${esc(item.title)}</strong><small>${esc([item.author,item.year].filter(Boolean).join(' · '))}</small><a href="${esc(item.sourceUrl)}" target="_blank" rel="noopener noreferrer">View book ↗</a><button type="button" class="pb-secondary" data-cover-id="${esc(item.coverId)}" ${state.busy?'disabled':''}>Use this cover</button></div></div>`).join('');
-  }
   $('pl-cover-online').onclick=()=>{
     if(!state.record||state.busy||state.pending||!state.data?.destinationId)return;
-    state.coverResults=[];
-    $('pl-cover-query').value=state.record.ISBN?.trim()||[state.record.Name,state.record.Author].filter(Boolean).join(' ').trim();
-    renderCoverResults();coverSearchMessage('Enter an ISBN, title or author, then choose Search.');
-    $('pl-cover-search').showModal();$('pl-cover-query').focus();
+    $('pl-cover-title').value=state.record.Name||'';
+    $('pl-cover-author').value=state.record.Author||'';
+    $('pl-cover-publisher').value=state.record.Publisher||'';
+    $('pl-cover-query').value='';
+    $('pl-cover-search').showModal();$('pl-cover-title').focus();
   };
-  $('pl-cover-search-form').onsubmit=async event=>{
-    event.preventDefault();
-    if(state.busy||!state.record)return;
-    const query=$('pl-cover-query').value.trim();
-    if(query.length<2){coverSearchMessage('Enter at least two characters to search.',true);return;}
-    state.busy=true;state.coverResults=[];renderCoverResults();coverSearchMessage('Searching book covers…');
-    try{
-      const result=await api('program-library/cover-search',{query});
-      state.coverResults=result.covers||[];
-      coverSearchMessage(state.coverResults.length?`Choose a cover from ${state.coverResults.length} result${state.coverResults.length===1?'':'s'}.`:'No covers found. Try a different title, author or ISBN.');
-    }catch(error){coverSearchMessage(error.message,true);}
-    finally{state.busy=false;renderCoverResults();renderEditor();}
+  $('pl-cover-search-form').onsubmit=event=>{
+    const title=$('pl-cover-title').value.trim();
+    if(!title){event.preventDefault();$('pl-cover-title').focus();return;}
+    $('pl-cover-query').value=[title,$('pl-cover-author').value.trim(),$('pl-cover-publisher').value.trim(),'book cover'].filter(Boolean).join(' ');
   };
-  $('pl-cover-results').onclick=async event=>{
-    const coverId=event.target.closest('[data-cover-id]')?.dataset.coverId;
-    const chosen=state.coverResults.find(item=>item.coverId===coverId);
-    if(!chosen||state.busy||!state.record)return;
-    state.busy=true;renderCoverResults();coverSearchMessage('Preparing the selected cover image…');
-    let file;
-    try{
-      const token=localStorage.getItem('m4l_account_token');
-      if(!token)throw new Error('Sign in to your Academy account again.');
-      const response=await fetch(`${window.M4L_CONFIG?.API_BASE||''}/api/admin/platform/program-library/cover-image`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({id,coverId})});
-      if(!response.ok){let result;try{result=await response.json();}catch{}throw new Error(result?.error||'The cover image could not be loaded. Try another cover.');}
-      const blob=await response.blob();
-      if(blob.type!=='image/jpeg'||!blob.size||blob.size>20*1024*1024)throw new Error('The cover source did not return a usable JPEG image.');
-      file=new File([blob],`open-library-cover-${coverId}.jpg`,{type:'image/jpeg'});
-    }catch(error){coverSearchMessage(error.message,true);}
-    finally{state.busy=false;renderCoverResults();renderEditor();}
-    if(file){$('pl-cover-search').close();state.uploadFile=file;state.uploadSession=null;openDrive('cover-upload');}
-  };
+  $('pl-cover-use-device').onclick=()=>{$('pl-cover-search').close();$('pl-cover-device-file').click();};
   $('pl-cover-search-close').onclick=()=>$('pl-cover-search').close();
-  $('pl-cover-search').oncancel=event=>{if(state.busy)event.preventDefault();};
   $('pl-cover-search').onclose=()=>{if(!$('pl-drive').open)$('pl-cover-online').focus();};
   const acceptedFiles={EBOOK:'.pdf',PRINTABLE:'.pdf',AUDIO:'audio/*',VIDEO:'video/*',OTHER:'image/*,text/*,.zip,.doc,.docx,.ppt,.pptx'};
   function supportsUpload(file,type){

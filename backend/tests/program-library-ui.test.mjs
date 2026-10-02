@@ -18,7 +18,7 @@ const f=timetableFixture(),service=timetableService(f.repository,f.program);
 f.repository.verifyResource=async row=>({id:row.DriveFileID});
 f.repository.verifyLibraryRoot=async value=>({FolderID:value,Name:'Second Drive folder'});
 const coordinator=timetableCoordinator(f.journal,async()=>({service,user:{accountid:'ADMIN'}}));
-let failSave=false,lastUploadType='',lastUploadName='',multiChunkUpload=false,rateLimitedChunkOnce=false,destinationId='resources-folder-123';
+let failSave=false,lastUploadType='',multiChunkUpload=false,rateLimitedChunkOnce=false,destinationId='resources-folder-123';
 class TestFile extends Blob { constructor(parts,name,options){super(parts,options);this.name=name;} }
 const context={console,URL,URLSearchParams,structuredClone,crypto,File:TestFile,
   location:{search:`?program=${f.program.id}`},window:{M4L_CONFIG:{API_BASE:''}},document:{getElementById:element},
@@ -29,12 +29,10 @@ const context={console,URL,URLSearchParams,structuredClone,crypto,File:TestFile,
       requests.push({action:'upload-chunk',offset,body:options.body});
       if(multiChunkUpload&&offset===0)return {ok:true,status:200,json:async()=>({success:true,complete:false,nextOffset:4194304})};
       if(rateLimitedChunkOnce&&offset===4194304){rateLimitedChunkOnce=false;return {ok:false,status:503,json:async()=>({success:false,code:'SHEETS_RATE_LIMITED',retryAfterMs:60000,error:'Google Sheets is temporarily limiting requests.'})};}
-      return {ok:true,status:200,json:async()=>({success:true,complete:true,nextOffset:123,file:lastUploadType==='COVER'?(lastUploadName.startsWith('open-library-')?{id:'online-cover',name:lastUploadName,mimeType:'image/jpeg'}:{id:'uploaded-cover',name:'Device-cover.png',mimeType:'image/png'}):{id:'uploaded-pdf',name:'Device.pdf',mimeType:'application/pdf'}})};
+      return {ok:true,status:200,json:async()=>({success:true,complete:true,nextOffset:123,file:lastUploadType==='COVER'?{id:'uploaded-cover',name:'Device-cover.png',mimeType:'image/png'}:{id:'uploaded-pdf',name:'Device.pdf',mimeType:'application/pdf'}})};
     }
     const action=url.split('/').at(-1),body=JSON.parse(options.body);requests.push({action,body});
-    if(action==='upload-start'){lastUploadType=body.resourceType;lastUploadName=body.fileName;return {ok:true,status:200,json:async()=>({success:true,ticket:'ticket',chunkSize:4194304})};}
-    if(action==='cover-search')return {ok:true,status:200,json:async()=>({success:true,covers:[{coverId:'12345',title:'A Book',author:'An Author',year:2020,imageUrl:'https://covers.openlibrary.org/b/id/12345-M.jpg?default=false',sourceUrl:'https://openlibrary.org/works/OL123W'}]})};
-    if(action==='cover-image')return {ok:true,status:200,blob:async()=>new Blob(['jpeg image'],{type:'image/jpeg'})};
+    if(action==='upload-start'){lastUploadType=body.resourceType;return {ok:true,status:200,json:async()=>({success:true,ticket:'ticket',chunkSize:4194304})};}
     if(action==='browse')return {ok:true,status:200,json:async()=>({success:true,folder:{id:body.folderId||destinationId,name:'Resources'},breadcrumbs:[{id:destinationId,name:'Resources'}],items:[{id:'file-pdf',name:'Lesson.pdf',mimeType:'application/pdf',isFolder:false,supportedTypes:['EBOOK'],format:'PDF'},{id:'cover-png',name:'Cover.png',mimeType:'image/png',isFolder:false,supportedTypes:['OTHER'],format:'PNG'},{id:'folder-one',name:'Folder one',isFolder:true,supportedTypes:[],format:''}],nextPageToken:''})};
     if(action==='save'&&failSave){failSave=false;throw new Error('Offline');}
     if(action==='folder-set'){destinationId='new-resources-folder-123';return {ok:true,status:200,json:async()=>({success:true,folder:{id:destinationId,name:'New Resources'}})};}
@@ -112,16 +110,19 @@ assert.equal(JSON.parse(storage.get(draftKey)).record.CoverDriveFileID,'uploaded
 assert.equal(element('pl-save').disabled,false,'Saving is enabled after a cover upload finishes');
 element('pl-cover-online').onclick();
 assert.equal(element('pl-cover-search').open,true,'Online cover search opens a centered dialog');
-assert.equal(element('pl-cover-query').value,'978-1-23456-789-0','The book ISBN starts the manual search');
+assert.equal(element('pl-cover-title').value,element('pl-name').value,'The book title starts the manual image search');
+assert.equal(element('pl-cover-author').value,'A. Author');
+assert.equal(element('pl-cover-publisher').value,'A Publisher');
 element('pl-cover-search-form').onsubmit({preventDefault(){}});await settled();
-assert.equal(requests.filter(row=>row.action==='cover-search').at(-1).body.query,'978-1-23456-789-0');
-assert.match(element('pl-cover-results').innerHTML,/Use this cover/);
-element('pl-cover-results').onclick({target:{closest:selector=>selector==='[data-cover-id]'?{dataset:{coverId:'12345'}}:null}});await settled();
+assert.equal(element('pl-cover-query').value,`${element('pl-name').value} A. Author A Publisher book cover`);
+assert.match(markup,/action="https:\/\/www\.google\.com\/search"[^>]*target="_blank"/);
+assert.match(markup,/name="tbm" value="isch"/);
+element('pl-cover-device-file').clicked=false;
+element('pl-cover-use-device').onclick();
 assert.equal(element('pl-cover-search').open,false);
-assert.equal(element('pl-drive').open,true,'The selected online image enters the normal Resources upload flow');
-element('pl-upload').onclick();await settled();
-assert.equal(requests.filter(row=>row.action==='upload-start').at(-1).body.fileName,'open-library-cover-12345.jpg');
-assert.equal(JSON.parse(storage.get(draftKey)).record.CoverDriveFileID,'online-cover','The online image is saved to Drive as a cover');
+assert.equal(element('pl-cover-device-file').clicked,true,'A saved web image can use the existing cover upload');
+assert.equal(JSON.parse(storage.get(draftKey)).record.CoverDriveFileID,'uploaded-cover');
+assert.equal(requests.some(row=>['cover-search','cover-image'].includes(row.action)),false,'No external cover source is requested by the app');
 multiChunkUpload=true;rateLimitedChunkOnce=true;
 const startsBeforeResume=requests.filter(row=>row.action==='upload-start').length;
 const chunksBeforeResume=requests.filter(row=>row.action==='upload-chunk').length;
