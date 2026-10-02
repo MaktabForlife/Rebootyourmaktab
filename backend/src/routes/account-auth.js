@@ -26,6 +26,11 @@ import {
   normalizePlatformIdentifier
 } from "../lib/platform-schema.js";
 import { readProgramRoleAccountsForPrograms } from "../profiles/program-roles.js";
+import { timetableRepository } from "../programs/timetable-repository.js";
+import { managementState } from "../programs/management-model.js";
+import { currentProgramEnrollment } from "../programs/library-viewer.js";
+import { programService } from "../programs/service.js";
+import { sheetsProgramRepository } from "../programs/sheets-repository.js";
 
 const SUPPORTED_PLATFORM_SCHEMA_VERSIONS = new Set(["102.0.3", "102.0.4", "102.0.5", "102.0.6", "102.0.7", "102.0.8", "102.0.9", "102.0.10", "102.0.11", "102.0.12"]);
 const LOGIN_RATE_LIMIT_SECONDS = 60;
@@ -316,7 +321,7 @@ export async function switchAccountContextEndpoint(request, env) {
       selected=libraryContext?{accountId:state.account.AccountID,courseId:libraryContext.courseId,role:libraryContext.role,scope:'COURSE',accessId:'',accessRow:0,courseRecordId:''}
         :attachAccessRow(state,assertCourseContextAccess(state.account,state.accessRecords,state.account.AccountID,requestedCourseId,requestedRole));
       const course=await resolveActiveCourseRegistration(env, selected.courseId, {allowProgram:true});
-      if(course.schemaVersion.includes('-program')&&!['GLOBAL_ADMIN','ADMIN','SENIOR','TEACHER'].includes(selected.role))throw new Error('Program Library access requires a teacher or administrator role');
+      if(course.schemaVersion.includes('-program')&&!['GLOBAL_ADMIN','ADMIN','SENIOR','TEACHER','STUDENT'].includes(selected.role))throw new Error('Program Library access requires a registered role');
     } else if (requestedScope === "GLOBAL") {
       selected = selectGlobalOnlyContext(state);
     } else {
@@ -420,12 +425,24 @@ export async function loadCentralAccountState(env, uniqueId, options = {}) {
     let roleAccounts;
     try{roleAccounts=await readProgramRoleAccountsForPrograms(env,programCourses.map(course=>course.CourseID));}
     catch(error){if(!contexts.length)throw error;roleAccounts={};}
+    const studentPrograms = programCourses.filter(course =>
+      roleAccounts[course.CourseID]?.some(row => normalizePlatformIdentifier(row.AccountID) === accountId && row.Active && row.Roles.includes('STUDENT')));
+    const programDefinitions = studentPrograms.length
+      ? (await programService(sheetsProgramRepository(env)).list()).programs : [];
     contexts=contexts.filter(context=>!programIds.has(normalizePlatformIdentifier(context.courseId)));
     for(const course of programCourses){
       const roles=roleAccounts[course.CourseID]||[];
       const accountRoles=roles.find(row=>normalizePlatformIdentifier(row.AccountID)===accountId&&row.Active)?.Roles||[];
       for(const role of accountRoles.filter(role=>['ADMIN','SENIOR','TEACHER'].includes(role))){
         contexts.push({scope:'COURSE',courseId:course.CourseID,courseName:course.CourseName,role,programLibrary:true});
+      }
+      if(accountRoles.includes('STUDENT')){
+        const program=programDefinitions.find(row=>row.id===course.CourseID&&row.mode==='PROGRAM'&&row.status==='DRAFT');
+        if(program){
+          const data=await timetableRepository(env,program).load();
+          if(data.prepared&&currentProgramEnrollment(managementState(data,program).snapshot,program,account.AccountID))
+            contexts.push({scope:'COURSE',courseId:course.CourseID,courseName:course.CourseName,role:'STUDENT',programLibrary:true});
+        }
       }
     }
     contexts.sort((a,b)=>authorityRank(a.role)-authorityRank(b.role)||a.courseName.localeCompare(b.courseName)||a.role.localeCompare(b.role));
@@ -557,7 +574,7 @@ async function createAccountSession(env, state, selected, credentialHash) {
   let courseName = "M4L Platform";
   if (selected.scope === "COURSE") {
     const course = await resolveActiveCourseRegistration(env, selected.courseId, {allowProgram:true});
-    if(course.schemaVersion.includes('-program')&&!['GLOBAL_ADMIN','ADMIN','SENIOR','TEACHER'].includes(selected.role))throw new Error('Program Library access requires a teacher or administrator role');
+    if(course.schemaVersion.includes('-program')&&!['GLOBAL_ADMIN','ADMIN','SENIOR','TEACHER','STUDENT'].includes(selected.role))throw new Error('Program Library access requires a registered role');
     courseName = course.courseName;
   } else if (selected.scope === "GLOBAL") {
     courseName = "Global Subjects";

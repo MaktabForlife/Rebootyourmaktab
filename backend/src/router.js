@@ -2,6 +2,7 @@ import { userProfilesEndpoint } from './routes/user-profiles.js';
 import { academySubjectsEndpoint } from './routes/academy-subjects.js';
 import { programTimetableEndpoint } from './routes/program-timetable.js';
 import { programLibraryEndpoint } from './routes/program-library.js';
+import { programLibraryViewerEndpoint } from './routes/program-library-viewer.js';
 /* M4L V105.2 - Add platform Program setup routes. */
 import { programEndpoint } from "./routes/program-builder.js";
 import {
@@ -163,6 +164,9 @@ import { json } from "./lib/http.js";
 import { createRequestEnvironment } from "./lib/request-context.js";
 
 const ROUTES = new Map([
+  ...["available", "catalogue", "access", "cover", "covers"].map(action => [
+    `/api/program-library/${action}`, workerRoute("program-library-viewer", programLibraryViewerEndpoint(action))
+  ]),
   ...["available", "manage", "save", "recover", "prepare-library", "folder-set", "browse", "access", "cover", "upload-start", "upload-chunk"].map(action => [
     `/api/admin/platform/program-library/${action}`, workerRoute("program-timetable", programLibraryEndpoint(action))
   ]),

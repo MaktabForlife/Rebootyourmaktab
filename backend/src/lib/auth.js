@@ -13,6 +13,11 @@ import {
 } from "./platform-schema.js";
 import { getRequestAuthUser } from "./request-context.js";
 import { readProgramRoleAccounts } from "../profiles/program-roles.js";
+import { timetableRepository } from "../programs/timetable-repository.js";
+import { managementState } from "../programs/management-model.js";
+import { currentProgramEnrollment } from "../programs/library-viewer.js";
+import { programService } from "../programs/service.js";
+import { sheetsProgramRepository } from "../programs/sheets-repository.js";
 
 const PIN_HASH_VERSION = "v2";
 const PIN_HASH_ALGORITHM = "pbkdf2-sha256";
@@ -574,7 +579,7 @@ async function validateCentralAccountSession(payload, env, {allowProgram=false}=
   let course;
   try{course=await resolveActiveCourseRegistration(env, courseId, {allowProgram});}
   catch(error){if(/Program teaching is not enabled in this release/.test(String(error.message)))return null;throw error;}
-  if(course.schemaVersion.includes('-program')&&!['GLOBAL_ADMIN','ADMIN','SENIOR','TEACHER'].includes(tokenRole))return null;
+  if(course.schemaVersion.includes('-program')&&!['GLOBAL_ADMIN','ADMIN','SENIOR','TEACHER','STUDENT'].includes(tokenRole))return null;
 
   if (isGlobalAdmin) {
     if (tokenRole !== "GLOBAL_ADMIN") return null;
@@ -595,6 +600,13 @@ async function validateCentralAccountSession(payload, env, {allowProgram=false}=
   if(course.schemaVersion.includes('-program')){
     const roles=await readProgramRoleAccounts(env,course.courseId);
     if(!roles.some(row=>normalizePlatformIdentifier(row.AccountID)===accountId&&row.Active&&row.Roles.includes(tokenRole)))return null;
+    if(tokenRole==='STUDENT'){
+      const {programs}=await programService(sheetsProgramRepository(env)).list();
+      const program=programs.find(row=>row.id===course.courseId&&row.mode==='PROGRAM'&&row.status==='DRAFT');
+      if(!program)return null;
+      const data=await timetableRepository(env,program).load();
+      if(!data.prepared||!currentProgramEnrollment(managementState(data,program).snapshot,program,accountId))return null;
+    }
     if(!payload.accessrow&&!payload.accessid&&!payload.courserecordid){
       return {...payload,accountid:String(accountRow[0]||'').trim(),username:String(accountRow[1]||'').trim(),role:tokenRole,scope:'COURSE',courseid:course.courseId,coursename:course.courseName,coursespreadsheetid:course.spreadsheetId,courserecordid:'',accessid:''};
     }

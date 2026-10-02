@@ -10,6 +10,7 @@ import { timetableProgram,timetableUser,programLibraryUser } from '../src/progra
 import { createRequestEnvironment } from '../src/lib/request-context.js';
 import { TIMETABLE_HEADERS } from '../src/programs/timetable-model.js';
 import { readWeeklyDraft } from '../src/programs/weekly-timetable.js';
+import { loadCentralAccountState } from '../src/routes/account-auth.js';
 import { timetableFixture } from '../../scripts/program-timetable-fixtures.mjs';
 import assert from "node:assert/strict";
 import nodeWorker from "../src/worker.js";
@@ -171,6 +172,10 @@ async function library(action,body={},auth=token,expected=200,method='POST'){
  const response=await worker.fetch(new Request(`https://worker.test/api/admin/platform/program-library/${action}`,{method,headers:{'Content-Type':'application/json',...(auth?{Authorization:`Bearer ${auth}`}:{})},...(method==='POST'?{body:JSON.stringify({id:input.id,...body})}:{})}),env);
  const result=await response.json();assert.equal(response.status,expected,JSON.stringify(result));assert.equal(response.headers.get('Cache-Control'),'no-store');return result;
 }
+async function viewer(action,body={},auth=token,expected=200){
+ const response=await worker.fetch(new Request(`https://worker.test/api/program-library/${action}`,{method:'POST',headers:{'Content-Type':'application/json',...(auth?{Authorization:`Bearer ${auth}`}:{})},body:JSON.stringify({id:input.id,...body})}),env);
+ const result=await response.json();assert.equal(response.status,expected,JSON.stringify(result));assert.equal(response.headers.get('Cache-Control'),'no-store');return result;
+}
 async function academy(action,body={},auth=token,expected=200){
  const response=await worker.fetch(new Request(`https://worker.test/api/admin/platform/academy-subjects/${action}`,{method:'POST',headers:{'Content-Type':'application/json',...(auth?{Authorization:`Bearer ${auth}`}:{})},body:JSON.stringify(body)}),env);
  const result=await response.json();assert.equal(response.status,expected,JSON.stringify(result));return result;
@@ -213,6 +218,15 @@ try{
  const metadata=Object.fromEntries(resourceTable[0].map((name,index)=>[name,resourceTable[1][index]]));
  assert.equal(metadata.Author,'A. Author');assert.equal(metadata.CoverDriveFileID,'library-cover');
  const cover=await library('cover',{resourceId:'RES-BOOK'});assert.match(cover.url,/\/api\/library\/drive\/file\/library-cover\?access=/);
+ const visibleLibrary=await viewer('catalogue');
+ assert.deepEqual(visibleLibrary.resources.map(row=>row.id),['RES-BOOK']);
+ assert.equal(visibleLibrary.resources[0].author,'A. Author');
+ assert(!JSON.stringify(visibleLibrary).includes('library-pdf'),'Read-only catalogue must not disclose Drive IDs');
+ assert.match((await viewer('cover',{resourceId:'RES-BOOK'})).url,/\/api\/library\/drive\/file\/library-cover\?access=/);
+ assert.deepEqual((await viewer('covers',{resourceIds:['RES-BOOK','RES-UNKNOWN']})).covers.map(row=>row.id),['RES-BOOK']);
+ assert.match((await viewer('access',{resourceId:'RES-BOOK'})).url,/\/api\/library\/drive\/file\/library-pdf\?access=/);
+ await viewer('catalogue',{},studentToken,401);
+ await viewer('access',{resourceId:'RES-UNKNOWN'},token,404);
  await tt('manage-get');
  table(targetId,'ProgramResources').push(['RES-PREVIEW',input.id,'PS-TAFSEER','','MOD-DEMO','','EBOOK','Lesson','', 'library-pdf',true]);
  const preview=await library('access',{resourceId:'RES-PREVIEW'});assert.match(preview.url,/\/api\/library\/drive\/file\/library-pdf\?access=/);
@@ -226,6 +240,34 @@ try{
  await library('prepare-library',{},teacherToken,403);
  await library('save',{kind:'resources',creating:false,baseRowRevision:teacherLibrary.rowRevisions.resources['RES-BOOK'],revision:teacherLibrary.revision,operationId:crypto.randomUUID(),record:{...teacherLibrary.rows.resources.find(r=>r.ResourceID==='RES-BOOK'),Description:'Updated by teacher'}},teacherToken);
  assert.equal((await library('manage')).rows.resources.find(r=>r.ResourceID==='RES-BOOK').Description,'Updated by teacher');
+ table(platformId,'UserAccounts').push(['STUDENT-1','Enrolled Student','STUDENT-LINK',true,hash,true]);
+ table(platformId,'UserCourseAccess').push(['ACCESS-STUDENT','STUDENT-1',input.id,'STUDENT',true,true,'','','','','','','','STUDENT-REC']);
+ table(targetId,'ProgramEnrollments').push(['ENR-STUDENT',input.id,'CLASS-1','STUDENT-1','','',true]);
+ const temporarySheets=[
+  {title:'PlatformConfig',sheetId:900,rows:[PLATFORM_SHEET_HEADERS.PlatformConfig,['PlatformSchemaVersion','102.0.12','','','']]},
+  {title:'GlobalSubjectAccessMatrix',sheetId:901,rows:[PLATFORM_SHEET_HEADERS.GlobalSubjectAccessMatrix]},
+  {title:'GlobalSubjectAccessPolicy',sheetId:902,rows:[PLATFORM_SHEET_HEADERS.GlobalSubjectAccessPolicy]}
+ ];
+ books.get(platformId).push(...temporarySheets);
+ const studentState=await loadCentralAccountState(env,'STUDENT-LINK');
+ assert(studentState.contexts.some(row=>row.courseId===input.id&&row.role==='STUDENT'&&row.programLibrary));
+ books.set(platformId,books.get(platformId).filter(sheet=>!temporarySheets.includes(sheet)));
+ const programStudentToken=await createSessionToken({type:'account',accountid:'STUDENT-1',uniqueid:'STUDENT-LINK',role:'STUDENT',scope:'COURSE',courseid:input.id,authrow:5,credentialHash:hash},env);
+ assert((await viewer('available',{},programStudentToken)).programs.some(row=>row.id===input.id));
+ const studentCatalogue=await viewer('catalogue',{},programStudentToken);
+ assert.equal(studentCatalogue.canManage,false);
+ assert.deepEqual(studentCatalogue.resources.map(row=>row.id),['RES-BOOK']);
+ assert.match((await viewer('access',{resourceId:'RES-BOOK'},programStudentToken)).url,/library-pdf/);
+ await library('manage',{},programStudentToken,403);
+ table(targetId,'ProgramResources')[1][10]=false;
+ assert.deepEqual((await viewer('catalogue',{},programStudentToken)).resources,[]);
+ await viewer('access',{resourceId:'RES-BOOK'},programStudentToken,404);
+ table(targetId,'ProgramResources')[1][10]=true;
+ table(targetId,'ProgramEnrollments')[1][6]=false;
+ await viewer('catalogue',{},programStudentToken,401);
+ table(targetId,'ProgramEnrollments').pop();
+ table(platformId,'UserCourseAccess').pop();
+ table(platformId,'UserAccounts').pop();
  env.APPS_SCRIPT_URL='https://script.google.com/macros/s/test/exec';env.M4L_LIBRARY_BRIDGE_SECRET='program-library-test-secret-long-enough';
  assert((await library('upload-start',{fileName:'Teacher.pdf',mimeType:'application/pdf',size:42,resourceType:'EBOOK'},teacherToken)).ticket);
  await library('copy',{file:'https://drive.google.com/file/d/teacher-file-123/view',resourceType:'EBOOK'},teacherToken,404);

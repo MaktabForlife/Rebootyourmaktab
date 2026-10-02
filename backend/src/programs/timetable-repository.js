@@ -121,6 +121,7 @@ export function timetableRepository(env, program) {
         grantedTeachers:accounts.filter(r=>r.Active&&r.Roles.some(role=>['TEACHER','SENIOR','ADMIN'].includes(role))).map(r=>({AccountID:r.AccountID}))
       };
     },
+    subjectReferences,
     async catalog(data) {
       const [subjects,accounts]=await Promise.all([subjectReferences(data),readProgramRoleAccounts(env,program.id)]);
       assertUnique(subjects,'SubjectID','Shared subjects'); assertUnique(accounts,'AccountID','Accounts');

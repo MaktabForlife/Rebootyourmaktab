@@ -6,6 +6,7 @@
   const active=value=>value===true||String(value).toUpperCase()==='TRUE';
   const types=[['EBOOK','eBooks'],['PRINTABLE','Printables'],['AUDIO','Audio'],['VIDEO','Video'],['OTHER','Other']];
   const id=new URLSearchParams(location.search).get('program');
+  $('pl-view').href=`/programs/library-view.html?program=${encodeURIComponent(id||'')}`;
   const pendingKey=`m4l-program-library-pending:${id}`;
   const draftKey=`m4l-program-library-draft:${id}`;
   const state={data:null,record:null,creating:false,busy:false,pending:null,drive:null,folderId:'',selectedFile:null,selectedCover:null,coverUrls:{},mode:'select',uploadFile:null,uploadSession:null};

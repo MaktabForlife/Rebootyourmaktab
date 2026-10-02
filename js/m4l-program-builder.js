@@ -75,7 +75,7 @@
       <button type="button" data-action="prepare" ${state.busy || !row.saved || dirty(row) || readiness?.prepared ? "disabled" : ""}>Prepare spreadsheet</button></div></div>
       <p>${escape(readiness?.message || (row.saved ? "Check backend access and prepare the Program spreadsheet. Save changes before checking." : "Save this draft to register the Program. Its spreadsheet can then be prepared."))}</p>
       <div class="pb-checks">${(readiness?.checks || [{ label: "Spreadsheet not checked", ok: false }, { label: row.timezone ? "Timezone entered" : "Timezone pending", ok: Boolean(row.timezone) }]).map(check => `<span class="pb-check ${check.ok ? "is-ready" : ""}">${check.ok ? "✓" : "○"} ${escape(check.label)}</span>`).join("")}</div>
-      <div class="pb-capabilities" aria-label="Capability availability"><span>✓ Configuration</span><span>✓ Curriculum management</span><span>✓ Library management</span><span>✓ Timetable builder</span>${["Student Program Library", "Attendance", "Progress", "Planner"].map(name => `<span>${name} · Later stage</span>`).join("")}</div>`;
+      <div class="pb-capabilities" aria-label="Capability availability"><span>✓ Configuration</span><span>✓ Curriculum management</span><span>✓ Library management</span><span>✓ Library viewer</span><span>✓ Timetable builder</span>${["Attendance", "Progress", "Planner"].map(name => `<span>${name} · Later stage</span>`).join("")}</div>`;
   }
   function add() {
     if (state.busy) return;

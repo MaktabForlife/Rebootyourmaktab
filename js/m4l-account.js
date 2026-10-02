@@ -183,6 +183,7 @@
 
   function renderContextView() {
     const isProgram=/^PRG-[0-9a-f-]{36}$/i.test(String(state.context?.courseId||''));
+    byId('academy-home-title').textContent=isProgram?'Library':'Timetable';
     byId('academy-timetable-card')?.classList.toggle('hidden',isProgram);
     byId('academy-refresh')?.classList.toggle('hidden',isProgram);
     byId("program-builder-link")?.classList.toggle("hidden", state.context?.role !== "GLOBAL_ADMIN");
@@ -211,13 +212,19 @@
     if(!holder||!state.token)return;
     holder.classList.add('hidden');holder.replaceChildren();
     try{
-      const result=await api('/api/admin/platform/program-library/available',{},state.token);
+      const result=await api('/api/program-library/available',{},state.token);
       if(!Array.isArray(result.programs))return;
       for(const program of result.programs){
         const link=document.createElement('a');
-        link.href=`/programs/library.html?program=${encodeURIComponent(program.id)}`;
-        link.textContent=`Manage ${program.name} Library →`;
+        link.href=`/programs/library-view.html?program=${encodeURIComponent(program.id)}`;
+        link.textContent=`Open ${program.name} Library →`;
         const row=document.createElement('p');row.appendChild(link);holder.appendChild(row);
+        if(program.role!=='STUDENT'){
+          const manage=document.createElement('a');
+          manage.href=`/programs/library.html?program=${encodeURIComponent(program.id)}`;
+          manage.textContent='Manage resources →';
+          const manageRow=document.createElement('p');manageRow.appendChild(manage);holder.appendChild(manageRow);
+        }
       }
       holder.classList.toggle('hidden',!result.programs.length);
     }catch{holder.classList.add('hidden');}
@@ -283,7 +290,7 @@
   async function openCurrentWorkspace() {
     if (state.workspaceOpening || !["COURSE", "GLOBAL"].includes(state.context?.scope) || !state.token) return false;
     if(/^PRG-[0-9a-f-]{36}$/i.test(String(state.context?.courseId||''))){
-      window.location.assign(`/programs/library.html?program=${encodeURIComponent(state.context.courseId)}`);
+      window.location.assign(`/programs/library-view.html?program=${encodeURIComponent(state.context.courseId)}`);
       return true;
     }
     state.workspaceOpening = true;
