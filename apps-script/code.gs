@@ -250,13 +250,48 @@ function authorizeM4LServices() {
   const driveConfig = getWeeklyPlannerDriveConfig_();
   const folder = DriveApp.getFolderById(driveConfig.folderId);
 
+  // V105.4.1 Development Library destination. This read-only check exercises
+  // the same Drive API token used when an administrator starts an upload.
+  const libraryFolderId = "1s49jgFUtrPMQNICHeBupxNL-axcTwRsU";
+  const libraryFolder = DriveApp.getFolderById(libraryFolderId);
+  const libraryResponse = UrlFetchApp.fetch(
+    "https://www.googleapis.com/drive/v3/files/" + encodeURIComponent(libraryFolderId) +
+      "?fields=id,name,mimeType,trashed,capabilities(canAddChildren)",
+    {
+      method: "get",
+      headers: {Authorization: "Bearer " + ScriptApp.getOAuthToken()},
+      muteHttpExceptions: true
+    }
+  );
+  if (libraryResponse.getResponseCode() !== 200) {
+    let reason = "";
+    try {
+      const failure = JSON.parse(libraryResponse.getContentText());
+      const rawReason = String((failure.error && failure.error.status) ||
+        (failure.error && failure.error.errors && failure.error.errors[0] && failure.error.errors[0].reason) || "");
+      if (/^[A-Za-z_]{3,60}$/.test(rawReason)) reason = "; " + rawReason;
+    } catch (ignored) {}
+    throw new Error("Library folder Drive API check failed (HTTP " + libraryResponse.getResponseCode() + reason + ")");
+  }
+  const libraryDetails = JSON.parse(libraryResponse.getContentText());
+  if (libraryDetails.id !== libraryFolderId ||
+      libraryDetails.mimeType !== "application/vnd.google-apps.folder" ||
+      libraryDetails.trashed ||
+      !libraryDetails.capabilities ||
+      libraryDetails.capabilities.canAddChildren !== true) {
+    throw new Error("The Apps Script account cannot add files to the Library Resources folder");
+  }
+
   const result = {
     success: true,
     spreadsheetId: spreadsheet.getId(),
     spreadsheetName: spreadsheet.getName(),
     folderId: folder.getId(),
     folderName: folder.getName(),
-    folderUrl: driveConfig.folderUrl
+    folderUrl: driveConfig.folderUrl,
+    libraryFolderId: libraryFolder.getId(),
+    libraryFolderName: libraryFolder.getName(),
+    libraryCanAddFiles: true
   };
 
   console.log(JSON.stringify(result));
