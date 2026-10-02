@@ -413,6 +413,11 @@ Production.
 
 ## Change history
 
+### 2026-10-02 — V105.4.1.2
+
+- Aligned the bridge milestone with the Library upload form fix. Apps Script
+  upload behavior is unchanged in this patch.
+
 ### 2026-10-02 — V105.4.1.1
 
 - Aligned the Apps Script milestone with the Library, Pages and Worker release

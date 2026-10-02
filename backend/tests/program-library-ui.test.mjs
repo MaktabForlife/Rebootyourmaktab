@@ -86,6 +86,7 @@ assert.match(element('pl-drive-title').textContent,/destination/);
 element('pl-upload').onclick();await settled();
 assert.equal(element('pl-drive').open,false,'Successful device upload closes the destination dialog');
 assert.match(element('pl-file').textContent,/Device.pdf/);
+assert.equal(element('pl-save').disabled,false,'Saving is enabled after the device upload finishes');
 assert.equal(JSON.parse(storage.get(draftKey)).record.DriveFileID,'uploaded-pdf');
 assert.equal(requests.filter(row=>row.action==='upload-start').at(-1).body.resourceType,'EBOOK');
 element('pl-author').listeners.input({target:{value:'A. Author'}});
@@ -101,6 +102,7 @@ element('pl-cover-device-file').onchange({target:{files:[{name:'Device-cover.png
 element('pl-upload').onclick();await settled();
 assert.equal(requests.filter(row=>row.action==='upload-start').at(-1).body.resourceType,'COVER');
 assert.equal(JSON.parse(storage.get(draftKey)).record.CoverDriveFileID,'uploaded-cover');
+assert.equal(element('pl-save').disabled,false,'Saving is enabled after a cover upload finishes');
 multiChunkUpload=true;rateLimitedChunkOnce=true;
 const startsBeforeResume=requests.filter(row=>row.action==='upload-start').length;
 const chunksBeforeResume=requests.filter(row=>row.action==='upload-chunk').length;
@@ -113,6 +115,7 @@ assert.equal(requests.filter(row=>row.action==='upload-start').length,startsBefo
 assert.deepEqual(requests.filter(row=>row.action==='upload-chunk').slice(chunksBeforeResume).map(row=>row.offset),[0,4194304]);
 element('pl-upload').onclick();await settled();
 assert.equal(element('pl-drive').open,false,'Retrying the final chunk completes the upload');
+assert.equal(element('pl-save').disabled,false,'Saving is enabled after a resumed upload finishes');
 assert.equal(requests.filter(row=>row.action==='upload-start').length,startsBeforeResume+1,'Retry keeps the original Drive upload session');
 assert.deepEqual(requests.filter(row=>row.action==='upload-chunk').slice(chunksBeforeResume).map(row=>row.offset),[0,4194304,4194304]);
 console.log('Program Library UI: centered Drive finder, alternate root, device upload, book details, cover selection and retry recovery passed.');

@@ -247,7 +247,7 @@
       else{state.record.DriveFileID=uploaded.id;state.selectedFile={...uploaded,supportedTypes:[resourceType]};if(!state.record.Name)state.record.Name=file.name.replace(/\.[^.]+$/,'');}
       saveDraft();$('pl-drive').close();render();message(cover?'Cover uploaded to Drive. Save the resource to keep the link.':'File uploaded to Drive. Review the placement and save the resource.');
     }catch(error){driveMessage(error.code==='SHEETS_RATE_LIMITED'?`${error.message} Wait one minute, then click Upload into this folder again.`:error.message,true);}
-    finally{state.busy=false;renderDrive();}
+    finally{state.busy=false;render();}
   };
   async function saveRoot(){
     if(state.busy||!state.data?.coordinatorAvailable)return;
