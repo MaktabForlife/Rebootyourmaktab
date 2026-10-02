@@ -19,13 +19,12 @@ V105.4.1.3 OWNERSHIP:
   WeeklyPlannerDriveFolderLabel from the bound spreadsheet's SystemConfig sheet.
 - The manual authorizeM4LServices check reads ProgramLibraryDriveFolderId from
   SystemConfig and verifies that the deploying account can add files there.
-- Library uploads and copies use ProgramLibraryDriveFolderId from SystemConfig.
+- Library uploads use ProgramLibraryDriveFolderId from SystemConfig.
 - Apps Script does not administer Sheets data.
 
 CALLABLE doPost ACTIONS:
 - saveWeeklyPlannerPreviewToDrive
 - startProgramLibraryUpload (signed Worker request only)
-- copyProgramLibraryFile (signed Worker request only)
 
 MANUAL DEPLOYMENT / AUTHORIZATION FUNCTION:
 - authorizeM4LServices
@@ -248,50 +247,6 @@ function startProgramLibraryUpload(data) {
   return {success: true, sessionUrl: sessionUrl};
 }
 
-function verifyProgramLibraryCopyRequest_(data) {
-  const secret = PropertiesService.getScriptProperties().getProperty("M4L_LIBRARY_BRIDGE_SECRET") || "";
-  if (secret.length < 32) throw new Error("Library secret is not configured in Apps Script");
-  const payload = String(data && data.payload || "");
-  const signature = String(data && data.signature || "");
-  if (!/^[A-Za-z0-9_-]{20,2048}$/.test(payload) || !/^[A-Za-z0-9_-]{43}$/.test(signature)) throw new Error("Invalid Library copy request");
-  const expected = Utilities.base64EncodeWebSafe(
-    Utilities.computeHmacSha256Signature(payload, "apps-script-library-copy:" + secret)
-  ).replace(/=+$/, "");
-  let different = expected.length ^ signature.length;
-  for (let i = 0; i < Math.max(expected.length, signature.length); i++) different |= (expected.charCodeAt(i) || 0) ^ (signature.charCodeAt(i) || 0);
-  if (different) throw new Error("Invalid Library copy signature");
-  const padded = payload + "=".repeat((4 - payload.length % 4) % 4);
-  const request = JSON.parse(Utilities.newBlob(Utilities.base64DecodeWebSafe(padded)).getDataAsString("UTF-8"));
-  if (request.purpose !== "m4l-library-copy" || !Number.isSafeInteger(request.issuedAt) || Math.abs(Date.now() - request.issuedAt) > 5 * 60 * 1000) throw new Error("Library copy request expired");
-  if (!/^[A-Za-z0-9_-]{10,128}$/.test(request.sourceFileId || "") || !/^[A-Za-z0-9_-]{10,128}$/.test(request.folderId || "") || !/^(EBOOK|PRINTABLE|AUDIO|VIDEO|OTHER|COVER)$/.test(request.resourceType || "")) throw new Error("Invalid Library copy details");
-  return request;
-}
-
-function copyProgramLibraryFile(data) {
-  const request = verifyProgramLibraryCopyRequest_(data);
-  if (request.folderId !== getSystemConfigValue_(PROGRAM_LIBRARY_DRIVE_FOLDER_ID_CONFIG_KEY, true)) throw new Error("The Library destination has changed. Refresh and try again");
-  const source = DriveApp.getFileById(request.sourceFileId);
-  if (source.isTrashed()) throw new Error("The shared Drive file is in Trash");
-  const mimeType = source.getMimeType();
-  const name = source.getName();
-  if (!name || name.length > 160 || /[\\/\x00-\x1f]/.test(name)) throw new Error("Choose a shared file with a valid name up to 160 characters");
-  if (source.getSize() < 1 || source.getSize() > 5 * 1024 * 1024 * 1024) throw new Error("Choose a shared file up to 5 GB");
-  const type = request.resourceType;
-  const supported = type === "COVER" ? ["image/jpeg", "image/png", "image/webp"].includes(mimeType)
-    : type === "EBOOK" || type === "PRINTABLE" ? mimeType === "application/pdf"
-    : type === "AUDIO" ? mimeType.indexOf("audio/") === 0
-    : type === "VIDEO" ? mimeType.indexOf("video/") === 0 || mimeType === "application/mp4" ||
-      (["application/octet-stream", "binary/octet-stream", "application/binary", "application/x-download"].includes(mimeType) && /\.(mp4|m4v|mov|webm)$/i.test(name))
-    : mimeType.indexOf("image/") === 0 || mimeType.indexOf("text/") === 0 ||
-      ["application/zip", "application/x-zip-compressed", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/vnd.ms-powerpoint", "application/vnd.openxmlformats-officedocument.presentationml.presentation"].includes(mimeType);
-  if (!supported) throw new Error("This shared Drive file is not supported by the selected Library category");
-  if (type === "COVER" && source.getSize() > 20 * 1024 * 1024) throw new Error("Choose a cover image up to 20 MB");
-  const destination = DriveApp.getFolderById(request.folderId);
-  if (destination.isTrashed()) throw new Error("The Resources folder is in Trash");
-  const copied = source.makeCopy(name, destination);
-  return {success:true,file:{id:copied.getId(),name:copied.getName(),mimeType:copied.getMimeType()}};
-}
-
 function authorizeM4LServices() {
   const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
 
@@ -367,9 +322,6 @@ function doPost(e) {
     }
     if (body.action === "startProgramLibraryUpload") {
       return jsonResponse(startProgramLibraryUpload(body.data));
-    }
-    if (body.action === "copyProgramLibraryFile") {
-      return jsonResponse(copyProgramLibraryFile(body.data));
     }
 
     return jsonResponse({

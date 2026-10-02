@@ -34,10 +34,12 @@
     $('pl-curriculum').hidden=!state.data.canManageFolder;
     $('pl-setup-link').hidden=!state.data.canManageFolder;
     $('pl-folder-settings').hidden=!state.data.canManageFolder;
-    $('pl-destination').textContent=state.data.destinationId?`New files are saved in the shared Resources folder (${state.data.destinationId}).`:'A global admin needs to set the shared Resources folder before new files can be added.';
+    $('pl-destination').textContent=state.data.destinationId?`New files are saved in the Library Drive Resources folder (${state.data.destinationId}).`:'A global admin needs to set the Resources folder before new files can be added.';
     $('pl-prepare').hidden=!state.data.canManageFolder||!state.data.prepared||state.data.libraryPrepared;
     $('pl-prepare').disabled=state.busy||Boolean(state.pending)||!state.data.coordinatorAvailable;
-    $('pl-add').disabled=state.busy||Boolean(state.pending)||!state.data.libraryPrepared||state.data.program.status!=='DRAFT'||!state.data.coordinatorAvailable;
+    const cannotAdd=state.busy||Boolean(state.pending)||!state.data.libraryPrepared||state.data.program.status!=='DRAFT'||!state.data.coordinatorAvailable;
+    $('pl-add-device').disabled=cannotAdd;
+    $('pl-add-drive').disabled=cannotAdd;
     $('pl-pending').hidden=!state.pending;
     const groups=types.map(([type,label])=>{
       const resources=rows.filter(r=>r.ResourceType===type);
@@ -99,12 +101,17 @@
   }
   function renderDrive(){
     const uploading=state.mode==='upload'||state.mode==='cover-upload',cover=state.mode==='cover-select'||state.mode==='cover-upload';
-    $('pl-drive-title').textContent=uploading?'Upload to Resources':cover?'Choose a book cover':'Choose a Drive file';
-    $('pl-drive-help').textContent=uploading?`Upload ${state.uploadFile?.name||'your file'} to the shared Resources folder.`:cover?'Copy a shared JPG, PNG or WebP file, or choose one already in Resources.':'Copy a file shared with the Library account, or choose one already in Resources.';
-    $('pl-shared-choice').hidden=uploading;
+    $('pl-drive-title').textContent=uploading?'Upload to Resources':cover?'Choose a book cover from Library Drive':'Choose from Library Drive';
+    $('pl-drive-help').textContent=uploading?`Upload ${state.uploadFile?.name||'your file'} to the Resources folder.`:cover?'Choose a JPG, PNG or WebP image already in Resources.':'Choose a file already in the Library Drive Resources folder.';
+    $('pl-drive-type-wrap').hidden=cover;
+    if(!cover){
+      const available=uploading&&state.uploadFile?supportedUploadTypes(state.uploadFile):types.map(([type])=>type);
+      $('pl-drive-type').innerHTML=types.filter(([type])=>available.includes(type)).map(([type,label])=>option(type,label,state.record?.ResourceType||'EBOOK')).join('');
+      $('pl-drive-type').value=state.record?.ResourceType||available[0]||'EBOOK';
+      $('pl-drive-type').disabled=state.busy||Boolean(state.uploadSession);
+    }
     $('pl-upload').hidden=!uploading;
     $('pl-upload').disabled=state.busy||!state.data?.destinationId||!state.uploadFile;
-    $('pl-copy').disabled=state.busy||!state.data?.destinationId;
     $('pl-drive-cancel').disabled=state.busy;
     if(!state.drive){$('pl-breadcrumbs').innerHTML='';$('pl-drive-list').innerHTML='';$('pl-more').hidden=true;return;}
     $('pl-breadcrumbs').innerHTML=(state.drive.breadcrumbs||[]).map(part=>`<button type="button" class="pb-secondary pl-breadcrumb" data-folder="${esc(part.id)}">${esc(part.name)}</button>`).join('');
@@ -123,10 +130,16 @@
     if(!state.data.prepared)message('Prepare management tables in Curriculum first.');
     else if(!state.data.libraryPrepared)message('Prepare the Program task and Library tables to begin. Existing records are preserved.');
     else if(!state.data.coordinatorAvailable)message('Saving needs the Program coordinator binding.');
-    else message('Choose a resource to edit or add a new file.');
+    else message('Choose a resource to edit, or add a file from your device or Library Drive.');
   }
   function start(record,creating){if($('pl-drive').open)$('pl-drive').close();state.record=structuredClone(record);state.creating=creating;state.selectedFile=null;state.selectedCover=null;state.drive=null;state.uploadFile=null;saveDraft();render();$('pl-name').focus();}
-  $('pl-add').onclick=()=>{if(state.busy||state.pending)return;start({ResourceID:`RES-${crypto.randomUUID()}`,ProgramSubjectID:'',LevelID:'',ProgramModuleID:'',TaskID:'',ResourceType:'EBOOK',Name:'',Description:'',DriveFileID:'',Active:true,Author:'',Publisher:'',ISBN:'',PublicationYear:'',CoverDriveFileID:''},true);};
+  function startNew(){
+    if(state.busy||state.pending||!state.data?.libraryPrepared||state.data.program.status!=='DRAFT'||!state.data.coordinatorAvailable)return false;
+    if(!state.record||!state.creating)start({ResourceID:`RES-${crypto.randomUUID()}`,ProgramSubjectID:'',LevelID:'',ProgramModuleID:'',TaskID:'',ResourceType:'EBOOK',Name:'',Description:'',DriveFileID:'',Active:true,Author:'',Publisher:'',ISBN:'',PublicationYear:'',CoverDriveFileID:''},true);
+    return true;
+  }
+  $('pl-add-device').onclick=()=>{if(startNew())chooseDeviceFile(true);};
+  $('pl-add-drive').onclick=()=>{if(startNew()){state.uploadFile=null;openDrive('select');}};
   $('pl-list').onclick=event=>{const resourceId=event.target.closest('[data-edit]')?.dataset.edit;if(!resourceId||state.busy||state.pending)return;const row=state.data.rows.resources.find(r=>r.ResourceID===resourceId);if(row)start({...row,Active:active(row.Active)},false);};
   $('pl-cancel').onclick=()=>{if(state.pending)return;if($('pl-drive').open)$('pl-drive').close();state.record=null;state.drive=null;state.selectedFile=null;saveDraft();render();};
   $('pl-refresh').onclick=async()=>{if(state.busy)return;state.busy=true;try{await load();}catch(error){message(error.message,true);}finally{state.busy=false;render();}};
@@ -161,18 +174,38 @@
   $('pl-cover-browse').onclick=()=>{state.uploadFile=null;openDrive('cover-select');};
   const acceptedFiles={EBOOK:'.pdf',PRINTABLE:'.pdf',AUDIO:'audio/*',VIDEO:'video/*',OTHER:'image/*,text/*,.zip,.doc,.docx,.ppt,.pptx'};
   function supportsUpload(file,type){
-    const mime=String(file.type||'').toLowerCase(),name=String(file.name||'').toLowerCase();
+    const mime=String(file.type||file.mimeType||'').toLowerCase(),name=String(file.name||'').toLowerCase();
     if(type==='EBOOK'||type==='PRINTABLE')return mime==='application/pdf'||name.endsWith('.pdf');
     if(type==='AUDIO')return mime.startsWith('audio/')||/\.(mp3|m4a|wav|ogg|aac|flac)$/.test(name);
     if(type==='VIDEO')return mime.startsWith('video/')||/\.(mp4|m4v|mov|webm)$/.test(name);
-    return mime.startsWith('image/')||mime.startsWith('text/')||/\.(zip|doc|docx|ppt|pptx)$/.test(name);
+    return mime.startsWith('image/')||mime.startsWith('text/')||/\.(jpg|jpeg|png|gif|webp|txt|zip|doc|docx|ppt|pptx)$/.test(name);
   }
-  $('pl-device').onclick=()=>{if(!state.record||state.busy)return;$('pl-device-file').accept=acceptedFiles[state.record.ResourceType]||'';$('pl-device-file').click();};
+  function supportedUploadTypes(file){return types.map(([type])=>type).filter(type=>supportsUpload(file,type));}
+  function chooseDeviceFile(anyType=false){
+    if(!state.record||state.busy)return;
+    $('pl-device-file').accept=anyType?Object.values(acceptedFiles).join(','):acceptedFiles[state.record.ResourceType]||'';
+    $('pl-device-file').click();
+  }
+  $('pl-device').onclick=()=>chooseDeviceFile();
   $('pl-cover-device').onclick=()=>{if(!state.record||state.busy)return;$('pl-cover-device-file').accept='image/jpeg,image/png,image/webp';$('pl-cover-device-file').click();};
   $('pl-device-file').onchange=event=>{
     const file=event.target.files?.[0];if(!file)return;
-    if(!supportsUpload(file,state.record.ResourceType)){message('Choose a file supported by the selected resource type.',true);event.target.value='';return;}
+    const available=supportedUploadTypes(file);
+    if(!available.length){message('Choose a supported Library file.',true);event.target.value='';return;}
+    if(!available.includes(state.record.ResourceType)){
+      state.record.ResourceType=available[0];
+      if(state.selectedFile&&!state.selectedFile.supportedTypes.includes(state.record.ResourceType)){state.selectedFile=null;state.record.DriveFileID='';}
+      renderEditor();saveDraft();
+    }
     state.uploadFile=file;state.uploadSession=null;openDrive('upload');
+  };
+  $('pl-drive-type').onchange=event=>{
+    if(!state.record||state.busy||state.uploadSession)return;
+    const type=event.target.value;
+    if(!types.some(([key])=>key===type)||state.mode==='upload'&&state.uploadFile&&!supportsUpload(state.uploadFile,type))return;
+    state.record.ResourceType=type;
+    if(state.selectedFile&&!state.selectedFile.supportedTypes.includes(type)){state.selectedFile=null;state.record.DriveFileID='';}
+    saveDraft();renderEditor();renderDrive();
   };
   $('pl-cover-device-file').onchange=event=>{
     const file=event.target.files?.[0];if(!file)return;
@@ -194,24 +227,10 @@
         if(!file.supportedTypes.includes(state.record.ResourceType))return;
         state.record.DriveFileID=file.id;state.selectedFile=file;if(!state.record.Name)state.record.Name=file.name.replace(/\.[^.]+$/,'');
       }
-      $('pl-drive').close();state.drive=null;saveDraft();render();message(state.mode==='cover-select'?'Cover image selected. Save the resource to keep it.':'Drive file selected. Review the placement and save.');
+      $('pl-drive').close();state.drive=null;saveDraft();render();message(state.mode==='cover-select'?'Cover image selected. Save the resource to keep it.':'Library Drive file selected. Review the placement and save.');
     }
   };
   $('pl-more').onclick=()=>{if(!state.busy&&state.drive?.nextPageToken)void browse(state.folderId,state.drive.nextPageToken);};
-  $('pl-copy').onclick=async()=>{
-    if(state.busy||!state.record)return;
-    const file=$('pl-shared-file').value.trim();
-    if(!file){driveMessage('Paste a Drive file link or ID shared with the Library account.',true);return;}
-    const cover=state.mode==='cover-select';
-    state.busy=true;renderDrive();driveMessage('Copying the shared file into Resources…');
-    try{
-      const result=await api('program-library/copy',{file,resourceType:cover?'COVER':state.record.ResourceType});
-      if(cover){state.record.CoverDriveFileID=result.file.id;state.selectedCover=result.file;}
-      else{state.record.DriveFileID=result.file.id;state.selectedFile={...result.file,supportedTypes:[state.record.ResourceType]};if(!state.record.Name)state.record.Name=result.file.name.replace(/\.[^.]+$/,'');}
-      saveDraft();$('pl-shared-file').value='';$('pl-drive').close();render();message('File copied into Resources. Review the details and save the resource.');
-    }catch(error){driveMessage(error.message,true);}
-    finally{state.busy=false;render();}
-  };
   $('pl-drive-cancel').onclick=()=>$('pl-drive').close();
   $('pl-drive').oncancel=event=>{if(state.busy)event.preventDefault();};
   $('pl-drive').onclose=()=>{state.drive=null;state.uploadFile=null;state.uploadSession=null;$('pl-device-file').value='';$('pl-cover-device-file').value='';renderDrive();(state.mode.includes('cover')?state.mode.includes('upload')?$('pl-cover-device'):$('pl-cover-browse'):state.mode==='upload'?$('pl-device'):$('pl-browse')).focus();};
@@ -256,7 +275,7 @@
     try{
       const uploaded=await uploadToDrive(file,folderId,resourceType);
       if(cover){state.record.CoverDriveFileID=uploaded.id;state.selectedCover={...uploaded};}
-      else{state.record.DriveFileID=uploaded.id;state.selectedFile={...uploaded,supportedTypes:[resourceType]};if(!state.record.Name)state.record.Name=file.name.replace(/\.[^.]+$/,'');}
+      else{state.record.DriveFileID=uploaded.id;state.selectedFile={...uploaded,supportedTypes:supportedUploadTypes(file)};if(!state.record.Name)state.record.Name=file.name.replace(/\.[^.]+$/,'');}
       saveDraft();$('pl-drive').close();render();message(cover?'Cover uploaded to Drive. Save the resource to keep the link.':'File uploaded to Drive. Review the placement and save the resource.');
     }catch(error){driveMessage(error.code==='SHEETS_RATE_LIMITED'?`${error.message} Wait one minute, then click Upload to Resources again.`:error.message,true);}
     finally{state.busy=false;render();}
@@ -270,7 +289,7 @@
       const result=await api('program-library/folder-set',{folder});
       $('pl-folder-input').value='';
       await load();
-      $('pl-folder-status').textContent=`Resources folder set to ${result.folder.name}. New uploads and copies will use it.`;
+      $('pl-folder-status').textContent=`Resources folder set to ${result.folder.name}. New uploads will use it.`;
     }catch(error){$('pl-folder-status').textContent=error.message;}
     finally{state.busy=false;render();}
   };

@@ -5,7 +5,7 @@ import { ROUTE_PATHS } from "../src/router.js";
 import worker from "../src/worker.js";
 
 const expectedPaths = [
-  ...["available", "manage", "save", "recover", "prepare-library", "folder-set", "copy", "browse", "access", "cover", "upload-start", "upload-chunk"].map(action => `/api/admin/platform/program-library/${action}`),
+  ...["available", "manage", "save", "recover", "prepare-library", "folder-set", "browse", "access", "cover", "upload-start", "upload-chunk"].map(action => `/api/admin/platform/program-library/${action}`),
   ...["get", "link", "save", "recover"].map(action => `/api/admin/platform/user-profiles/${action}`),
   ...["get", "import-preview", "save", "recover"].map(action => `/api/admin/platform/academy-subjects/${action}`),
   ...["get", "prepare", "prepare-library", "save", "validate", "preview", "publish", "published", "history", "recover", "manage-get", "manage-save"].map(action => `/api/admin/platform/program-timetable/${action}`),

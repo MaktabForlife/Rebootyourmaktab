@@ -10,7 +10,6 @@ const manifest = JSON.parse(readFileSync(
 
 const EXPECTED_FUNCTIONS = [
   "authorizeM4LServices",
-  "copyProgramLibraryFile",
   "doGet",
   "doPost",
   "extractWeeklyPlannerPreviewBase64_",
@@ -20,7 +19,6 @@ const EXPECTED_FUNCTIONS = [
   "sanitizeWeeklyPlannerDriveFileName_",
   "saveWeeklyPlannerPreviewToDrive",
   "startProgramLibraryUpload",
-  "verifyProgramLibraryCopyRequest_",
   "verifyProgramLibraryUploadRequest_"
 ].sort();
 
@@ -96,8 +94,8 @@ const publicActions = Array.from(new Set([
 ])).sort();
 assert.deepEqual(
   publicActions,
-  ["copyProgramLibraryFile", "saveWeeklyPlannerPreviewToDrive", "startProgramLibraryUpload"],
-  "doPost must expose only the three Drive bridge actions"
+  ["saveWeeklyPlannerPreviewToDrive", "startProgramLibraryUpload"],
+  "doPost must expose only the two Drive bridge actions"
 );
 
 for (const functionName of [...REMOVED_UTILITY_FUNCTIONS, ...RETIRED_ROUTE_FUNCTIONS]) {

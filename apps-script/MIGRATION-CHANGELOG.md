@@ -413,6 +413,10 @@ Production.
 
 ## Change history
 
+### 2026-10-02 — V105.4.1.3 review
+
+- Removed the shared-link copy action. Library files now enter through device upload or selection from the existing Resources folder.
+
 ### 2026-10-02 — V105.4.1.3
 
 - Added signed `copyProgramLibraryFile` for files shared with the Library Google account.

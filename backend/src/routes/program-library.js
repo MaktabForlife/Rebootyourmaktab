@@ -1,6 +1,6 @@
 import { json } from '../lib/http.js';
 import { verifySessionToken } from '../lib/auth.js';
-import { startLibraryUpload, copyLibraryFile, openLibraryUploadTicket, forwardLibraryUploadChunk, LIBRARY_UPLOAD_CHUNK_SIZE } from '../lib/library-upload-bridge.js';
+import { startLibraryUpload, openLibraryUploadTicket, forwardLibraryUploadChunk, LIBRARY_UPLOAD_CHUNK_SIZE } from '../lib/library-upload-bridge.js';
 import { listGoogleDriveFolder } from '../lib/google-drive.js';
 import { getPlatformSpreadsheetId } from '../lib/platform-sheet.js';
 import { getAuthUser } from '../lib/auth.js';
@@ -30,16 +30,6 @@ async function inputJSON(request) {
   if(!input||typeof input!=='object'||Array.isArray(input))throw problem('Invalid Library request.');
   return input;
 }
-function driveFileId(value){
-  const text=clean(value);
-  if(/^[A-Za-z0-9_-]{10,128}$/.test(text))return text;
-  let url;try{url=new URL(text);}catch{throw problem('Paste a Google Drive file link or ID.');}
-  if(url.protocol!=='https:'||!['drive.google.com','docs.google.com'].includes(url.hostname))throw problem('Paste a Google Drive file link or ID.');
-  const candidate=url.pathname.match(/\/d\/([A-Za-z0-9_-]{10,128})(?:\/|$)/)?.[1]||url.searchParams.get('id');
-  if(!/^[A-Za-z0-9_-]{10,128}$/.test(candidate||''))throw problem('The link does not contain a Google Drive file ID.');
-  return candidate;
-}
-
 export function programLibraryEndpoint(action){
   return async(request,env)=>{
     let stage='account';
@@ -124,18 +114,6 @@ export function programLibraryEndpoint(action){
         const result=await upsertSystemConfigValues(env,{[PROGRAM_LIBRARY_DRIVE_FOLDER_ID_KEY]:folderId},{updatedBy:user.accountid,updatedByName:user.username||user.accountid});
         if(!result.ok)throw problem(result.error,result.status);
         return json({success:true,folder:{id:folder.id,name:folder.name}});
-      }
-      if(action==='copy'){
-        stage='drive';
-        if(program.status!=='DRAFT')throw problem('Archived Programs cannot accept new resources.',409);
-        const resourceType=clean(input.resourceType);
-        if(!['EBOOK','PRINTABLE','AUDIO','VIDEO','OTHER','COVER'].includes(resourceType))throw problem('Choose a Library category.');
-        const folderId=await repository.libraryDestination();
-        await requireItemInsideRoot(env,folderId,folderId,{requireFolder:true,allowRoot:true});
-        if(!clean(env.APPS_SCRIPT_URL)||clean(env.M4L_LIBRARY_BRIDGE_SECRET).length<32)throw problem('Library Drive copy needs the Apps Script connection and shared secret.',503);
-        let file;try{file=await copyLibraryFile(env,{sourceFileId:driveFileId(input.file),folderId,resourceType});}
-        catch(error){if(/Unknown action/i.test(String(error.message)))throw problem('Update the Development Apps Script deployment to enable shared Drive file copying.',503);throw error;}
-        return json({success:true,file});
       }
       if(action==='upload-start'){
         stage='upload';

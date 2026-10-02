@@ -64,7 +64,6 @@ globalThis.fetch = async (url, init = {}) => {
     const payload=JSON.parse(Buffer.from(body.data.payload,'base64url').toString());
     assert.equal(payload.folderId,table(legacyId,'SystemConfig')[1][1],'The signed Drive operation uses the global Resources folder');
     if(body.action==='startProgramLibraryUpload')return result({success:true,sessionUrl:'https://www.googleapis.com/upload/drive/v3/files?upload_id=teacher-test'});
-    if(body.action==='copyProgramLibraryFile')return result({success:true,file:{id:'copied-file-123',name:'Shared.pdf',mimeType:'application/pdf'}});
     throw new Error(`Unexpected Apps Script action ${body.action}`);
   }
   if (parsed.hostname === "oauth2.googleapis.com") return result({ access_token:"program-test-access", expires_in:3600 });
@@ -229,7 +228,7 @@ try{
  assert.equal((await library('manage')).rows.resources.find(r=>r.ResourceID==='RES-BOOK').Description,'Updated by teacher');
  env.APPS_SCRIPT_URL='https://script.google.com/macros/s/test/exec';env.M4L_LIBRARY_BRIDGE_SECRET='program-library-test-secret-long-enough';
  assert((await library('upload-start',{fileName:'Teacher.pdf',mimeType:'application/pdf',size:42,resourceType:'EBOOK'},teacherToken)).ticket);
- assert.equal((await library('copy',{file:'https://drive.google.com/file/d/teacher-file-123/view',resourceType:'EBOOK'},teacherToken)).file.id,'copied-file-123');
+ await library('copy',{file:'https://drive.google.com/file/d/teacher-file-123/view',resourceType:'EBOOK'},teacherToken,404);
  const destinationChange=await library('folder-set',{folder:'outside-folder'});
  assert.equal(destinationChange.folder.id,'outside-folder');
  assert.equal(table(legacyId,'SystemConfig')[1][1],'outside-folder');
