@@ -39,10 +39,16 @@ book(platformId, {
 book(targetId, { Setup: [["Development only"]] });
 book(legacyId, { SubjectList:[['SubjectID','SubjectName','Active'],['REBOOT-AR','Arabic',true],['REBOOT-TF','Tafseer',true],['REBOOT-DUP','  ARABIC  ',true],['REBOOT-OLD','Old subject',false]], StudentRecords: [["Legacy records must remain unchanged"]], SystemConfig:[['Key','Value','UpdatedAt','UpdatedBy','UpdatedByName'],['ProgramLibraryDriveFolderId','library-root','','',''],['ProgramLibraryPreviousFolderIds','','','','']] });
 const rebootResourceHeaders=['ResourceID','ResourceName','SubjectID','Subject','ModuleID','Module','TaskID','ClassGroup','Format','Description','Link','Active','CreatedDate'];
+const r2Base='https://pub-d0f00cecdced454598b794da754a3939.r2.dev/';
 for(const [title,rows] of Object.entries({
- eBooks:[['REBOOT-BOOK','Reboot book','REBOOT-AR','Arabic','MOD-1','Reading','','ALL','PDF','','/api/library/drive/file/library-pdf',true,'']],
- Printable:[['REBOOT-PRINT','Reboot printable','REBOOT-AR','Arabic','MOD-1','Reading','','ALL','PDF','','/api/library/drive/file/library-pdf',true,'']],
- Audio:[],Video:[],OtherResource:[]
+ eBooks:[['REBOOT-BOOK','Reboot book','REBOOT-AR','Arabic','MOD-1','Reading','','ALL','PDF','','/api/library/drive/file/library-pdf',true,''],
+  ['QURAN-BOOK','Quran Part 1','REBOOT-AR','Quran','MOD-1','Reading','','ALL','PDF','',`${r2Base}Resources/ebooks/Quran%20Part%201.pdf`,true,'']],
+ Printable:[['REBOOT-PRINT','Reboot printable','REBOOT-AR','Arabic','MOD-1','Reading','','ALL','PDF','','/api/library/drive/file/library-pdf',true,''],
+  ['R2-PRINT','R2 printable','REBOOT-AR','Arabic','MOD-1','Reading','','ALL','PDF','',`${r2Base}Resources/printables/Names.pdf`,true,'']],
+ Audio:[['R2-AUDIO','Surah audio','REBOOT-AR','Quran','MOD-1','Reading','','ALL','MP3','',`${r2Base}Resources/audio/Surah.mp3`,true,''],
+  ['MISSING-AUDIO','Missing audio','REBOOT-AR','Quran','MOD-1','Reading','','ALL','MP3','','',true,'']],
+ Video:[['R2-VIDEO','Quran lesson','REBOOT-AR','Quran','MOD-1','Reading','','ALL','MP4','',`${r2Base}Resources/video/Quran/Lesson%201.mp4`,true,'']],
+ OtherResource:[['R2-OTHER','Quran flashcard','REBOOT-AR','Quran','MOD-1','Reading','','ALL','PDF','',`${r2Base}Resources/other/Flashcard.pdf`,true,'']]
 }))books.get(legacyId).push({title,sheetId:20+books.get(legacyId).length,rows:[rebootResourceHeaders,...rows]});
 books.get(platformId).find(sheet => sheet.title === "UserAccounts").rows.push(["ACCOUNT2", "Local Admin", "LOCAL-LINK", true, hash, true]);
 books.get(platformId).find(sheet => sheet.title === "UserCourseAccess").rows.push(["ACCESS2", "ACCOUNT2", "REBOOT", "ADMIN", true, true, "", "", "", "", "", "", "", "LOCAL-ADMIN"]);
@@ -53,6 +59,12 @@ const keyPair = await crypto.subtle.generateKey({ name: "RSASSA-PKCS1-v1_5", mod
 const privateBytes = new Uint8Array(await crypto.subtle.exportKey("pkcs8", keyPair.privateKey));
 const env = { PLATFORM_SPREADSHEET_ID: platformId, GOOGLE_SPREADSHEET_ID: legacyId, SESSION_SECRET: "program-session-secret", M4L_GOOGLE_DRIVE_ROOT_FOLDER_ID:'library-root',
   GOOGLE_SERVICE_ACCOUNT_JSON: JSON.stringify({ type:"service_account", client_email:"program-test@example.iam.gserviceaccount.com", private_key_id:"program-test-key", private_key:`-----BEGIN PRIVATE KEY-----\n${Buffer.from(privateBytes).toString("base64")}\n-----END PRIVATE KEY-----` }) };
+const r2Keys=new Set(['Resources/ebooks/Quran Part 1.pdf','Resources/printables/Names.pdf',
+ 'Resources/audio/Surah.mp3','Resources/video/Quran/Lesson 1.mp4','Resources/other/Flashcard.pdf']);
+env.MEDIA_BUCKET={
+ head:async key=>r2Keys.has(key)?{key,etag:`etag-${key}`,size:8,httpMetadata:{}}:null,
+ get:async key=>r2Keys.has(key)?{key,etag:`etag-${key}`,size:8,httpMetadata:{},body:new Response('12345678').body}:null
+};
 const token = await createSessionToken({ type:"account", accountid:"ACCOUNT1", uniqueid:"ADMIN-LINK", username:"Platform Admin", role:"GLOBAL_ADMIN", scope:"PLATFORM", authrow:2, credentialHash:hash }, env);
 const centralAdminToken = await createSessionToken({ type:"account", accountid:"ACCOUNT2", uniqueid:"LOCAL-LINK", role:"ADMIN", scope:"COURSE", authrow:3, credentialHash:hash, accessrow:2, accessid:"ACCESS2", courseid:"REBOOT", courserecordid:"LOCAL-ADMIN" }, env);
 const legacyToken = await createSessionToken({ type:"admin", role:"ADMIN" }, env);
@@ -239,8 +251,25 @@ try{
  assert(combinedLibrary.resources.some(row=>row.id===`PROGRAM:${input.id}:RES-BOOK`&&row.forYou));
  assert(combinedLibrary.resources.some(row=>row.id==='COURSE:REBOOT:EBOOK:REBOOT-BOOK'&&row.type==='EBOOK'&&row.forYou));
  assert(combinedLibrary.resources.some(row=>row.id==='COURSE:REBOOT:PRINTABLE:REBOOT-PRINT'&&row.type==='PRINTABLE'&&row.forYou));
+ for(const [type,id] of [['EBOOK','QURAN-BOOK'],['PRINTABLE','R2-PRINT'],['AUDIO','R2-AUDIO'],
+  ['VIDEO','R2-VIDEO'],['OTHER','R2-OTHER']]){
+  assert(combinedLibrary.resources.some(row=>row.id===`COURSE:REBOOT:${type}:${id}`&&row.forYou),`${type} R2 media must be listed`);
+ }
+ assert(!combinedLibrary.resources.some(row=>row.id==='COURSE:REBOOT:AUDIO:MISSING-AUDIO'),'An audio row without a file remains unavailable');
  assert(!JSON.stringify(combinedLibrary).includes('library-pdf'),'Academy catalogue must not disclose Drive IDs');
+ assert(!JSON.stringify(combinedLibrary).includes('r2.dev'),'Academy catalogue must not disclose public R2 links');
  assert.match((await academyLibrary('access',{resourceId:'COURSE:REBOOT:EBOOK:REBOOT-BOOK'})).url,/library-pdf/);
+ const r2Access=await academyLibrary('access',{resourceId:'COURSE:REBOOT:EBOOK:QURAN-BOOK'});
+ assert.match(r2Access.url,/\/api\/academy\/library\/media\?access=/);
+ const r2Stream=await worker.fetch(new Request(r2Access.url),env);
+ assert.equal(r2Stream.status,200);assert.equal(r2Stream.headers.get('content-type'),'application/pdf');
+ assert.equal(await r2Stream.text(),'12345678');
+ for(const [type,id,mimeType] of [['PRINTABLE','R2-PRINT','application/pdf'],
+  ['AUDIO','R2-AUDIO','audio/mpeg'],['VIDEO','R2-VIDEO','video/mp4'],['OTHER','R2-OTHER','application/pdf']]){
+  const access=await academyLibrary('access',{resourceId:`COURSE:REBOOT:${type}:${id}`});
+  assert.equal(access.mimeType,mimeType,`${type} R2 media must open with the correct type`);
+ }
+ assert.equal((await worker.fetch(new Request('https://worker.test/api/academy/library/media'),env)).status,401);
  assert.match((await academyLibrary('access',{resourceId:`PROGRAM:${input.id}:RES-BOOK`})).url,/\/api\/library\/drive\/file\/library-pdf\?access=/);
  await academyLibrary('access',{resourceId:`PROGRAM:${input.id}:RES-UNKNOWN`},token,403);
  const outsiderAccountRow=table(platformId,'UserAccounts').length+1;
@@ -248,6 +277,15 @@ try{
  table(platformId,'UserAccounts').push(['LEARNER-OUTSIDE','Unassigned Learner','OUTSIDE-LINK',true,hash,true]);
  table(platformId,'UserCourseAccess').push(['ACCESS-OUTSIDE','LEARNER-OUTSIDE','REBOOT','STUDENT',true,false,'','','','','','','','REBOOT-STUDENT']);
  const outsiderToken=await createSessionToken({type:'account',accountid:'LEARNER-OUTSIDE',uniqueid:'OUTSIDE-LINK',role:'STUDENT',scope:'COURSE',courseid:'REBOOT',authrow:outsiderAccountRow,accessrow:outsiderAccessRow,accessid:'ACCESS-OUTSIDE',courserecordid:'REBOOT-STUDENT',credentialHash:hash},env);
+ const quranPublication=['COURSE:REBOOT:EBOOK:QURAN-BOOK','ACTIVE','ACADEMY_LEARNERS','',''];
+ table(platformId,'AcademyLibraryAccess').push(quranPublication);
+ assert((await academyLibrary('catalogue',{},outsiderToken)).resources.some(row=>row.id===quranPublication[0]&&!row.forYou));
+ assert.match((await academyLibrary('access',{resourceId:quranPublication[0]},outsiderToken)).url,/\/api\/academy\/library\/media\?access=/);
+ quranPublication[2]='ASSIGNED';
+ assert(!(await academyLibrary('catalogue',{},outsiderToken)).resources.some(row=>row.id===quranPublication[0]));
+ await academyLibrary('access',{resourceId:quranPublication[0]},outsiderToken,403);
+ quranPublication[1]='ARCHIVED';quranPublication[2]='ACADEMY_LEARNERS';
+ await academyLibrary('access',{resourceId:quranPublication[0]},outsiderToken,403);
  const publication=['PROGRAM:'+input.id+':RES-BOOK','ACTIVE','ACADEMY_LEARNERS','',''];
  table(platformId,'AcademyLibraryAccess').push(publication);
  assert((await academyLibrary('catalogue',{},outsiderToken)).resources.some(row=>row.id===publication[0]&&!row.forYou&&!row.locked));

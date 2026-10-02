@@ -6,6 +6,7 @@ import worker from "../src/worker.js";
 
 const expectedPaths = [
   ...['catalogue', 'access', 'cover'].map(action => `/api/academy/library/${action}`),
+  '/api/academy/library/media',
   ...["available", "catalogue", "access", "cover", "covers"].map(action => `/api/program-library/${action}`),
   ...["available", "manage", "save", "recover", "prepare-library", "folder-set", "browse", "access", "cover", "upload-start", "upload-chunk"].map(action => `/api/admin/platform/program-library/${action}`),
   ...["get", "link", "save", "recover"].map(action => `/api/admin/platform/user-profiles/${action}`),

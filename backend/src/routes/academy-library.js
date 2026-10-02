@@ -1,5 +1,7 @@
 import { getAuthUser } from '../lib/auth.js';
 import { readAcademyLibraryPolicies, academyResourceDecision, canonicalCourseResourceType } from '../lib/academy-library-policy.js';
+import { legacyR2ObjectKey, r2MediaFilename, r2MediaMimeType, createR2MediaToken,
+  R2_MEDIA_TTL_SECONDS } from '../lib/academy-r2-media.js';
 import { createCourseEnvironment, resolveOperationalAccountUser } from '../lib/course-routing.js';
 import { readPlatformSheets } from '../lib/platform-sheet.js';
 import { isActivePlatformValue, normalizePlatformIdentifier } from '../lib/platform-schema.js';
@@ -71,6 +73,23 @@ export async function academyLibraryEndpoint(action, request, env) {
     if (!entry || !entry.decision.open || (action === 'cover' && !entry.hasCover)) {
       return json({ success: false, error: 'This resource is unavailable' }, 403);
     }
+    if (entry.r2Key) {
+      if (!env.MEDIA_BUCKET) throw new Error('Media storage is unavailable');
+      const object = await env.MEDIA_BUCKET.head(entry.r2Key);
+      if (!object) return json({ success: false, error: 'This resource file is unavailable' }, 404);
+      const filename = r2MediaFilename(entry.r2Key);
+      const mimeType = r2MediaMimeType(filename, object);
+      const validation = validateFileForResourceType({ name: filename, mimeType }, getResourceConfig(entry.type));
+      if (!validation.ok && !(entry.type === 'OTHER' && mimeType === 'application/pdf')) {
+        return json({ success: false, error: 'This resource file is unavailable' }, 409);
+      }
+      const token = await createR2MediaToken({ key: entry.r2Key, etag: object.etag,
+        filename, mimeType }, env);
+      return json({ success: true,
+        url: `${new URL(request.url).origin}/api/academy/library/media?access=${encodeURIComponent(token)}`,
+        expiresIn: R2_MEDIA_TTL_SECONDS, filename, mimeType,
+        format: deriveFileFormat(filename, mimeType) }, 200, { 'Cache-Control': 'private, no-store' });
+    }
     const file = await verifyFile(entry, action, env);
     const token = await createDriveAccessToken({
       fileId: file.id, resourceId: entry.id, resourceType: entry.type,
@@ -113,19 +132,22 @@ export async function collectAcademyLibrary(env, user, requested = '') {
       let assignedIds = new Set();
       const access = authorised.get(courseId);
       if (access) {
-        const operational = await resolveOperationalAccountUser(courseEnv, {
-          ...user, type: 'account', scope: 'COURSE', role: access.role, accessid: access.accessId,
-          courseid: courseId, coursename: access.courseName,
-          coursespreadsheetid: access.spreadsheetId, courserecordid: access.courseRecordId
-        });
-        assignedIds = new Set(items(await readResourcesGoogleSheetsCatalogue(courseEnv, operational))
-          .map(item => `${canonicalCourseResourceType(item.resource.type)}:${clean(item.resource.resourceid)}`));
+        try {
+          const operational = await resolveOperationalAccountUser(courseEnv, {
+            ...user, type: 'account', scope: 'COURSE', role: access.role, accessid: access.accessId,
+            courseid: courseId, coursename: access.courseName,
+            coursespreadsheetid: access.spreadsheetId, courserecordid: access.courseRecordId
+          });
+          assignedIds = new Set(items(await readResourcesGoogleSheetsCatalogue(courseEnv, operational))
+            .map(item => `${canonicalCourseResourceType(item.resource.type)}:${clean(item.resource.resourceid)}`));
+        } catch { warnings.push(`${clean(course.CourseName)} assigned resources are unavailable.`); }
       }
       for (const { resource, subject, module } of items(raw)) {
         const type = canonicalCourseResourceType(resource.type);
         const originId = clean(resource.resourceid);
         const fileId = extractDriveFileId(resource.link);
-        if (!TYPES.has(type) || !originId || !fileId) continue;
+        const r2Key = fileId ? '' : legacyR2ObjectKey(resource.link, env);
+        if (!TYPES.has(type) || !originId || (!fileId && !r2Key)) continue;
         const id = `COURSE:${courseId}:${type}:${originId}`;
         const decision = academyResourceDecision({ key: id, source: 'COURSE', sourceActive: true,
           assigned: assignedIds.has(`${type}:${originId}`), role: access?.role || user.role,
@@ -134,7 +156,7 @@ export async function collectAcademyLibrary(env, user, requested = '') {
         add({ id, source: 'COURSE', sourceName: clean(course.CourseName), type,
           name: clean(resource.name), description: clean(resource.description),
           subject: clean(subject.subjectname), module: clean(module.modulename),
-          fileId, courseEnv, hasCover: false, decision });
+          fileId, r2Key, courseEnv, hasCover: false, decision });
       }
     } catch (error) { warnings.push(`${clean(course.CourseName)} Library is unavailable.`); }
   }
