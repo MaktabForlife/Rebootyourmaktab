@@ -72,8 +72,14 @@ const validLogin = await loadPage({ id: 'TEST-USER', pin: '1234', replies: {
   '/api/account/login': { body: { success: true, token: 'NEW_SESSION', account: { uniqueid: 'TEST-USER' } } }
 } });
 await validLogin.submit();
-assert.equal(validLogin.destination, '/account/TEST-USER');
+assert.equal(validLogin.destination, '/academy/TEST-USER');
 assert.equal(validLogin.storage.get('m4l_account_token'), 'NEW_SESSION');
 assert.equal(validLogin.elements.get('demo-pin').value, '');
+
+const firstSetup = await loadPage({ id: 'TEST-USER', replies: {
+  '/api/account/check': { body: { success: true, account: { uniqueid: 'TEST-USER', pinsetup: false } } }
+} });
+await firstSetup.submit();
+assert.equal(firstSetup.destination, '/account/TEST-USER?academy=1');
 
 console.log('Academy ID and PIN entry checks passed.');

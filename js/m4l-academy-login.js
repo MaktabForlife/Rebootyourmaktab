@@ -38,7 +38,7 @@
       if (check.account?.pinsetup !== true) {
         pinInput.value = "";
         clearStoredAccountState();
-        window.location.assign(accountPath(accountId));
+        window.location.assign(`/account/${encodeURIComponent(accountId)}?academy=1`);
         return;
       }
 
@@ -55,7 +55,7 @@
       clearStoredAccountState();
       localStorage.setItem(tokenKey, result.token);
       pinInput.value = "";
-      window.location.assign(accountPath(result.account?.uniqueid || accountId));
+      window.location.assign(academyPath(result.account?.uniqueid || accountId));
     } catch (error) {
       pinInput.value = "";
       showStatus(error.message || "Sign-in could not be completed. Please try again.");
@@ -64,8 +64,8 @@
     }
   }
 
-  function accountPath(uniqueId) {
-    return `/account/${encodeURIComponent(uniqueId)}`;
+  function academyPath(uniqueId) {
+    return `/academy/${encodeURIComponent(uniqueId)}`;
   }
 
   function clearStoredAccountState() {

@@ -14,6 +14,7 @@
   const ACADEMY_INITIAL_DAYS = 7;
   const ACADEMY_PREFETCH_DAYS = 7;
   const uniqueId = getUniqueIdFromPath();
+  const returnToAcademy = new URLSearchParams(window.location.search).get("academy") === "1";
   const switcherMode = new URLSearchParams(window.location.search).get("switch") === "1";
   const state = {
     token: localStorage.getItem(TOKEN_KEY) || "",
@@ -116,6 +117,7 @@
     try {
       const result = await api("/api/account/login", { uniqueid: uniqueId, pin });
       await acceptSession(result, true, { autoOpen: false });
+      if (returnToAcademy) window.location.assign(`/academy/${encodeURIComponent(uniqueId)}`);
     } catch (error) {
       showFormError("login-error", error.message);
       byId("login-pin").value = "";
@@ -152,6 +154,7 @@
         pinConfirmation
       });
       await acceptSession(result, true, { autoOpen: false });
+      if (returnToAcademy) window.location.assign(`/academy/${encodeURIComponent(uniqueId)}`);
     } catch (error) {
       showFormError("setup-error", error.message);
     } finally {
