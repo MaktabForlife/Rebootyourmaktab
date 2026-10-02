@@ -8,10 +8,6 @@
   const pinInput = document.getElementById("demo-pin");
   const pinToggle = document.getElementById("demo-pin-toggle");
   const status = document.getElementById("login-status");
-  const signedIn = document.getElementById("academy-signed-in");
-  const signedInName = document.getElementById("academy-signed-in-name");
-  const signedInLink = document.getElementById("academy-signed-in-link");
-  const switchAccount = document.getElementById("academy-switch-account");
 
   if (!form || !linkInput || !pinInput || !apiBase) return;
 
@@ -25,39 +21,11 @@
     pinToggle.textContent = showing ? "Hide" : "Show";
     pinToggle.setAttribute("aria-label", `${showing ? "Hide" : "Show"} PIN`);
   });
-  switchAccount.addEventListener("click", () => {
-    for (const key of [tokenKey, "m4l_account_context", "m4l_account_contexts", "m4l_account_workspace", "maktab_token", "maktab_user_type"]) {
-      localStorage.removeItem(key);
-    }
-    for (let index = localStorage.length - 1; index >= 0; index -= 1) {
-      const key = localStorage.key(index);
-      if (key && ["m4l_app_cache_", "maktab_timetable_cache_", "m4l_academy_timetable_"].some(prefix => key.startsWith(prefix))) {
-        localStorage.removeItem(key);
-      }
-    }
-    for (let index = sessionStorage.length - 1; index >= 0; index -= 1) {
-      const key = sessionStorage.key(index);
-      if (key?.startsWith("m4l_admin_progress_dashboard_")) sessionStorage.removeItem(key);
-    }
-    signedIn.hidden = true;
-    form.hidden = false;
-    linkInput.focus();
-  });
-
-  const existingToken = localStorage.getItem(tokenKey);
-  if (existingToken) {
-    void api("/api/account/session", {}, existingToken).then(result => {
-      if (result.account?.uniqueid) showSignedIn(result.account);
-    }).catch(() => {
-      // A network problem should not sign the user out of another page.
-    });
-  }
-
   async function signIn(event) {
     event.preventDefault();
     const uniqueId = String(linkInput.value || "").trim();
     if (!/^[A-Za-z0-9._~-]{1,128}$/.test(uniqueId)) {
-      showStatus("Enter the ID at the end of your personal account link, such as ABCDEFG.");
+      showStatus("Enter your account ID.");
       linkInput.focus();
       return;
     }
@@ -69,6 +37,7 @@
       const accountId = check.account?.uniqueid || uniqueId;
       if (check.account?.pinsetup !== true) {
         pinInput.value = "";
+        clearStoredAccountState();
         window.location.assign(accountPath(accountId));
         return;
       }
@@ -83,6 +52,7 @@
       showStatus("Signing you in…");
       const result = await api("/api/account/login", { uniqueid: accountId, pin });
       if (!result.token) throw new Error("Sign-in did not return an account session.");
+      clearStoredAccountState();
       localStorage.setItem(tokenKey, result.token);
       pinInput.value = "";
       window.location.assign(accountPath(result.account?.uniqueid || accountId));
@@ -98,11 +68,20 @@
     return `/account/${encodeURIComponent(uniqueId)}`;
   }
 
-  function showSignedIn(account) {
-    signedInName.textContent = account.displayName || "Your Academy account";
-    signedInLink.href = accountPath(account.uniqueid);
-    form.hidden = true;
-    signedIn.hidden = false;
+  function clearStoredAccountState() {
+    for (const key of [tokenKey, "m4l_account_context", "m4l_account_contexts", "m4l_account_workspace", "maktab_token", "maktab_user_type"]) {
+      localStorage.removeItem(key);
+    }
+    for (let index = localStorage.length - 1; index >= 0; index -= 1) {
+      const key = localStorage.key(index);
+      if (key && ["m4l_app_cache_", "maktab_timetable_cache_", "m4l_academy_timetable_"].some(prefix => key.startsWith(prefix))) {
+        localStorage.removeItem(key);
+      }
+    }
+    for (let index = sessionStorage.length - 1; index >= 0; index -= 1) {
+      const key = sessionStorage.key(index);
+      if (key?.startsWith("m4l_admin_progress_dashboard_")) sessionStorage.removeItem(key);
+    }
   }
 
   function showStatus(message) {
