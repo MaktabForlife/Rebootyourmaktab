@@ -59,6 +59,8 @@ const originalFetch = globalThis.fetch;
 globalThis.fetch = async (url, init = {}) => {
   const parsed = new URL(url);
   const result = value => new Response(JSON.stringify(value), { status:200 });
+  if(parsed.hostname==='openlibrary.org')return result({docs:[{key:'/works/OL123W',title:'Book',author_name:['An Author'],cover_i:12345,first_publish_year:2020}]});
+  if(parsed.hostname==='covers.openlibrary.org')return new Response(new Uint8Array([0xff,0xd8,0x12,0xff,0xd9]),{headers:{'Content-Type':'image/jpeg'}});
   if(parsed.hostname==='script.google.com'){
     const body=JSON.parse(init.body);
     const payload=JSON.parse(Buffer.from(body.data.payload,'base64url').toString());
@@ -185,7 +187,7 @@ try{
   for(const auth of [legacyToken,studentToken,centralAdminToken])await tt(action,{},auth,403);
   await tt(action,{},'',401);
  }
- for(const action of ['browse','access']){
+ for(const action of ['browse','access','cover-search','cover-image']){
   for(const auth of [legacyToken,studentToken,centralAdminToken])await library(action,{},auth,403);
   await library(action,{},'',401);
  }
@@ -204,6 +206,10 @@ try{
  const libraryWrites=writes;await tt('prepare-library');assert.equal(writes,libraryWrites,'Library preparation is idempotent');
  for(const [name,rows] of Object.entries({ProgramSubjects:[['PS-TAFSEER',input.id,'TAFSEER',true]],ProgramModules:[['MOD-DEMO','PS-TAFSEER','','Demo module',1,true]],ProgramClasses:[['CLASS-1',input.id,'Year 1','2026',true],['CLASS-2',input.id,'Year 2','2026',true]]}))table(targetId,name).push(...rows);
  const libraryFiles=await library('browse');assert.equal(libraryFiles.items[0].name,'Lesson.pdf');assert(libraryFiles.items[0].supportedTypes.includes('EBOOK'));
+ const foundCovers=await library('cover-search',{query:'Book'});assert.equal(foundCovers.covers[0].coverId,'12345');
+ const selectedCover=await worker.fetch(new Request('https://worker.test/api/admin/platform/program-library/cover-image',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({id:input.id,coverId:'12345'})}),env);
+ assert.equal(selectedCover.status,200);assert.equal(selectedCover.headers.get('Content-Type'),'image/jpeg');assert.deepEqual(new Uint8Array(await selectedCover.arrayBuffer()),new Uint8Array([0xff,0xd8,0x12,0xff,0xd9]));
+ await library('cover-image',{coverId:'https://example.com/bad.jpg'},token,400);
  await library('browse',{folderId:'outside-folder'},token,400);
  table(targetId,'ProgramResources')[0]=table(targetId,'ProgramResources')[0].slice(0,11);
  const legacyLibrary=await tt('manage-get');assert.equal(legacyLibrary.libraryPrepared,true);
