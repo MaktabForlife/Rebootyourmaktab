@@ -2,4 +2,4 @@
 /admin/*    /admin/    200
 /account/*  /account/  200
 /academy/library /academy/library/ 301
-/academy/:uniqueid /academy/member/ 200
+/academy/:uniqueid /academy/#overview 302

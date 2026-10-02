@@ -234,6 +234,12 @@
     .prospectus-intro,.context-bar{background:rgba(239,226,241,.82);border-color:rgba(255,255,255,.7)}
     .step,.filterbar button,.scope-switch button{background:rgba(255,255,255,.82);border-color:rgba(255,255,255,.7)}
     .foot{border-color:rgba(255,255,255,.53);color:#514454}
+    .academy-sign-out{border:1px solid var(--line);border-radius:100px;background:var(--paper);color:var(--rose-dark);padding:8px 13px;font-size:13px;font-weight:700;white-space:nowrap}
+    .academy-sign-out:hover{background:var(--rose-soft)}
+    .academy-home-card p{margin:0 0 16px;color:var(--muted);line-height:1.5}
+    .academy-home-card p strong{color:var(--ink)}
+    .academy-home-card .text-link{display:inline-block;margin-top:16px;white-space:normal}
+    @media(max-width:700px){body.academy-signed-in .topbar{flex-wrap:wrap}body.academy-signed-in .top-actions{width:100%;justify-content:flex-end}body.academy-signed-in .demo-pill{margin-right:auto}}
   </style>
 </head>
 <body>
@@ -252,7 +258,7 @@
     <div class="sidebar-note"><strong>Public concept preview</strong>Illustrative data is shown here. Personal Library access uses the signed-in Academy account.</div>
   </aside>
   <main>
-    <header class="topbar"><div class="breadcrumbs">Umm Abbad Academy <span aria-hidden="true">/</span> <strong id="current-view">Overview</strong></div><div class="top-actions"><span class="demo-pill">Public concept demo</span><div class="avatar" aria-label="Illustrative learner profile">A</div></div></header>
+    <header class="topbar"><div class="breadcrumbs">Umm Abbad Academy <span aria-hidden="true">/</span> <strong id="current-view">Overview</strong></div><div class="top-actions"><span class="demo-pill">Public concept demo</span><button class="academy-sign-out" id="academy-sign-out" type="button" hidden>Sign out</button><div class="avatar" id="academy-avatar" aria-label="Illustrative learner profile">A</div></div></header>
     <div class="container">
       <section id="overview" class="view active" aria-labelledby="overview-title">
         <section class="academy-intro" aria-labelledby="overview-title">
@@ -266,6 +272,7 @@
           </div>
           <div class="intro-next">
             <div><div class="eyebrow">Welcome to Umm Abbad Academy</div><p>One Academy account connecting you to all your learning</p></div>
+            <div class="login-preview" id="academy-session-loading" role="status" hidden>Opening your Academy home…</div>
             <form class="login-preview" id="login-preview" autocomplete="off" novalidate>
               <div class="login-preview-head">Sign in <span>Academy account</span></div>
               <label for="demo-username">Account ID</label>
@@ -276,6 +283,12 @@
               <p class="login-note">Enter the ID at the end of your personal account link and your PIN. If you have not set a PIN yet, enter your ID and continue to set one up.</p>
               <p class="login-status" id="login-status" role="status" aria-live="polite" hidden></p>
             </form>
+            <div class="login-preview academy-home-card" id="academy-home-card" hidden>
+              <div class="login-preview-head">My Academy <span>Signed in</span></div>
+              <p>Welcome, <strong id="academy-account-name"></strong></p>
+              <a class="button sage" href="/academy/library/">Open Academy Library</a>
+              <a class="text-link" id="academy-maktab-link" href="/academy/">Open Maktab account →</a>
+            </div>
             <div class="intro-actions"><a class="button sage" href="/academy/library/">Open my Library</a><button class="button sage" type="button" data-nav="learning">Explore learning spaces</button><a class="text-link" href="https://ummabbadacademy.com" target="_blank" rel="noopener noreferrer">Visit the original Academy site ↗</a></div>
           </div>
         </section>
@@ -436,6 +449,6 @@
   renderScope();showView(location.hash.slice(1));
 </script>
 <script src="/js/m4l-config.js?v=102.4"></script>
-<script src="/js/m4l-academy-login.js?v=3"></script>
+<script src="/js/m4l-academy-login.js?v=4"></script>
 </body>
 </html>

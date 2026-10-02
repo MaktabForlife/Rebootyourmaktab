@@ -3,11 +3,18 @@
 
   const apiBase = String(window.M4L_CONFIG?.API_BASE || "").replace(/\/$/, "");
   const tokenKey = "m4l_account_token";
+  const academySessionKey = "m4l_academy_signed_in";
   const form = document.getElementById("login-preview");
   const linkInput = document.getElementById("demo-username");
   const pinInput = document.getElementById("demo-pin");
   const pinToggle = document.getElementById("demo-pin-toggle");
   const status = document.getElementById("login-status");
+  const sessionLoading = document.getElementById("academy-session-loading");
+  const homeCard = document.getElementById("academy-home-card");
+  const accountName = document.getElementById("academy-account-name");
+  const maktabLink = document.getElementById("academy-maktab-link");
+  const signOutButton = document.getElementById("academy-sign-out");
+  const avatar = document.getElementById("academy-avatar");
 
   if (!form || !linkInput || !pinInput || !apiBase) return;
 
@@ -21,6 +28,52 @@
     pinToggle.textContent = showing ? "Hide" : "Show";
     pinToggle.setAttribute("aria-label", `${showing ? "Hide" : "Show"} PIN`);
   });
+  signOutButton.addEventListener("click", () => {
+    clearStoredAccountState();
+    window.location.assign("/academy/#overview");
+  });
+  void restoreAcademySession();
+
+  async function restoreAcademySession() {
+    const expectedId = sessionStorage.getItem(academySessionKey);
+    const token = localStorage.getItem(tokenKey);
+    if (!expectedId || !token) {
+      if (!token) sessionStorage.removeItem(academySessionKey);
+      return;
+    }
+    form.hidden = true;
+    sessionLoading.hidden = false;
+    setBusy(true);
+    try {
+      const result = await api("/api/account/session", {}, token);
+      const account = result.account;
+      if (String(account?.uniqueid || "").trim().toUpperCase() !== expectedId.toUpperCase()) {
+        throw new Error("The signed-in account has changed.");
+      }
+      showSignedIn(account);
+    } catch (_) {
+      sessionStorage.removeItem(academySessionKey);
+      form.hidden = false;
+      sessionLoading.hidden = true;
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function showSignedIn(account) {
+    const uniqueId = String(account.uniqueid || "").trim();
+    const name = String(account.displayName || "Academy member").trim();
+    accountName.textContent = name;
+    maktabLink.href = `/account/${encodeURIComponent(uniqueId)}`;
+    avatar.textContent = name.charAt(0).toUpperCase();
+    avatar.setAttribute("aria-label", `Signed in as ${name}`);
+    form.hidden = true;
+    sessionLoading.hidden = true;
+    homeCard.hidden = false;
+    signOutButton.hidden = false;
+    document.body.classList.add("academy-signed-in");
+  }
+
   async function signIn(event) {
     event.preventDefault();
     const uniqueId = String(linkInput.value || "").trim();
@@ -54,8 +107,9 @@
       if (!result.token) throw new Error("Sign-in did not return an account session.");
       clearStoredAccountState();
       localStorage.setItem(tokenKey, result.token);
+      sessionStorage.setItem(academySessionKey, result.account?.uniqueid || accountId);
       pinInput.value = "";
-      window.location.assign(academyPath(result.account?.uniqueid || accountId));
+      window.location.assign("/academy/#overview");
     } catch (error) {
       pinInput.value = "";
       showStatus(error.message || "Sign-in could not be completed. Please try again.");
@@ -64,11 +118,8 @@
     }
   }
 
-  function academyPath(uniqueId) {
-    return `/academy/${encodeURIComponent(uniqueId)}`;
-  }
-
   function clearStoredAccountState() {
+    sessionStorage.removeItem(academySessionKey);
     for (const key of [tokenKey, "m4l_account_context", "m4l_account_contexts", "m4l_account_workspace", "maktab_token", "maktab_user_type"]) {
       localStorage.removeItem(key);
     }

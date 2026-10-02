@@ -117,25 +117,8 @@
       $('al-status').textContent = result.warnings?.length ? result.warnings.join(' ') : '';
       render();
     } catch (error) {
-      $('al-status').innerHTML = `${esc(error.message)} <a href="/academy/">Sign in to Academy →</a>`;
+      $('al-status').innerHTML = `${esc(error.message)} <a href="/academy/#overview">Sign in to Academy →</a>`;
     }
-  }
-
-  async function setHomeLinks() {
-    const token = localStorage.getItem('m4l_account_token');
-    if (!token) return;
-    try {
-      const response = await fetch(`${window.M4L_CONFIG?.API_BASE || ''}/api/account/session`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: '{}'
-      });
-      const result = await response.json();
-      if (!response.ok || !result.success || !result.account?.uniqueid) return;
-      const path = `/academy/${encodeURIComponent(result.account.uniqueid)}`;
-      $('al-back-link').href = path;
-      $('al-home-link').href = path;
-    } catch { /* The Library can still load if its home link is unavailable. */ }
   }
 
   document.querySelectorAll('[data-view]').forEach(button => button.addEventListener('click', () => {
@@ -152,5 +135,4 @@
   $('al-close').addEventListener('click', () => $('al-preview').close());
   $('al-preview').addEventListener('close', () => $('al-media').replaceChildren());
   void start();
-  void setHomeLinks();
 })();

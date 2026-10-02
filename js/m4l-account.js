@@ -117,7 +117,10 @@
     try {
       const result = await api("/api/account/login", { uniqueid: uniqueId, pin });
       await acceptSession(result, true, { autoOpen: false });
-      if (returnToAcademy) window.location.assign(`/academy/${encodeURIComponent(uniqueId)}`);
+      if (returnToAcademy) {
+        sessionStorage.setItem("m4l_academy_signed_in", uniqueId);
+        window.location.assign("/academy/#overview");
+      }
     } catch (error) {
       showFormError("login-error", error.message);
       byId("login-pin").value = "";
@@ -154,7 +157,10 @@
         pinConfirmation
       });
       await acceptSession(result, true, { autoOpen: false });
-      if (returnToAcademy) window.location.assign(`/academy/${encodeURIComponent(uniqueId)}`);
+      if (returnToAcademy) {
+        sessionStorage.setItem("m4l_academy_signed_in", uniqueId);
+        window.location.assign("/academy/#overview");
+      }
     } catch (error) {
       showFormError("setup-error", error.message);
     } finally {
