@@ -18,12 +18,18 @@ const f=timetableFixture(),service=timetableService(f.repository,f.program);
 f.repository.verifyResource=async row=>({id:row.DriveFileID});
 f.repository.verifyLibraryRoot=async value=>({FolderID:value,Name:'Second Drive folder'});
 const coordinator=timetableCoordinator(f.journal,async()=>({service,user:{accountid:'ADMIN'}}));
-let failSave=false,lastUploadType='';
+let failSave=false,lastUploadType='',multiChunkUpload=false,rateLimitedChunkOnce=false;
 const context={console,URL,URLSearchParams,structuredClone,crypto,
   location:{search:`?program=${f.program.id}`},window:{M4L_CONFIG:{API_BASE:''}},document:{getElementById:element},
   localStorage:{getItem:()=> 'token'},sessionStorage:{getItem:key=>storage.get(key)||null,setItem:(key,value)=>storage.set(key,value),removeItem:key=>storage.delete(key)},
   fetch:async(url,options)=>{
-    if(url.endsWith('/upload-chunk')){requests.push({action:'upload-chunk',body:options.body});return {ok:true,status:200,json:async()=>({success:true,complete:true,nextOffset:123,file:lastUploadType==='COVER'?{id:'uploaded-cover',name:'Device-cover.png',mimeType:'image/png'}:{id:'uploaded-pdf',name:'Device.pdf',mimeType:'application/pdf'}})};}
+    if(url.endsWith('/upload-chunk')){
+      const offset=Number(options.headers['X-Library-Upload-Offset']);
+      requests.push({action:'upload-chunk',offset,body:options.body});
+      if(multiChunkUpload&&offset===0)return {ok:true,status:200,json:async()=>({success:true,complete:false,nextOffset:4194304})};
+      if(rateLimitedChunkOnce&&offset===4194304){rateLimitedChunkOnce=false;return {ok:false,status:503,json:async()=>({success:false,code:'SHEETS_RATE_LIMITED',retryAfterMs:60000,error:'Google Sheets is temporarily limiting requests.'})};}
+      return {ok:true,status:200,json:async()=>({success:true,complete:true,nextOffset:123,file:lastUploadType==='COVER'?{id:'uploaded-cover',name:'Device-cover.png',mimeType:'image/png'}:{id:'uploaded-pdf',name:'Device.pdf',mimeType:'application/pdf'}})};
+    }
     const action=url.split('/').at(-1),body=JSON.parse(options.body);requests.push({action,body});
     if(action==='upload-start'){lastUploadType=body.resourceType;return {ok:true,status:200,json:async()=>({success:true,ticket:'ticket',chunkSize:4194304})};}
     if(action==='browse')return {ok:true,status:200,json:async()=>({success:true,folder:{id:body.folderId||body.rootId||'root',name:'Selected folder'},breadcrumbs:[{id:body.rootId||'root',name:'Selected root'}],items:body.rootId?[{id:'other-pdf',name:'Other.pdf',mimeType:'application/pdf',isFolder:false,supportedTypes:['EBOOK'],format:'PDF'},{id:'cover-png',name:'Cover.png',mimeType:'image/png',isFolder:false,supportedTypes:['OTHER'],format:'PNG'}]:[{id:'file-pdf',name:'Lesson.pdf',mimeType:'application/pdf',isFolder:false,supportedTypes:['EBOOK'],format:'PDF'},{id:'cover-png',name:'Cover.png',mimeType:'image/png',isFolder:false,supportedTypes:['OTHER'],format:'PNG'},{id:'folder-one',name:'Folder one',isFolder:true,supportedTypes:[],format:''}],nextPageToken:''})};
@@ -95,4 +101,18 @@ element('pl-cover-device-file').onchange({target:{files:[{name:'Device-cover.png
 element('pl-upload').onclick();await settled();
 assert.equal(requests.filter(row=>row.action==='upload-start').at(-1).body.resourceType,'COVER');
 assert.equal(JSON.parse(storage.get(draftKey)).record.CoverDriveFileID,'uploaded-cover');
+multiChunkUpload=true;rateLimitedChunkOnce=true;
+const startsBeforeResume=requests.filter(row=>row.action==='upload-start').length;
+const chunksBeforeResume=requests.filter(row=>row.action==='upload-chunk').length;
+element('pl-device').onclick();
+element('pl-device-file').onchange({target:{files:[{name:'Large.pdf',type:'application/pdf',size:4194314,slice:()=>new Blob(['PDF'])}],value:'Large.pdf'}});await settled();
+element('pl-upload').onclick();await settled();
+assert.equal(element('pl-drive').open,true,'A rate limit keeps the destination dialog and file open');
+assert.match(element('pl-drive-status').textContent,/continue from 99%/);
+assert.equal(requests.filter(row=>row.action==='upload-start').length,startsBeforeResume+1);
+assert.deepEqual(requests.filter(row=>row.action==='upload-chunk').slice(chunksBeforeResume).map(row=>row.offset),[0,4194304]);
+element('pl-upload').onclick();await settled();
+assert.equal(element('pl-drive').open,false,'Retrying the final chunk completes the upload');
+assert.equal(requests.filter(row=>row.action==='upload-start').length,startsBeforeResume+1,'Retry keeps the original Drive upload session');
+assert.deepEqual(requests.filter(row=>row.action==='upload-chunk').slice(chunksBeforeResume).map(row=>row.offset),[0,4194304,4194304]);
 console.log('Program Library UI: centered Drive finder, alternate root, device upload, book details, cover selection and retry recovery passed.');

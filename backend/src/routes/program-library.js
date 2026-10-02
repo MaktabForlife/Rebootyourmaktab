@@ -1,4 +1,5 @@
 import { json } from '../lib/http.js';
+import { verifySessionToken } from '../lib/auth.js';
 import { startLibraryUpload, openLibraryUploadTicket, forwardLibraryUploadChunk, LIBRARY_UPLOAD_CHUNK_SIZE } from '../lib/library-upload-bridge.js';
 import { listGoogleDriveFolder } from '../lib/google-drive.js';
 import { problem, clean } from '../programs/model.js';
@@ -28,14 +29,17 @@ export function programLibraryEndpoint(action){
   return async(request,env)=>{
     let stage='account';
     try{
-      const user=await timetableUser(request,env);
       if(action==='upload-chunk'){
         stage='upload';
         if(request.method!=='POST')throw problem('Use POST for Library uploads.',405);
         const ticket=await openLibraryUploadTicket(env,request.headers.get('X-Library-Upload-Ticket'));
-        if(!ticket||ticket.accountId!==user.accountid)throw problem('This upload session has expired. Choose the file again.',401);
-        const program=await timetableProgram(env,ticket.programId);
-        if(program.status!=='DRAFT')throw problem('Archived Programs cannot accept uploads.',409);
+        const auth=request.headers.get('Authorization')||'';
+        const session=auth.startsWith('Bearer ')?await verifySessionToken(auth.slice(7).trim(),env):null;
+        if(!ticket||!session||session.type!=='account'||session.role!=='GLOBAL_ADMIN'||
+            session.accountid!==ticket.accountId||
+            !Number.isInteger(session.authrow)||session.authrow<2||!session.cv){
+          throw problem('This upload session has expired. Choose the file again.',401);
+        }
         const offset=Number(request.headers.get('X-Library-Upload-Offset'));
         if(!Number.isSafeInteger(offset)||offset<0||offset>=ticket.size)throw problem('Invalid upload position. Start this upload again.');
         if(Number(request.headers.get('Content-Length'))>LIBRARY_UPLOAD_CHUNK_SIZE)throw problem('Upload chunk is too large.',413);
@@ -43,9 +47,18 @@ export function programLibraryEndpoint(action){
         const chunks=[];let length=0;
         while(true){const {done,value}=await reader.read();if(done)break;length+=value.byteLength;if(length>LIBRARY_UPLOAD_CHUNK_SIZE){await reader.cancel();throw problem('Upload chunk is too large.',413);}chunks.push(value);}
         if(!length||offset+length>ticket.size)throw problem('Invalid upload chunk size.');
+        // The signed ticket and session protect intermediate chunks. Recheck
+        // current account access and Program status before Drive completes the file.
+        if(offset+length===ticket.size){
+          const user=await timetableUser(request,env);
+          if(user.accountid!==ticket.accountId)throw problem('This upload session has expired. Choose the file again.',401);
+          const program=await timetableProgram(env,ticket.programId);
+          if(program.status!=='DRAFT')throw problem('Archived Programs cannot accept uploads.',409);
+        }
         const bytes=new Uint8Array(length);let position=0;for(const chunk of chunks){bytes.set(chunk,position);position+=chunk.byteLength;}
         return json({success:true,...await forwardLibraryUploadChunk(ticket,offset,bytes)});
       }
+      const user=await timetableUser(request,env);
       const input=await inputJSON(request);
       stage='program';const program=await timetableProgram(env,input.id);
       const repository=timetableRepository(env,program);

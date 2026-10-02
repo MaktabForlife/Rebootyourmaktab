@@ -9,7 +9,7 @@
   const pendingKey=`m4l-program-library-pending:${id}`;
   const draftKey=`m4l-program-library-draft:${id}`;
   const rootPendingKey=`m4l-program-library-root-pending:${id}`;
-  const state={data:null,record:null,creating:false,busy:false,pending:null,rootPending:null,drive:null,rootId:'',folderId:'',selectedFile:null,selectedCover:null,coverUrls:{},mode:'select',uploadFile:null};
+  const state={data:null,record:null,creating:false,busy:false,pending:null,rootPending:null,drive:null,rootId:'',folderId:'',selectedFile:null,selectedCover:null,coverUrls:{},mode:'select',uploadFile:null,uploadSession:null};
   const message=(value,error=false)=>{$('pl-message').textContent=value;$('pl-message').classList.toggle('pl-error',error);};
   const driveMessage=(value,error=false)=>{$('pl-drive-status').textContent=value;$('pl-drive-status').classList.toggle('pl-error',error);};
   async function api(path,body={}){
@@ -173,12 +173,12 @@
   $('pl-device-file').onchange=event=>{
     const file=event.target.files?.[0];if(!file)return;
     if(!supportsUpload(file,state.record.ResourceType)){message('Choose a file supported by the selected resource type.',true);event.target.value='';return;}
-    state.uploadFile=file;openDrive('upload');
+    state.uploadFile=file;state.uploadSession=null;openDrive('upload');
   };
   $('pl-cover-device-file').onchange=event=>{
     const file=event.target.files?.[0];if(!file)return;
     if(!['image/jpeg','image/png','image/webp'].includes(fileMimeType(file))){message('Choose a JPG, PNG or WebP cover image.',true);event.target.value='';return;}
-    state.uploadFile=file;openDrive('cover-upload');
+    state.uploadFile=file;state.uploadSession=null;openDrive('cover-upload');
   };
   $('pl-root').onchange=event=>{if(state.busy||state.rootPending)return;state.rootId=event.target.value;state.drive=null;void browse();};
   $('pl-drive').onclick=event=>{
@@ -202,27 +202,38 @@
   $('pl-more').onclick=()=>{if(!state.busy&&state.drive?.nextPageToken)void browse(state.folderId,state.drive.nextPageToken);};
   $('pl-drive-cancel').onclick=()=>$('pl-drive').close();
   $('pl-drive').oncancel=event=>{if(state.busy)event.preventDefault();};
-  $('pl-drive').onclose=()=>{state.drive=null;state.uploadFile=null;$('pl-device-file').value='';$('pl-cover-device-file').value='';renderDrive();(state.mode.includes('cover')?state.mode.includes('upload')?$('pl-cover-device'):$('pl-cover-browse'):state.mode==='upload'?$('pl-device'):$('pl-browse')).focus();};
+  $('pl-drive').onclose=()=>{state.drive=null;state.uploadFile=null;state.uploadSession=null;$('pl-device-file').value='';$('pl-cover-device-file').value='';renderDrive();(state.mode.includes('cover')?state.mode.includes('upload')?$('pl-cover-device'):$('pl-cover-browse'):state.mode==='upload'?$('pl-device'):$('pl-browse')).focus();};
   function fileMimeType(file){
     if(file.type)return file.type;
     const extension=String(file.name||'').split('.').pop()?.toLowerCase();
     return ({pdf:'application/pdf',mp3:'audio/mpeg',m4a:'audio/mp4',wav:'audio/wav',ogg:'audio/ogg',aac:'audio/aac',flac:'audio/flac',mp4:'video/mp4',m4v:'video/mp4',mov:'video/quicktime',webm:'video/webm',jpg:'image/jpeg',jpeg:'image/jpeg',png:'image/png',gif:'image/gif',txt:'text/plain',zip:'application/zip',doc:'application/msword',docx:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',ppt:'application/vnd.ms-powerpoint',pptx:'application/vnd.openxmlformats-officedocument.presentationml.presentation'})[extension]||'application/octet-stream';
   }
   async function uploadToDrive(file,folderId,resourceType){
-    const started=await api('program-library/upload-start',{rootId:state.rootId,folderId,fileName:file.name,mimeType:fileMimeType(file),size:file.size,resourceType});
+    let session=state.uploadSession;
+    if(!session||session.file!==file||session.folderId!==folderId||session.rootId!==state.rootId||session.resourceType!==resourceType){
+      const started=await api('program-library/upload-start',{rootId:state.rootId,folderId,fileName:file.name,mimeType:fileMimeType(file),size:file.size,resourceType});
+      session={file,folderId,rootId:state.rootId,resourceType,ticket:started.ticket,chunkSize:started.chunkSize,offset:0};
+      state.uploadSession=session;
+    }
     const token=localStorage.getItem('m4l_account_token');
     if(!token)throw new Error('Sign in to your Academy account again.');
-    let offset=0,stalled=0;
+    let offset=session.offset,stalled=0;
     while(offset<file.size){
-      const end=Math.min(offset+started.chunkSize,file.size);
+      const end=Math.min(offset+session.chunkSize,file.size);
       driveMessage(`Uploading ${file.name}… ${Math.floor(offset/file.size*100)}%`);
-      const response=await fetch(`${window.M4L_CONFIG?.API_BASE||''}/api/admin/platform/program-library/upload-chunk`,{method:'POST',headers:{Authorization:`Bearer ${token}`,'X-Library-Upload-Ticket':started.ticket,'X-Library-Upload-Offset':String(offset),'Content-Type':'application/octet-stream'},body:file.slice(offset,end)});
+      const response=await fetch(`${window.M4L_CONFIG?.API_BASE||''}/api/admin/platform/program-library/upload-chunk`,{method:'POST',headers:{Authorization:`Bearer ${token}`,'X-Library-Upload-Ticket':session.ticket,'X-Library-Upload-Offset':String(offset),'Content-Type':'application/octet-stream'},body:file.slice(offset,end)});
       let result;try{result=await response.json();}catch{throw new Error('The upload response could not be read. Try the file again.');}
-      if(!response.ok||!result.success)throw new Error(result.error||'The upload stopped. Try the file again.');
-      if(result.complete)return result.file;
-      if(!Number.isSafeInteger(result.nextOffset)||result.nextOffset<0||result.nextOffset>file.size)throw new Error('Google Drive returned an invalid upload position.');
+      if(!response.ok||!result.success){
+        if(result.code==='SHEETS_RATE_LIMITED'){
+          const seconds=Math.max(1,Math.ceil(Number(result.retryAfterMs||60000)/1000));
+          throw new Error(`Google Sheets is busy. Wait ${seconds} seconds, then click Upload into this folder again. The upload will continue from ${Math.floor(offset/file.size*100)}%.`);
+        }
+        throw new Error(result.error||'The upload stopped. Try the file again.');
+      }
+      if(result.complete){state.uploadSession=null;return result.file;}
+      if(!Number.isSafeInteger(result.nextOffset)||result.nextOffset<0||result.nextOffset>=file.size)throw new Error('Google Drive returned an invalid upload position.');
       stalled=result.nextOffset<=offset?stalled+1:0;if(stalled>2)throw new Error('The upload stopped making progress. Try the file again.');
-      offset=result.nextOffset;
+      offset=result.nextOffset;session.offset=offset;
     }
     throw new Error('Google Drive did not confirm the uploaded file.');
   }
@@ -235,7 +246,7 @@
       if(cover){state.record.CoverDriveFileID=uploaded.id;state.selectedCover={...uploaded};}
       else{state.record.DriveFileID=uploaded.id;state.selectedFile={...uploaded,supportedTypes:[resourceType]};if(!state.record.Name)state.record.Name=file.name.replace(/\.[^.]+$/,'');}
       saveDraft();$('pl-drive').close();render();message(cover?'Cover uploaded to Drive. Save the resource to keep the link.':'File uploaded to Drive. Review the placement and save the resource.');
-    }catch(error){driveMessage(error.message,true);}
+    }catch(error){driveMessage(error.code==='SHEETS_RATE_LIMITED'?`${error.message} Wait one minute, then click Upload into this folder again.`:error.message,true);}
     finally{state.busy=false;renderDrive();}
   };
   async function saveRoot(){

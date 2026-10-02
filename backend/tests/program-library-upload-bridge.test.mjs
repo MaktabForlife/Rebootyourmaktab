@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import {createHmac} from 'node:crypto';
 import {readFile} from 'node:fs/promises';
 import vm from 'node:vm';
+import {createSessionToken} from '../src/lib/auth.js';
+import {programLibraryEndpoint} from '../src/routes/program-library.js';
 import {startLibraryUpload,openLibraryUploadTicket,forwardLibraryUploadChunk,LIBRARY_UPLOAD_CHUNK_SIZE} from '../src/lib/library-upload-bridge.js';
 
 const secret='development-library-bridge-secret-long-enough';
@@ -52,6 +54,17 @@ try{
   assert.deepEqual(first,{complete:false,nextOffset:LIBRARY_UPLOAD_CHUNK_SIZE});
   const final=await forwardLibraryUploadChunk(ticket,LIBRARY_UPLOAD_CHUNK_SIZE,new Uint8Array(3));
   assert.equal(final.complete,true);assert.equal(final.file.id,'uploaded-file');
+  const uploadEnv={...env,SESSION_SECRET:'library-upload-session-secret-long-enough'};
+  const accountToken=await createSessionToken({type:'account',role:'GLOBAL_ADMIN',scope:'PLATFORM',accountid:'ADMIN',uniqueid:'ADMIN',authrow:2,credentialHash:'credential-hash'},uploadEnv);
+  driveCalls=0;
+  const chunkRequest=new Request('https://worker.test/api/admin/platform/program-library/upload-chunk',{method:'POST',headers:{Authorization:`Bearer ${accountToken}`,'X-Library-Upload-Ticket':started.ticket,'X-Library-Upload-Offset':'0','Content-Type':'application/octet-stream'},body:new Uint8Array(LIBRARY_UPLOAD_CHUNK_SIZE)});
+  const chunkResponse=await programLibraryEndpoint('upload-chunk')(chunkRequest,uploadEnv);
+  assert.equal(chunkResponse.status,200,'Intermediate chunks use the signed ticket without another Sheets read');
+  assert.equal((await chunkResponse.json()).nextOffset,LIBRARY_UPLOAD_CHUNK_SIZE);
+  const otherAccountToken=await createSessionToken({type:'account',role:'GLOBAL_ADMIN',scope:'PLATFORM',accountid:'OTHER',uniqueid:'OTHER',authrow:2,credentialHash:'credential-hash'},uploadEnv);
+  const otherRequest=new Request('https://worker.test/api/admin/platform/program-library/upload-chunk',{method:'POST',headers:{Authorization:`Bearer ${otherAccountToken}`,'X-Library-Upload-Ticket':started.ticket,'X-Library-Upload-Offset':'0','Content-Type':'application/octet-stream'},body:new Uint8Array(1)});
+  const otherResponse=await programLibraryEndpoint('upload-chunk')(otherRequest,uploadEnv);
+  assert.equal(otherResponse.status,401,'A different account cannot use the sealed upload ticket');
   scriptSecret='wrong-owner-secret-that-is-long-enough';
   await assert.rejects(()=>startLibraryUpload(env,details),/Invalid Library upload signature/);
 }finally{globalThis.fetch=originalFetch;}
