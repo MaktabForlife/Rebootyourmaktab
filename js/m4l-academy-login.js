@@ -146,7 +146,9 @@
       localStorage.setItem(tokenKey, result.token);
       sessionStorage.setItem(academySessionKey, result.account?.uniqueid || accountId);
       pinInput.value = "";
-      window.location.assign("/academy/#overview");
+      showStatus("");
+      showSignedIn(result.account || check.account || { uniqueid: accountId });
+      window.location.hash = "overview";
     } catch (error) {
       pinInput.value = "";
       showStatus(error.message || "Sign-in could not be completed. Please try again.");

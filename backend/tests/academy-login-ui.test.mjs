@@ -90,10 +90,14 @@ const validLogin = await loadPage({ id: 'TEST-USER', pin: '1234', replies: {
   '/api/account/login': { body: { success: true, token: 'NEW_SESSION', account: { uniqueid: 'TEST-USER' } } }
 } });
 await validLogin.submit();
-assert.equal(validLogin.destination, '/academy/#overview');
+assert.equal(validLogin.destination, '');
+assert.equal(validLogin.hash, 'overview');
 assert.equal(validLogin.storage.get('m4l_account_token'), 'NEW_SESSION');
 assert.equal(validLogin.session.get('m4l_academy_signed_in'), 'TEST-USER');
 assert.equal(validLogin.elements.get('demo-pin').value, '');
+assert.equal(validLogin.elements.get('login-preview').hidden, true);
+assert.equal(validLogin.elements.get('academy-home-card').hidden, false);
+assert.equal(validLogin.elements.get('academy-sign-out').hidden, false);
 
 const signedIn = await loadPage({ academyId: 'TEST-USER', storedToken: 'NEW_SESSION', replies: {
   '/api/account/session': { body: { success: true, account: { uniqueid: 'TEST-USER', displayName: 'Test Learner' } } }
