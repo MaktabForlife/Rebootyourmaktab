@@ -16,7 +16,7 @@ let accessTokenCache = {
 let accessTokenPromise = null;
 
 const RETRYABLE_GOOGLE_STATUSES = new Set([429, 500, 502, 503, 504]);
-const GOOGLE_READ_MAX_ATTEMPTS = 2;
+const GOOGLE_READ_MAX_ATTEMPTS = 3;
 const GOOGLE_READ_RETRY_BASE_MS = 250;
 const GOOGLE_READ_RETRY_MAX_MS = 2000;
 const SHEET_PROPERTIES_CACHE_KEY = Symbol('sheet-properties');
@@ -139,7 +139,7 @@ async function batchReadGoogleSheetValuesUncached(env, normalizedRanges, spreads
     "/values:batchGet?",
     query.toString()
   ].join("");
-  const response = await fetchGoogleSheetsReadWithRetry(url, {
+  const response = await fetchGoogleRetryableRequest(url, {
     method: "GET",
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -245,7 +245,7 @@ async function readGoogleSpreadsheetSheetPropertiesUncached(env, spreadsheetId, 
     encodeURIComponent(spreadsheetId),
     includeTables?"?fields=sheets(properties(sheetId,title,gridProperties(rowCount)),tables(tableId,range,columnProperties))":"?fields=sheets(properties(sheetId,title,gridProperties(rowCount)))"
   ].join("");
-  const response = await fetchGoogleSheetsReadWithRetry(url, {
+  const response = await fetchGoogleRetryableRequest(url, {
     method: "GET",
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -420,7 +420,8 @@ async function requestGoogleSheetsAccessToken(config) {
     new TextEncoder().encode(unsignedJwt)
   );
   const assertion = `${unsignedJwt}.${base64urlBytes(new Uint8Array(signature))}`;
-  const response = await fetch(config.token_uri, {
+  // Repeating a token exchange is safe; ordinary Sheets writes are not retried.
+  const response = await fetchGoogleRetryableRequest(config.token_uri, {
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8"
@@ -521,17 +522,23 @@ async function callGoogleSheetsValuesApi(env, range, options = {}) {
     body: options.body === undefined ? undefined : JSON.stringify(options.body)
   };
   const response = String(requestOptions.method).toUpperCase() === "GET"
-    ? await fetchGoogleSheetsReadWithRetry(url, requestOptions)
+    ? await fetchGoogleRetryableRequest(url, requestOptions)
     : await fetch(url, requestOptions);
 
   return parseGoogleSheetsResponse(response);
 }
 
-async function fetchGoogleSheetsReadWithRetry(url, init) {
+async function fetchGoogleRetryableRequest(url, init) {
   let response;
 
   for (let attempt = 0; attempt < GOOGLE_READ_MAX_ATTEMPTS; attempt += 1) {
-    response = await fetch(url, init);
+    try {
+      response = await fetch(url, init);
+    } catch (error) {
+      if (attempt === GOOGLE_READ_MAX_ATTEMPTS - 1) throw error;
+      await waitForGoogleReadRetry(null, attempt);
+      continue;
+    }
     if (!RETRYABLE_GOOGLE_STATUSES.has(response.status) || attempt === GOOGLE_READ_MAX_ATTEMPTS - 1) {
       return response;
     }
@@ -549,7 +556,7 @@ async function fetchGoogleSheetsReadWithRetry(url, init) {
 }
 
 async function waitForGoogleReadRetry(response, attempt) {
-  const retryAfter = Number(response.headers.get("Retry-After"));
+  const retryAfter = Number(response?.headers?.get("Retry-After"));
   const exponential = GOOGLE_READ_RETRY_BASE_MS * (2 ** attempt);
   const jitter = Math.floor(Math.random() * GOOGLE_READ_RETRY_BASE_MS);
   const requestedDelay = Number.isFinite(retryAfter) && retryAfter > 0

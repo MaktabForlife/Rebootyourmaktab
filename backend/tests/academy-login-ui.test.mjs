@@ -14,7 +14,7 @@ assert.match(redirects, /^\/academy\/:uniqueid \/academy\/#overview 302$/m);
 async function loadPage({ id = '', pin = '', replies = {}, storedToken = 'OLD_SESSION', academyId = '' } = {}) {
   const elements = new Map();
   for (const name of ['login-preview', 'demo-username', 'demo-pin', 'demo-pin-toggle', 'login-status',
-    'academy-session-loading', 'academy-home-card', 'academy-account-name', 'academy-maktab-link',
+    'academy-session-loading', 'academy-session-message', 'academy-session-retry', 'academy-home-card', 'academy-account-name', 'academy-maktab-link',
     'academy-sign-out', 'academy-avatar']) {
     elements.set(name, {
       value: '', textContent: '', href: '', hidden: ['academy-home-card', 'academy-sign-out',
@@ -54,9 +54,10 @@ async function loadPage({ id = '', pin = '', replies = {}, storedToken = 'OLD_SE
     fetch: async (url, options) => {
       const path = url.slice('https://test.example'.length);
       calls.push({ path, body: JSON.parse(options.body) });
-      const reply = replies[path];
+      const configuredReply = replies[path];
+      const reply = Array.isArray(configuredReply) ? configuredReply.shift() : configuredReply;
       assert.ok(reply, `Unexpected request: ${path}`);
-      return { ok: reply.ok !== false, json: async () => reply.body };
+      return { ok: reply.ok !== false, status: reply.status || 200, json: async () => reply.body };
     }
   };
   vm.runInNewContext(script, context);
@@ -66,6 +67,7 @@ async function loadPage({ id = '', pin = '', replies = {}, storedToken = 'OLD_SE
     get destination() { return destination; },
     get hash() { return context.window.location.hash; },
     async submit() { await elements.get('login-preview').handlers.submit({ preventDefault() {} }); },
+    async retrySession() { elements.get('academy-session-retry').handlers.click(); await new Promise(resolve => setImmediate(resolve)); },
     signOut() { elements.get('academy-sign-out').handlers.click(); },
     storageChanged(event) { windowHandlers.storage(event); }
   };
@@ -86,10 +88,10 @@ assert.equal(missingPin.destination, '');
 assert.deepEqual(missingPin.calls.map(call => call.path), ['/api/account/check']);
 
 const validLogin = await loadPage({ id: 'TEST-USER', pin: '1234', replies: {
-  '/api/account/check': { body: { success: true, account: { uniqueid: 'TEST-USER', pinsetup: true } } },
   '/api/account/login': { body: { success: true, token: 'NEW_SESSION', account: { uniqueid: 'TEST-USER' } } }
 } });
 await validLogin.submit();
+assert.deepEqual(validLogin.calls.map(call => call.path), ['/api/account/login']);
 assert.equal(validLogin.destination, '');
 assert.equal(validLogin.hash, 'overview');
 assert.equal(validLogin.storage.get('m4l_account_token'), 'NEW_SESSION');
@@ -128,6 +130,19 @@ const wrongAccount = await loadPage({ academyId: 'TEST-USER', replies: {
 } });
 assert.equal(wrongAccount.elements.get('login-preview').hidden, false);
 assert.equal(wrongAccount.elements.get('academy-home-card').hidden, true);
+
+const temporaryOutage = await loadPage({ academyId: 'TEST-USER', storedToken: 'NEW_SESSION', replies: {
+  '/api/account/session': [
+    { ok: false, status: 503, body: { success: false, error: 'Central account service is not ready' } },
+    { body: { success: true, account: { uniqueid: 'TEST-USER' } } }
+  ]
+} });
+assert.equal(temporaryOutage.elements.get('login-preview').hidden, true);
+assert.equal(temporaryOutage.session.get('m4l_academy_signed_in'), 'TEST-USER');
+assert.equal(temporaryOutage.elements.get('academy-session-retry').hidden, false);
+await temporaryOutage.retrySession();
+assert.equal(temporaryOutage.elements.get('academy-home-card').hidden, false);
+assert.equal(temporaryOutage.elements.get('academy-session-retry').hidden, true);
 
 const firstSetup = await loadPage({ id: 'TEST-USER', replies: {
   '/api/account/check': { body: { success: true, account: { uniqueid: 'TEST-USER', pinsetup: false } } }

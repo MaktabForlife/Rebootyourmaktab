@@ -107,6 +107,7 @@ export async function setupAccountPinEndpoint(request, env) {
 }
 
 export async function accountLoginEndpoint(request, env) {
+  let stage = "request";
   try {
     const body = await request.json();
     const uniqueId = String(body.uniqueid || "").trim();
@@ -114,9 +115,11 @@ export async function accountLoginEndpoint(request, env) {
     if (!uniqueId) return json({ success: false, error: "Missing uniqueid" }, 400);
     if (!isValidFourDigitPin(pin)) return invalidPinResponse();
 
+    stage = "rate-limit";
     const throttled = await enforceLoginRateLimit(env, uniqueId);
     if (throttled) return throttled;
 
+    stage = "account-read";
     const state = await loadCentralAccountState(env, uniqueId);
     const accountError = validateLoginAccount(state.account);
     if (accountError) return accountError;
@@ -124,6 +127,7 @@ export async function accountLoginEndpoint(request, env) {
       return json({ success: false, error: "Account PIN not set up yet" }, 403);
     }
 
+    stage = "pin-verification";
     const verification = await verifyPin(pin, state.account.PINHash, env.PIN_SECRET);
     if (!verification.valid) return json({ success: false, error: "Incorrect PIN" }, 401);
 
@@ -132,18 +136,27 @@ export async function accountLoginEndpoint(request, env) {
       ? verification.upgradedHash
       : String(state.account.PINHash || "").trim();
     const timestamp = new Date().toISOString();
+    stage = "login-record";
     const auditRecords = verification.needsMigration
       ? await readPlatformSheet(env, "PlatformAuditLog")
       : [];
-    await writeAccountLoginState(
-      env,
-      state.account,
-      selected,
-      timestamp,
-      verification.needsMigration ? credentialHash : "",
-      auditRecords,
-      verification.needsMigration ? "ACCOUNT_PIN_HASH_UPGRADE" : ""
-    );
+    try {
+      await writeAccountLoginState(
+        env,
+        state.account,
+        selected,
+        timestamp,
+        verification.needsMigration ? credentialHash : "",
+        auditRecords,
+        verification.needsMigration ? "ACCOUNT_PIN_HASH_UPGRADE" : ""
+      );
+    } catch (error) {
+      // A normal sign-in does not depend on its last-used timestamp. A PIN hash
+      // migration does depend on its credential and audit write succeeding.
+      if (verification.needsMigration) throw error;
+      logAccountServiceFailure("login-record", error);
+    }
+    stage = "session";
     const session = await createAccountSession(env, state, selected, credentialHash);
 
     return json({
@@ -152,6 +165,7 @@ export async function accountLoginEndpoint(request, env) {
       ...sessionResponse(state, session)
     });
   } catch (error) {
+    logAccountServiceFailure(stage, error);
     return accountServiceError(error, env);
   }
 }
@@ -769,6 +783,14 @@ function accountServiceError(error, env) {
       .slice(0, 180);
   }
   return json(response, 503);
+}
+
+function logAccountServiceFailure(stage, error) {
+  console.warn("Central account login dependency failed", {
+    stage,
+    code: String(error?.code || error?.name || "UNKNOWN").slice(0, 64),
+    status: Number(error?.status) || 0
+  });
 }
 
 function nextPlatformRow(records) {

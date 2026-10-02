@@ -149,6 +149,7 @@ const env = {
 
 const reads = [];
 const writes = [];
+let failNextLoginRecord = false;
 const originalFetch = globalThis.fetch;
 globalThis.fetch = async (input, init = {}) => {
   const url = new URL(String(input));
@@ -163,6 +164,10 @@ globalThis.fetch = async (input, init = {}) => {
   if(url.pathname==='/v4/spreadsheets/platform-sheet-test')return response({sheets:Object.keys(tables).map((title,sheetId)=>({properties:{title,sheetId}}))});
 
   if (url.pathname.endsWith("/values:batchUpdate")) {
+    if (failNextLoginRecord) {
+      failNextLoginRecord = false;
+      return response({ error: { message: "Temporary write outage" } }, 503);
+    }
     const payload = JSON.parse(init.body);
     writes.push(...payload.data);
     payload.data.forEach(applyUpdate);
@@ -212,6 +217,10 @@ try {
 
   const login = await post("/api/account/login", { uniqueid: "ADMIN-LINK", pin: "4321" });
   assert.equal(login.response.status, 200);
+  failNextLoginRecord = true;
+  const loginWithUnavailableTimestamp = await post("/api/account/login", { uniqueid: "ADMIN-LINK", pin: "4321" });
+  assert.equal(loginWithUnavailableTimestamp.response.status, 200,
+    "A temporary last-login timestamp write failure must not reject a verified account");
   assert.equal(login.data.success, true);
   assert.deepEqual(login.data.account, { displayName: "Admin One", uniqueid: "ADMIN-LINK" });
   assert.deepEqual(login.data.context, {

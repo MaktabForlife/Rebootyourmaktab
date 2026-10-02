@@ -10,6 +10,8 @@
   const pinToggle = document.getElementById("demo-pin-toggle");
   const status = document.getElementById("login-status");
   const sessionLoading = document.getElementById("academy-session-loading");
+  const sessionMessage = document.getElementById("academy-session-message");
+  const sessionRetry = document.getElementById("academy-session-retry");
   const homeCard = document.getElementById("academy-home-card");
   const accountName = document.getElementById("academy-account-name");
   const maktabLink = document.getElementById("academy-maktab-link");
@@ -33,6 +35,7 @@
     clearStoredAccountState();
     showSignedOut();
   });
+  sessionRetry.addEventListener("click", () => { void restoreAcademySession(); });
   window.addEventListener("storage", event => {
     if (event.key === tokenKey) {
       sessionStorage.removeItem(academySessionKey);
@@ -50,6 +53,7 @@
     homeCard.hidden = true;
     signOutButton.hidden = true;
     sessionLoading.hidden = true;
+    sessionRetry.hidden = true;
     form.hidden = false;
     linkInput.value = "";
     pinInput.value = "";
@@ -76,21 +80,30 @@
     }
     form.hidden = true;
     sessionLoading.hidden = false;
+    sessionMessage.textContent = "Opening your Academy home…";
+    sessionRetry.hidden = true;
     setBusy(true);
     try {
       const result = await api("/api/account/session", {}, token);
       if (localStorage.getItem(tokenKey) !== token || sessionStorage.getItem(academySessionKey) !== expectedId) {
-        throw new Error("The Academy session has ended.");
+        throw Object.assign(new Error("The Academy session has ended."), { status: 401 });
       }
       const account = result.account;
       if (String(account?.uniqueid || "").trim().toUpperCase() !== expectedId.toUpperCase()) {
-        throw new Error("The signed-in account has changed.");
+        throw Object.assign(new Error("The signed-in account has changed."), { status: 401 });
       }
       showSignedIn(account);
-    } catch (_) {
-      sessionStorage.removeItem(academySessionKey);
-      form.hidden = false;
-      sessionLoading.hidden = true;
+    } catch (error) {
+      if (isTemporaryServiceError(error) &&
+        localStorage.getItem(tokenKey) === token &&
+        sessionStorage.getItem(academySessionKey) === expectedId) {
+        sessionMessage.textContent = "The account service is temporarily unavailable. Your sign-in is saved.";
+        sessionRetry.hidden = false;
+      } else {
+        sessionStorage.removeItem(academySessionKey);
+        form.hidden = false;
+        sessionLoading.hidden = true;
+      }
     } finally {
       setBusy(false);
     }
@@ -121,33 +134,45 @@
     }
 
     setBusy(true);
-    showStatus("Checking your account…");
     try {
-      const check = await api("/api/account/check", { uniqueid: uniqueId });
-      const accountId = check.account?.uniqueid || uniqueId;
-      if (check.account?.pinsetup !== true) {
-        pinInput.value = "";
-        clearStoredAccountState();
-        window.location.assign(`/account/${encodeURIComponent(accountId)}?academy=1`);
-        return;
-      }
-
       const pin = pinInput.value;
-      if (!/^\d{4}$/.test(pin)) {
+      if (pin && !/^\d{4}$/.test(pin)) {
         showStatus("Enter your complete 4-digit PIN.");
         pinInput.focus();
         return;
       }
-
+      if (!pin) {
+        showStatus("Checking your account…");
+        const check = await api("/api/account/check", { uniqueid: uniqueId });
+        const accountId = check.account?.uniqueid || uniqueId;
+        if (check.account?.pinsetup !== true) {
+          clearStoredAccountState();
+          window.location.assign(`/account/${encodeURIComponent(accountId)}?academy=1`);
+          return;
+        }
+        showStatus("Enter your complete 4-digit PIN.");
+        pinInput.focus();
+        return;
+      }
       showStatus("Signing you in…");
-      const result = await api("/api/account/login", { uniqueid: accountId, pin });
+      let result;
+      try {
+        result = await api("/api/account/login", { uniqueid: uniqueId, pin });
+      } catch (error) {
+        if (error.status === 403 && error.message === "Account PIN not set up yet") {
+          clearStoredAccountState();
+          window.location.assign(`/account/${encodeURIComponent(uniqueId)}?academy=1`);
+          return;
+        }
+        throw error;
+      }
       if (!result.token) throw new Error("Sign-in did not return an account session.");
       clearStoredAccountState();
       localStorage.setItem(tokenKey, result.token);
-      sessionStorage.setItem(academySessionKey, result.account?.uniqueid || accountId);
+      sessionStorage.setItem(academySessionKey, result.account?.uniqueid || uniqueId);
       pinInput.value = "";
       showStatus("");
-      showSignedIn(result.account || check.account || { uniqueid: accountId });
+      showSignedIn(result.account || { uniqueid: uniqueId });
       window.location.hash = "overview";
     } catch (error) {
       pinInput.value = "";
@@ -201,8 +226,14 @@
       throw new Error("The account service returned an unreadable response.");
     }
     if (!response.ok || !result.success) {
-      throw new Error(result.error || "The account request could not be completed.");
+      const error = new Error(result.error || "The account request could not be completed.");
+      error.status = response.status;
+      throw error;
     }
     return result;
+  }
+
+  function isTemporaryServiceError(error) {
+    return !error?.status || error.status >= 500;
   }
 })();

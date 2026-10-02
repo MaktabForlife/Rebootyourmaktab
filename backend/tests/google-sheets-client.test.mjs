@@ -34,6 +34,7 @@ const calls = [];
 let oauthCalls = 0;
 let retryReadAttempts = 0;
 let retryFailureAttempts = 0;
+let retryNetworkAttempts = 0;
 const originalFetch = globalThis.fetch;
 
 globalThis.fetch = async (input, init = {}) => {
@@ -47,6 +48,7 @@ globalThis.fetch = async (input, init = {}) => {
     const form = new URLSearchParams(init.body);
     assert.equal(form.get("grant_type"), "urn:ietf:params:oauth:grant-type:jwt-bearer");
     assert.equal(form.get("assertion").split(".").length, 3);
+    if (oauthCalls === 1) return response({ error: "temporarily_unavailable" }, 503);
     return response({ access_token: "mock-google-token", expires_in: 3600 });
   }
 
@@ -73,6 +75,10 @@ globalThis.fetch = async (input, init = {}) => {
       if (decodedPath.includes("/values/RetryFail!A:B")) {
         retryFailureAttempts += 1;
         return response({ error: { message: "Persistent quota pressure" } }, 503);
+      }
+      if (decodedPath.includes("/values/RetryNetwork!A:B")) {
+        retryNetworkAttempts += 1;
+        if (retryNetworkAttempts === 1) throw new TypeError("Temporary network failure");
       }
       return response({ values: [["Header"], ["Value"]] });
     }
@@ -147,7 +153,9 @@ try {
     () => readGoogleSheetValues(env, "RetryFail!A:B"),
     error => error?.status === 503 && error?.retryable === true
   );
-  assert.equal(retryFailureAttempts, 2, "V104.4 must stop after one retry for a persistent transient Google read failure");
+  assert.equal(retryFailureAttempts, 3, "Google reads must stop after three attempts for a persistent transient failure");
+  assert.deepEqual(await readGoogleSheetValues(env, "RetryNetwork!A:B"), [["Header"], ["Value"]]);
+  assert.equal(retryNetworkAttempts, 2, "A temporary network failure should be retried for a Google read");
   await assert.rejects(
     () => batchUpdateGoogleSheetValues(env, []),
     /requires at least one range/
@@ -157,10 +165,10 @@ try {
     /requires at least one request/
   );
 
-  assert.equal(oauthCalls, 1, "The reusable client should reuse a valid access token");
+  assert.equal(oauthCalls, 2, "The client should retry a temporary OAuth failure, then reuse the token");
 
   const sheetsCalls = calls.filter(call => call.url.hostname === "sheets.googleapis.com");
-  assert.equal(sheetsCalls.length, 12);
+  assert.equal(sheetsCalls.length, 15);
 
   assert.equal(sheetsCalls[0].method, "GET");
   assert.equal(sheetsCalls[0].url.pathname.endsWith("/values/Data!A%3AB"), true);
@@ -230,6 +238,9 @@ try {
   assert.equal(sheetsCalls[9].url.pathname.endsWith("/values/Retry!A%3AB"), true);
   assert.equal(sheetsCalls[10].url.pathname.endsWith("/values/RetryFail!A%3AB"), true);
   assert.equal(sheetsCalls[11].url.pathname.endsWith("/values/RetryFail!A%3AB"), true);
+  assert.equal(sheetsCalls[12].url.pathname.endsWith("/values/RetryFail!A%3AB"), true);
+  assert.equal(sheetsCalls[13].url.pathname.endsWith("/values/RetryNetwork!A%3AB"), true);
+  assert.equal(sheetsCalls[14].url.pathname.endsWith("/values/RetryNetwork!A%3AB"), true);
 } finally {
   globalThis.fetch = originalFetch;
 }

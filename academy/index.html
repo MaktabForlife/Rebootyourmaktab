@@ -272,7 +272,7 @@
           </div>
           <div class="intro-next">
             <div><div class="eyebrow">Welcome to Umm Abbad Academy</div><p>One Academy account connecting you to all your learning</p></div>
-            <div class="login-preview" id="academy-session-loading" role="status" hidden>Opening your Academy home…</div>
+            <div class="login-preview" id="academy-session-loading" role="status" hidden><span id="academy-session-message">Opening your Academy home…</span> <button class="button secondary" id="academy-session-retry" type="button" hidden>Try again</button></div>
             <form class="login-preview" id="login-preview" autocomplete="off" novalidate>
               <div class="login-preview-head">Sign in <span>Academy account</span></div>
               <label for="demo-username">Account ID</label>
@@ -449,6 +449,6 @@
   renderScope();showView(location.hash.slice(1));
 </script>
 <script src="/js/m4l-config.js?v=102.4"></script>
-<script src="/js/m4l-academy-login.js?v=6"></script>
+<script src="/js/m4l-academy-login.js?v=7"></script>
 </body>
 </html>
