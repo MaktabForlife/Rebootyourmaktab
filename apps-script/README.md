@@ -32,9 +32,11 @@ Worker validates the administrator, Program and selected folder before signing
 the request. No Library upload is accepted when this secret is missing.
 
 `authorizeM4LServices` is the only manual function. It confirms access to the
-bound spreadsheet and configured Weekly Planner folder, then checks that the
-deploying account can add files to the V105.4.1 Development Library Resources
-folder through the same Drive API token used by uploads. It does not create a file.
+bound spreadsheet and configured Weekly Planner folder, then reads
+`ProgramLibraryDriveFolderId` from `SystemConfig` and checks that the deploying
+account can add files to that Library folder through the same Drive API token
+used by uploads. It does not create a file. The Library upload itself uses the
+folder selected in the UI and signed by the Worker.
 
 Apps Script no longer contains Admin registration/lookup, Task Resource
 administration, StudentTask lookup, task-population, or other Sheets

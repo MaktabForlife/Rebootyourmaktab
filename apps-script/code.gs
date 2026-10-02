@@ -15,8 +15,9 @@ V105.4.1 OWNERSHIP:
   Cloudflare Worker routes and the M4L UI.
 - Apps Script is retained for Weekly Planner PNG and Program Library uploads
   to the deploying account's Google Drive.
-- Apps Script reads the UI-managed Weekly Planner Drive destination from the
-  bound spreadsheet's SystemConfig sheet; it does not administer Sheets data.
+- Apps Script reads the Weekly Planner destination and manual Library access
+  check folder from the bound spreadsheet's SystemConfig sheet; it does not
+  administer Sheets data.
 
 CALLABLE doPost ACTIONS:
 - saveWeeklyPlannerPreviewToDrive
@@ -34,6 +35,7 @@ const SYSTEM_CONFIG_SHEET_NAME = "SystemConfig";
 const WEEKLY_PLANNER_DRIVE_FOLDER_ID_CONFIG_KEY = "WeeklyPlannerDriveFolderId";
 const WEEKLY_PLANNER_DRIVE_FOLDER_LABEL_CONFIG_KEY = "WeeklyPlannerDriveFolderLabel";
 const DEFAULT_WEEKLY_PLANNER_DRIVE_FOLDER_LABEL = "Weekly Planner";
+const PROGRAM_LIBRARY_DRIVE_FOLDER_ID_CONFIG_KEY = "ProgramLibraryDriveFolderId";
 
 /* =========================
    UI-MANAGED DRIVE CONFIGURATION
@@ -250,9 +252,14 @@ function authorizeM4LServices() {
   const driveConfig = getWeeklyPlannerDriveConfig_();
   const folder = DriveApp.getFolderById(driveConfig.folderId);
 
-  // V105.4.1 Development Library destination. This read-only check exercises
-  // the same Drive API token used when an administrator starts an upload.
-  const libraryFolderId = "1s49jgFUtrPMQNICHeBupxNL-axcTwRsU";
+  // This read-only check exercises the Drive API token used for uploads.
+  const libraryFolderId = getSystemConfigValue_(
+    PROGRAM_LIBRARY_DRIVE_FOLDER_ID_CONFIG_KEY,
+    true
+  );
+  if (!/^[A-Za-z0-9_-]{10,128}$/.test(libraryFolderId)) {
+    throw new Error("ProgramLibraryDriveFolderId is invalid in SystemConfig");
+  }
   const libraryFolder = DriveApp.getFolderById(libraryFolderId);
   const libraryResponse = UrlFetchApp.fetch(
     "https://www.googleapis.com/drive/v3/files/" + encodeURIComponent(libraryFolderId) +
