@@ -7,6 +7,11 @@ import { timetableCoordinator } from '../src/programs/timetable-coordination.js'
 
 const markup=await readFile(new URL('../../programs/library.html',import.meta.url),'utf8');
 const source=await readFile(new URL('../../js/m4l-program-library.js',import.meta.url),'utf8');
+assert(markup.indexOf('id="pl-add-drive"')<markup.indexOf('<section id="pl-bulk"'));
+assert(markup.indexOf('<section id="pl-bulk"')<markup.indexOf('<section id="pl-editor"'));
+assert(markup.indexOf('<section id="pl-editor"')<markup.indexOf('<section id="pl-list"'),'Review and editor appear above the resource catalogue');
+assert(markup.indexOf('id="pl-bulk-start"')<markup.indexOf('id="pl-bulk-subject"'),'Review controls appear before the fields');
+assert(markup.indexOf('id="pl-save"')<markup.indexOf('id="pl-type"'),'Editor controls appear before the fields');
 const ids=new Set([...markup.matchAll(/id="([^"]+)"/g)].map(match=>match[1]));
 const elements=new Map(),storage=new Map(),requests=[];
 function element(id){
