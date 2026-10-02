@@ -13,7 +13,7 @@
     progress:{label:'Module progress',singular:'class status',key:'ProgressID',prefix:'MP',columns:[['ProgramModuleID','Module','module'],['ClassID','Class','class'],['Status','Class status','progress']],help:'Track each class separately: Active = studying, Inactive = not currently studying, Completed = finished. Completing a module for one class does not change its availability or timetable.'},
     classes:{label:'Classes',singular:'class',key:'ClassID',prefix:'CLS',columns:[['Name','Class name'],['AcademicYear','Academic year (optional)'],['ZoomLink','Zoom link (optional)','url'],['Active','Status','active']],help:'Create classes such as Year 1 and Year 2. The class Zoom link is used for single-class lessons unless a lesson link is set. Combined classes require a shared lesson link.'},
     teachers:{label:'Teachers',singular:'teacher',key:'AccountID',columns:[['AccountID','Teacher','teacher'],['Active','Assignment','active']],help:'Choose users with an active Teacher, Senior or Admin role in this Program. Program assignments do not grant roles.'},
-    enrollments:{label:'Class memberships',singular:'class membership',key:'EnrollmentID',prefix:'ENR',columns:[['AccountID','User','account'],['ClassID','Class','class'],['StartDate','From','date'],['EndDate','Through (optional)','date'],['Active','Status','active']],help:'Set inclusive membership dates. A blank end date means ongoing membership. These dates support learner-clash checks.'}
+    enrollments:{label:'Class memberships',singular:'class membership',key:'EnrollmentID',prefix:'ENR',columns:[['AccountID','User','account'],['ClassID','Class','class'],['StartDate','From (optional)','date'],['EndDate','Through (optional)','date'],['Active','Status','active']],help:'Leave both dates blank for ongoing membership. Add either date only when you need to limit the membership period. Dates support learner-clash checks.'}
   };
   const tabs=[['overview','Overview'],['modules','Modules'],['subjects','Subjects'],['tasks','Tasks'],['classes','Classes'],['profiles','User profiles']];
   const tabKind=kind=>({progress:'modules',levels:'modules',enrollments:'profiles',teachers:'profiles'})[kind]||kind;
@@ -124,7 +124,7 @@
     const records=state.data.accounts,search=state.search.trim().toLowerCase();
     const roles=account=>(account.Roles||[]).map(role=>({STUDENT:'Student',TEACHER:'Teacher',SENIOR:'Senior',ADMIN:'Admin'})[role]||role);
     const filtered=records.filter(account=>[account.DisplayName,account.AccountID,...roles(account)].some(value=>String(value).toLowerCase().includes(search)));
-    $('pm-caption').textContent='User profiles';$('pm-help').textContent='Academy users and their roles in this Program. Open Class memberships to add or update their class membership dates.';
+    $('pm-caption').textContent='User profiles';$('pm-help').textContent='Academy users and their roles in this Program. Open Class memberships to assign a user to a class; dates are optional.';
     $('pm-section-note').textContent='Open the shared User profiles screen to add or edit academy users and assign their roles and subscriptions.';$('pm-section-note').hidden=false;
     $('pm-count').textContent=`${filtered.length} of ${records.length} users`;
     $('pm-head').innerHTML='<tr><th scope="col">User</th><th scope="col">Account status</th><th scope="col">Roles in this Program</th><th scope="col">Classes</th><th scope="col">Actions</th></tr>';

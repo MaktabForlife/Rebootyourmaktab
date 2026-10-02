@@ -15,6 +15,7 @@ const snap=clone(result.snapshot);f.catalog.modules[0].name='Renamed';f.catalog.
 assert.equal(publishedOccurrences(snap)[1].moduleName,'Maariful Quran · Demo module');assert.equal(publishedOccurrences(snap)[1].teacherName,'Demo teacher A');f.catalog.modules[0].name='Maariful Quran · Demo module';f.catalog.teachers[0].active=true;
 d=clone(f.draft);d.rules.push({...clone(d.rules[0]),id:'RULE-OVERLAP'});result=check(d);assert.equal(result.valid,false);assert.deepEqual(result.conflicts[0].reasons,['Teacher overlap','Class overlap','Known learner membership overlap']);
 d.rules[0].classIds=['CLASS-1'];d.rules[1].classIds=['CLASS-2'];d.rules[1].teacherId='TEACHER-2';result=check(d);assert.deepEqual(result.conflicts[0].reasons,['Known learner membership overlap']);
+f.catalog.enrollments[1].startDate='';assert.deepEqual(check(d).conflicts[0].reasons,['Known learner membership overlap']);
 f.catalog.enrollments[1].endDate='2026-09-20';assert(check(d).valid);f.catalog.enrollments[1].endDate='';
 d.rules[1].startTime='14:00';d.rules[1].endTime='15:00';assert(check(d).valid);
 d=clone(f.draft);d.rules[0].kind='EXPLICIT';d.rules[0].endDate=d.rules[0].startDate;assert.equal(check(d).occurrences.length,1);

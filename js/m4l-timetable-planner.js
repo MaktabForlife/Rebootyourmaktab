@@ -56,7 +56,7 @@
         if(learnerCache.has(key))return learnerCache.get(key);
         const memberships=catalog().enrollments.filter(row=>row.active);
         for(const left of memberships.filter(row=>leftClasses.includes(row.classId)))for(const right of memberships.filter(row=>rightClasses.includes(row.classId)&&row.accountId===left.accountId)){
-          const start=[state.effectiveFrom||state.data.today||'0000-01-01',left.startDate,right.startDate].sort().at(-1),end=[left.endDate||'2099-12-31',right.endDate||'2099-12-31'].sort()[0];
+          const start=[state.effectiveFrom||state.data.today||'0000-01-01',left.startDate||'',right.startDate||''].sort().at(-1),end=[left.endDate||'2099-12-31',right.endDate||'2099-12-31'].sort()[0];
           if(start>end)continue;
           const startTime=Date.parse(start+'T00:00:00Z');
           if(!Number.isFinite(startTime)){learnerCache.set(key,true);return true;}

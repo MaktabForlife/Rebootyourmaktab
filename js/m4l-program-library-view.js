@@ -1,4 +1,4 @@
-/* V105.4.2.2 · Read-only Program Library viewer, following Reboot's subject and resource ribbons. */
+/* V105.4.2.3 · Read-only Program Library viewer, following Reboot's subject and resource ribbons. */
 (() => {
   'use strict';
   const $ = id => document.getElementById(id);

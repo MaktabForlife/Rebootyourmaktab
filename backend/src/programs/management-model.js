@@ -199,9 +199,11 @@ export function applyManagementChange(current, input, shared, program) {
     record.ClassID=text('ClassID','Class',100);record.AccountID=text('AccountID','Learner',100);
     if(!snapshot.ProgramClasses.some(r=>r.ClassID===record.ClassID&&r.CourseID===program.id&&(!record.Active||active(r.Active))))throw problem('Choose an active class in this Program.');
     if(!shared.accounts.some(a=>a.AccountID===record.AccountID&&(!record.Active||active(a.Active))))throw problem('Choose an active Academy account.');
-    record.StartDate=text('StartDate','Start date',10);record.EndDate=text('EndDate','End date',10,true);
-    if(!validDate(record.StartDate)||(record.EndDate&&(!validDate(record.EndDate)||record.EndDate<record.StartDate)))throw problem('Enter valid membership dates; the end date must be on or after the start date.');
-    if(record.Active&&rows.some(r=>r.EnrollmentID!==id&&active(r.Active)&&r.ClassID===record.ClassID&&r.AccountID===record.AccountID&&r.StartDate<=(record.EndDate||'9999-12-31')&&record.StartDate<=(r.EndDate||'9999-12-31')))throw problem('This learner already has overlapping membership dates in this class.');
+    record.StartDate=text('StartDate','Start date',10,true);record.EndDate=text('EndDate','End date',10,true);
+    if((record.StartDate&&!validDate(record.StartDate))||(record.EndDate&&!validDate(record.EndDate))||
+      (record.StartDate&&record.EndDate&&record.EndDate<record.StartDate))throw problem('Enter valid membership dates; if both are set, the end date must be on or after the start date.');
+    if(record.Active&&rows.some(r=>r.EnrollmentID!==id&&active(r.Active)&&r.ClassID===record.ClassID&&r.AccountID===record.AccountID&&
+      (r.StartDate||'')<=(record.EndDate||'9999-12-31')&&record.StartDate<=(r.EndDate||'9999-12-31')))throw problem('This learner already has overlapping membership dates in this class.');
   }
   if(input.kind==='teachers'&&record.Active&&!shared.accounts.some(a=>a.AccountID===id&&active(a.Active)))throw problem('Choose an active Academy account.');
   if(input.kind==='teachers'&&record.Active&&!shared.grantedTeachers.some(a=>a.AccountID===id))throw problem('This user needs an active Teacher, Senior or Admin role in this Program before being assigned to teach.');

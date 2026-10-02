@@ -136,7 +136,8 @@ export function validateWeeklyTimetable(input,catalog,program,fromDate){
     if(!validTime(row.startTime)||!validTime(row.endTime)||row.startTime>=row.endTime)issue(row.id,'time','Use a same-day break with the end after the start.');
     if(!row.weekdays.length||new Set(row.weekdays).size!==row.weekdays.length||row.weekdays.some(d=>!Number.isInteger(d)||d<0||d>6))issue(row.id,'weekdays','Choose at least one weekday for the break without duplicates.');
   }
-  for(const e of enrollments)if(e.courseId!==program.id||!classes.has(e.classId)||!e.accountId||!validDate(e.startDate)||(e.endDate&&(!validDate(e.endDate)||e.endDate<e.startDate)))issue('','enrollments','Repair invalid class membership dates before publishing.');
+  for(const e of enrollments)if(e.courseId!==program.id||!classes.has(e.classId)||!e.accountId||(e.startDate&&!validDate(e.startDate))||
+    (e.endDate&&(!validDate(e.endDate)||e.startDate&&e.endDate<e.startDate)))issue('','enrollments','Repair invalid class membership dates before publishing.');
   if(issues.length)return {valid:false,issues,conflicts,occurrences:[],draft,pattern:'WEEKLY'};
   const asOf=fromDate||programToday(TIMETABLE_TIMEZONE);
   if(!validDate(asOf))throw problem('Choose a valid effective date.');

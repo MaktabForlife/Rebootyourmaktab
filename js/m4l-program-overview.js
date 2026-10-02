@@ -16,7 +16,7 @@
       // A learner is counted once, even when they belong to two combined classes.
       const learnerIds=new Set();
       for(const enrollment of rows.enrollments){
-        if(active(enrollment.Active)&&occurrences.some(o=>{const date=preview.pattern==='WEEKLY'?preview.asOf:o.date;return o.classIds.includes(enrollment.ClassID)&&enrollment.StartDate<=date&&(!enrollment.EndDate||enrollment.EndDate>=date);}))learnerIds.add(enrollment.AccountID);
+        if(active(enrollment.Active)&&occurrences.some(o=>{const date=preview.pattern==='WEEKLY'?preview.asOf:o.date;return o.classIds.includes(enrollment.ClassID)&&(!enrollment.StartDate||enrollment.StartDate<=date)&&(!enrollment.EndDate||enrollment.EndDate>=date);}))learnerIds.add(enrollment.AccountID);
       }
       return {subjectId:subject?.ProgramSubjectID||module?.ProgramSubjectID||'',moduleId:module?.ProgramModuleID||'',levelId:level?.LevelID||module?.LevelID||'',
         subject:names.get(subject?.SubjectID)||'Unavailable subject',level:level?.Name||(module?.LevelID?'Unavailable level':'No level'),module:module?.Name||'',

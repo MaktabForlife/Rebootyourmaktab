@@ -353,7 +353,10 @@ try{
  assert(!(await tt('get')).catalog.teachers.some(r=>r.id==='ACCOUNT2'),'Explicit assignment cannot override a revoked program role');
  table(platformId,'UserCourseAccess').at(-1)[4]=true;
  assert.deepEqual(table(platformId,'UserCourseAccess'),centralAccessBefore);
- await saveRow('enrollments',{EnrollmentID:'ENR-TEST',ClassID:'CLS-TEST',AccountID:'ACCOUNT2',StartDate:'2026-09-01',EndDate:'',Active:true});
+ const undatedMembership=await saveRow('enrollments',{EnrollmentID:'ENR-TEST',ClassID:'CLS-TEST',AccountID:'ACCOUNT2',Active:true});
+ assert.equal(undatedMembership.record.StartDate,'');assert.equal(undatedMembership.record.EndDate,'');
+ const endOnlyMembership=await saveRow('enrollments',{EnrollmentID:'ENR-END-ONLY',ClassID:'CLS-TEST',AccountID:'ACCOUNT1',EndDate:'2026-09-30',Active:true});
+ assert.equal(endOnlyMembership.record.StartDate,'');assert.equal(endOnlyMembership.record.EndDate,'2026-09-30');
  await tt('manage-save',edit('enrollments',{EnrollmentID:'ENR-OVERLAP',ClassID:'CLS-TEST',AccountID:'ACCOUNT2',StartDate:'2026-09-24',EndDate:'',Active:true}),token,400);
  await tt('manage-save',edit('enrollments',{EnrollmentID:'ENR-BAD-DATE',ClassID:'CLS-TEST',AccountID:'ACCOUNT2',StartDate:'2026-02-30',EndDate:'',Active:true}),token,400);
  await tt('manage-save',edit('classes',{ClassID:'CLS-TEST',Name:'Evening class',AcademicYear:'2026',Active:false},false),token,400);

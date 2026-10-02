@@ -7,6 +7,7 @@ const timetable={draft:{rules:[{moduleId:'M1',classIds:['C1','C2'],teacherId:'T'
 const preview={issues:[],occurrences:[{moduleId:'M1',classIds:['C1','C2'],date:'2026-09-24',status:'SCHEDULED'}]};
 const before=JSON.stringify(data),build=()=>JSON.parse(JSON.stringify(sandbox.window.M4L_PROGRAM_OVERVIEW.build(data,timetable,preview)));
 let result=build();assert.equal(result.length,4);assert.deepEqual(result[0].classes,['Year 1','Year 2']);assert.deepEqual(result[0].teachers,['Teacher']);assert.deepEqual(result[0].learners,[{id:'L',name:'Learner'}]);assert.equal(result[1].level,'No level');assert.equal(result[2].level,'L2');assert.equal(result[2].module,'');assert.equal(result[3].subject,'Fiqh');assert.equal(JSON.stringify(data),before);
+data.rows.enrollments[0].StartDate='';assert.deepEqual(build()[0].learners,[{id:'L',name:'Learner'}]);
 preview.pattern='WEEKLY';preview.asOf='2026-09-29';delete preview.occurrences[0].date;
 assert.deepEqual(build()[0].learners,[{id:'L',name:'Learner'}]);
 preview.occurrences[0].status='CANCELLED';assert.equal(build()[0].learners.length,0);
