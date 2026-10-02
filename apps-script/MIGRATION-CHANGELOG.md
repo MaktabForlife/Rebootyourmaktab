@@ -413,6 +413,11 @@ Production.
 
 ## Change history
 
+### 2026-10-02 — V105.4.1.1
+
+- Aligned the Apps Script milestone with the Library, Pages and Worker release
+  version. The upload action and authorization flow are unchanged in this patch.
+
 ### 2026-10-01 — V105.4.1
 
 - Added the signed `startProgramLibraryUpload` Drive action for device uploads

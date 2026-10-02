@@ -2,7 +2,7 @@
 ===============================================================================
 MAKTABHELPER — GOOGLE DRIVE BRIDGE
 Last updated: 2 October 2026
-Library milestone: V105.4.1
+Library milestone: V105.4.1.1
 ===============================================================================
 
 SOURCE OF TRUTH:
@@ -10,7 +10,7 @@ SOURCE OF TRUTH:
 - Synchronize the complete file to the bound Apps Script project; do not
   maintain an independent dashboard copy.
 
-V105.4.1 OWNERSHIP:
+V105.4.1.1 OWNERSHIP:
 - All Google Sheets application reads and writes are owned by authenticated
   Cloudflare Worker routes and the M4L UI.
 - Apps Script is retained for Weekly Planner PNG and Program Library uploads
@@ -346,6 +346,6 @@ function doGet() {
   return jsonResponse({
     status: "success",
     message: "Connected to M4L Google Drive bridge",
-    milestone: "V105.4.1"
+    milestone: "V105.4.1.1"
   });
 }

@@ -133,7 +133,7 @@ assert.equal(root.status, 200);
 assert.deepEqual(await root.json(), {
   success: true,
   service: "rebootworker",
-  version: "105.4.1"
+  version: "105.4.1.1"
 });
 
 const preflight = await worker.fetch(new Request("https://worker.test/api/login", {
@@ -431,7 +431,7 @@ console.log("Worker router tests passed.");
 const release=JSON.parse(await readFile(new URL('../../version.json',import.meta.url),'utf8')).version;
 assert.equal(JSON.parse(await readFile(new URL('../../js/version.json',import.meta.url),'utf8')).version,release);
 assert.equal((await (await worker.fetch(new Request('https://worker.test/'),{})).json()).version,release);
-for(const path of ['account/index.html','programs/index.html','programs/manage.html','programs/timetable.html']){
+for(const path of ['account/index.html','programs/index.html','programs/manage.html','programs/timetable.html','programs/library.html']){
  const html=await readFile(new URL('../../'+path,import.meta.url),'utf8');
  const badge=html.match(/class="(?:account-version|pb-version)">V([^ <]+)/);
  assert.equal(badge?.[1],release,path+' version badge');
