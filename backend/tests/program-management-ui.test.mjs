@@ -55,7 +55,7 @@ element('pm-add').onclick();input('Name','Preserved draft');input('ZoomLink','ht
 assert.match(element('pm-rows').innerHTML,/data-field="ZoomLink"/);assert.match(element('pm-head').innerHTML,/Zoom link/);
 // Browse Learners without losing or saving the Classes draft.
 element('pm-tabs').onclick({target:{closest:()=>({dataset:{tab:'profiles'}})}});
-assert.equal(element('pm-caption').textContent,'User profiles');assert.equal(element('pm-draft-notice').hidden,false);
+assert.equal(element('pm-caption').textContent,'Enrolled students');assert.equal(element('pm-draft-notice').hidden,false);
 assert.match(element('pm-rows').innerHTML,/Demo learner/);assert(!element('pm-rows').innerHTML.includes('Preserved draft'));
 assert.equal(element('pm-editor').disabled,true,'Other sections are readable while a draft is unfinished');
 element('pm-return').onclick();assert.match(element('pm-rows').innerHTML,/Preserved draft/);
@@ -99,7 +99,7 @@ assert.equal((await service.read('manage-get')).rows.classes.find(r=>r.ClassID==
 assert.equal(element('pm-pending').hidden,true);
 console.log('Management UI: post-save refresh failure and lost server acknowledgement recovery passed.');
 
-// The public tabs are fixed; memberships remain accessible through a user profile.
+// The public tabs are fixed; only enrolled students are shown with inline classes.
 assert.deepEqual([...element('pm-tabs').innerHTML.matchAll(/data-tab="([^"]+)"[^>]*>([^<]+)<\/button>/g)].map(m=>[m[1],m[2]]),[['overview','Overview'],['modules','Modules'],['subjects','Subjects'],['tasks','Tasks'],['classes','Classes'],['profiles','User profiles']]);
 assert(!element('pm-tabs').innerHTML.includes('<small>'));
 element('pm-tabs').onclick({target:{closest:()=>({dataset:{tab:'tasks'}})}});
@@ -107,18 +107,36 @@ element('pm-add').onclick();input('ProgramSubjectID','PS-TAFSEER');input('Name',
 await clickRow({'data-save':true});
 assert.equal((await service.read('manage-get')).rows.tasks.find(r=>r.Name==='Read chapter')?.ProgramModuleID,'');
 element('pm-tabs').onclick({target:{closest:()=>({dataset:{tab:'profiles'}})}});
-assert.match(element('pm-rows').innerHTML,/Teacher/);assert.match(element('pm-rows').innerHTML,/Student/);
+assert.match(element('pm-rows').innerHTML,/Demo learner/);assert(!element('pm-rows').innerHTML.includes('Demo teacher A'));
 assert.equal(element('pm-add').hidden,true);
-await clickRow({userMemberships:'LEARNER-DEMO'});
-assert.equal(element('pm-caption').textContent,'Class memberships');
-assert.equal(element('pm-add').disabled,false);assert.equal(element('pm-editor').disabled,false);
-assert.match(element('pm-rows').innerHTML,/Year 1/);
-element('pm-add').onclick();input('StartDate','2027-01-01');
-assert.match(element('pm-rows').innerHTML,/data-field="AccountID"[^>]*disabled/);
-element('pm-profiles-back').onclick();assert.equal(element('pm-draft-notice').hidden,false);
-element('pm-return').onclick();assert.match(element('pm-rows').innerHTML,/2027-01-01/);
-await clickRow({'data-cancel':true});
-console.log('Management UI: curriculum tasks, account roles and profile-scoped class membership editor passed.');
+assert.equal(element('pm-save-all').hidden,false);assert.match(element('pm-rows').innerHTML,/Multiple saved classes/);
+await clickRow({classClearMultiple:'LEARNER-DEMO'});
+assert.match(element('pm-rows').innerHTML,/Unsaved change/);
+element('pm-rows').listeners.change({target:{dataset:{groupAccount:'LEARNER-DEMO'},value:'CLASS-1'}});
+assert.match(element('pm-rows').innerHTML,/data-group-save="LEARNER-DEMO"/);
+await clickRow({groupSave:'LEARNER-DEMO'});
+let activeGroups=(await service.read('manage-get')).rows.enrollments.filter(r=>r.AccountID==='LEARNER-DEMO'&&r.Active);
+assert.equal(activeGroups.length,1);assert.equal(activeGroups[0].ClassID,'CLASS-1');
+assert(!element('pm-rows').innerHTML.includes('Unsaved change'));
+f.shared.accounts.push({AccountID:'LEARNER-2',DisplayName:'Second learner',Active:true,Roles:['STUDENT']});
+await element('pm-reload').onclick();
+element('pm-rows').listeners.change({target:{dataset:{groupAccount:'LEARNER-DEMO'},value:'CLASS-2'}});
+element('pm-rows').listeners.change({target:{dataset:{groupAccount:'LEARNER-2'},value:'CLASS-1'}});
+assert.match(element('pm-save-all').textContent,/Save all \(2\)/);
+await element('pm-save-all').onclick();
+activeGroups=(await service.read('manage-get')).rows.enrollments.filter(r=>r.Active);
+assert.equal(activeGroups.filter(r=>r.AccountID==='LEARNER-DEMO')[0].ClassID,'CLASS-2');
+assert.equal(activeGroups.filter(r=>r.AccountID==='LEARNER-2')[0].ClassID,'CLASS-1');
+assert(!element('pm-rows').innerHTML.includes('Unsaved change'));
+element('pm-rows').listeners.change({target:{dataset:{groupAccount:'LEARNER-2'},value:'CLASS-2'}});
+const groupView=await service.read('manage-get');
+await coordinator.run('manage-save',{id:f.program.id,kind:'student-class',record:{AccountID:'LEARNER-2',ClassID:''},baseRowRevision:groupView.studentClassRevisions['LEARNER-2'],revision:groupView.revision,operationId:crypto.randomUUID()},'token');
+await clickRow({groupSave:'LEARNER-2'});
+assert.match(element('pm-rows').innerHTML,/Saved class changed/);
+await clickRow({groupUseMine:'LEARNER-2'});
+await clickRow({groupSave:'LEARNER-2'});
+assert.equal((await service.read('manage-get')).rows.enrollments.find(r=>r.AccountID==='LEARNER-2'&&r.Active)?.ClassID,'CLASS-2');
+console.log('Management UI: enrolled-student filter, one class per student, row Save and Save all passed.');
 
 // A rate-limit response pauses before retrying the same operation; access failures stay pending.
 element('pm-tabs').onclick({target:{closest:()=>({dataset:{tab:'classes'}})}});
@@ -131,7 +149,7 @@ serviceFailure={code:'SHEETS_ACCESS_FAILED',retryable:false};const beforeAccess=
 await clickRow({'data-save':true});assert.equal(element('pm-pending').hidden,false);
 assert.equal(requests.slice(beforeAccess).filter(r=>r.action==='recover').length,0,'Do not retry a configuration/access failure automatically');
 element('pm-tabs').onclick({target:{closest:()=>({dataset:{tab:'profiles'}})}});
-assert.equal(element('pm-caption').textContent,'User profiles');
+assert.equal(element('pm-caption').textContent,'Enrolled students');
 await element('pm-retry').onclick();
 assert.equal((await service.read('manage-get')).rows.classes.find(r=>r.ClassID===saved.ClassID).Name,'Access restored','Retry from another tab must still save the original kind');
 assert.equal(element('pm-caption').textContent,'Classes');
@@ -155,7 +173,7 @@ const duringWait=requests.length;
 await element('pm-reload').onclick();await clickRow({'data-save':true});
 assert.equal(requests.length,duringWait,'Manual clicks do not defeat the quota cooldown');
 element('pm-tabs').onclick({target:{closest:()=>({dataset:{tab:'profiles'}})}});
-assert.equal(element('pm-caption').textContent,'User profiles');
+assert.equal(element('pm-caption').textContent,'Enrolled students');
 scheduled.shift().fn();await settled();
 assert.equal(element('pm-refresh-status').hidden,true);
 element('pm-return').onclick();assert.match(element('pm-rows').innerHTML,/Next unsaved entry/);
@@ -226,7 +244,7 @@ console.log('Management UI: standard level acknowledgement, inline per-class sta
 // Drafts from the removed sections can still be completed or cancelled after the upgrade.
 for(const [kind,record,destination] of [
   ['levels',{LevelID:'LVL-OLD-DRAFT',ProgramSubjectID:'PS-TAFSEER',Name:'Unfinished old level',SortOrder:0,Active:true},'Modules'],
-  ['teachers',{AccountID:'TEACHER-1',Active:true},'User profiles']
+  ['teachers',{AccountID:'TEACHER-1',Active:true},'Enrolled students']
 ]){
   storage.set(`m4l-management-pending:${f.program.id}:draft`,JSON.stringify({kind,edit:{record,creating:true,originalId:record.LevelID||record.AccountID}}));
   vm.runInNewContext(source,context);await settled();

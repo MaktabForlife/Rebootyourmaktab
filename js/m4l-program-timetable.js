@@ -61,7 +61,7 @@
     $('tt-save').disabled||=!dirty()||sharedConflict;
     $('tt-open-publish').disabled=locked||!ready||!state.preview?.valid||sharedConflict||Boolean(state.calendarView?.history);
     $('tt-publish').disabled=locked||!ready||sharedConflict;
-    $('tt-effective-from').disabled=locked;$('tt-preview-type').disabled=locked;$('tt-preview-target').disabled=locked||!$('tt-preview-target').value;
+    $('tt-effective-from').disabled=locked;$('tt-preview-type').disabled=locked;$('tt-preview-target').disabled=locked||$('tt-preview-type').value==='program'||!$('tt-preview-target').value;
     for(const name of ['reload','discard-all','history','prepare','convert'])$(`tt-${name}`).disabled=state.busy;
     $('tt-convert').disabled||=Boolean(state.pending);$('tt-retry').disabled=state.busy;
     $('tt-pending').hidden=!state.pending;$('tt-conversion').hidden=!needsReview;
@@ -151,6 +151,7 @@
     return [...rows].map(([id,name])=>({id,name})).sort((a,b)=>a.name.localeCompare(b.name));
   }
   function visibleOccurrences(result,type,target){
+    if(type==='program')return result.occurrences;
     const lessons=result.occurrences.filter(row=>row.kind!=='BREAK'&&(type==='teacher'?row.teacherId===target:row.classIds.includes(target)));
     const lessonDays=new Set(lessons.map(row=>result.pattern==='WEEKLY'?row.weekday:row.date));
     return result.occurrences.filter(row=>row.kind!=='BREAK'?(type==='teacher'?row.teacherId===target:row.classIds.includes(target)):(type==='class'||lessonDays.has(result.pattern==='WEEKLY'?row.weekday:row.date)));
@@ -162,6 +163,7 @@
   }
   function populatePreviewTargets(preferred=''){
     const type=$('tt-preview-type').value,rows=type==='teacher'?state.audiences.teachers:state.audiences.classes,target=$('tt-preview-target');
+    $('tt-preview-target-wrap').hidden=type==='program';
     $('tt-preview-target-label').textContent=type==='teacher'?'Teacher':'Class';
     target.innerHTML=rows.length?rows.map(row=>`<option value="${esc(row.id)}">${esc(row.name)}</option>`).join(''):'<option value="">No eligible options</option>';
     target.value=rows.some(row=>row.id===preferred)?preferred:(rows[0]?.id||'');
@@ -171,8 +173,8 @@
     state.calendarView={...result,history};$('tt-preview-panel').hidden=false;$('tt-preview-title').textContent=title;
     const weekly=result.pattern==='WEEKLY';$('tt-preview-note').textContent=`${result.occurrences.filter(r=>r.kind!=='BREAK').length} lessons${result.occurrences.some(r=>r.kind==='BREAK')?' · '+result.occurrences.filter(r=>r.kind==='BREAK').length+' breaks':''} ${weekly?'each week':'in this publication'} · ${result.snapshot?.timezone||state.draft.timezone}${history?` · Published snapshot${result.effectiveFrom?' · Effective '+result.effectiveFrom:''}`:' · Repeats weekly until a newer version takes effect'}`;
     state.audiences={classes:audienceRows(result,'class'),teachers:audienceRows(result,'teacher')};
-    const requested=$('tt-preview-type').value,available=requested==='teacher'?state.audiences.teachers:state.audiences.classes;
-    $('tt-preview-type').value=available.length?requested:(state.audiences.classes.length?'class':'teacher');
+    const requested=$('tt-preview-type').value||'program',available=requested==='teacher'?state.audiences.teachers:state.audiences.classes;
+    $('tt-preview-type').value=requested==='program'||available.length?requested:'program';
     populatePreviewTargets();if(history)closePublishDialog();controls();
   }
   let exportGeneration=0,exportPages=null,exportFiles=null;
@@ -185,8 +187,9 @@
     const result=state.calendarView,target=$('tt-preview-target').value,type=$('tt-preview-type').value;if(!result)return;
     exportPages=null;exportFiles=null;const generation=++exportGeneration;
     $('tt-share-image').disabled=$('tt-download-image').disabled=$('tt-download-pdf').disabled=true;
-    if(!target){$('tt-calendar').innerHTML='<p class="tt-empty">Assign a class or teacher to a lesson before creating a timetable.</p>';$('tt-export-note').textContent='Choose a class or assigned teacher to prepare an export.';return;}
-    const model=blocks.model(result,{programName:state.data.program.name,effectiveFrom:state.effectiveFrom||state.data.today,history:result.history,...(type==='teacher'?{teacherId:target}:{classId:target})});
+    if(type!=='program'&&!target){$('tt-calendar').innerHTML='<p class="tt-empty">Assign a class or teacher to a lesson before creating a timetable.</p>';$('tt-export-note').textContent='Choose a class or assigned teacher to prepare an export.';return;}
+    const classRoster=result.history?[...new Map(result.occurrences.filter(row=>row.kind!=='BREAK').flatMap(row=>row.classIds.map((id,index)=>[id,row.classNames[index]||id]))).entries()].map(([id,name])=>({id,name})):state.data.catalog.classes.filter(row=>row.active);
+    const model=blocks.model(result,{programName:state.data.program.name,effectiveFrom:state.effectiveFrom||state.data.today,history:result.history,allClassIds:classRoster.map(row=>row.id),allClassNames:classRoster.map(row=>row.name),...(type==='program'?{program:true}:type==='teacher'?{teacherId:target}:{classId:target})});
     $('tt-calendar').hidden=false;$('tt-calendar').innerHTML=blocks.html(model,createCanvas);
     exportName=`${type}-${String(model.timetableName||'timetable').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||'timetable'}`;
     $('tt-export-note').textContent='Preparing export…';
@@ -197,7 +200,7 @@
       const files=await Promise.all(pages.map(p=>new Promise((resolve,reject)=>p.canvas.toBlob(blob=>blob?resolve(new File([blob],`${exportName}.png`,{type:'image/png'})):reject(Error('Image export failed.')),'image/png'))));
       if(generation!==exportGeneration)return;exportPages=pages;exportFiles=files;
       $('tt-share-image').disabled=$('tt-download-image').disabled=$('tt-download-pdf').disabled=false;
-      $('tt-export-note').textContent='Module names are links in the PDF. Images do not contain clickable links.';
+      $('tt-export-note').textContent=type==='program'?'One image and one-page PDF are ready. Lesson links work in the PDF.':'Module names are links in the PDF. Images do not contain clickable links.';
     }).catch(error=>{if(generation===exportGeneration)$('tt-export-note').textContent=error.message;});
   }
   $('tt-preview-type').onchange=()=>populatePreviewTargets();
@@ -211,7 +214,7 @@
       catch(error){if(error.name!=='AbortError')message('Image sharing was unavailable. Use Download image and share the saved file.',true);}
     }else{for(const file of exportFiles)downloadFile(file,file.name);message('Timetable image downloaded. Share the saved image from your device.');}
   };
-  $('tt-download-pdf').onclick=()=>work(async()=>{if(exportPages)downloadFile(new Blob([await presentation.pdf(exportPages,window.PDFLib)],{type:'application/pdf'}),`${exportName}.pdf`);});
+  $('tt-download-pdf').onclick=()=>work(async()=>{if(exportPages)downloadFile(new Blob([await presentation.pdf(exportPages,window.PDFLib,{size:$('tt-preview-type').value==='program'?'program':'A4'})],{type:'application/pdf'}),`${exportName}.pdf`);});
   $('tt-management').href=`/programs/manage.html?program=${encodeURIComponent(id)}`;
   $('tt-select-program').onclick=async()=>{
     const button=$('tt-select-program');if(button.disabled)return;

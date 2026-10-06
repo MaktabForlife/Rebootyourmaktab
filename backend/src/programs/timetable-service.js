@@ -1,4 +1,4 @@
-import { managementState, managementView, applyManagementChange, MANAGEMENT_KINDS, managementRowRevision } from './management-model.js';
+import { managementState, managementView, applyManagementChange, MANAGEMENT_KINDS, managementRowRevision, studentClassRevision } from './management-model.js';
 import { problem } from './model.js';
 import { programFailure } from './errors.js';
 import { TIMETABLE_SCHEMA, boundedJSON, validDate, normalizeDraft as normalizeDatedDraft } from './timetable-model.js';
@@ -65,9 +65,10 @@ export function timetableService(repository,program,now=()=>new Date()) {
         if(separate&&!data.libraryPrepared)throw problem('Prepare the Program task and Library tables first.',409);
         const current=managementState(data,program),shared=await repository.managementReferences(data);
         const spec=MANAGEMENT_KINDS[input.kind];
-        const currentRecord=spec?current.snapshot[spec.table].find(r=>r[spec.key]===input.record?.[spec.key])||null:null;
-        const rowRevision=await managementRowRevision(currentRecord);
-        const changed=spec&&typeof input.baseRowRevision==='string'?input.baseRowRevision!==rowRevision:input.revision!==current.revision;
+        const studentClass=input.kind==='student-class',accountId=input.record?.AccountID;
+        const currentRecord=spec?current.snapshot[spec.table].find(r=>r[spec.key]===input.record?.[spec.key])||null:studentClass?{AccountID:accountId,enrollments:current.snapshot.ProgramEnrollments.filter(r=>r.AccountID===accountId)}:null;
+        const rowRevision=studentClass?await studentClassRevision(current.snapshot.ProgramEnrollments,accountId):await managementRowRevision(currentRecord);
+        const changed=(spec||studentClass)&&typeof input.baseRowRevision==='string'?input.baseRowRevision!==rowRevision:input.revision!==current.revision;
         if(changed)throw Object.assign(problem(`The saved ${input.kind==='progress'?'class status':input.kind==='modules'?'module':'record'} changed since editing began. Your draft is kept. Review the saved row and your changes.`,409),{code:'ROW_CHANGED',currentRecord,rowRevision});
         // Validate against fresh references below. An unrelated account/catalogue change
         // must not reject this row; inactive/missing selections still fail validation.
@@ -84,7 +85,7 @@ export function timetableService(repository,program,now=()=>new Date()) {
         const persisted={...snapshot};delete persisted.ProgramTasks;delete persisted.ProgramResources;
         const snapshotJSON=JSON.stringify(persisted);
         if(!separate&&snapshotJSON.length>40000)throw problem('This Program has reached the current management storage limit. No changes were saved.');
-        const revision=separate?current.revision:crypto.randomUUID(),timestamp=new Date().toISOString(),result={revision,record,...(spec?{rowRevision:await managementRowRevision(record)}:{})};
+        const revision=separate?current.revision:crypto.randomUUID(),timestamp=new Date().toISOString(),result={revision,record,...(studentClass?{rowRevision:await studentClassRevision(snapshot.ProgramEnrollments,accountId)}:spec?{rowRevision:await managementRowRevision(record)}:{})};
         if(input.kind==='modules'&&record.LevelID)result.level=snapshot.ProgramLevels.find(r=>r.LevelID===record.LevelID);
         const records=[
           separate?{table:spec.table,record}:{table:'ProgramManagementState',record:{Revision:revision,CourseID:program.id,Sequence:current.sequence+1,SnapshotJSON:snapshotJSON,ModifiedDate:timestamp,ModifiedByAccountID:user.accountid}},

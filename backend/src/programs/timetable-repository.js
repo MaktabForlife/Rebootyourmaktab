@@ -126,14 +126,15 @@ export function timetableRepository(env, program) {
       const [subjects,accounts]=await Promise.all([subjectReferences(data),readProgramRoleAccounts(env,program.id)]);
       assertUnique(subjects,'SubjectID','Shared subjects'); assertUnique(accounts,'AccountID','Accounts');
       const t=data.tables;
+      const enrolledStudents=new Set(accounts.filter(row=>active(row.Active)&&(row.Roles||[]).includes('STUDENT')).map(row=>row.AccountID));
       assertUnique(t.ProgramSubjects||[],'SubjectID','Program subject links');
       return {
         subjects:(t.ProgramSubjects||[]).map(row=>{const shared=subjects.find(s=>s.SubjectID===row.SubjectID);return {id:row.ProgramSubjectID,courseId:row.CourseID,subjectId:row.SubjectID,name:shared?.SubjectName||row.SubjectID,active:active(row.Active)&&Boolean(shared)&&active(shared.Active)};}),
         levels:(t.ProgramLevels||[]).map(row=>({id:row.LevelID,programSubjectId:row.ProgramSubjectID,name:row.Name,active:active(row.Active)})),
         modules:(t.ProgramModules||[]).map(row=>({id:row.ProgramModuleID,programSubjectId:row.ProgramSubjectID,levelId:row.LevelID,name:row.Name,active:active(row.Active)})),
-        classes:(t.ProgramClasses||[]).map(row=>({id:row.ClassID,courseId:row.CourseID,name:row.Name,academicYear:row.AcademicYear,zoomLink:row.ZoomLink||'',active:active(row.Active)})),
+        classes:(t.ProgramClasses||[]).map(row=>({id:row.ClassID,courseId:row.CourseID,name:row.Name,academicYear:row.AcademicYear,zoomLink:row.ZoomLink||'',classTeacherId:row.TeacherAccountID||'',active:active(row.Active)})),
         teachers:accounts.filter(row=>row.Active&&row.Roles.some(role=>['TEACHER','SENIOR','ADMIN'].includes(role))).map(row=>({id:row.AccountID,name:row.DisplayName,active:true})),
-        enrollments:(t.ProgramEnrollments||[]).map(row=>({id:row.EnrollmentID,courseId:row.CourseID,classId:row.ClassID,accountId:row.AccountID,startDate:row.StartDate,endDate:row.EndDate,active:active(row.Active)}))
+        enrollments:(t.ProgramEnrollments||[]).map(row=>({id:row.EnrollmentID,courseId:row.CourseID,classId:row.ClassID,accountId:row.AccountID,startDate:row.StartDate,endDate:row.EndDate,active:active(row.Active)&&enrolledStudents.has(row.AccountID)}))
       };
     },
     plan(data, records) {

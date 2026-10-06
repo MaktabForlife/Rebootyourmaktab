@@ -44,6 +44,9 @@ export function managementRowRevision(record) {
   // Sheet position is metadata, not a change to the record being edited.
   return payloadHash(record?Object.fromEntries(Object.entries(record).filter(([key])=>key!=='_rowNumber')):null);
 }
+export function studentClassRevision(enrollments, accountId) {
+  return payloadHash(enrollments.filter(row=>row.AccountID===accountId).map(row=>Object.fromEntries(Object.entries(row).filter(([key])=>key!=='_rowNumber'))).sort((a,b)=>a.EnrollmentID.localeCompare(b.EnrollmentID)));
+}
 export async function managementView(data, repository, program) {
   const current=managementState(data,program), shared=await repository.managementReferences(data);
   const rows=Object.fromEntries(Object.entries(MANAGEMENT_KINDS).map(([kind,{table}])=>[kind,current.snapshot[table].map(r=>({...r}))]));
@@ -53,9 +56,21 @@ export async function managementView(data, repository, program) {
   const referenceRevision=await payloadHash(shared);
   const rowRevisions={};
   for(const [kind,{table,key}] of Object.entries(MANAGEMENT_KINDS))rowRevisions[kind]=Object.fromEntries(await Promise.all(current.snapshot[table].map(async record=>[record[key],await managementRowRevision(record)])));
-  return {program,prepared:data.prepared,libraryPrepared:data.libraryPrepared,libraryRoots:current.snapshot.ProgramLibraryRoots.map(root=>({...root})),revision:current.revision,referenceRevision,rowRevisions,emptyRowRevision:await managementRowRevision(null),rows,standardLevels:STANDARD_LEVELS,sharedSubjects:shared.subjects,accounts:shared.accounts,eligibleTeacherIds:shared.grantedTeachers.map(r=>r.AccountID)};
+  const studentClassRevisions=Object.fromEntries(await Promise.all(shared.accounts.map(async account=>[account.AccountID,await studentClassRevision(current.snapshot.ProgramEnrollments,account.AccountID)])));
+  return {program,prepared:data.prepared,libraryPrepared:data.libraryPrepared,libraryRoots:current.snapshot.ProgramLibraryRoots.map(root=>({...root})),revision:current.revision,referenceRevision,rowRevisions,studentClassRevisions,emptyRowRevision:await managementRowRevision(null),rows,standardLevels:STANDARD_LEVELS,sharedSubjects:shared.subjects,accounts:shared.accounts,eligibleTeacherIds:shared.grantedTeachers.map(r=>r.AccountID)};
 }
 export function applyManagementChange(current, input, shared, program) {
+  if(input.kind==='student-class'){
+    const accountId=clean(input.record?.AccountID),classId=clean(input.record?.ClassID);
+    if(!shared.accounts.some(account=>account.AccountID===accountId&&active(account.Active)&&(account.Roles||[]).includes('STUDENT')))throw problem('Grant this active learner a Student role in shared User profiles before assigning a class.');
+    if(classId&&!current.snapshot.ProgramClasses.some(klass=>klass.ClassID===classId&&klass.CourseID===program.id&&active(klass.Active)))throw problem('Choose an active class in this Program.');
+    const snapshot=structuredClone(current.snapshot),rows=snapshot.ProgramEnrollments;
+    const previous=rows.filter(row=>row.AccountID===accountId&&active(row.Active));
+    if(previous.length===1&&previous[0].ClassID===classId)return {snapshot,record:{AccountID:accountId,ClassID:classId,enrollments:rows.filter(row=>row.AccountID===accountId)}};
+    for(const row of previous)row.Active=false;
+    if(classId)rows.push({EnrollmentID:`ENR-${crypto.randomUUID()}`,CourseID:program.id,AccountID:accountId,ClassID:classId,StartDate:'',EndDate:'',Active:true});
+    return {snapshot,record:{AccountID:accountId,ClassID:classId,enrollments:rows.filter(row=>row.AccountID===accountId)}};
+  }
   if(input.kind==='library-root'){
     const folderId=clean(input.record?.FolderID),name=clean(input.record?.Name);
     if(!/^[A-Za-z0-9_-]{10,128}$/.test(folderId)||!name||name.length>160)throw problem('Choose an accessible Google Drive folder.');
@@ -194,11 +209,15 @@ export function applyManagementChange(current, input, shared, program) {
   if(input.kind==='classes'){
     record.AcademicYear=text('AcademicYear','Academic year',40,true);
     record.ZoomLink=normalizeZoomLink(Object.hasOwn(source,'ZoomLink')?source.ZoomLink:previous?.ZoomLink);
+    record.TeacherAccountID=text('TeacherAccountID','Class teacher',100,true);
+    if(record.Active&&record.TeacherAccountID&&!shared.grantedTeachers.some(row=>row.AccountID===record.TeacherAccountID))throw problem('Grant this person a Teacher, Senior or Admin role in this Program before assigning them as class teacher.');
   }
   if(input.kind==='enrollments'){
     record.ClassID=text('ClassID','Class',100);record.AccountID=text('AccountID','Learner',100);
     if(!snapshot.ProgramClasses.some(r=>r.ClassID===record.ClassID&&r.CourseID===program.id&&(!record.Active||active(r.Active))))throw problem('Choose an active class in this Program.');
     if(!shared.accounts.some(a=>a.AccountID===record.AccountID&&(!record.Active||active(a.Active))))throw problem('Choose an active Academy account.');
+    if(record.Active&&!shared.accounts.some(a=>a.AccountID===record.AccountID&&(a.Roles||[]).includes('STUDENT')))throw problem('Grant this learner a Student role in the shared Academy access matrix before assigning a class.');
+    if(record.Active&&rows.some(r=>r.EnrollmentID!==id&&r.AccountID===record.AccountID&&active(r.Active)))throw problem('This learner already has a class in this Program. Change their class in User profiles.');
     record.StartDate=text('StartDate','Start date',10,true);record.EndDate=text('EndDate','End date',10,true);
     if((record.StartDate&&!validDate(record.StartDate))||(record.EndDate&&!validDate(record.EndDate))||
       (record.StartDate&&record.EndDate&&record.EndDate<record.StartDate))throw problem('Enter valid membership dates; if both are set, the end date must be on or after the start date.');

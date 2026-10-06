@@ -334,6 +334,10 @@ try{
  table(platformId,'UserAccounts').push(['STUDENT-1','Enrolled Student','STUDENT-LINK',true,hash,true]);
  table(platformId,'UserCourseAccess').push(['ACCESS-STUDENT','STUDENT-1',input.id,'STUDENT',true,true,'','','','','','','','STUDENT-REC']);
  table(targetId,'ProgramEnrollments').push(['ENR-STUDENT',input.id,'CLASS-1','STUDENT-1','','',true]);
+ assert((await tt('get')).catalog.enrollments.some(row=>row.id==='ENR-STUDENT'&&row.active));
+ table(platformId,'UserCourseAccess').at(-1)[4]=false;
+ assert(!(await tt('get')).catalog.enrollments.find(row=>row.id==='ENR-STUDENT').active,'Removing the shared Student role removes the learner from the active timetable roster');
+ table(platformId,'UserCourseAccess').at(-1)[4]=true;
  const temporarySheets=[
   {title:'PlatformConfig',sheetId:900,rows:[PLATFORM_SHEET_HEADERS.PlatformConfig,['PlatformSchemaVersion','102.0.12','','','']]},
   {title:'GlobalSubjectAccessMatrix',sheetId:901,rows:[PLATFORM_SHEET_HEADERS.GlobalSubjectAccessMatrix]},
@@ -406,8 +410,10 @@ try{
  assert(!JSON.stringify(management.accounts).includes('PINHash'));
  const edit=(kind,record,creating=true)=>({kind,record,creating,revision:management.revision,referenceRevision:management.referenceRevision,operationId:crypto.randomUUID()});
  const saveRow=async(kind,record,creating=true)=>{const result=await tt('manage-save',edit(kind,record,creating));management=await tt('manage-get');assert(Object.values(management.rowRevisions[kind]).includes(result.rowRevision),'Save acknowledgement includes the committed row revision');return result;};
- await saveRow('classes',{ClassID:'CLS-TEST',Name:'Evening class',AcademicYear:'2026',ZoomLink:'https://zoom.us/j/777?pwd=class',Active:true});
+ const classTeacherId=management.eligibleTeacherIds[0];
+ await saveRow('classes',{ClassID:'CLS-TEST',Name:'Evening class',AcademicYear:'2026',TeacherAccountID:classTeacherId,ZoomLink:'https://zoom.us/j/777?pwd=class',Active:true});
  assert.equal((await tt('get')).catalog.classes.find(r=>r.id==='CLS-TEST').zoomLink,'https://zoom.us/j/777?pwd=class');
+ assert.equal((await tt('get')).catalog.classes.find(r=>r.id==='CLS-TEST').classTeacherId,classTeacherId);
  await tt('manage-save',edit('classes',{ClassID:'CLS-UNSAFE',Name:'Invalid link',ZoomLink:'javascript:alert(1)',Active:true}),token,400);
  assert((await tt('get')).catalog.classes.some(r=>r.id==='CLS-TEST'));
  const stale=edit('classes',{ClassID:'CLS-STALE',Name:'Stale',Active:true});
@@ -444,12 +450,15 @@ try{
  assert(!(await tt('get')).catalog.teachers.some(r=>r.id==='ACCOUNT2'),'Explicit assignment cannot override a revoked program role');
  table(platformId,'UserCourseAccess').at(-1)[4]=true;
  assert.deepEqual(table(platformId,'UserCourseAccess'),centralAccessBefore);
+ table(platformId,'UserCourseAccess').push(['ACCESS-PROGRAM-STUDENT-2','ACCOUNT2',input.id,'STUDENT',true],['ACCESS-PROGRAM-STUDENT-1','ACCOUNT1',input.id,'STUDENT',true]);
  const undatedMembership=await saveRow('enrollments',{EnrollmentID:'ENR-TEST',ClassID:'CLS-TEST',AccountID:'ACCOUNT2',Active:true});
  assert.equal(undatedMembership.record.StartDate,'');assert.equal(undatedMembership.record.EndDate,'');
  const endOnlyMembership=await saveRow('enrollments',{EnrollmentID:'ENR-END-ONLY',ClassID:'CLS-TEST',AccountID:'ACCOUNT1',EndDate:'2026-09-30',Active:true});
  assert.equal(endOnlyMembership.record.StartDate,'');assert.equal(endOnlyMembership.record.EndDate,'2026-09-30');
  await tt('manage-save',edit('enrollments',{EnrollmentID:'ENR-OVERLAP',ClassID:'CLS-TEST',AccountID:'ACCOUNT2',StartDate:'2026-09-24',EndDate:'',Active:true}),token,400);
  await tt('manage-save',edit('enrollments',{EnrollmentID:'ENR-BAD-DATE',ClassID:'CLS-TEST',AccountID:'ACCOUNT2',StartDate:'2026-02-30',EndDate:'',Active:true}),token,400);
+ table(platformId,'UserCourseAccess').splice(-2);
+ assert(!(await tt('get')).catalog.enrollments.find(row=>row.id==='ENR-TEST').active);
  await tt('manage-save',edit('classes',{ClassID:'CLS-TEST',Name:'Evening class',AcademicYear:'2026',Active:false},false),token,400);
  const managedDraft=structuredClone(f.draft);managedDraft.rules[0].moduleId='MOD-TEST';managedDraft.rules[0].classIds=['CLS-TEST'];managedDraft.rules[0].teacherId='ACCOUNT2';managedDraft.rules[0].zoomLink='';
  assert((await tt('preview',{draft:managedDraft})).valid);assert.equal((await tt('preview',{draft:managedDraft})).occurrences[0].zoomLink,'https://zoom.us/j/777?pwd=class');
@@ -644,7 +653,7 @@ try{
  assert.deepEqual((await tt('published')).publication.snapshot,activeBefore.snapshot);
  const futureView=(await tt('published',{date:effectiveFrom})).publication;
  assert.equal(futureView.occurrences[0].zoomLink,'https://zoom.us/j/777?pwd=class');assert.equal(futureView.occurrences[0].zoomSource,'CLASS');
- assert.equal(futureView.id,future.publicationId);assert.equal(futureView.occurrences[0].teacherId,'');assert.equal(futureView.occurrences[0].startTime,'08:45');
+ assert.equal(futureView.id,future.publicationId);assert.equal(futureView.occurrences[0].teacherId,classTeacherId);assert.equal(futureView.occurrences[0].startTime,'08:45');
  assert.equal((await tt('published',{date:'2099-12-31'})).publication.id,future.publicationId);
  assert.equal(futureView.snapshot.layout.columnWidths.time,220);assert.equal(futureView.snapshot.breaks[0].label,'Break');assert(futureView.occurrences.some(r=>r.kind==='BREAK'&&r.zoomLink===''));
  assert.equal((await tt('get')).draft.layout.rowHeights['10:15|10:30'],90);

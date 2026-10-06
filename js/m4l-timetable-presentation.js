@@ -121,12 +121,12 @@
     pages.forEach((page,i)=>{const ctx=page.canvas.getContext('2d');ctx.font='17px Arial, sans-serif';ctx.fillStyle='#756877';ctx.textAlign='right';ctx.fillText(`Page ${i+1} of ${pages.length}`,W-pad,H-35);});
     return pages;
   }
-  async function pdf(pages,lib){
+  async function pdf(pages,lib,{size='A4'}={}){
     const doc=await lib.PDFDocument.create();doc.setTitle('Academy timetable');
     for(const source of pages){
-      // Fit the whole image on one A4 sheet, using the orientation with larger text.
+      // The Program view stays on one sheet and grows beyond A2 if needed.
       const cw=source.canvas.width,ch=source.canvas.height;
-      const landscape=[841.89,595.28],portrait=[595.28,841.89];
+      const landscape=size==='program'?[Math.max(1683.78,cw*.75),Math.max(1190.55,ch*.75)]:[841.89,595.28],portrait=size==='program'?[Math.max(1190.55,cw*.75),Math.max(1683.78,ch*.75)]:[595.28,841.89];
       const [width,height]=Math.min(landscape[0]/cw,landscape[1]/ch)>=Math.min(portrait[0]/cw,portrait[1]/ch)?landscape:portrait;
       const scale=Math.min(width/cw,height/ch),drawWidth=cw*scale,drawHeight=ch*scale,x=(width-drawWidth)/2,y=(height-drawHeight)/2;
       const page=doc.addPage([width,height]),png=await doc.embedPng(source.canvas.toDataURL('image/png'));

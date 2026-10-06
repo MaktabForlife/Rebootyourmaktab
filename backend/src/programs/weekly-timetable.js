@@ -113,6 +113,11 @@ export function weeklyPattern(rules,breaks=[]){
   return [...rules,...breaks.map(b=>({...b,kind:'BREAK',moduleName:b.label,classIds:[],classNames:[]}))].flatMap(r=>r.weekdays.map(weekday=>({anchor:`${r.id}@${weekday}`,ruleId:r.id,kind:r.kind||'LESSON',weekday,moduleId:r.moduleId,programSubjectId:r.programSubjectId,subjectName:r.subjectName,moduleName:r.moduleName,levelName:r.levelName,classIds:r.classIds,classNames:r.classNames,teacherId:r.teacherId,teacherName:r.teacherName,startTime:r.startTime,endTime:r.endTime,zoomLink:r.effectiveZoomLink||'',zoomSource:r.zoomSource||'NONE',status:'SCHEDULED'})))
     .sort((a,b)=>(a.weekday+6)%7-(b.weekday+6)%7||a.startTime.localeCompare(b.startTime)||a.ruleId.localeCompare(b.ruleId));
 }
+export function effectiveLessonTeacherId(row,classes){
+  if(row.teacherId)return row.teacherId;
+  const assigned=row.classIds.map(id=>classes.get(id)?.classTeacherId||'');
+  return assigned.length&&assigned[0]&&assigned.every(id=>id===assigned[0])?assigned[0]:'';
+}
 export function validateWeeklyTimetable(input,catalog,program,fromDate){
   const draft=normalizeWeeklyDraft(input),issues=[],conflicts=[];
   const issue=(rowId,field,message)=>issues.push({rowId,field,message});
@@ -121,15 +126,17 @@ export function validateWeeklyTimetable(input,catalog,program,fromDate){
   const linked=[];
   for(const row of draft.rules){
     const before=issues.length,module=modules.get(row.moduleId),subject=subjects.get(module?.programSubjectId||row.programSubjectId),level=levels.get(module?.levelId);
+    const teacherId=effectiveLessonTeacherId(row,classes),classTeachers=row.classIds.map(id=>classes.get(id)?.classTeacherId||'');
     if(!subject?.active||!text(subject?.name)||subject.courseId!==program.id||row.moduleId&&(!module?.active||!text(module.name))||row.programSubjectId&&module&&module.programSubjectId!==row.programSubjectId)issue(row.id,'moduleId','Select an active subject or module belonging to this Program.');
     if(module?.levelId&&(!level?.active||!text(level?.name)||level.programSubjectId!==module.programSubjectId))issue(row.id,'moduleId','The module’s optional level must belong to the same subject.');
     if(!row.classIds.length||new Set(row.classIds).size!==row.classIds.length||row.classIds.some(id=>!classes.get(id)?.active||!text(classes.get(id)?.name)||classes.get(id).courseId!==program.id))issue(row.id,'classIds','Select one or more distinct active classes in this Program.');
-    if(row.teacherId&&(!teachers.get(row.teacherId)?.active||!text(teachers.get(row.teacherId)?.name)))issue(row.id,'teacherId','Select an authorised active teacher.');
+    if(!row.teacherId&&row.classIds.length>1&&classTeachers.some(Boolean)&&!teacherId)issue(row.id,'teacherId','Choose one lesson teacher when the classes have different class teachers.');
+    if(teacherId&&(!teachers.get(teacherId)?.active||!text(teachers.get(teacherId)?.name)))issue(row.id,'teacherId','Select an authorised active teacher.');
     if(!validTime(row.startTime)||!validTime(row.endTime)||row.startTime>=row.endTime)issue(row.id,'time','Use a same-day time range with the end after the start.');
     if(!row.weekdays.length||new Set(row.weekdays).size!==row.weekdays.length||row.weekdays.some(d=>!Number.isInteger(d)||d<0||d>6))issue(row.id,'weekdays','Choose at least one weekday without duplicates.');
     let zoom={zoomLink:'',zoomSource:'NONE'};
     try{zoom=lessonZoom(row,classes);}catch(error){issue(row.id,'zoomLink',error.message);}
-    if(before===issues.length)linked.push({...row,zoomLink:normalizeZoomLink(row.zoomLink),effectiveZoomLink:zoom.zoomLink,zoomSource:zoom.zoomSource,programSubjectId:subject.id,subjectId:subject.subjectId,levelId:module?.levelId||'',subjectName:subject.name,moduleName:module?.name||subject.name,levelName:level?.name||'',classNames:row.classIds.map(id=>classes.get(id).name),teacherName:row.teacherId?teachers.get(row.teacherId).name:''});
+    if(before===issues.length)linked.push({...row,teacherId,zoomLink:normalizeZoomLink(row.zoomLink),effectiveZoomLink:zoom.zoomLink,zoomSource:zoom.zoomSource,programSubjectId:subject.id,subjectId:subject.subjectId,levelId:module?.levelId||'',subjectName:subject.name,moduleName:module?.name||subject.name,levelName:level?.name||'',classNames:row.classIds.map(id=>classes.get(id).name),teacherName:teacherId?teachers.get(teacherId).name:''});
   }
   const enrollments=(catalog.enrollments||[]).filter(e=>e.active);
   for(const row of draft.breaks||[]){
@@ -156,7 +163,7 @@ export function validateWeeklyTimetable(input,catalog,program,fromDate){
     if(left.some(x=>right.some(y=>x.accountId===y.accountId&&days.some(day=>hasWeekday([asOf,x.startDate,y.startDate].sort().at(-1),[x.endDate||'2099-12-31',y.endDate||'2099-12-31'].sort()[0],day)))))reasons.push('Known learner membership overlap');
     if(reasons.length)conflicts.push({left:`${a.id}@${days[0]}`,right:`${b.id}@${days[0]}`,rowIds:[a.id,b.id],weekdays:days,reasons});
   }
-  const plannerReview=reviewPlanner(draft,catalog);issues.push(...plannerReview.issues);
+  const plannerReview=reviewPlanner({...draft,rules:linked},catalog);issues.push(...plannerReview.issues);
   const {planner:privatePlanner,...publicDraft}=draft;
   const snapshot={schema:WEEKLY_SCHEMA,programId:program.id,programName:program.name,...publicDraft,rules:linked};boundedJSON(snapshot);
   return {valid:!issues.length&&!conflicts.length,issues,conflicts,draft,snapshot,plannerReview,pattern:'WEEKLY',asOf,occurrences:weeklyPattern(linked,breaks),warnings:['Conflict checks cover this Program and known class memberships. Cross-Program checks remain a later integration.']};

@@ -1,3 +1,9 @@
+# V105.4.2.10 — Student classes, class teachers and Program timetables
+
+Program Management’s User profiles table lists active students enrolled through the shared Academy access matrix. Edit each student’s single class inline, then use the row Save button or Save all for several changes. Earlier class records remain archived when a student moves. Every Program may optionally assign a class teacher in Classes; lessons without an explicit teacher use that class teacher. The timetable planner has an editable **Program** board for all classes: schedule separate class lessons at the same time or one combined lesson for all active classes. The publication preview exports the whole Program as one image and one-page PDF. [Details and verification](docs/V105.4-PROGRAM-LIBRARY.md).
+
+Development only; publication and Academy acceptance remain open.
+
 # V105.4.2.9 — Program selection
 
 Choose a Program in the setup table by clicking its numbered button in the left column. The selected number is highlighted, and its details open below the table. The separate Details button in the right column has been removed. [Program setup](programs/index.html).
