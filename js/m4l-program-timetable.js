@@ -75,7 +75,13 @@
   const planner=window.M4L_ASSISTED_PLANNER?.mount({state,$,esc,days,modules,changed:()=>{invalidate();render();},locked:()=>state.busy||Boolean(state.pending)||!state.data?.prepared||!state.data?.coordinatorAvailable||state.data?.program.status!=='DRAFT'||Boolean(state.conversion?.required&&!state.converted)});
   if(planner)$('tt-undo-placement').onclick=()=>planner.undo();
   const rowLabel=ruleId=>{const b=(state.draft.breaks||[]).findIndex(r=>r.id===ruleId);if(b>=0)return `Break ${b+1}`;const n=state.draft.rules.findIndex(r=>r.id===ruleId);return n<0?'Timetable':`Lesson ${n+1}`;};
-  const anchorLabel=anchor=>{const [ruleId,day]=anchor.split('@');return `${rowLabel(ruleId)} · ${days[Number(day)]||day}`;};
+  const anchorLabel=(anchor,sourceId='')=>{const [ruleId,day]=anchor.split('@'),id=sourceId||ruleId;return state.draft.rules.some(row=>row.id===id)?lessonLocation(id,day):`${rowLabel(id)} · ${days[Number(day)]||day}`;};
+  function lessonLocation(ruleId,day=null){
+    const row=state.draft.rules.find(item=>item.id===ruleId);if(!row)return rowLabel(ruleId);
+    const subject=state.data.catalog.modules.find(item=>item.id===row.moduleId)?.name||state.data.catalog.subjects.find(item=>item.id===row.programSubjectId)?.name||'Lesson';
+    const classes=row.classIds.map(id=>state.data.catalog.classes.find(item=>item.id===id)?.name||id).join(', ');
+    return `${rowLabel(ruleId)} · ${day===null?row.weekdays.map(weekday=>days[weekday]).join(', '):days[Number(day)]||day} ${time(row.startTime)}–${time(row.endTime)} · ${subject}${classes?' · '+classes:''}`;
+  }
   function safeZoom(value){if(typeof value!=='string'||value.length>2048||/[\u0000-\u001f\u007f]/.test(value))return '';try{const url=new URL(value);return url.protocol==='https:'&&!url.username&&!url.password?url.href:'';}catch{return '';}}
   const zoomAnchor=(link,label=link)=>safeZoom(link)?`<a href="${esc(safeZoom(link))}" target="_blank" rel="noopener noreferrer">${esc(label)}</a>`:'';
   const zoomDisplay=row=>zoomAnchor(row.zoomLink)||'<span class="tt-scope">No Zoom link</span>';
@@ -139,9 +145,12 @@
     }
   }
   function showValidation(result){
-    $('tt-validation').hidden=false;$('tt-validation').innerHTML=`<strong class="${result.valid?'tt-good':'tt-error'}">${result.valid?'✓ Weekly timetable checked':'Resolve these items before publication'}</strong><ul>${(result.issues||[]).map(i=>`<li>${esc(i.rowId?rowLabel(i.rowId)+': ':'')}${esc(i.message)}</li>`).join('')}${(result.conflicts||[]).map(c=>`<li>${esc(c.reasons.join(', '))}: ${esc(anchorLabel(c.left))} ↔ ${esc(anchorLabel(c.right))}</li>`).join('')}</ul>${(result.warnings||[]).map(w=>`<p class="tt-scope">${esc(w)}</p>`).join('')}`;
+    const openButton=id=>state.draft.rules.some(row=>row.id===id)?` <button type="button" class="tt-open-issue" data-open-issue="${esc(id)}">Open lesson on board</button>`:'';
+    $('tt-validation').hidden=false;$('tt-validation').innerHTML=`<strong class="${result.valid?'tt-good':'tt-error'}">${result.valid?'✓ Weekly timetable checked':'Resolve these items before publication'}</strong><ul>${(result.issues||[]).map(i=>`<li>${esc(i.rowId?lessonLocation(i.rowId)+': ':'')}${esc(i.message)}${openButton(i.rowId)}</li>`).join('')}${(result.conflicts||[]).map(c=>`<li>${esc(c.reasons.join(', '))}: ${esc(anchorLabel(c.left,c.rowIds?.[0]))} ↔ ${esc(anchorLabel(c.right,c.rowIds?.[1]))}${openButton(c.rowIds?.[0])}${c.rowIds?.[1]!==c.rowIds?.[0]?openButton(c.rowIds?.[1]):''}</li>`).join('')}</ul>${(result.warnings||[]).map(w=>`<p class="tt-scope">${esc(w)}</p>`).join('')}`;
     const bad=new Set([...(result.issues||[]).map(i=>i.rowId),...(result.conflicts||[]).flatMap(c=>c.rowIds)]);document.querySelectorAll('[data-row]').forEach(row=>row.classList.toggle('tt-row-bad',bad.has(row.dataset.row)));
+    planner?.showIssues(result);
   }
+  $('tt-validation').onclick=event=>{const id=event.target.closest?.('[data-open-issue]')?.dataset.openIssue;if(id)planner?.openIssue(id);};
   function audienceRows(result,type){
     const rows=new Map();
     for(const row of result.occurrences.filter(row=>row.kind!=='BREAK')){
@@ -267,6 +276,15 @@
   });
   $('tt-history').onclick=()=>work(async()=>{const result=await api('history');state.history=result.publications;state.data.currentPublicationId=result.currentPublicationId;state.data.publications=result.publications;render();$('tt-history-list').innerHTML=state.history.slice().reverse().map(p=>`<div class="tt-history-item"><strong>Version ${p.version} · ${esc(({CURRENT:'In effect',SCHEDULED:'Scheduled',PAST:'Past',SUPERSEDED:'Superseded'})[p.status]||'Past')}</strong><span>Effective ${esc(p.effectiveFrom)}${p.effectiveUntil?' through '+esc(p.effectiveUntil):''}</span><button class="pb-secondary" data-history="${esc(p.id)}">View snapshot</button><button class="pb-secondary" data-reuse="${esc(p.id)}" ${state.pending?'disabled':''}>Edit as new version</button></div>`).join('')||'<p class="tt-scope">No published timetable yet.</p>';});
   $('tt-history-list').onclick=event=>{if(event.target.dataset.reuse){void reusePublication(event.target.dataset.reuse);return;}const p=state.history.find(p=>p.id===event.target.dataset.history);if(p)showOccurrences(p,`Published version ${p.version}`,true);};
+  function editableSnapshotRules(rows){
+    const restored=new Map();
+    for(const row of rows){
+      const id=row.sourceRuleId||row.id,existing=restored.get(id);
+      if(existing&&row.assignmentMode==='CLASS'){existing.classIds.push(...row.classIds);continue;}
+      restored.set(id,{id,moduleId:row.moduleId,programSubjectId:row.programSubjectId||'',teacherId:['CLASS','NONE'].includes(row.assignmentMode)?'':row.teacherId,...(row.assignmentMode==='NONE'?{teacherMode:'NONE'}:{}),classIds:[...row.classIds],weekdays:[...row.weekdays],startTime:row.startTime,endTime:row.endTime,zoomLink:row.assignmentMode?row.zoomLink||'':row.effectiveZoomLink||row.zoomLink||''});
+    }
+    return [...restored.values()];
+  }
   async function reusePublication(publicationId){
     if(state.busy||state.pending)return;
     const publication=state.history.find(p=>p.id===publicationId);if(!publication)return;
@@ -278,7 +296,7 @@
       const latest=await api('get');state.data=latest;state.baseline=JSON.stringify(latest.draft);
       const snapshot=publication.snapshot;
       state.conversion=latest.conversion;state.converted=false;
-      state.draft=displayDraft(snapshot.format===format?{format,timezone:snapshot.timezone,...(snapshot.breaks?{breaks:structuredClone(snapshot.breaks)}:{}),...(snapshot.layout?{layout:structuredClone(snapshot.layout)}:{}),...(latest.draft.planner?{planner:structuredClone(latest.draft.planner)}:{}),rules:snapshot.rules.map(r=>({id:r.id,moduleId:r.moduleId,programSubjectId:r.programSubjectId||'',teacherId:r.teacherId,classIds:[...r.classIds],weekdays:[...r.weekdays],startTime:r.startTime,endTime:r.endTime,zoomLink:r.effectiveZoomLink||r.zoomLink||''}))}:snapshot);
+      state.draft=displayDraft(snapshot.format===format?{format,timezone:snapshot.timezone,...(snapshot.breaks?{breaks:structuredClone(snapshot.breaks)}:{}),...(snapshot.layout?{layout:structuredClone(snapshot.layout)}:{}),...(latest.draft.planner?{planner:structuredClone(latest.draft.planner)}:{}),rules:editableSnapshotRules(snapshot.rules)}:snapshot);
       state.effectiveFrom=latest.today;invalidate();render();
       message(`Version ${publication.version} copied into an editable draft. Preview and publish to create a new version.`);
     });

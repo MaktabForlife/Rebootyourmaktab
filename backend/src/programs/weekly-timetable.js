@@ -49,7 +49,9 @@ export function normalizeWeeklyDraft(input){
   draft.rules=input.rules.map(row=>{
     if(!row||!/^RULE-[\w-]{1,80}$/.test(row.id||''))throw problem('Each lesson needs a stable rule ID.');
     if(row.startDate||row.endDate||row.kind==='EXPLICIT')throw problem('Weekly lessons use weekdays and times. Dates are chosen only when publishing.');
-    return {id:row.id,moduleId:text(row.moduleId),programSubjectId:text(row.programSubjectId),teacherId:text(row.teacherId),classIds:Array.isArray(row.classIds)?row.classIds.map(text):[],weekdays:Array.isArray(row.weekdays)?row.weekdays.slice():[],startTime:normalizeTime(row.startTime),endTime:normalizeTime(row.endTime),zoomLink:text(row.zoomLink)};
+    if(row.teacherMode!==undefined&&row.teacherMode!=='NONE')throw problem('Choose a valid lesson teacher option.');
+    if(row.teacherMode==='NONE'&&text(row.teacherId))throw problem('An unassigned lesson cannot also name a teacher.');
+    return {id:row.id,moduleId:text(row.moduleId),programSubjectId:text(row.programSubjectId),teacherId:text(row.teacherId),...(row.teacherMode==='NONE'?{teacherMode:'NONE'}:{}),classIds:Array.isArray(row.classIds)?row.classIds.map(text):[],weekdays:Array.isArray(row.weekdays)?row.weekdays.slice():[],startTime:normalizeTime(row.startTime),endTime:normalizeTime(row.endTime),zoomLink:text(row.zoomLink)};
   });
   if(new Set(draft.rules.map(r=>r.id)).size!==draft.rules.length)throw problem('Lesson IDs must be unique.');
   if(input.breaks!==undefined){
@@ -98,7 +100,7 @@ export function reviewPlanner(draft,catalog){
     if(row.teacherId)booked.set(row.teacherId,(booked.get(row.teacherId)||0)+(minutes(row.endTime)-minutes(row.startTime))*row.weekdays.length);
     const ranges=planner.availability.filter(item=>item.teacherId===row.teacherId);
     if(ranges.length)for(const day of row.weekdays)if(!ranges.some(item=>item.weekday===day&&item.startTime<=row.startTime&&row.endTime<=item.endTime))
-      issue(row.id,'teacherId',`${teachers.get(row.teacherId)?.name||'Teacher'} is unavailable for the full lesson on ${['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][day]}.`);
+      issue(row.sourceRuleId||row.id,'teacherId',`${teachers.get(row.teacherId)?.name||'Teacher'} is unavailable for the full lesson on ${['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][day]}.`);
   }
   for(const row of planner.availability){
     if(!teachers.get(row.teacherId)?.active)issue('','availability','Remove availability for a teacher who is no longer eligible.');
@@ -114,9 +116,20 @@ export function weeklyPattern(rules,breaks=[]){
     .sort((a,b)=>(a.weekday+6)%7-(b.weekday+6)%7||a.startTime.localeCompare(b.startTime)||a.ruleId.localeCompare(b.ruleId));
 }
 export function effectiveLessonTeacherId(row,classes){
+  if(row.teacherMode==='NONE')return '';
   if(row.teacherId)return row.teacherId;
   const assigned=row.classIds.map(id=>classes.get(id)?.classTeacherId||'');
   return assigned.length&&assigned[0]&&assigned.every(id=>id===assigned[0])?assigned[0]:'';
+}
+export function lessonTeacherGroups(row,classes){
+  if(row.teacherMode==='NONE'||row.teacherId)return [{classIds:row.classIds,teacherId:row.teacherMode==='NONE'?'':row.teacherId}];
+  const groups=new Map();
+  for(const id of row.classIds){const teacherId=classes.get(id)?.classTeacherId||'';if(!groups.has(teacherId))groups.set(teacherId,[]);groups.get(teacherId).push(id);}
+  return [...groups].map(([teacherId,classIds])=>({teacherId,classIds}));
+}
+function groupedRuleId(id,index){
+  const hash=[...id].reduce((value,char)=>Math.imul(value^char.charCodeAt(0),16777619)>>>0,2166136261).toString(36);
+  return `RULE-${id.slice(5,65)}-${hash}-${index}`;
 }
 export function validateWeeklyTimetable(input,catalog,program,fromDate){
   const draft=normalizeWeeklyDraft(input),issues=[],conflicts=[];
@@ -126,17 +139,18 @@ export function validateWeeklyTimetable(input,catalog,program,fromDate){
   const linked=[];
   for(const row of draft.rules){
     const before=issues.length,module=modules.get(row.moduleId),subject=subjects.get(module?.programSubjectId||row.programSubjectId),level=levels.get(module?.levelId);
-    const teacherId=effectiveLessonTeacherId(row,classes),classTeachers=row.classIds.map(id=>classes.get(id)?.classTeacherId||'');
+    const groups=lessonTeacherGroups(row,classes);
     if(!subject?.active||!text(subject?.name)||subject.courseId!==program.id||row.moduleId&&(!module?.active||!text(module.name))||row.programSubjectId&&module&&module.programSubjectId!==row.programSubjectId)issue(row.id,'moduleId','Select an active subject or module belonging to this Program.');
     if(module?.levelId&&(!level?.active||!text(level?.name)||level.programSubjectId!==module.programSubjectId))issue(row.id,'moduleId','The module’s optional level must belong to the same subject.');
     if(!row.classIds.length||new Set(row.classIds).size!==row.classIds.length||row.classIds.some(id=>!classes.get(id)?.active||!text(classes.get(id)?.name)||classes.get(id).courseId!==program.id))issue(row.id,'classIds','Select one or more distinct active classes in this Program.');
-    if(!row.teacherId&&row.classIds.length>1&&classTeachers.some(Boolean)&&!teacherId)issue(row.id,'teacherId','Choose one lesson teacher when the classes have different class teachers.');
-    if(teacherId&&(!teachers.get(teacherId)?.active||!text(teachers.get(teacherId)?.name)))issue(row.id,'teacherId','Select an authorised active teacher.');
+    for(const {teacherId} of groups)if(teacherId&&(!teachers.get(teacherId)?.active||!text(teachers.get(teacherId)?.name)))issue(row.id,'teacherId','Select an authorised active teacher.');
     if(!validTime(row.startTime)||!validTime(row.endTime)||row.startTime>=row.endTime)issue(row.id,'time','Use a same-day time range with the end after the start.');
     if(!row.weekdays.length||new Set(row.weekdays).size!==row.weekdays.length||row.weekdays.some(d=>!Number.isInteger(d)||d<0||d>6))issue(row.id,'weekdays','Choose at least one weekday without duplicates.');
-    let zoom={zoomLink:'',zoomSource:'NONE'};
-    try{zoom=lessonZoom(row,classes);}catch(error){issue(row.id,'zoomLink',error.message);}
-    if(before===issues.length)linked.push({...row,teacherId,zoomLink:normalizeZoomLink(row.zoomLink),effectiveZoomLink:zoom.zoomLink,zoomSource:zoom.zoomSource,programSubjectId:subject.id,subjectId:subject.subjectId,levelId:module?.levelId||'',subjectName:subject.name,moduleName:module?.name||subject.name,levelName:level?.name||'',classNames:row.classIds.map(id=>classes.get(id).name),teacherName:teacherId?teachers.get(teacherId).name:''});
+    const zooms=groups.map(({classIds})=>{try{return lessonZoom({...row,classIds},classes);}catch(error){issue(row.id,'zoomLink',error.message);return {zoomLink:'',zoomSource:'NONE'};}});
+    if(before===issues.length)groups.forEach(({teacherId,classIds},groupIndex)=>{
+      const zoom=zooms[groupIndex];
+      linked.push({...row,id:groups.length===1?row.id:groupedRuleId(row.id,groupIndex),sourceRuleId:row.id,assignmentMode:row.teacherMode==='NONE'?'NONE':row.teacherId?'EXPLICIT':'CLASS',teacherId,classIds,zoomLink:normalizeZoomLink(row.zoomLink),effectiveZoomLink:zoom.zoomLink,zoomSource:zoom.zoomSource,programSubjectId:subject.id,subjectId:subject.subjectId,levelId:module?.levelId||'',subjectName:subject.name,moduleName:module?.name||subject.name,levelName:level?.name||'',classNames:classIds.map(id=>classes.get(id).name),teacherName:teacherId?teachers.get(teacherId).name:''});
+    });
   }
   const enrollments=(catalog.enrollments||[]).filter(e=>e.active);
   for(const row of draft.breaks||[]){
@@ -151,7 +165,7 @@ export function validateWeeklyTimetable(input,catalog,program,fromDate){
   const breaks=draft.breaks||[];
   for(let i=0;i<breaks.length;i++)for(const row of [...linked,...breaks.slice(i+1)]){
     const b=breaks[i],days=b.weekdays.filter(d=>row.weekdays.includes(d));
-    if(days.length&&b.startTime<row.endTime&&row.startTime<b.endTime)conflicts.push({left:`${b.id}@${days[0]}`,right:`${row.id}@${days[0]}`,rowIds:[b.id,row.id],weekdays:days,reasons:['Break overlaps another timetable entry']});
+    if(days.length&&b.startTime<row.endTime&&row.startTime<b.endTime)conflicts.push({left:`${b.id}@${days[0]}`,right:`${row.id}@${days[0]}`,rowIds:[b.id,row.sourceRuleId||row.id],weekdays:days,reasons:['Break overlaps another timetable entry']});
   }
   for(let i=0;i<linked.length;i++)for(let j=i+1;j<linked.length;j++){
     const a=linked[i],b=linked[j],days=a.weekdays.filter(day=>b.weekdays.includes(day));
@@ -161,7 +175,7 @@ export function validateWeeklyTimetable(input,catalog,program,fromDate){
     if(a.classIds.some(id=>b.classIds.includes(id)))reasons.push('Class overlap');
     const left=enrollments.filter(e=>a.classIds.includes(e.classId)),right=enrollments.filter(e=>b.classIds.includes(e.classId));
     if(left.some(x=>right.some(y=>x.accountId===y.accountId&&days.some(day=>hasWeekday([asOf,x.startDate,y.startDate].sort().at(-1),[x.endDate||'2099-12-31',y.endDate||'2099-12-31'].sort()[0],day)))))reasons.push('Known learner membership overlap');
-    if(reasons.length)conflicts.push({left:`${a.id}@${days[0]}`,right:`${b.id}@${days[0]}`,rowIds:[a.id,b.id],weekdays:days,reasons});
+    if(reasons.length)conflicts.push({left:`${a.id}@${days[0]}`,right:`${b.id}@${days[0]}`,rowIds:[a.sourceRuleId||a.id,b.sourceRuleId||b.id],weekdays:days,reasons});
   }
   const plannerReview=reviewPlanner({...draft,rules:linked},catalog);issues.push(...plannerReview.issues);
   const {planner:privatePlanner,...publicDraft}=draft;
