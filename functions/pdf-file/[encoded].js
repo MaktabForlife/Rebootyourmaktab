@@ -1,3 +1,5 @@
+import { isListedArchivePdfUrl } from '../_lib/academy-archive-list.js';
+
 export async function onRequestGet(context) {
   const encoded = context.params.encoded;
 
@@ -28,6 +30,16 @@ export async function onRequestGet(context) {
   const hostname = targetUrl.hostname.toLowerCase();
   const isPrivateM4LDriveUrl = isAllowedPrivateM4LDriveUrl(targetUrl);
   const isTalimiboardDuas = isAllowedTalimiboardDuasUrl(targetUrl);
+  let isArchiveBook = false;
+
+  if (hostname === 'archive.org') {
+    try {
+      isArchiveBook = await isListedArchivePdfUrl(targetUrl);
+    } catch (error) {
+      console.error('Archive.org PDF access check failed:', error);
+      return new Response('Archive.org books are temporarily unavailable', { status: 502 });
+    }
+  }
 
   const allowed =
     hostname.endsWith(".r2.dev") ||
@@ -35,7 +47,8 @@ export async function onRequestGet(context) {
     hostname === "docs.google.com" ||
     hostname === "lh3.googleusercontent.com" ||
     isPrivateM4LDriveUrl ||
-    isTalimiboardDuas;
+    isTalimiboardDuas ||
+    isArchiveBook;
 
   if (!allowed) {
     return new Response("PDF host not allowed", { status: 403 });
@@ -50,11 +63,23 @@ export async function onRequestGet(context) {
     upstreamHeaders.set("Range", range);
   }
 
-  const upstreamResponse = await fetch(targetUrl.toString(), {
-    method: "GET",
-    headers: upstreamHeaders,
-    redirect: isTalimiboardDuas ? "manual" : "follow"
-  });
+  let upstreamResponse;
+  try {
+    upstreamResponse = isArchiveBook
+      ? await fetchArchivePdf(targetUrl, upstreamHeaders)
+      : await fetch(targetUrl.toString(), {
+        method: "GET",
+        headers: upstreamHeaders,
+        redirect: isTalimiboardDuas ? "manual" : "follow"
+      });
+  } catch (error) {
+    console.error('PDF source request failed:', error);
+    return new Response('The source PDF is unavailable', { status: 502 });
+  }
+
+  if (!upstreamResponse) {
+    return new Response('The source PDF is unavailable', { status: 502 });
+  }
 
   if (isTalimiboardDuas && upstreamResponse.status >= 300 && upstreamResponse.status < 400) {
     return new Response("The source PDF is unavailable", { status: 502 });
@@ -69,7 +94,7 @@ export async function onRequestGet(context) {
   responseHeaders.set("Access-Control-Allow-Origin", "*");
   responseHeaders.set(
     "Cache-Control",
-    isPrivateM4LDriveUrl || isTalimiboardDuas ? "private, no-store, max-age=0" : "public, max-age=3600"
+    isPrivateM4LDriveUrl || isTalimiboardDuas || isArchiveBook ? "private, no-store, max-age=0" : "public, max-age=3600"
   );
   responseHeaders.set("Accept-Ranges", "bytes");
 
@@ -78,6 +103,27 @@ export async function onRequestGet(context) {
     statusText: upstreamResponse.statusText,
     headers: responseHeaders
   });
+}
+
+async function fetchArchivePdf(targetUrl, headers) {
+  let url = targetUrl;
+  for (let redirectCount = 0; redirectCount < 5; redirectCount += 1) {
+    const response = await fetch(url.toString(), { method: 'GET', headers, redirect: 'manual' });
+    if (response.status >= 300 && response.status < 400) {
+      const location = response.headers.get('Location');
+      if (!location) return null;
+      url = new URL(location, url);
+      if (url.protocol !== 'https:' ||
+          (url.hostname !== 'archive.org' && !url.hostname.endsWith('.archive.org')) ||
+          url.username || url.password) return null;
+      continue;
+    }
+    if (response.status !== 200 && response.status !== 206) return null;
+    const type = response.headers.get('Content-Type') || '';
+    if (!/^(application\/pdf|application\/octet-stream)(;|$)/i.test(type)) return null;
+    return response;
+  }
+  return null;
 }
 
 function base64UrlDecode(input) {

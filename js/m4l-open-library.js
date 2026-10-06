@@ -2,20 +2,23 @@
   'use strict';
 
   // Curated public links. Add each book once, even when its source lists it for several grades.
-  const books = [{
-    id: 'EXTERNAL:TALIMI_BOARD_KZN:ESSENTIAL_DUAS_GR_1_7',
-    title: 'Essential Duas for Muslims (Grades 1–7)',
-    subject: 'Duas',
-    source: 'Ta’limi Board KZN',
-    publisher: 'Jamiatul Ulama (KZN) Ta’limi Board',
-    description: 'Duas for learners in Grades 1–7.',
-    pdfUrl: 'https://talimiboardkzn.org/wp-content/uploads/2018/10/essential_duas_for_muslims_gr_1-7.pdf'
-  }];
+  let books = [
+    {
+      id: 'EXTERNAL:TALIMI_BOARD_KZN:ESSENTIAL_DUAS_GR_1_7',
+      title: 'Essential Duas for Muslims (Grades 1–7)',
+      subject: 'Duas',
+      source: 'Ta’limi Board KZN',
+      details: 'Jamiatul Ulama (KZN) Ta’limi Board',
+      description: 'Duas for learners in Grades 1–7.',
+      pdfUrl: 'https://talimiboardkzn.org/wp-content/uploads/2018/10/essential_duas_for_muslims_gr_1-7.pdf'
+    }
+  ];
 
   const $ = id => document.getElementById(id);
   const results = $('ol-results');
   const dialog = $('ol-preview');
   const viewer = $('ol-viewer');
+  const status = $('ol-status');
 
   function pdfProxy(url) {
     const bytes = new TextEncoder().encode(url);
@@ -38,8 +41,16 @@
       const art = document.createElement('div');
       art.className = 'ol-card-art';
       const icon = document.createElement('img');
-      icon.src = '/icons/ebook.svg';
+      icon.src = book.coverUrl || '/icons/ebook.svg';
       icon.alt = '';
+      if (book.coverUrl) {
+        icon.className = 'ol-cover';
+        icon.loading = 'lazy';
+        icon.addEventListener('error', () => {
+          icon.src = '/icons/ebook.svg';
+          icon.className = '';
+        }, { once: true });
+      }
       art.append(icon);
       const source = document.createElement('small');
       source.textContent = `${book.source} · ${book.subject}`;
@@ -56,7 +67,7 @@
   function open(book) {
     $('ol-source').textContent = `${book.source} · ${book.subject}`;
     $('ol-title').textContent = book.title;
-    $('ol-details').textContent = book.publisher;
+    $('ol-details').textContent = book.details;
     $('ol-original').href = book.pdfUrl;
     viewer.title = `${book.title} PDF`;
     viewer.src = `/pdf-viewer/web/viewer.html?file=${encodeURIComponent(pdfProxy(book.pdfUrl))}`;
@@ -81,6 +92,22 @@
   });
 
   render();
-  const linkedBook = books.find(book => book.id === new URLSearchParams(window.location.search).get('resource'));
-  if (linkedBook) open(linkedBook);
+  async function loadArchiveBooks() {
+    status.textContent = 'Loading books from Internet Archive…';
+    try {
+      const response = await fetch('/academy/open-library/catalogue');
+      if (!response.ok) throw new Error('Archive.org catalogue unavailable');
+      const data = await response.json();
+      if (!Array.isArray(data.books)) throw new Error('Invalid Archive.org catalogue');
+      books = [...books, ...data.books];
+      status.textContent = data.books.length ? '' : 'No public PDFs are available in the Archive.org list yet.';
+      render();
+    } catch (_error) {
+      status.textContent = 'Archive.org books are temporarily unavailable. Please try again later.';
+    }
+    const linkedBook = books.find(book => book.id === new URLSearchParams(window.location.search).get('resource'));
+    if (linkedBook) open(linkedBook);
+  }
+
+  loadArchiveBooks();
 })();
