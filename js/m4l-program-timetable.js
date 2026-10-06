@@ -154,16 +154,16 @@
   function audienceRows(result,type){
     const rows=new Map();
     for(const row of result.occurrences.filter(row=>row.kind!=='BREAK')){
-      if(type==='teacher'){if(row.teacherId)rows.set(row.teacherId,row.teacherName||row.teacherId);}
+      if(type==='teacher'){(row.teacherIds||[row.teacherId]).forEach((teacherId,index)=>{if(teacherId)rows.set(teacherId,row.teacherNames?.[index]||row.teacherName||teacherId);});}
       else row.classIds.forEach((classId,i)=>rows.set(classId,row.classNames[i]||classId));
     }
     return [...rows].map(([id,name])=>({id,name})).sort((a,b)=>a.name.localeCompare(b.name));
   }
   function visibleOccurrences(result,type,target){
     if(type==='program')return presentation.displayOccurrences(result.occurrences,{program:true});
-    const lessons=result.occurrences.filter(row=>row.kind!=='BREAK'&&(type==='teacher'?row.teacherId===target:row.classIds.includes(target)));
+    const lessons=result.occurrences.filter(row=>row.kind!=='BREAK'&&(type==='teacher'?(row.teacherIds||[row.teacherId]).includes(target):row.classIds.includes(target)));
     const lessonDays=new Set(lessons.map(row=>result.pattern==='WEEKLY'?row.weekday:row.date));
-    return result.occurrences.filter(row=>row.kind!=='BREAK'?(type==='teacher'?row.teacherId===target:row.classIds.includes(target)):(type==='class'||lessonDays.has(result.pattern==='WEEKLY'?row.weekday:row.date)));
+    return result.occurrences.filter(row=>row.kind!=='BREAK'?(type==='teacher'?(row.teacherIds||[row.teacherId]).includes(target):row.classIds.includes(target)):(type==='class'||lessonDays.has(result.pattern==='WEEKLY'?row.weekday:row.date)));
   }
   function renderOccurrenceList(){
     const result=state.calendarView,target=$('tt-preview-target').value,type=$('tt-preview-type').value;if(!result)return;
@@ -282,7 +282,7 @@
     for(const row of rows){
       const id=row.sourceRuleId||row.id,existing=restored.get(id);
       if(existing&&row.assignmentMode==='CLASS'){existing.classIds.push(...row.classIds);continue;}
-      restored.set(id,{id,moduleId:row.moduleId,programSubjectId:row.programSubjectId||'',teacherId:['CLASS','NONE'].includes(row.assignmentMode)?'':row.teacherId,...(row.assignmentMode==='NONE'?{teacherMode:'NONE'}:{}),classIds:[...row.classIds],weekdays:[...row.weekdays],startTime:row.startTime,endTime:row.endTime,zoomLink:row.assignmentMode?row.zoomLink||'':row.effectiveZoomLink||row.zoomLink||''});
+      restored.set(id,{id,moduleId:row.moduleId,programSubjectId:row.programSubjectId||'',teacherId:['CLASS','NONE'].includes(row.assignmentMode)?'':row.teacherId,...(row.assignmentMode==='EXPLICIT'&&row.teacherIds?.length>1?{additionalTeacherIds:row.teacherIds.slice(1)}:{}),...(row.assignmentMode==='NONE'?{teacherMode:'NONE'}:{}),classIds:[...row.classIds],weekdays:[...row.weekdays],startTime:row.startTime,endTime:row.endTime,zoomLink:row.assignmentMode?row.zoomLink||'':row.effectiveZoomLink||row.zoomLink||''});
     }
     return [...restored.values()];
   }

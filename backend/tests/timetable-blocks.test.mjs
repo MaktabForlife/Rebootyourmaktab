@@ -27,6 +27,12 @@ assert(!filtered.events.some(b=>b.title==='Other class'));assert(filtered.events
 assert.equal(filtered.timetableType,'class');assert.equal(filtered.timetableName,'Year 1');assert(filtered.events.filter(b=>b.kind!=='BREAK').every(b=>b.classes===''));assert(filtered.events.some(b=>b.teacher==='Teacher A'));
 const teacher=blocks.model(source([item('Mine',2,'08:00','09:00',{classIds:['B'],classNames:['Year 2']}),item('Not mine',3,'09:00','10:00',{teacherId:'T2',teacherName:'Teacher B'}),item('Relevant break',2,'09:00','09:15',{kind:'BREAK',classIds:[],classNames:[]}),item('Other-day break',4,'09:00','09:15',{kind:'BREAK',classIds:[],classNames:[]})]),{teacherId:'T1'});
 assert.equal(teacher.timetableType,'teacher');assert.equal(teacher.timetableName,'Teacher A');assert.deepEqual(teacher.events.map(b=>b.title),['Mine','Relevant break']);assert.equal(teacher.events[0].teacher,'');assert.equal(teacher.events[0].classes,'Year 2');assert.equal(teacher.events[1].classes,'');
+const coTaught=item('Co-taught',2,'10:00','10:30',{assignmentMode:'EXPLICIT',teacherIds:['T1','T2'],teacherNames:['Teacher A','Teacher B']});
+const coSource=source([coTaught]),coClass=blocks.model(coSource,{classId:'A'}),coSecond=blocks.model(coSource,{teacherId:'T2'});
+assert.equal(coClass.events[0].teacher,'Teacher A, Teacher B','published class view lists both teachers');
+assert.equal(coSecond.timetableName,'Teacher B','the second teacher gets their own named timetable');
+assert.deepEqual(coSecond.events.map(row=>row.title),['Co-taught']);
+assert(blocks.canvases(coClass,canvas)[0].canvas.text.some(row=>row.value.includes('Teacher A, Teacher B')),'the image includes both teacher names');
 const unsafe=blocks.html(blocks.model(source([item('<script>evil</script>',2,'08:00','09:00',{teacherName:'<b>x</b>',zoomLink:'javascript:alert(1)'})])),canvas);
 assert(!unsafe.includes('<script>'));assert(!unsafe.includes('href='));assert(unsafe.includes('&lt;script&gt;'));
 const cancelled=blocks.html(blocks.model(source([item('Cancelled',2,'08:00','09:00',{status:'CANCELLED'})])),canvas);assert(!cancelled.includes('href='));assert(cancelled.includes('line-through'));

@@ -5,7 +5,7 @@
   const time=v=>String(v||'').replace(':','h');
   function link(value){try{if(typeof value!=='string'||value.length>2048||/[\u0000-\u001f\u007f]/.test(value))return '';const u=new URL(value);return u.protocol==='https:'&&!u.username&&!u.password?u.href:'';}catch{return '';}}
   const defaults=()=>({alignment:'center',mergeShared:true,columnWidths:{},rowHeights:{}});
-  const teacherLabel=row=>row.kind==='BREAK'?'':row.assignmentMode==='NONE'?'No teacher':row.assignmentMode==='CLASS'?(row.classTeachersAssigned===false||!row.classTeachersAssigned&&!row.teacherId?'No teacher':''):row.teacherName||'No teacher';
+  const teacherLabel=row=>row.kind==='BREAK'?'':row.assignmentMode==='NONE'?'No teacher':row.assignmentMode==='CLASS'?(row.classTeachersAssigned===false||!row.classTeachersAssigned&&!row.teacherId?'No teacher':''):(row.teacherNames?.length?row.teacherNames.join(', '):row.teacherName)||'No teacher';
   function displayOccurrences(occurrences,{program=false}={}){
     if(!program)return occurrences;
     const grouped=new Map(),display=[];
@@ -29,7 +29,7 @@
     return {academy:'UMM ABBAD ACADEMY',program:result.snapshot?.programName||programName,title:weekly?'Weekly timetable':'Timetable',classes:classes.join(' · '),
       stamp:history?`Published version ${result.version} · Effective ${result.effectiveFrom}`:`DRAFT PREVIEW · Proposed effective date ${effectiveFrom}`,
       timezone:result.snapshot?.timezone||'',columns,layout:{...defaults(),...(layout||result.snapshot?.layout||result.draft?.layout||{})},
-      rows:boundaries.slice(0,-1).map((start,i)=>{const end=boundaries[i+1];return {key:`${start}|${end}`,start,end,label:`${time(start)} - ${time(end)}`,cells:columns.map(col=>items.filter(r=>(weekly?r.weekday:r.date)===col.id&&r.startTime<=start&&r.endTime>=end).map(r=>({ruleId:r.ruleId,kind:r.kind||'LESSON',title:r.moduleName||r.subjectName,teacher:teacherLabel(r),classes:r.classNames.join(', '),url:link(r.zoomLink),cancelled:r.status==='CANCELLED',identity:[r.moduleId||'',r.programSubjectId||'',r.assignmentMode||'',r.teacherId||'',...r.classIds.slice().sort()].join('|'),start:r.startTime,end:r.endTime})))};})};
+      rows:boundaries.slice(0,-1).map((start,i)=>{const end=boundaries[i+1];return {key:`${start}|${end}`,start,end,label:`${time(start)} - ${time(end)}`,cells:columns.map(col=>items.filter(r=>(weekly?r.weekday:r.date)===col.id&&r.startTime<=start&&r.endTime>=end).map(r=>({ruleId:r.ruleId,kind:r.kind||'LESSON',title:r.moduleName||r.subjectName,teacher:teacherLabel(r),classes:r.classNames.join(', '),url:link(r.zoomLink),cancelled:r.status==='CANCELLED',identity:[r.moduleId||'',r.programSubjectId||'',r.assignmentMode||'',...(r.teacherIds||[r.teacherId]).slice().sort(),...r.classIds.slice().sort()].join('|'),start:r.startTime,end:r.endTime})))};})};
   }
   const signature=items=>JSON.stringify(items.map(({ruleId,...item})=>item).sort((a,b)=>JSON.stringify(a).localeCompare(JSON.stringify(b))));
   // Each grid position is covered exactly once. Only equivalent content can merge.
