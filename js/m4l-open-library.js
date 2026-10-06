@@ -1,0 +1,86 @@
+(() => {
+  'use strict';
+
+  // Curated public links. Add each book once, even when its source lists it for several grades.
+  const books = [{
+    id: 'EXTERNAL:TALIMI_BOARD_KZN:ESSENTIAL_DUAS_GR_1_7',
+    title: 'Essential Duas for Muslims (Grades 1–7)',
+    subject: 'Duas',
+    source: 'Ta’limi Board KZN',
+    publisher: 'Jamiatul Ulama (KZN) Ta’limi Board',
+    description: 'Duas for learners in Grades 1–7.',
+    pdfUrl: 'https://talimiboardkzn.org/wp-content/uploads/2018/10/essential_duas_for_muslims_gr_1-7.pdf'
+  }];
+
+  const $ = id => document.getElementById(id);
+  const results = $('ol-results');
+  const dialog = $('ol-preview');
+  const viewer = $('ol-viewer');
+
+  function pdfProxy(url) {
+    const bytes = new TextEncoder().encode(url);
+    let binary = '';
+    for (const byte of bytes) binary += String.fromCharCode(byte);
+    return `/pdf-file/${btoa(binary).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '')}`;
+  }
+
+  function render() {
+    const query = $('ol-search').value.trim().toLocaleLowerCase();
+    const matches = books.filter(book => [book.title, book.subject, book.source, book.description]
+      .some(value => value.toLocaleLowerCase().includes(query)));
+    results.replaceChildren();
+    for (const book of matches) {
+      const card = document.createElement('button');
+      card.type = 'button';
+      card.className = 'ol-card';
+      card.dataset.resource = book.id;
+      card.setAttribute('aria-label', `Read ${book.title}`);
+      const art = document.createElement('div');
+      art.className = 'ol-card-art';
+      const icon = document.createElement('img');
+      icon.src = '/icons/ebook.svg';
+      icon.alt = '';
+      art.append(icon);
+      const source = document.createElement('small');
+      source.textContent = `${book.source} · ${book.subject}`;
+      const title = document.createElement('strong');
+      title.textContent = book.title;
+      const action = document.createElement('span');
+      action.textContent = 'Read book →';
+      card.append(art, source, title, action);
+      results.append(card);
+    }
+    $('ol-empty').hidden = matches.length > 0;
+  }
+
+  function open(book) {
+    $('ol-source').textContent = `${book.source} · ${book.subject}`;
+    $('ol-title').textContent = book.title;
+    $('ol-details').textContent = book.publisher;
+    $('ol-original').href = book.pdfUrl;
+    viewer.title = `${book.title} PDF`;
+    viewer.src = `/pdf-viewer/web/viewer.html?file=${encodeURIComponent(pdfProxy(book.pdfUrl))}`;
+    dialog.showModal();
+    const url = new URL(window.location.href);
+    url.searchParams.set('resource', book.id);
+    history.replaceState(null, '', url);
+  }
+
+  results.addEventListener('click', event => {
+    const id = event.target.closest('[data-resource]')?.dataset.resource;
+    const book = books.find(item => item.id === id);
+    if (book) open(book);
+  });
+  $('ol-search').addEventListener('input', render);
+  $('ol-close').addEventListener('click', () => dialog.close());
+  dialog.addEventListener('close', () => {
+    viewer.src = 'about:blank';
+    const url = new URL(window.location.href);
+    url.searchParams.delete('resource');
+    history.replaceState(null, '', url);
+  });
+
+  render();
+  const linkedBook = books.find(book => book.id === new URLSearchParams(window.location.search).get('resource'));
+  if (linkedBook) open(linkedBook);
+})();

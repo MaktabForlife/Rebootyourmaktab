@@ -27,13 +27,15 @@ export async function onRequestGet(context) {
 
   const hostname = targetUrl.hostname.toLowerCase();
   const isPrivateM4LDriveUrl = isAllowedPrivateM4LDriveUrl(targetUrl);
+  const isTalimiboardDuas = isAllowedTalimiboardDuasUrl(targetUrl);
 
   const allowed =
     hostname.endsWith(".r2.dev") ||
     hostname === "drive.google.com" ||
     hostname === "docs.google.com" ||
     hostname === "lh3.googleusercontent.com" ||
-    isPrivateM4LDriveUrl;
+    isPrivateM4LDriveUrl ||
+    isTalimiboardDuas;
 
   if (!allowed) {
     return new Response("PDF host not allowed", { status: 403 });
@@ -50,17 +52,24 @@ export async function onRequestGet(context) {
 
   const upstreamResponse = await fetch(targetUrl.toString(), {
     method: "GET",
-    headers: upstreamHeaders
+    headers: upstreamHeaders,
+    redirect: isTalimiboardDuas ? "manual" : "follow"
   });
 
+  if (isTalimiboardDuas && upstreamResponse.status >= 300 && upstreamResponse.status < 400) {
+    return new Response("The source PDF is unavailable", { status: 502 });
+  }
+
   const responseHeaders = new Headers(upstreamResponse.headers);
+
+  responseHeaders.delete("Set-Cookie");
 
   responseHeaders.set("Content-Type", "application/pdf");
   responseHeaders.set("Content-Disposition", "inline; filename=\"resource.pdf\"");
   responseHeaders.set("Access-Control-Allow-Origin", "*");
   responseHeaders.set(
     "Cache-Control",
-    isPrivateM4LDriveUrl ? "private, no-store, max-age=0" : "public, max-age=3600"
+    isPrivateM4LDriveUrl || isTalimiboardDuas ? "private, no-store, max-age=0" : "public, max-age=3600"
   );
   responseHeaders.set("Accept-Ranges", "bytes");
 
@@ -90,6 +99,12 @@ const PRIVATE_M4L_DRIVE_HOSTS = new Set([
   "devrebootworker.maktab4life.workers.dev",
   "api.rebootyourmaktab.maktabhelper.app"
 ]);
+
+function isAllowedTalimiboardDuasUrl(url) {
+  return url.hostname.toLowerCase() === "talimiboardkzn.org" &&
+    url.pathname === "/wp-content/uploads/2018/10/essential_duas_for_muslims_gr_1-7.pdf" &&
+    !url.search && !url.hash;
+}
 
 function isAllowedPrivateM4LDriveUrl(url) {
   if (!url || !PRIVATE_M4L_DRIVE_HOSTS.has(url.hostname.toLowerCase())) {

@@ -25,6 +25,7 @@ async function callProxy(targetUrl, { range = "" } = {}) {
 
 const originalFetch = globalThis.fetch;
 let fetchCalls = [];
+let responseStatus = 200;
 
 globalThis.fetch = async (url, options = {}) => {
   fetchCalls.push({ url: String(url), options });
@@ -32,10 +33,11 @@ globalThis.fetch = async (url, options = {}) => {
     "Content-Type": "application/pdf",
     "Content-Length": "4",
     "Content-Range": "bytes 0-3/4",
-    "Accept-Ranges": "bytes"
+    "Accept-Ranges": "bytes",
+    "Set-Cookie": "upstream=1"
   });
   return new Response(new Uint8Array([1, 2, 3, 4]), {
-    status: options.headers?.get?.("Range") ? 206 : 200,
+    status: options.headers?.get?.("Range") ? 206 : responseStatus,
     headers
   });
 };
@@ -50,6 +52,7 @@ try {
   assert.match(devResponse.headers.get("Cache-Control") || "", /private/i);
   assert.match(devResponse.headers.get("Cache-Control") || "", /no-store/i);
   assert.equal(devResponse.headers.get("Content-Type"), "application/pdf");
+  assert.equal(devResponse.headers.get("Set-Cookie"), null);
 
   fetchCalls = [];
   const prodUrl = "https://api.rebootyourmaktab.maktabhelper.app/api/library/drive/file/FILE_456?access=signed-token";
@@ -70,6 +73,30 @@ try {
     "https://other-worker.example.workers.dev/api/library/drive/file/FILE_123?access=signed-token"
   );
   assert.equal(unrelatedWorkerResponse.status, 403);
+  assert.equal(fetchCalls.length, 0);
+
+  fetchCalls = [];
+  const duasUrl = "https://talimiboardkzn.org/wp-content/uploads/2018/10/essential_duas_for_muslims_gr_1-7.pdf";
+  const duasResponse = await callProxy(duasUrl, { range: "bytes=0-3" });
+  assert.equal(duasResponse.status, 206);
+  assert.equal(fetchCalls.length, 1);
+  assert.equal(fetchCalls[0].url, duasUrl);
+  assert.equal(fetchCalls[0].options.headers.get("Range"), "bytes=0-3");
+  assert.equal(fetchCalls[0].options.redirect, "manual");
+  assert.match(duasResponse.headers.get("Cache-Control") || "", /no-store/i);
+
+  responseStatus = 302;
+  assert.equal((await callProxy(duasUrl)).status, 502);
+  responseStatus = 200;
+
+  fetchCalls = [];
+  for (const url of [
+    "https://talimiboardkzn.org/wp-content/uploads/2018/10/another-book.pdf",
+    "https://talimiboardkzn.org.evil.example/wp-content/uploads/2018/10/essential_duas_for_muslims_gr_1-7.pdf",
+    `${duasUrl}?next=1`
+  ]) {
+    assert.equal((await callProxy(url)).status, 403);
+  }
   assert.equal(fetchCalls.length, 0);
 
   const resourceSource = fs.readFileSync(path.join(repoRoot, "js/m4l-resources.js"), "utf8");
