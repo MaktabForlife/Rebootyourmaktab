@@ -5,8 +5,23 @@
   const time=v=>String(v||'').replace(':','h');
   function link(value){try{if(typeof value!=='string'||value.length>2048||/[\u0000-\u001f\u007f]/.test(value))return '';const u=new URL(value);return u.protocol==='https:'&&!u.username&&!u.password?u.href:'';}catch{return '';}}
   const defaults=()=>({alignment:'center',mergeShared:true,columnWidths:{},rowHeights:{}});
+  const teacherLabel=row=>row.kind==='BREAK'?'':row.assignmentMode==='NONE'?'No teacher':row.assignmentMode==='CLASS'?(row.classTeachersAssigned===false||!row.classTeachersAssigned&&!row.teacherId?'No teacher':''):row.teacherName||'No teacher';
+  function displayOccurrences(occurrences,{program=false}={}){
+    if(!program)return occurrences;
+    const grouped=new Map(),display=[];
+    for(const row of occurrences){
+      if(row.kind==='BREAK'||row.assignmentMode!=='CLASS'||!row.sourceRuleId){display.push(row);continue;}
+      const key=[row.sourceRuleId,row.weekday??row.date,row.startTime,row.endTime,row.status].join('|');
+      let combined=grouped.get(key);
+      if(!combined){combined={...row,ruleId:row.sourceRuleId,anchor:`${row.sourceRuleId}@${row.weekday??row.date}`,classIds:[],classNames:[],classTeachersAssigned:false};grouped.set(key,combined);display.push(combined);}
+      combined.classTeachersAssigned ||= Boolean(row.teacherId);
+      row.classIds.forEach((id,index)=>{if(!combined.classIds.includes(id)){combined.classIds.push(id);combined.classNames.push(row.classNames[index]||id);}});
+      if(combined.zoomLink!==row.zoomLink){combined.zoomLink='';combined.zoomSource='MULTIPLE';}
+    }
+    return display;
+  }
   function model(result,{programName='',classId='',effectiveFrom='',history=false,layout}={}){
-    const items=result.occurrences.filter(r=>r.kind==='BREAK'||!classId||r.classIds.includes(classId));
+    const items=displayOccurrences(result.occurrences.filter(r=>r.kind==='BREAK'||!classId||r.classIds.includes(classId)),{program:!classId});
     const weekly=result.pattern==='WEEKLY';
     const columns=weekly?[1,2,3,4,5,6,0].filter(d=>items.some(r=>r.weekday===d)).map(d=>({id:d,label:days[d]})):[...new Set(items.map(r=>r.date))].sort().map(d=>({id:d,label:d}));
     const classes=[...new Set(items.filter(r=>r.kind!=='BREAK').flatMap(r=>classId?[r.classNames[r.classIds.indexOf(classId)]]:r.classNames))];
@@ -14,7 +29,7 @@
     return {academy:'UMM ABBAD ACADEMY',program:result.snapshot?.programName||programName,title:weekly?'Weekly timetable':'Timetable',classes:classes.join(' · '),
       stamp:history?`Published version ${result.version} · Effective ${result.effectiveFrom}`:`DRAFT PREVIEW · Proposed effective date ${effectiveFrom}`,
       timezone:result.snapshot?.timezone||'',columns,layout:{...defaults(),...(layout||result.snapshot?.layout||result.draft?.layout||{})},
-      rows:boundaries.slice(0,-1).map((start,i)=>{const end=boundaries[i+1];return {key:`${start}|${end}`,start,end,label:`${time(start)} - ${time(end)}`,cells:columns.map(col=>items.filter(r=>(weekly?r.weekday:r.date)===col.id&&r.startTime<=start&&r.endTime>=end).map(r=>({ruleId:r.ruleId,kind:r.kind||'LESSON',title:r.moduleName||r.subjectName,teacher:r.teacherName||'',classes:r.classNames.join(', '),url:link(r.zoomLink),cancelled:r.status==='CANCELLED',identity:[r.moduleId||'',r.programSubjectId||'',r.teacherId||'',...r.classIds.slice().sort()].join('|'),start:r.startTime,end:r.endTime})))};})};
+      rows:boundaries.slice(0,-1).map((start,i)=>{const end=boundaries[i+1];return {key:`${start}|${end}`,start,end,label:`${time(start)} - ${time(end)}`,cells:columns.map(col=>items.filter(r=>(weekly?r.weekday:r.date)===col.id&&r.startTime<=start&&r.endTime>=end).map(r=>({ruleId:r.ruleId,kind:r.kind||'LESSON',title:r.moduleName||r.subjectName,teacher:teacherLabel(r),classes:r.classNames.join(', '),url:link(r.zoomLink),cancelled:r.status==='CANCELLED',identity:[r.moduleId||'',r.programSubjectId||'',r.assignmentMode||'',r.teacherId||'',...r.classIds.slice().sort()].join('|'),start:r.startTime,end:r.endTime})))};})};
   }
   const signature=items=>JSON.stringify(items.map(({ruleId,...item})=>item).sort((a,b)=>JSON.stringify(a).localeCompare(JSON.stringify(b))));
   // Each grid position is covered exactly once. Only equivalent content can merge.
@@ -136,5 +151,5 @@
     }
     return doc.save();
   }
-  window.M4L_TIMETABLE_PRESENTATION={model,html,canvases,pdf,link,grid,defaults};
+  window.M4L_TIMETABLE_PRESENTATION={model,html,canvases,pdf,link,grid,defaults,displayOccurrences,teacherLabel};
 })();

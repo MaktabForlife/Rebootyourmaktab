@@ -112,7 +112,7 @@ export function reviewPlanner(draft,catalog){
   return {issues,teachers:[...booked].map(([teacherId,scheduledMinutes])=>({teacherId,scheduledMinutes}))};
 }
 export function weeklyPattern(rules,breaks=[]){
-  return [...rules,...breaks.map(b=>({...b,kind:'BREAK',moduleName:b.label,classIds:[],classNames:[]}))].flatMap(r=>r.weekdays.map(weekday=>({anchor:`${r.id}@${weekday}`,ruleId:r.id,kind:r.kind||'LESSON',weekday,moduleId:r.moduleId,programSubjectId:r.programSubjectId,subjectName:r.subjectName,moduleName:r.moduleName,levelName:r.levelName,classIds:r.classIds,classNames:r.classNames,teacherId:r.teacherId,teacherName:r.teacherName,startTime:r.startTime,endTime:r.endTime,zoomLink:r.effectiveZoomLink||'',zoomSource:r.zoomSource||'NONE',status:'SCHEDULED'})))
+  return [...rules,...breaks.map(b=>({...b,kind:'BREAK',moduleName:b.label,classIds:[],classNames:[]}))].flatMap(r=>r.weekdays.map(weekday=>({anchor:`${r.id}@${weekday}`,ruleId:r.id,kind:r.kind||'LESSON',sourceRuleId:r.sourceRuleId||'',assignmentMode:r.assignmentMode||'',weekday,moduleId:r.moduleId,programSubjectId:r.programSubjectId,subjectName:r.subjectName,moduleName:r.moduleName,levelName:r.levelName,classIds:r.classIds,classNames:r.classNames,teacherId:r.teacherId,teacherName:r.teacherName,startTime:r.startTime,endTime:r.endTime,zoomLink:r.effectiveZoomLink||'',zoomSource:r.zoomSource||'NONE',status:'SCHEDULED'})))
     .sort((a,b)=>(a.weekday+6)%7-(b.weekday+6)%7||a.startTime.localeCompare(b.startTime)||a.ruleId.localeCompare(b.ruleId));
 }
 export function effectiveLessonTeacherId(row,classes){

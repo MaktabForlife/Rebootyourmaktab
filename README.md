@@ -1,3 +1,9 @@
+# V105.4.2.12 — All-class publication display
+
+Program timetable previews, published history and image/PDF exports show one entry for an all-class lesson using class teachers. The entry says **All classes** and omits individual class teacher names. A named lesson teacher is shown by name; a lesson without any teacher says **No teacher**. Class and teacher views retain their own lesson links. [Details](docs/V105.4-PROGRAM-LIBRARY.md).
+
+Development only; publication and Academy acceptance remain open.
+
 # V105.4.2.11 — Class teachers across all classes
 
 A lesson can use each selected class's assigned teacher, have no assigned teacher, or name one lesson teacher. The all-class choice also appears in the board-tab class selector. Publication checks identify the lesson by weekday, time, subject and classes, and open it from the issue list. On the Program board, a small plus button on an occupied lesson card replaces the large add-another-class block. [Details](docs/V105.4-PROGRAM-LIBRARY.md).

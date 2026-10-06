@@ -84,7 +84,7 @@
   }
   function safeZoom(value){if(typeof value!=='string'||value.length>2048||/[\u0000-\u001f\u007f]/.test(value))return '';try{const url=new URL(value);return url.protocol==='https:'&&!url.username&&!url.password?url.href:'';}catch{return '';}}
   const zoomAnchor=(link,label=link)=>safeZoom(link)?`<a href="${esc(safeZoom(link))}" target="_blank" rel="noopener noreferrer">${esc(label)}</a>`:'';
-  const zoomDisplay=row=>zoomAnchor(row.zoomLink)||'<span class="tt-scope">No Zoom link</span>';
+  const zoomDisplay=row=>zoomAnchor(row.zoomLink)||`<span class="tt-scope">${row.zoomSource==='MULTIPLE'?'Select a class to see its link':'No Zoom link'}</span>`;
   function render(){
     $('tt-title').textContent=`${state.data.program.name} · Timetable`;
     const current=state.data.publications.find(p=>p.id===state.data.currentPublicationId),scheduled=state.data.publications.filter(p=>p.status==='SCHEDULED');
@@ -160,7 +160,7 @@
     return [...rows].map(([id,name])=>({id,name})).sort((a,b)=>a.name.localeCompare(b.name));
   }
   function visibleOccurrences(result,type,target){
-    if(type==='program')return result.occurrences;
+    if(type==='program')return presentation.displayOccurrences(result.occurrences,{program:true});
     const lessons=result.occurrences.filter(row=>row.kind!=='BREAK'&&(type==='teacher'?row.teacherId===target:row.classIds.includes(target)));
     const lessonDays=new Set(lessons.map(row=>result.pattern==='WEEKLY'?row.weekday:row.date));
     return result.occurrences.filter(row=>row.kind!=='BREAK'?(type==='teacher'?row.teacherId===target:row.classIds.includes(target)):(type==='class'||lessonDays.has(result.pattern==='WEEKLY'?row.weekday:row.date)));
@@ -168,7 +168,8 @@
   function renderOccurrenceList(){
     const result=state.calendarView,target=$('tt-preview-target').value,type=$('tt-preview-type').value;if(!result)return;
     const weekly=result.pattern==='WEEKLY';
-    $('tt-occurrences').innerHTML=visibleOccurrences(result,type,target).map(r=>`<tr class="${r.status==='CANCELLED'?'tt-cancelled':''}"><td>${esc(weekly?days[r.weekday]:r.date)}</td><td>${esc(time(r.startTime))}–${esc(time(r.endTime))}</td><td>${zoomAnchor(r.zoomLink,r.moduleName||r.subjectName)||esc(r.moduleName||r.subjectName)}<small>${esc(r.subjectName)}${r.levelName?' / '+esc(r.levelName):''}</small></td><td>${r.classNames.map(esc).join(', ')}</td><td>${esc(r.teacherName||'Not assigned')}</td><td>${zoomDisplay(r)}</td><td>${esc(r.status.toLowerCase())}</td></tr>`).join('')||'<tr><td colspan="7" class="tt-empty">No lessons are assigned to this selection.</td></tr>';
+    const allClassIds=result.history?[...new Set(result.occurrences.filter(row=>row.kind!=='BREAK').flatMap(row=>row.classIds))]:state.data.catalog.classes.filter(row=>row.active).map(row=>row.id);
+    $('tt-occurrences').innerHTML=visibleOccurrences(result,type,target).map(r=>`<tr class="${r.status==='CANCELLED'?'tt-cancelled':''}"><td>${esc(weekly?days[r.weekday]:r.date)}</td><td>${esc(time(r.startTime))}–${esc(time(r.endTime))}</td><td>${zoomAnchor(r.zoomLink,r.moduleName||r.subjectName)||esc(r.moduleName||r.subjectName)}<small>${esc(r.subjectName)}${r.levelName?' / '+esc(r.levelName):''}</small></td><td>${esc(type==='program'&&allClassIds.length>1&&allClassIds.every(classId=>r.classIds.includes(classId))?'All classes':r.classNames.join(', '))}</td><td>${esc(presentation.teacherLabel(r))}</td><td>${zoomDisplay(r)}</td><td>${esc(r.status.toLowerCase())}</td></tr>`).join('')||'<tr><td colspan="7" class="tt-empty">No lessons are assigned to this selection.</td></tr>';
   }
   function populatePreviewTargets(preferred=''){
     const type=$('tt-preview-type').value,rows=type==='teacher'?state.audiences.teachers:state.audiences.classes,target=$('tt-preview-target');
@@ -180,7 +181,7 @@
   }
   function showOccurrences(result,title,history=false){
     state.calendarView={...result,history};$('tt-preview-panel').hidden=false;$('tt-preview-title').textContent=title;
-    const weekly=result.pattern==='WEEKLY';$('tt-preview-note').textContent=`${result.occurrences.filter(r=>r.kind!=='BREAK').length} lessons${result.occurrences.some(r=>r.kind==='BREAK')?' · '+result.occurrences.filter(r=>r.kind==='BREAK').length+' breaks':''} ${weekly?'each week':'in this publication'} · ${result.snapshot?.timezone||state.draft.timezone}${history?` · Published snapshot${result.effectiveFrom?' · Effective '+result.effectiveFrom:''}`:' · Repeats weekly until a newer version takes effect'}`;
+    const weekly=result.pattern==='WEEKLY',displayRows=presentation.displayOccurrences(result.occurrences,{program:true});$('tt-preview-note').textContent=`${displayRows.filter(r=>r.kind!=='BREAK').length} lessons${displayRows.some(r=>r.kind==='BREAK')?' · '+displayRows.filter(r=>r.kind==='BREAK').length+' breaks':''} ${weekly?'each week':'in this publication'} · ${result.snapshot?.timezone||state.draft.timezone}${history?` · Published snapshot${result.effectiveFrom?' · Effective '+result.effectiveFrom:''}`:' · Repeats weekly until a newer version takes effect'}`;
     state.audiences={classes:audienceRows(result,'class'),teachers:audienceRows(result,'teacher')};
     const requested=$('tt-preview-type').value||'program',available=requested==='teacher'?state.audiences.teachers:state.audiences.classes;
     $('tt-preview-type').value=requested==='program'||available.length?requested:'program';

@@ -66,7 +66,7 @@ assert.equal(compactPages.length,1);assert(compactScene.height<600,'Compact morn
 const tickLabels=Array.from(blocks.html(compactModel,canvas).matchAll(/<text x="112"[^>]*>([^<]+)<\/text>/g),m=>m[1]);
 assert.deepEqual(tickLabels,['07h30','08h00','08h30','09h00','09h30','10h00']);
 for(const b of compactScene.blocks)for(const line of b.lines){assert(line.dx>=0&&line.dx+line.width<=b.width,'Text stays inside block width');assert(line.dy>=0&&line.dy+line.size<=b.needed-10,'Text stays inside content height');}
-assert.equal(compactScene.blocks.find(b=>b.title==='Assembly').lines.length,2,'Class name is omitted from the class timetable block');
+assert.equal(compactScene.blocks.find(b=>b.title==='Assembly').lines.length,3,'A lesson without a teacher says No teacher on the class timetable');
 console.log('Compact blocks: 30-minute ticks, smaller spacing, audience-specific text bounds and one-page morning timetable passed.');
 
 const separate=['A','B','C','D'].map((classId,index)=>item('Quran',1,'08:00','08:45',{ruleId:'Quran-'+classId,classIds:[classId],classNames:['Group '+classId],teacherId:'T'+index,teacherName:'Teacher '+classId}));
@@ -95,6 +95,18 @@ pdfSizes.length=0;pdfLinks.length=0;
 await ctx.window.M4L_TIMETABLE_PRESENTATION.pdf(programPages,pdfLib,{size:'program'});
 assert.equal(pdfSizes.length,1,'The whole Program creates one PDF page');
 assert.equal(pdfLinks.length,5,'All Program lesson links remain clickable in the PDF');
+const inherited=['A','B'].map((classId,index)=>item('Together',1,'09:00','09:15',{ruleId:'RULE-ALL-'+index,sourceRuleId:'RULE-ALL',assignmentMode:'CLASS',classIds:[classId],classNames:['Group '+classId],teacherId:'T'+index,teacherName:'Teacher '+classId,zoomLink:'https://zoom.us/j/'+index}));
+const named=item('Named',1,'09:15','09:30',{ruleId:'RULE-NAMED',assignmentMode:'EXPLICIT',classIds:['A','B'],classNames:['Group A','Group B'],teacherId:'T1',teacherName:'Named Teacher'});
+const unassigned=item('Unassigned',1,'09:30','09:45',{ruleId:'RULE-NONE',assignmentMode:'NONE',classIds:['A','B'],classNames:['Group A','Group B'],teacherId:'',teacherName:''});
+const modes=blocks.model(source([...inherited,named,unassigned]),{program:true,allClassIds:['A','B'],allClassNames:['Group A','Group B']});
+assert.equal(modes.events.length,3,'one inherited all-class lesson appears once in the Program publication');
+assert.equal(modes.events[0].classes,'All classes');assert.equal(modes.events[0].teacher,'','class teacher names are omitted');
+assert.equal(modes.events[0].url,'','different class links do not become a misleading shared link');
+assert.equal(modes.events[1].teacher,'Named Teacher');assert.equal(modes.events[2].teacher,'No teacher');
+assert.equal(blocks.model(source([...inherited,named,unassigned]),{classId:'A'}).events[0].teacher,'','the class timetable also omits inherited teacher details');
+assert.equal(blocks.model(source([...inherited,named,unassigned]),{classId:'A'}).events[2].teacher,'No teacher');
+const modeMarkup=blocks.html(modes,canvas);assert.equal((modeMarkup.match(/>Together<\/b>/g)||[]).length,1);assert.doesNotMatch(modeMarkup,/Teacher A|Teacher B/);assert.match(modeMarkup,/Named Teacher/);assert.match(modeMarkup,/No teacher/);
+const modeCanvas=blocks.canvases(modes,canvas)[0].canvas;assert(modeCanvas.text.some(row=>row.value==='All classes'));assert(!modeCanvas.text.some(row=>/Teacher A|Teacher B/.test(row.value)));assert(modeCanvas.text.some(row=>row.value==='Named Teacher'));assert(modeCanvas.text.some(row=>row.value==='No teacher'));
 assert([[1683.78,1190.55],[1190.55,1683.78]].some(size=>size.every((value,i)=>value===pdfSizes[0][i])),'A compact Program timetable uses A2 paper');
 const busyProgram=blocks.model(source(Array.from({length:10},(_,period)=>['A','B','C','D'].map((classId,index)=>item('Subject '+period,1,`${String(8+period).padStart(2,'0')}:00`,`${String(9+period).padStart(2,'0')}:00`,{classIds:[classId],classNames:['Group '+classId],teacherId:'T'+index,teacherName:'Teacher '+classId}))).flat()),{program:true,allClassIds:['A','B','C','D']});
 const busyPage=blocks.canvases(busyProgram,canvas)[0];busyPage.canvas.toDataURL=()=>'';pdfSizes.length=0;

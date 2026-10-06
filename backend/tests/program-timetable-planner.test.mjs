@@ -43,6 +43,7 @@ assert.equal(mixedResult.valid,true,'one all-class lesson uses each class teache
 assert.deepEqual(mixedResult.occurrences.filter(row=>row.startTime==='14:00').map(row=>[row.classIds[0],row.teacherId]),[['CLASS-1','TEACHER-1'],['CLASS-2','TEACHER-2']]);
 assert.equal(mixedResult.draft.rules[2].classIds.length,2,'the editable lesson stays grouped');
 assert.equal(mixedResult.snapshot.rules.filter(row=>row.sourceRuleId==='RULE-ALL').length,2,'the publication fixes each class teacher');
+assert(mixedResult.occurrences.filter(row=>row.sourceRuleId==='RULE-ALL').every(row=>row.assignmentMode==='CLASS'),'the published occurrences retain the class-teacher display choice');
 const mixedWithBreak=structuredClone(mixed);mixedWithBreak.breaks=[{id:'BREAK-OVERLAP',label:'Break',weekdays:[1],startTime:'14:15',endTime:'14:30'}];
 assert(validateWeeklyTimetable(mixedWithBreak,fallbackCatalog,f.program,'2026-09-29').conflicts.some(row=>row.rowIds.includes('RULE-ALL')),'a grouped lesson conflict points to its editable draft rule');
 const noTeacher=structuredClone(mixed);noTeacher.rules[2].teacherMode='NONE';
