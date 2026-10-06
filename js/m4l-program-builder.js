@@ -54,13 +54,13 @@
     const editable = row.mode === "PROGRAM";
     const input = (field, label, extra = "") => `<input data-field="${field}" aria-label="${escape(label)} for ${escape(row.name || "new Program")}" value="${escape(row[field])}" ${extra} ${!editable ? "readonly" : ""} ${state.busy ? "disabled" : ""} />`;
     return `<tr data-id="${escape(row.id)}" class="${state.selected === row.id ? "is-selected" : ""}">
-      <td>${index}</td><td>${input("name", "Program name", 'class="pb-name" maxlength="160"')}</td>
+      <td>${editable ? `<button type="button" class="pb-program-select" data-action="select" aria-label="Select ${escape(row.name || "new Program")}" aria-pressed="${state.selected === row.id}" ${state.busy ? "disabled" : ""}>${index}</button>` : index}</td><td>${input("name", "Program name", 'class="pb-name" maxlength="160"')}</td>
       <td>${editable ? input("durationYears", "Duration in years", 'type="number" min="1" max="30" step="1"') : "—"}</td>
       <td>${editable ? "South Africa (SAST)" : "—"}</td>
       <td>${editable ? `<select data-field="status" aria-label="Status for ${escape(row.name || "new Program")}" ${state.busy ? "disabled" : ""}>${["DRAFT", "ARCHIVED"].map(value => `<option value="${value}" ${row.status === value ? "selected" : ""}>${value === "DRAFT" ? "Draft" : "Archived"}</option>`).join("")}</select>` : escape(row.status === "ACTIVE" ? "Active" : "Inactive")}</td>
       <td>${row.saved ? `<a href="https://docs.google.com/spreadsheets/d/${encodeURIComponent(row.spreadsheetId)}/edit" target="_blank" rel="noopener noreferrer">Open spreadsheet ↗</a>` : input("spreadsheetId", "Spreadsheet link or ID", 'placeholder="Paste Google Sheets link"')} </td>
       <td><div class="pb-actions"><span class="pb-state">${!editable ? "Existing workspace" : row.error ? "Save failed" : dirty(row) ? "Unsaved" : "Saved"}</span>
-        ${editable ? `<button type="button" data-action="save" aria-label="Save ${escape(row.name || "new Program")}" title="Save Program" ${state.busy || !dirty(row) ? "disabled" : ""}>▣ Save</button><button type="button" data-action="discard" class="pb-secondary" aria-label="Discard changes to ${escape(row.name || "new Program")}" ${state.busy || !dirty(row) ? "disabled" : ""}>Discard</button><button type="button" data-action="details" class="pb-secondary" aria-label="Details for ${escape(row.name || "new Program")}" ${state.busy ? "disabled" : ""}>Details</button>` : ""}</div>
+        ${editable ? `<button type="button" data-action="save" aria-label="Save ${escape(row.name || "new Program")}" title="Save Program" ${state.busy || !dirty(row) ? "disabled" : ""}>▣ Save</button><button type="button" data-action="discard" class="pb-secondary" aria-label="Discard changes to ${escape(row.name || "new Program")}" ${state.busy || !dirty(row) ? "disabled" : ""}>Discard</button>` : ""}</div>
         ${row.error ? `<span class="pb-row-error" role="alert">${escape(row.error)}</span>` : ""}</td></tr>`;
   }
   function renderDetail() {
@@ -126,6 +126,11 @@
     tr.querySelector('[data-action="discard"]').disabled = !dirty(row);
     tr.querySelector(".pb-row-error")?.remove();
     state.selected = row.id;
+    byId("program-rows").querySelectorAll("tr[data-id]").forEach(item => {
+      const selected = item.dataset.id === row.id;
+      item.classList.toggle("is-selected", selected);
+      item.querySelector('[data-action="select"]')?.setAttribute("aria-pressed", String(selected));
+    });
     renderDetail();
   }
   async function init() {
@@ -152,7 +157,7 @@
         if (row.saved) Object.assign(row, draft(row.saved));
         else state.rows = state.rows.filter(item => item !== row);
         render(); message("Unsaved row changes discarded.");
-      } else if (action === "details" && row) { state.selected = row.id; render(); byId("program-detail").scrollIntoView({ block: "nearest", behavior: "smooth" }); }
+      } else if (action === "select" && row?.mode === "PROGRAM") { state.selected = row.id; render(); byId("program-detail").scrollIntoView({ block: "nearest", behavior: "smooth" }); }
       else if (["check", "prepare"].includes(action)) void readiness(action);
     });
     byId("program-builder").addEventListener("keydown", event => {

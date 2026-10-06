@@ -1,3 +1,9 @@
+# V105.4.2.9 — Program selection
+
+Choose a Program in the setup table by clicking its numbered button in the left column. The selected number is highlighted, and its details open below the table. The separate Details button in the right column has been removed. [Program setup](programs/index.html).
+
+Development only; publication and Academy acceptance remain open.
+
 # V105.4.2.8 — User profiles saving
 
 The changed-record review no longer shows **Save my version**. After reviewing a conflict, **Save all** retries pending role entries for the same Program or subject together. Confirmed saves close edited cells and show their saved values. The feature branch now requires a version update with every push. [Details and verification](docs/V105.4-PROGRAM-LIBRARY.md).
