@@ -1,3 +1,7 @@
+# V105.4.2.15 — Academy version and Library menu
+
+The public Academy welcome page now shows **Website V105.4.2.15** in its header. The existing left-hand Library item opens `/academy/open-library/` before sign-in and `/academy/library/` after the Academy session is verified. Signing out returns the item to the public destination. The feature branch has been updated; the development Pages site requires a separate deployment.
+
 # V105.4.2.14 — Archive books in Academy Explore
 
 The signed-in Academy Library now shows public Archive.org books in Explore and opens them in its in-page PDF.js reader. The Ihya card has a four-volume selector. The public Open Library continues to work without an account, while protected resources retain their separate server access checks. [Open Library details](docs/ACADEMY-OPEN-LIBRARY.md). Hosted Development and device reading checks remain open.

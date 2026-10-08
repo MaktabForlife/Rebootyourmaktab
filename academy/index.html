@@ -239,6 +239,10 @@
     .academy-home-card p{margin:0 0 16px;color:var(--muted);line-height:1.5}
     .academy-home-card p strong{color:var(--ink)}
     .academy-home-card .text-link{display:inline-block;margin-top:16px;white-space:normal}
+    .nav .library-link{width:100%;display:flex;align-items:center;gap:12px;text-align:left;padding:11px 13px;color:var(--ink);border-radius:11px;font-size:14px;font-weight:600;text-decoration:none}
+    .nav .library-link:hover{background:var(--bg)}
+    .site-version{display:inline-flex;align-items:center;padding:7px 10px;border:1px solid var(--line);border-radius:100px;background:var(--paper);color:var(--rose-dark);font-size:12px;font-weight:700;white-space:nowrap}
+    @media(max-width:700px){.nav .library-link{width:auto;white-space:nowrap;padding:9px 10px;font-size:13px}.topbar{flex-wrap:wrap}.top-actions{flex-wrap:wrap;justify-content:flex-start}}
     @media(max-width:700px){body.academy-signed-in .topbar{flex-wrap:wrap}body.academy-signed-in .top-actions{width:100%;justify-content:flex-end}body.academy-signed-in .demo-pill{margin-right:auto}}
   </style>
 </head>
@@ -251,14 +255,14 @@
       <button type="button" data-nav="prospectus"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M5 3h10l4 4v14H5zM15 3v5h4M8 12h8M8 16h8"/></svg>2026 Prospectus</button>
       <button type="button" data-nav="learning"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M3 5q5-2 9 1 4-3 9-1v14q-5-2-9 1-4-3-9-1zM12 6v14"/></svg>Learning spaces</button>
       <button type="button" data-nav="timetable"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4M17 3v4M3 10h18"/></svg>Timetable</button>
-      <button type="button" data-nav="library"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M5 4h13v16H5zM9 4v16M20 7v13"/></svg>Library</button>
+      <a class="library-link" id="academy-library-nav" href="/academy/open-library/"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" aria-hidden="true"><path d="M5 4h13v16H5zM9 4v16M20 7v13"/></svg>Library</a>
       <button type="button" data-nav="progress"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M4 20V9m6 11V4m6 16v-7m4 7H2"/></svg>Progress</button>
       <button type="button" data-nav="integration"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><circle cx="5" cy="12" r="2"/><circle cx="19" cy="5" r="2"/><circle cx="19" cy="19" r="2"/><path d="m7 11 10-5M7 13l10 5"/></svg>Connection plan</button>
     </nav></div>
     <div class="sidebar-note"><strong>Public concept preview</strong>Illustrative data is shown here. Open Library is public; personal Library access uses the signed-in Academy account.</div>
   </aside>
   <main>
-    <header class="topbar"><div class="breadcrumbs">Umm Abbad Academy <span aria-hidden="true">/</span> <strong id="current-view">Overview</strong></div><div class="top-actions"><span class="demo-pill">Public concept demo</span><button class="academy-sign-out" id="academy-sign-out" type="button" hidden>Sign out</button><div class="avatar" id="academy-avatar" aria-label="Illustrative learner profile">A</div></div></header>
+    <header class="topbar"><div class="breadcrumbs">Umm Abbad Academy <span aria-hidden="true">/</span> <strong id="current-view">Overview</strong></div><div class="top-actions"><span class="site-version" title="Version of the deployed Academy page">Website V105.4.2.15</span><span class="demo-pill">Public concept demo</span><button class="academy-sign-out" id="academy-sign-out" type="button" hidden>Sign out</button><div class="avatar" id="academy-avatar" aria-label="Illustrative learner profile">A</div></div></header>
     <div class="container">
       <section id="overview" class="view active" aria-labelledby="overview-title">
         <section class="academy-intro" aria-labelledby="overview-title">
@@ -449,6 +453,6 @@
   renderScope();showView(location.hash.slice(1));
 </script>
 <script src="/js/m4l-config.js?v=102.4"></script>
-<script src="/js/m4l-academy-login.js?v=7"></script>
+<script src="/js/m4l-academy-login.js?v=105.4.2.15"></script>
 </body>
 </html>

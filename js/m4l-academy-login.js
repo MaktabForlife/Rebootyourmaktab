@@ -16,6 +16,7 @@
   const accountName = document.getElementById("academy-account-name");
   const maktabLink = document.getElementById("academy-maktab-link");
   const signOutButton = document.getElementById("academy-sign-out");
+  const libraryNav = document.getElementById("academy-library-nav");
   const avatar = document.getElementById("academy-avatar");
   let activeToken = "";
 
@@ -65,6 +66,7 @@
     avatar.textContent = "A";
     avatar.setAttribute("aria-label", "Illustrative learner profile");
     document.body.classList.remove("academy-signed-in");
+    libraryNav.href = "/academy/open-library/";
     showStatus("");
     setBusy(false);
     window.location.hash = "overview";
@@ -122,6 +124,7 @@
     homeCard.hidden = false;
     signOutButton.hidden = false;
     document.body.classList.add("academy-signed-in");
+    libraryNav.href = "/academy/library/";
   }
 
   async function signIn(event) {

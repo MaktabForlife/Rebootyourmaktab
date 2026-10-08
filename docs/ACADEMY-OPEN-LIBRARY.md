@@ -1,8 +1,10 @@
 # Academy Open Library
 
-8 October 2026 · V105.4.2.14 feature branch
+8 October 2026 · V105.4.2.15 feature branch
 
 Open Library is a separate public catalogue at `/academy/open-library/`. It does not require an Academy account and does not read or expose the personal For you / Explore catalogue. The Academy welcome page links to it separately from My Library.
+
+The welcome page's left-hand Library item opens this public catalogue for signed-out visitors. Once the Academy account session is verified, the same item opens the personal Library at `/academy/library/`. The welcome page header shows the frontend version present in that deployment.
 
 Signed-in learners also see the Archive.org list's public books in their Academy Library **Explore** view. Those cards use the same public catalogue endpoint and PDF proxy as Open Library. The four Ihya volumes stay grouped as one card with a volume selector. Archive.org books are public links, so opening them does not use the protected Academy resource access endpoint. For you and protected Explore resources continue to use their existing server-side access checks. A signed-out user can follow the visible Public Open Library link to browse without an account.
 

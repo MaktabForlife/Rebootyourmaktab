@@ -1,3 +1,9 @@
+# V105.4.2.15 — Academy version and Library menu
+
+The Academy welcome page shows its website version in the header. Its existing left-hand **Library** menu opens the public Open Library for signed-out visitors and the personal Academy Library after a verified sign-in. [Release notes](RELEASE-NOTES.md).
+
+Feature branch only; the development Pages site still needs a separate deployment before this version appears there.
+
 # V105.4.2.14 — Archive books in Academy Explore
 
 Signed-in learners can browse the public Archive.org list in **Explore** and read its PDFs inside the Academy Library, including the four-volume Ihya item. The public Open Library remains available without sign-in. Both views use the same public catalogue and PDF proxy; protected Academy resources keep their own access checks. [Open Library details](docs/ACADEMY-OPEN-LIBRARY.md).

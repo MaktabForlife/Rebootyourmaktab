@@ -136,7 +136,7 @@ assert.equal(root.status, 200);
 assert.deepEqual(await root.json(), {
   success: true,
   service: "rebootworker",
-  version: "105.4.2.14"
+  version: "105.4.2.15"
 });
 
 const preflight = await worker.fetch(new Request("https://worker.test/api/login", {
@@ -439,4 +439,6 @@ for(const path of ['account/index.html','programs/index.html','programs/manage.h
  const badge=html.match(/class="(?:account-version|pb-version)">V([^ <]+)/);
  assert.equal(badge?.[1],release,path+' version badge');
 }
+const academy=await readFile(new URL('../../academy/index.html',import.meta.url),'utf8');
+assert.equal(academy.match(/class="site-version"[^>]*>Website V([^<]+)/)?.[1],release,'Academy website version badge');
 console.log('Frontend badges and Worker release versions match.');

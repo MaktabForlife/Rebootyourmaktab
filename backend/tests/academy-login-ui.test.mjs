@@ -8,6 +8,8 @@ const redirects = readFileSync(new URL('../../_redirects', import.meta.url), 'ut
 assert.match(html, /placeholder="Enter your account ID"/);
 assert.match(html, /id="academy-home-card" hidden/);
 assert.match(html, /id="academy-sign-out" type="button" hidden/);
+assert.match(html, /id="academy-library-nav" href="\/academy\/open-library\/"/);
+assert.match(html, /Website V105\.4\.2\.15/);
 assert.doesNotMatch(html, /ABCDEFG/);
 assert.match(redirects, /^\/academy\/:uniqueid \/academy\/#overview 302$/m);
 
@@ -15,7 +17,7 @@ async function loadPage({ id = '', pin = '', replies = {}, storedToken = 'OLD_SE
   const elements = new Map();
   for (const name of ['login-preview', 'demo-username', 'demo-pin', 'demo-pin-toggle', 'login-status',
     'academy-session-loading', 'academy-session-message', 'academy-session-retry', 'academy-home-card', 'academy-account-name', 'academy-maktab-link',
-    'academy-sign-out', 'academy-avatar']) {
+    'academy-sign-out', 'academy-avatar', 'academy-library-nav']) {
     elements.set(name, {
       value: '', textContent: '', href: '', hidden: ['academy-home-card', 'academy-sign-out',
         'academy-session-loading', 'login-status'].includes(name),
@@ -25,6 +27,7 @@ async function loadPage({ id = '', pin = '', replies = {}, storedToken = 'OLD_SE
       querySelector() { return elements.get('submit'); }
     });
   }
+  elements.get('academy-library-nav').href = '/academy/open-library/';
   elements.set('submit', { disabled: false });
   elements.get('demo-username').value = id;
   elements.get('demo-pin').value = pin;
@@ -76,6 +79,7 @@ async function loadPage({ id = '', pin = '', replies = {}, storedToken = 'OLD_SE
 const oldMaktabSession = await loadPage();
 assert.equal(oldMaktabSession.calls.length, 0, 'An unrelated saved session must not bypass Academy sign-in');
 assert.equal(oldMaktabSession.elements.get('login-preview').hidden, false);
+assert.equal(oldMaktabSession.elements.get('academy-library-nav').href, '/academy/open-library/');
 await oldMaktabSession.submit();
 assert.equal(oldMaktabSession.destination, '');
 assert.equal(oldMaktabSession.calls.length, 0);
@@ -100,6 +104,7 @@ assert.equal(validLogin.elements.get('demo-pin').value, '');
 assert.equal(validLogin.elements.get('login-preview').hidden, true);
 assert.equal(validLogin.elements.get('academy-home-card').hidden, false);
 assert.equal(validLogin.elements.get('academy-sign-out').hidden, false);
+assert.equal(validLogin.elements.get('academy-library-nav').href, '/academy/library/');
 
 const signedIn = await loadPage({ academyId: 'TEST-USER', storedToken: 'NEW_SESSION', replies: {
   '/api/account/session': { body: { success: true, account: { uniqueid: 'TEST-USER', displayName: 'Test Learner' } } }
@@ -108,6 +113,7 @@ assert.equal(signedIn.elements.get('login-preview').hidden, true, 'Signed-in use
 assert.equal(signedIn.elements.get('academy-home-card').hidden, false);
 assert.equal(signedIn.elements.get('academy-sign-out').hidden, false);
 assert.equal(signedIn.elements.get('academy-maktab-link').href, '/account/TEST-USER');
+assert.equal(signedIn.elements.get('academy-library-nav').href, '/academy/library/');
 signedIn.signOut();
 assert.equal(signedIn.storage.get('m4l_account_token'), undefined);
 assert.equal(signedIn.session.get('m4l_academy_signed_in'), undefined);
@@ -116,6 +122,7 @@ assert.equal(signedIn.hash, 'overview');
 assert.equal(signedIn.elements.get('login-preview').hidden, false);
 assert.equal(signedIn.elements.get('academy-home-card').hidden, true);
 assert.equal(signedIn.elements.get('academy-sign-out').hidden, true);
+assert.equal(signedIn.elements.get('academy-library-nav').href, '/academy/open-library/');
 
 const otherTab = await loadPage({ academyId: 'TEST-USER', storedToken: 'NEW_SESSION', replies: {
   '/api/account/session': { body: { success: true, account: { uniqueid: 'TEST-USER' } } }
