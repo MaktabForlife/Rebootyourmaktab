@@ -20,7 +20,7 @@ function element() {
 
 const ids = ['al-search', 'al-type', 'al-source', 'al-content', 'al-status', 'al-preview',
   'al-results', 'al-media', 'al-open', 'al-volume-wrap', 'al-volume', 'al-preview-source',
-  'al-preview-title', 'al-preview-details', 'al-preview-status', 'al-close'];
+  'al-preview-title', 'al-preview-details', 'al-preview-status', 'al-close', 'al-manage-books'];
 const nodes = Object.fromEntries(ids.map(id => [id, element()]));
 nodes['al-type'].value = 'ALL';
 nodes['al-source'].value = 'ALL';
@@ -46,6 +46,14 @@ const fetch = async (url, options = {}) => {
       subject: 'Quran', pdfUrl: 'https://archive.org/download/NewBook/NewBook.pdf'
     }] })
   };
+  if (url === '/api/academy/open-library/metadata/public') return {
+    ok: true, json: async () => ({ success: true, records: [{
+      id: 'EXTERNAL:INTERNET_ARCHIVE:NewBook', title: 'Academy Quran book',
+      subject: 'Tafseer', module: 'Introduction', level: 'Beginner',
+      author: 'Academy author', description: 'Academy description',
+      coverUrl: 'https://example.test/cover.png'
+    }] })
+  };
   if (url === '/api/academy/library/access') return {
     ok: true, json: async () => ({ success: true, url: '/private-book.pdf', mimeType: 'application/pdf' })
   };
@@ -68,7 +76,9 @@ assert.match(nodes['al-results'].innerHTML, /Assigned book/);
 assert.doesNotMatch(nodes['al-results'].innerHTML, /Ihya Ulum/);
 tabs[1].listeners.click();
 assert.match(nodes['al-results'].innerHTML, /Ihya Ulum ad-Din/);
-assert.match(nodes['al-results'].innerHTML, /New public book/);
+assert.match(nodes['al-results'].innerHTML, /Academy Quran book/);
+assert.match(nodes['al-results'].innerHTML, /Introduction/);
+assert.match(nodes['al-results'].innerHTML, /https:\/\/example\.test\/cover\.png/);
 assert.match(nodes['al-results'].innerHTML, /4 volumes · Choose volume/);
 assert.match(nodes['al-results'].innerHTML, /Internet Archive/);
 assert.ok(nodes['al-source'].options.some(option => option.textContent === 'Internet Archive'));

@@ -1,3 +1,7 @@
+# V105.4.2.18 — Academy Open Library details
+
+An editor for active Academy global administrators and teachers adds Academy title, subject, module, level, author, description and JPG/PNG cover details to each Archive.org book or volume set. The public and signed-in catalogues apply these details over the automatically synced Archive list. Covers may use a public HTTPS JPG/PNG URL or a device upload to Academy media storage. PDFs remain at Archive.org. [Details](docs/ACADEMY-OPEN-LIBRARY.md).
+
 # V105.4.2.17 — Open Library book cards
 
 Public book cards now use a taller portrait image panel and a narrower grid. Archive.org covers stay inside that panel, and long metadata titles wrap instead of overflowing into adjacent cards. The layout also keeps two portrait cards per row on phone widths. Public original PDFs within one Archive.org item become selectable volumes, and distinct listed items with matching numbered series titles combine into one card. This groups the current Tafseer Jalalain volumes and shows all public PDFs for Maariful Quran, Tasheelul Fiqh and Aqaaid, Yassarnal Quraan, and Riyaadus Saliheen. Original PDFs take precedence over Archive.org derivative copies; the proxy rechecks each selected file against the public list and current metadata.

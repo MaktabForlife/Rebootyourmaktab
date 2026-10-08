@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Manage Open Library · Umm Abbad Academy</title>
+  <link rel="stylesheet" href="/css/m4l-academy-library.css?v=105.4.2.14">
+  <link rel="stylesheet" href="/css/m4l-open-library-manage.css?v=105.4.2.18">
+</head>
+<body>
+  <header class="al-header"><a href="/academy/library/">← Academy Library</a><strong>Manage Open Library</strong><a href="/academy/open-library/">View public Library</a></header>
+  <main class="al-main olm-main">
+    <div class="al-intro"><p class="al-eyebrow">Academy catalogue</p><h1>Book details</h1><p>Books sync from the public Archive.org list. Add Academy details here; PDFs remain at Archive.org.</p></div>
+    <p id="olm-status" role="status" aria-live="polite">Checking your Academy editor access…</p>
+    <form id="olm-form" hidden>
+      <label for="olm-book">Archive.org book or series</label>
+      <select id="olm-book" required></select>
+      <p id="olm-source" class="olm-source"></p>
+      <div class="olm-grid">
+        <label for="olm-title">Academy title <input id="olm-title" maxlength="180" placeholder="Use Archive.org title"></label>
+        <label for="olm-subject">Subject <input id="olm-subject" maxlength="100" placeholder="Use Archive.org subject"></label>
+        <label for="olm-module">Module <input id="olm-module" maxlength="120" placeholder="General"></label>
+        <label for="olm-level">Level <input id="olm-level" maxlength="80" placeholder="All levels"></label>
+        <label for="olm-author">Author or creator <input id="olm-author" maxlength="180" placeholder="Use Archive.org creator"></label>
+        <label for="olm-coverUrl">JPG/PNG cover image link <input id="olm-coverUrl" type="url" maxlength="2048" placeholder="Use Archive.org cover image"></label>
+        <label for="olm-cover-file">Or upload a JPG/PNG cover <input id="olm-cover-file" type="file" accept="image/jpeg,image/png,.jpg,.jpeg,.png"></label>
+        <label class="olm-remove" for="olm-remove-cover"><input id="olm-remove-cover" type="checkbox"> Use Archive.org cover instead</label>
+        <div class="olm-cover-preview"><span>Cover preview</span><img id="olm-cover-preview" alt="Selected book cover" hidden></div>
+        <label for="olm-description" class="olm-wide">Description <textarea id="olm-description" maxlength="1000" rows="4" placeholder="Use the source description"></textarea></label>
+      </div>
+      <p class="olm-help">Leave a field blank to use the Archive.org detail. Add a public HTTPS JPG/PNG link or upload an image up to 5 MB. Subject and module labels appear in the Library; level and description help people find the book.</p>
+      <button id="olm-save" type="submit">Save Academy details</button>
+    </form>
+  </main>
+  <script src="/js/m4l-config.js?v=102.4"></script>
+  <script src="/js/m4l-open-library-manage.js?v=105.4.2.18" defer></script>
+</body>
+</html>

@@ -1,6 +1,14 @@
 # Academy Open Library
 
-8 October 2026 · V105.4.2.17 feature branch
+8 October 2026 · V105.4.2.18 feature branch
+
+## Academy book details
+
+Active Academy global administrators and teachers can open **Manage books** from the signed-in Academy Library. The editor is at `/academy/library/manage/`. It lists current Archive.org books and grouped volume sets. Each has a stable source-aware ID and optional Academy title, subject, module, level, author, description and cover details. An empty field uses the Archive.org detail. New list items still appear automatically before they are classified, and removing an Archive item removes it from both catalogues. These fields do not change PDF access or copy the PDF into Academy storage.
+
+JPG/PNG covers can use a public HTTPS image URL or be uploaded from the editor. Uploaded covers are stored in the existing Academy media bucket and served through a public cover endpoint tied to the book's metadata ID. The server checks file size and image signatures. Academy metadata writes use revision checks, revalidate the current account role, and never expose media bucket keys in the metadata endpoint. The Open Library remains public; the editor's read and save endpoints require an active Academy administrator or teacher session.
+
+The Academy fields are currently editable text labels. Subject and module identifiers have not yet been joined to the Academy curriculum records; that relationship can be added once the Library taxonomy is agreed. The Development Worker bundle passed a Wrangler dry run, and all 96 backend regression files passed. Hosted editor and device checks remain to be done after the matching Development Worker and feature frontend are updated.
 
 Open Library is a separate public catalogue at `/academy/open-library/`. It does not require an Academy account and does not read or expose the personal For you / Explore catalogue. The Academy welcome page links to it separately from My Library.
 

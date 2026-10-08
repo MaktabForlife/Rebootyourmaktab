@@ -30,8 +30,8 @@
 
   function render() {
     const query = $('ol-search').value.trim().toLocaleLowerCase();
-    const matches = books.filter(book => [book.title, book.subject, book.source, book.description]
-      .some(value => value.toLocaleLowerCase().includes(query)));
+    const matches = books.filter(book => [book.title, book.subject, book.module, book.level, book.source, book.details, book.description]
+      .some(value => String(value || '').toLocaleLowerCase().includes(query)));
     results.replaceChildren();
     for (const book of matches) {
       const card = document.createElement('button');
@@ -54,7 +54,7 @@
       }
       art.append(icon);
       const source = document.createElement('small');
-      source.textContent = `${book.source} · ${book.subject}`;
+      source.textContent = `${book.source} · ${book.subject}${book.module ? ` · ${book.module}` : ''}`;
       const title = document.createElement('strong');
       title.textContent = book.title;
       const action = document.createElement('span');
@@ -79,9 +79,9 @@
 
   function open(book, requestedVolume) {
     openBook = book;
-    $('ol-source').textContent = `${book.source} · ${book.subject}`;
+    $('ol-source').textContent = `${book.source} · ${book.subject}${book.module ? ` · ${book.module}` : ''}${book.level ? ` · ${book.level}` : ''}`;
     $('ol-title').textContent = book.title;
-    $('ol-details').textContent = book.details;
+    $('ol-details').textContent = [book.details, book.description].filter(Boolean).join(' · ');
     const volumeWrap = $('ol-volume-wrap');
     const volumeSelect = $('ol-volume');
     volumeSelect.replaceChildren();
@@ -122,6 +122,17 @@
   });
 
   render();
+  async function loadAcademyMetadata() {
+    try {
+      const base = window.M4L_CONFIG?.API_BASE || '';
+      const response = await fetch(`${base}/api/academy/open-library/metadata/public`);
+      if (!response.ok) return {};
+      const data = await response.json();
+      return Object.fromEntries((Array.isArray(data.records) ? data.records : [])
+        .filter(record => typeof record.id === 'string')
+        .map(record => [record.id, record]));
+    } catch { return {}; }
+  }
   async function loadArchiveBooks() {
     status.textContent = 'Loading books from Internet Archive…';
     try {
@@ -131,6 +142,22 @@
       if (!Array.isArray(data.books)) throw new Error('Invalid Archive.org catalogue');
       books = [...books, ...data.books];
       status.textContent = data.books.length ? '' : 'No public PDFs are available in the Archive.org list yet.';
+      render();
+      const metadata = await loadAcademyMetadata();
+      books = books.map(book => {
+        const record = metadata[book.id];
+        if (!record) return book;
+        return {
+          ...book,
+          title: record.title || book.title,
+          subject: record.subject || book.subject,
+          module: record.module || '',
+          level: record.level || '',
+          details: record.author || book.details,
+          description: record.description || book.description,
+          coverUrl: record.coverUrl || book.coverUrl
+        };
+      });
       render();
     } catch (_error) {
       status.textContent = 'Archive.org books are temporarily unavailable. Please try again later.';

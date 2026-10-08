@@ -1,0 +1,18 @@
+.olm-main{max-width:950px}
+#olm-status{color:#69536d}
+#olm-form{display:grid;gap:14px;margin-top:24px}
+#olm-form[hidden]{display:none}
+#olm-form label{display:grid;gap:6px;font-weight:700;color:#604668}
+#olm-form input,#olm-form select,#olm-form textarea{box-sizing:border-box;width:100%;padding:12px;border:1px solid #d8c6dd;border-radius:10px;background:#fff;color:#292132;font:inherit}
+#olm-form textarea{resize:vertical}
+.olm-source,.olm-help{margin:0;color:#695d6e;font-size:.9rem}
+.olm-cover-preview{display:grid;gap:6px;color:#604668;font-weight:700}
+.olm-cover-preview img{height:180px;max-width:100%;object-fit:contain;object-position:left center}
+.olm-cover-preview img[hidden]{display:none}
+.olm-remove{display:flex!important;align-items:center;gap:8px}
+.olm-remove input{width:auto!important}
+.olm-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+.olm-wide{grid-column:1/-1}
+#olm-save{justify-self:start;border:0;border-radius:10px;padding:12px 20px;background:#704778;color:#fff;font:inherit;font-weight:700;cursor:pointer}
+#olm-save:disabled{opacity:.6;cursor:wait}
+@media(max-width:650px){.olm-grid{grid-template-columns:1fr}}

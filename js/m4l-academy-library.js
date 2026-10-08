@@ -24,10 +24,10 @@
       /^https:\/\/archive\.org\/download\/[^?#]+\.pdf$/i.test(book.pdfUrl) ? book.pdfUrl : '';
     if (!volumes.length && !pdfUrl) return null;
     return {
-      id: book.id, name: book.title, subject: book.subject || 'Books',
+      id: book.id, name: book.title, subject: book.subject || 'Books', module: book.module || '', level: book.level || '',
       source: 'EXTERNAL', sourceName: 'Internet Archive', type: 'EBOOK',
       description: book.description || '', author: book.details || '',
-      forYou: false, publicBook: true, volumes, pdfUrl
+      forYou: false, publicBook: true, volumes, pdfUrl, coverUrl: book.coverUrl || ''
     };
   }
 
@@ -52,7 +52,7 @@
       (state.view === 'you' ? row.forYou : !row.forYou) &&
       (type === 'ALL' || row.type === type) &&
       (source === 'ALL' || `${row.source}:${row.sourceName}` === source) &&
-      (!query || [row.name, row.subject, row.sourceName, row.description, row.author]
+      (!query || [row.name, row.subject, row.module, row.level, row.sourceName, row.description, row.author]
         .some(value => String(value || '').toLocaleLowerCase().includes(query))));
   }
 
@@ -61,6 +61,7 @@
     state.openRow = null;
     state.covers.clear();
     $('al-content').hidden = true;
+    $('al-manage-books').hidden = true;
     $('al-status').innerHTML = 'Signed out. <a href="/academy/#overview">Sign in to Academy →</a> You can still <a href="/academy/open-library/">browse public books</a>.';
     if ($('al-preview').open) $('al-preview').close();
   }
@@ -74,7 +75,9 @@
 
   function card(row) {
     const cover = state.covers.get(row.id);
-    const art = cover && cover.expires > Date.now()
+    const art = row.publicBook && row.coverUrl
+      ? `<img src="${esc(row.coverUrl)}" alt="Cover of ${esc(row.name)}" loading="lazy">`
+      : cover && cover.expires > Date.now()
       ? `<img src="${esc(cover.url)}" alt="Cover of ${esc(row.name)}">`
       : row.hasCover && !row.locked
         ? `<span data-cover="${esc(row.id)}" aria-hidden="true">▣</span>`
@@ -199,11 +202,42 @@
       state.rows.push(...data.books.map(archiveRow).filter(row => row && !existing.has(row.id)));
       refreshSources();
       render();
+      try {
+        const metadataResponse = await fetch(`${window.M4L_CONFIG?.API_BASE || ''}/api/academy/open-library/metadata/public`);
+        if (metadataResponse.ok) {
+          const metadata = await metadataResponse.json();
+          if (!localStorage.getItem('m4l_account_token')) return;
+          const byId = new Map((Array.isArray(metadata.records) ? metadata.records : []).map(record => [record.id, record]));
+          const edited = data.books.map(book => {
+            const record = byId.get(book.id);
+            return record ? {
+              ...book, title: record.title || book.title, subject: record.subject || book.subject,
+              module: record.module || '', level: record.level || '',
+              details: record.author || book.details, description: record.description || book.description,
+              coverUrl: record.coverUrl || book.coverUrl
+            } : book;
+          });
+          const updates = new Map(edited.map(book => [book.id, archiveRow(book)]));
+          state.rows = state.rows.map(row => updates.get(row.id) || row);
+          render();
+        }
+      } catch { /* Archive books remain available if Academy details cannot load. */ }
     } catch (_error) {
       if (localStorage.getItem('m4l_account_token')) {
         $('al-status').textContent = `${$('al-status').textContent} Public Archive.org books are temporarily unavailable.`.trim();
       }
     }
+  }
+
+  async function showManageBooksForAdmin() {
+    const token = localStorage.getItem('m4l_account_token');
+    if (!token) return;
+    try {
+      const response = await fetch(`${window.M4L_CONFIG?.API_BASE || ''}/api/academy/open-library/metadata/list`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: '{}'
+      });
+      if (response.ok && (await response.json()).success) $('al-manage-books').hidden = false;
+    } catch { /* Management stays hidden when unavailable. */ }
   }
 
   async function start() {
@@ -216,6 +250,7 @@
       $('al-status').textContent = result.warnings?.length ? result.warnings.join(' ') : '';
       render();
       void loadArchiveBooks();
+      void showManageBooksForAdmin();
     } catch (error) {
       $('al-status').innerHTML = `${esc(error.message)} <a href="/academy/#overview">Sign in to Academy →</a>`;
     }

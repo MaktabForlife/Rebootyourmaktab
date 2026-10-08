@@ -1,3 +1,7 @@
+# V105.4.2.18 — Academy Open Library details
+
+Academy administrators and signed-in teachers can edit the title, subject, module, level, author, description and JPG/PNG cover for Archive.org books and grouped sets. Covers can be linked from a public site or uploaded from a device. Public and signed-in Libraries display these Academy details while PDFs stay at Archive.org. [Open Library details](docs/ACADEMY-OPEN-LIBRARY.md).
+
 # V105.4.2.17 — Open Library book cards
 
 The public Open Library uses narrower portrait cards so Archive.org book covers fit inside their image panels without overlapping the source or title. Long titles wrap within the card. Multiple public PDFs in one Archive.org item appear as selectable volumes, and clearly numbered items in the same series share one card. [Open Library details](docs/ACADEMY-OPEN-LIBRARY.md).
