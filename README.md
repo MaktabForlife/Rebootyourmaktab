@@ -1,3 +1,7 @@
+# V105.4.2.21 — Subject columns in the public Library
+
+The public Open Library now places subjects side by side, with each subject's books stacked vertically. Cards keep their portrait covers and omit the “Open Library” caption; module names are hidden from the public display while remaining available to editors and search. [Open Library details](docs/ACADEMY-OPEN-LIBRARY.md).
+
 # V105.4.2.20 — Public books in Academy learning areas
 
 Open Library books can be assigned to several Programs and Global Subject courses while staying public. The editor's Learning areas selector is independent of subject and module. Assigned books appear in the relevant learner's **For you** view and in each matching Program or Reboot/Global Library; public books still open in the Academy PDF reader. Public book cards are arranged by subject and module. [Open Library details](docs/ACADEMY-OPEN-LIBRARY.md).

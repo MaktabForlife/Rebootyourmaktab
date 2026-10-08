@@ -32,66 +32,61 @@
     const query = $('ol-search').value.trim().toLocaleLowerCase();
     const matches = books.filter(book => [book.title, book.subject, book.module, ...(book.learningAreas || []), book.source, book.details, book.description]
       .some(value => String(value || '').toLocaleLowerCase().includes(query)))
-      .sort((a, b) => (a.subject || 'Books').localeCompare(b.subject || 'Books') ||
-        (a.module || '').localeCompare(b.module || '') || a.title.localeCompare(b.title));
+      .sort((a, b) => (a.subject || 'Books').localeCompare(b.subject || 'Books') || a.title.localeCompare(b.title));
     results.replaceChildren();
     const groups = new Map();
     for (const book of matches) {
       const subject = book.subject || 'Books';
-      if (!groups.has(subject)) groups.set(subject, { subject, modules: new Map() });
-      const modules = groups.get(subject).modules;
-      const module = book.module || 'General';
-      if (!modules.has(module)) modules.set(module, []);
-      modules.get(module).push(book);
+      if (!groups.has(subject)) groups.set(subject, []);
+      groups.get(subject).push(book);
     }
-    for (const group of groups.values()) {
+    for (const [subject, entries] of groups) {
       const section = document.createElement('section');
-      section.className = 'al-section';
+      section.className = 'ol-subject';
       const heading = document.createElement('h2');
-      heading.textContent = group.subject;
+      heading.textContent = subject;
       section.append(heading);
-      for (const [module, entries] of group.modules) {
-        const block = document.createElement('div');
-        block.className = 'al-module';
-        const label = document.createElement('h3');
-        label.textContent = module;
-        const ribbon = document.createElement('div');
-        ribbon.className = 'al-ribbon';
-        ribbon.setAttribute('aria-label', `${module} books`);
-        for (const book of entries) {
-          const card = document.createElement('button');
-          card.type = 'button';
-          card.className = 'ol-card';
-          card.dataset.resource = book.id;
-          card.setAttribute('aria-label', `Read ${book.title}`);
-          const art = document.createElement('div');
-          art.className = 'ol-card-art';
-          const icon = document.createElement('img');
-          icon.src = book.coverUrl || '/icons/ebook.svg';
-          icon.alt = '';
-          if (book.coverUrl) {
-            icon.className = 'ol-cover';
-            icon.loading = 'lazy';
-            icon.addEventListener('error', () => {
-              icon.src = '/icons/ebook.svg';
-              icon.className = '';
-            }, { once: true });
-          }
-          art.append(icon);
-          const source = document.createElement('small');
-          const areas = book.learningAreas || [];
-          source.textContent = areas.length ?
-            `${areas[0]}${areas.length > 1 ? ` +${areas.length - 1}` : ''} · ${book.subject}` : `Open Library · ${book.subject}`;
-          const title = document.createElement('strong');
-          title.textContent = book.title;
-          const action = document.createElement('span');
-          action.textContent = book.volumes ? `${book.volumes.length} volumes →` : 'Read book →';
-          card.append(art, source, title, action);
-          ribbon.append(card);
+      const list = document.createElement('div');
+      list.className = 'ol-subject-books';
+      for (const book of entries) {
+        const card = document.createElement('button');
+        card.type = 'button';
+        card.className = 'ol-card';
+        card.dataset.resource = book.id;
+        card.setAttribute('aria-label', `Read ${book.title}`);
+        const art = document.createElement('div');
+        art.className = 'ol-card-art';
+        const icon = document.createElement('img');
+        icon.src = book.coverUrl || '/icons/ebook.svg';
+        icon.alt = '';
+        if (book.coverUrl) {
+          icon.className = 'ol-cover';
+          icon.loading = 'lazy';
+          icon.addEventListener('error', () => {
+            icon.src = '/icons/ebook.svg';
+            icon.className = '';
+          }, { once: true });
         }
-        block.append(label, ribbon);
-        section.append(block);
+        art.append(icon);
+        const content = document.createElement('span');
+        content.className = 'ol-card-content';
+        const areas = book.learningAreas || [];
+        const title = document.createElement('strong');
+        title.textContent = book.title;
+        content.append(title);
+        if (areas.length) {
+          const area = document.createElement('small');
+          area.textContent = `${areas[0]}${areas.length > 1 ? ` +${areas.length - 1}` : ''}`;
+          content.append(area);
+        }
+        const action = document.createElement('span');
+        action.className = 'ol-card-action';
+        action.textContent = book.volumes ? `${book.volumes.length} volumes →` : 'Read book →';
+        content.append(action);
+        card.append(art, content);
+        list.append(card);
       }
+      section.append(list);
       results.append(section);
     }
     $('ol-empty').hidden = matches.length > 0;
@@ -111,7 +106,7 @@
 
   function open(book, requestedVolume) {
     openBook = book;
-    $('ol-source').textContent = `${book.subject}${book.module ? ` · ${book.module}` : ''}`;
+    $('ol-source').textContent = book.subject;
     $('ol-title').textContent = book.title;
     $('ol-details').textContent = [book.details, book.description,
       book.learningAreas?.length ? `Used in ${book.learningAreas.join(', ')}` : ''].filter(Boolean).join(' · ');

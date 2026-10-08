@@ -1,6 +1,6 @@
 # Academy Open Library
 
-8 October 2026 · V105.4.2.20 feature branch
+8 October 2026 · V105.4.2.21 feature branch
 
 ## Academy book details
 
@@ -16,7 +16,7 @@ V105.4.2.20 passed all 100 backend regression files, including public, Program a
 
 Open Library is a separate public catalogue at `/academy/open-library/`. It does not require an Academy account and does not read or expose the personal For you / Explore catalogue. The Academy welcome page links to it separately from My Library.
 
-Book cards use portrait cover panels sized for Archive.org metadata images. Covers remain contained within those panels, and long titles wrap inside the cards. The public catalogue is ordered by subject, then module, with horizontal resource ribbons like Reboot. Cards omit the Internet Archive label and use a volume count without “Choose volume.”
+Book cards use portrait cover panels sized for Archive.org metadata images. Covers remain contained within those panels, and long titles wrap inside the cards. The public catalogue places subjects in horizontal columns and stacks the books for each subject vertically. It does not show module headings or the “Open Library” caption on cards; module data remains in the editor and search. Cards use a volume count without “Choose volume.”
 
 When a listed Archive.org item has several public original PDFs, the catalogue shows one book with a volume selector. It sorts numbered files naturally and excludes derivative copies when originals exist. Separately listed items with matching numbered series titles, such as Tafseer Jalalain Volumes 1–3, also become one card. Ambiguous titles remain separate to avoid mixing different books. Every volume's PDF is checked against the current list and metadata when opened; removing or restricting a file revokes direct access.
 

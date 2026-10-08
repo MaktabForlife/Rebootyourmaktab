@@ -1,3 +1,7 @@
+# V105.4.2.21 — Public Library subject columns
+
+The public Library shows one column per subject, with book cards stacked as rows in that column. The portrait cover remains prominent. Book cards no longer say “Open Library,” and the public catalogue and book dialog omit module names. Module metadata remains available for editing and search. This version targets the Development feature branch; production is unchanged.
+
 # V105.4.2.20 — Open Library learning areas
 
 An Archive.org book may be linked to multiple active Programs and Global Subject courses. Subject and module remain independent catalogue fields. The book stays in the public Open Library, while eligible learners see it in Academy **For you** and in the matching Program or Reboot/Global Library. Program books open in the Program PDF.js dialog with a volume selector; Reboot/Global cards open the public Academy reader. Public cards now use subject and module ribbons, without the Internet Archive or Choose volume card text. The feature branch targets the Development frontend and Worker; production remains unchanged.
