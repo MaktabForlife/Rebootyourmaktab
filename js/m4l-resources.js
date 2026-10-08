@@ -38,6 +38,7 @@ let studentResourceViewMode = "student";
 let libraryResourceSessionReady = false;
 let libraryCatalogueResult = null;
 let selectedLibrarySourceId = "ALL";
+let libraryPublicLoadSequence = 0;
 
 const PDFJS_VIEWER_PATH = "/pdf-viewer/web/viewer.html";
 const PDFJS_VIEWER_VERSION = "99.0";
@@ -304,12 +305,16 @@ async function loadResourceCategories(apiPath, body = {}, options = {}) {
   }
 
   const applyResult = result => {
+    const sequence = ++libraryPublicLoadSequence;
     libraryCatalogueResult = result || {};
     const availableSourceIds = new Set((result?.sources || []).map(source => String(source.id || "")));
     if (!availableSourceIds.has(selectedLibrarySourceId)) selectedLibrarySourceId = "ALL";
     renderLibrarySourceSelector(result || {});
     applyLibrarySourceSelection();
     libraryResourceSessionReady = true;
+    if (hasUnifiedLibraryAccount() && Array.isArray(result?.libraries)) {
+      void loadAssignedPublicBooks(result, sequence);
+    }
   };
 
   const fetchFresh = async () => {
@@ -373,6 +378,75 @@ async function loadResourceCategories(apiPath, body = {}, options = {}) {
       console.warn("The Library refresh failed; the existing cached screen was retained.", err);
     }
   }
+}
+
+async function loadAssignedPublicBooks(result, sequence) {
+  try {
+    const [catalogueResponse, metadataResponse] = await Promise.all([
+      fetch('/academy/open-library/catalogue'),
+      fetch(`${window.M4L_CONFIG?.API_BASE || ''}/api/academy/open-library/metadata/public`)
+    ]);
+    if (!catalogueResponse.ok || !metadataResponse.ok) return;
+    const [catalogue, metadata] = await Promise.all([catalogueResponse.json(), metadataResponse.json()]);
+    if (!hasUnifiedLibraryAccount() || sequence !== libraryPublicLoadSequence) return;
+    const available = new Set(Array.isArray(result.learningAreaRefs) ? result.learningAreaRefs : []);
+    const records = new Map((Array.isArray(metadata.records) ? metadata.records : [])
+      .filter(row => typeof row.id === 'string').map(row => [row.id, row]));
+    const additions = new Map();
+    const pdf = url => /^https:\/\/archive\.org\/download\/[^?#]+\.pdf$/i.test(url || '');
+    for (const book of Array.isArray(catalogue.books) ? catalogue.books : []) {
+      const record = records.get(book.id);
+      if (!record || !book.id?.startsWith('EXTERNAL:INTERNET_ARCHIVE:') ||
+          !(pdf(book.pdfUrl) || book.volumes?.some(volume => pdf(volume.pdfUrl)))) continue;
+      for (const ref of Array.isArray(record.learningAreaRefs) ? record.learningAreaRefs : []) {
+        if (!available.has(ref) || (!ref.startsWith('REBOOT:') && !ref.startsWith('GLOBAL:'))) continue;
+        const libraryId = ref.startsWith('REBOOT:') ? `COURSE:${ref.slice(7)}` : 'GLOBAL';
+        if (!additions.has(libraryId)) additions.set(libraryId, []);
+        if (additions.get(libraryId).some(item => item.id === book.id)) continue;
+        additions.get(libraryId).push({ id: book.id, name: record.title || book.title,
+          subject: record.subject || book.subject || 'Books', module: record.module || 'General',
+          subjectRef: record.subjectRef || '', moduleRef: record.moduleRef || '' });
+      }
+    }
+    if (!additions.size) return;
+    const libraries = result.libraries.map(library => ({ ...library,
+      catalogue: { ...library.catalogue,
+        groups: [...(library.catalogue?.groups || [])] } }));
+    const sources = [...(result.sources || [])];
+    if (additions.has('GLOBAL') && !libraries.some(library => library.id === 'GLOBAL')) {
+      libraries.push({ id: 'GLOBAL', label: 'Global Subjects', scope: 'GLOBAL', available: true,
+        catalogue: { count: 0, groups: [] } });
+      sources.push({ id: 'GLOBAL', label: 'Global Subjects', scope: 'GLOBAL' });
+    }
+    for (const library of libraries) {
+      const books = additions.get(library.id);
+      if (!books?.length || library.available === false) continue;
+      const subjects = new Map();
+      for (const book of books) {
+        const key = book.subjectRef || book.subject;
+        const nativeSubject = library.catalogue.groups.flatMap(group => group.subjects || [])
+          .find(subject => String(subject.subjectname || '').toLocaleLowerCase() === book.subject.toLocaleLowerCase());
+        if (!subjects.has(key)) subjects.set(key, { subjectid: nativeSubject?.subjectid || `OPEN:${key}`, subjectname: book.subject,
+          modules: new Map() });
+        const subject = subjects.get(key);
+        const moduleKey = book.moduleRef || book.module;
+        const nativeModule = nativeSubject?.modules?.find(module =>
+          String(module.modulename || '').toLocaleLowerCase() === book.module.toLocaleLowerCase());
+        if (!subject.modules.has(moduleKey)) subject.modules.set(moduleKey, {
+          moduleid: nativeModule?.moduleid || book.moduleRef || '', modulename: book.module, resources: [] });
+        subject.modules.get(moduleKey).resources.push({ id: book.id, resourceid: book.id,
+          name: book.name, type: 'EBOOK', format: 'PDF', publicBook: true,
+          link: `/academy/open-library/?resource=${encodeURIComponent(book.id)}` });
+      }
+      const group = { key: 'ebooks', type: 'EBOOK', label: 'eBooks', count: books.length,
+        subjects: [...subjects.values()].map(subject => ({ ...subject,
+          modules: [...subject.modules.values()] })) };
+      library.catalogue.groups.push(group);
+      library.catalogue.count = Number(library.catalogue.count || 0) + books.length;
+    }
+    libraryCatalogueResult = { ...result, libraries, sources };
+    applyLibrarySourceSelection();
+  } catch { /* Existing course resources remain available if public books cannot load. */ }
 }
 
 function renderLibrarySourceSelector(result) {
@@ -1279,6 +1353,11 @@ async function openLibraryResourceById(resourceId) {
   if (!resource.link) {
     alert("This resource does not have a link yet.");
     return false;
+  }
+
+  if (resource.source?.publicBook && /^\/academy\/open-library\/\?resource=/.test(resource.link)) {
+    window.location.href = resource.link;
+    return true;
   }
 
   try {

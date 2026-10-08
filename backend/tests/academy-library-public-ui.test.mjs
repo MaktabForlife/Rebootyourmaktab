@@ -32,7 +32,7 @@ const archiveVolumes = [1, 2, 3, 4].map(number => ({
 const fetch = async (url, options = {}) => {
   calls.push({ url, options });
   if (url === '/api/academy/library/catalogue') return {
-    ok: true, json: async () => ({ success: true, resources: [{
+    ok: true, json: async () => ({ success: true, learningAreaRefs: ['PROGRAM:P1'], resources: [{
       id: 'REBOOT:BOOK:1', name: 'Assigned book', source: 'REBOOT',
       sourceName: 'Reboot', subject: 'Fiqh', type: 'EBOOK', forYou: true
     }] })
@@ -49,7 +49,8 @@ const fetch = async (url, options = {}) => {
   if (url === '/api/academy/open-library/metadata/public') return {
     ok: true, json: async () => ({ success: true, records: [{
       id: 'EXTERNAL:INTERNET_ARCHIVE:NewBook', title: 'Academy Quran book',
-      subject: 'Tafseer', module: 'Introduction', level: 'Beginner',
+      subject: 'Tafseer', module: 'Introduction', learningAreas: ['Aalimiya', 'Quran'],
+      learningAreaRefs: ['PROGRAM:P1', 'GLOBAL:S2'],
       author: 'Academy author', description: 'Academy description',
       coverUrl: 'https://example.test/cover.png'
     }] })
@@ -73,15 +74,18 @@ runInNewContext(script, {
 await new Promise(resolve => setImmediate(resolve));
 
 assert.match(nodes['al-results'].innerHTML, /Assigned book/);
+assert.match(nodes['al-results'].innerHTML, /Academy Quran book/);
 assert.doesNotMatch(nodes['al-results'].innerHTML, /Ihya Ulum/);
 tabs[1].listeners.click();
 assert.match(nodes['al-results'].innerHTML, /Ihya Ulum ad-Din/);
-assert.match(nodes['al-results'].innerHTML, /Academy Quran book/);
+assert.doesNotMatch(nodes['al-results'].innerHTML, /Academy Quran book/);
+assert.match(nodes['al-results'].innerHTML, /4 volumes/);
+assert.doesNotMatch(nodes['al-results'].innerHTML, /Choose volume/);
+assert.ok(nodes['al-source'].options.some(option => option.textContent === 'Open Library'));
+tabs[0].listeners.click();
 assert.match(nodes['al-results'].innerHTML, /Introduction/);
 assert.match(nodes['al-results'].innerHTML, /https:\/\/example\.test\/cover\.png/);
-assert.match(nodes['al-results'].innerHTML, /4 volumes · Choose volume/);
-assert.match(nodes['al-results'].innerHTML, /Internet Archive/);
-assert.ok(nodes['al-source'].options.some(option => option.textContent === 'Internet Archive'));
+assert.match(nodes['al-results'].innerHTML, /Tafseer · Open Library/);
 
 function clickResource(id) {
   nodes['al-results'].listeners.click({ target: { closest: () => ({ dataset: { resource: id } }) } });

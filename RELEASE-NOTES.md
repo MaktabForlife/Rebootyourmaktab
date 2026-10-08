@@ -1,3 +1,7 @@
+# V105.4.2.20 — Open Library learning areas
+
+An Archive.org book may be linked to multiple active Programs and Global Subject courses. Subject and module remain independent catalogue fields. The book stays in the public Open Library, while eligible learners see it in Academy **For you** and in the matching Program or Reboot/Global Library. Program books open in the Program PDF.js dialog with a volume selector; Reboot/Global cards open the public Academy reader. Public cards now use subject and module ribbons, without the Internet Archive or Choose volume card text. The feature branch targets the Development frontend and Worker; production remains unchanged.
+
 # V105.4.2.19 — Linked Library classification and pasted covers
 
 The Archive.org book editor now offers active subject and module dropdowns from the Academy shared catalogue, Global Subjects, Reboot courses and draft Programs. Modules are filtered to the selected subject. Saves resolve the chosen IDs against the current records, so an altered ID or archived subject or module cannot create an unlinked classification. Editors may paste a JPG/PNG cover from the clipboard as well as upload or link one; the existing server-side image checks still apply. The PDFs remain at Archive.org.

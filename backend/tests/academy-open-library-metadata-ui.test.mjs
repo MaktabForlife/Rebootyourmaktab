@@ -20,7 +20,7 @@ const archiveBook = {
   id: 'EXTERNAL:INTERNET_ARCHIVE:Book1', title: 'Archive title', subject: 'Books',
   source: 'Internet Archive', details: 'Archive author', description: 'Archive description',
   coverUrl: 'https://archive.org/download/Book1/__ia_thumb.jpg',
-  pdfUrl: 'https://archive.org/download/Book1/Book1.pdf'
+  volumes: [1, 2].map(number => ({ number, pdfUrl: `https://archive.org/download/Book1/Book${number}.pdf` }))
 };
 const calls = [];
 const fetch = async url => {
@@ -29,7 +29,7 @@ const fetch = async url => {
   if (url === 'https://worker.test/api/academy/open-library/metadata/public') return {
     ok: true, json: async () => ({ success: true, records: [{
       id: archiveBook.id, title: 'Academy title', subject: 'Tafseer',
-      module: 'Jalalain', level: 'Intermediate', author: 'Academy author',
+      module: 'Jalalain', learningAreas: ['Aalimiya', 'Quran'], author: 'Academy author',
       description: 'Academy description', coverUrl: 'https://worker.test/cover?id=Book1'
     }] })
   };
@@ -41,10 +41,16 @@ const script = await readFile(new URL('../../js/m4l-open-library.js', import.met
 runInNewContext(script, { document, window, fetch, URLSearchParams, TextEncoder, btoa, history: { replaceState() {} } });
 await new Promise(resolve => setImmediate(resolve));
 assert.deepEqual(calls, ['/academy/open-library/catalogue', 'https://worker.test/api/academy/open-library/metadata/public']);
-const card = nodes['ol-results'].children.find(child => child.dataset.resource === archiveBook.id);
+const sections = nodes['ol-results'].children;
+assert.deepEqual(sections.map(section => section.children[0].textContent), ['Duas', 'Tafseer']);
+const card = sections[1].children[1].children[1].children[0];
 assert(card);
-assert.equal(card.children[1].textContent, 'Internet Archive · Tafseer · Jalalain');
+assert.equal(card.dataset.resource, archiveBook.id);
+assert.equal(card.children[1].textContent, 'Aalimiya +1 · Tafseer');
 assert.equal(card.children[2].textContent, 'Academy title');
+assert.equal(card.children[3].textContent, '2 volumes →');
 assert.equal(card.children[0].children[0].src, 'https://worker.test/cover?id=Book1');
+assert.equal(JSON.stringify(sections).includes('Internet Archive'), false);
+assert.equal(JSON.stringify(sections).includes('Choose volume'), false);
 assert.equal(nodes['ol-status'].textContent, '');
 console.log('Public Open Library applies Academy metadata while retaining the Archive PDF.');

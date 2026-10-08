@@ -49,6 +49,18 @@ export async function getAccountLibraryCatalogueEndpoint(request, env) {
       readCourseLibrary(env, user, course)
     )));
     const globalLibrary = buildGlobalLibrary(user, tables);
+    const account = tables.UserAccounts.find(row =>
+      normalizePlatformIdentifier(row.AccountID) === normalizePlatformIdentifier(user.accountid));
+    const learningAreaRefs = new Set(courses.map(course => `REBOOT:${course.courseId}`));
+    for (const id of accessibleGlobalSubjectIds({ account, subjects: tables.GlobalSubjectList,
+      policyRows: tables.GlobalSubjectAccessPolicy, accessRows: tables.GlobalSubjectAccessMatrix })) {
+      learningAreaRefs.add(`GLOBAL:${id}`);
+    }
+    if (['GLOBAL_ADMIN', 'ADMIN'].includes(user.role)) {
+      for (const subject of tables.GlobalSubjectList.filter(row => isActivePlatformValue(row.Active))) {
+        learningAreaRefs.add(`GLOBAL:${normalizePlatformIdentifier(subject.SubjectID)}`);
+      }
+    }
     for (const library of courseLibraries) filterPublishedLibrary(library, policies, user, tables);
     filterPublishedLibrary(globalLibrary, policies, user, tables);
     const availableCourseLibraries = courseLibraries.filter(library => library.available);
@@ -83,6 +95,7 @@ export async function getAccountLibraryCatalogueEndpoint(request, env) {
       selectedSource: "ALL",
       sources,
       libraries,
+      learningAreaRefs: [...learningAreaRefs],
       globalCurriculumVersion: globalLibrary.globalCurriculumVersion,
       count: libraries.reduce((total, library) => total + Number(library.catalogue?.count || 0), 0),
       warnings: courseLibraries

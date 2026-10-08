@@ -1,7 +1,7 @@
 (() => {
   'use strict';
   const $ = id => document.getElementById(id);
-  const fields = ['title', 'level', 'author', 'description'];
+  const fields = ['title', 'author', 'description'];
   const status = $('olm-status');
   const token = localStorage.getItem('m4l_account_token');
   const base = window.M4L_CONFIG?.API_BASE || '';
@@ -9,8 +9,9 @@
   let saved = new Map();
   let localCoverPreview = '';
   let pastedCoverFile = null;
-  let taxonomy = { subjects: [], modules: [] };
+  let taxonomy = { subjects: [], modules: [], learningAreas: [] };
   let taxonomyWarnings = [];
+  let areaBoxes = [];
 
   function option(value, label) {
     const item = document.createElement('option');
@@ -26,6 +27,14 @@
       option(item.id, `${item.name} · ${item.source}`)));
     $('olm-module').disabled = !subjectId || !modules.length;
     $('olm-module').value = modules.some(item => item.id === selected) ? selected : '';
+  }
+
+  function selectedAreaRefs() { return areaBoxes.filter(box => box.checked).map(box => box.value); }
+
+  function updateAreaSummary() {
+    const count = selectedAreaRefs().length;
+    $('olm-learning-area-summary').textContent = count ?
+      `${count} learning area${count === 1 ? '' : 's'} selected` : 'Choose Programs and courses';
   }
 
   function showCover() {
@@ -65,6 +74,9 @@
     const record = saved.get(book.id) || {};
     $('olm-source').textContent = `${book.source} · ${book.title}${book.volumes ? ` · ${book.volumes.length} volumes` : ''}`;
     for (const field of fields) $(`olm-${field}`).value = record[field] || '';
+    const assigned = new Set(record.learningAreaRefs || []);
+    for (const box of areaBoxes) box.checked = assigned.has(box.value);
+    updateAreaSummary();
     $('olm-subject').value = taxonomy.subjects.some(item => item.id === record.subjectRef) ? record.subjectRef : '';
     showModules(record.moduleRef);
     $('olm-coverUrl').value = record.hasUploadedCover ? '' : record.coverUrl || '';
@@ -94,10 +106,20 @@
       books = Array.isArray(catalogue.books) ? catalogue.books : [];
       saved = new Map((Array.isArray(metadata.records) ? metadata.records : []).map(record => [record.id, record]));
       taxonomy = { subjects: Array.isArray(options.subjects) ? options.subjects : [],
-        modules: Array.isArray(options.modules) ? options.modules : [] };
+        modules: Array.isArray(options.modules) ? options.modules : [],
+        learningAreas: Array.isArray(options.learningAreas) ? options.learningAreas : [] };
       taxonomyWarnings = Array.isArray(options.warnings) ? options.warnings : [];
       $('olm-subject').replaceChildren(option('', 'Use Archive.org subject'), ...taxonomy.subjects.map(item =>
         option(item.id, `${item.name} · ${item.source}`)));
+      areaBoxes = taxonomy.learningAreas.map(area => {
+        const label = document.createElement('label');
+        const box = document.createElement('input');
+        box.type = 'checkbox';
+        box.value = area.id;
+        label.append(box, document.createTextNode(`${area.name} · ${area.source}`));
+        $('olm-learning-areas-list').append(label);
+        return box;
+      });
       if (!books.length) { status.textContent = 'No Archive.org books are available to edit yet.'; return; }
       $('olm-book').replaceChildren(...books.map(book => {
         const option = document.createElement('option');
@@ -111,6 +133,7 @@
   }
 
   $('olm-book').addEventListener('change', showBook);
+  $('olm-learning-areas-list').addEventListener('change', updateAreaSummary);
   $('olm-subject').addEventListener('change', () => showModules());
   $('olm-coverUrl').addEventListener('input', () => {
     $('olm-cover-file').value = '';
@@ -175,6 +198,7 @@
     try {
       const body = { id: book.id, baseRevision: saved.get(book.id)?.revision || 0,
         coverUrl: $('olm-coverUrl').value, removeCover: $('olm-remove-cover').checked,
+        learningAreaRefs: selectedAreaRefs(),
         subjectRef: $('olm-subject').value, moduleRef: $('olm-module').value };
       for (const field of fields) body[field] = $(`olm-${field}`).value;
       const result = await api('save', body, pastedCoverFile || $('olm-cover-file').files?.[0] || null);

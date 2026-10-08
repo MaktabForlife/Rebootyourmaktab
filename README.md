@@ -1,3 +1,7 @@
+# V105.4.2.20 — Public books in Academy learning areas
+
+Open Library books can be assigned to several Programs and Global Subject courses while staying public. The editor's Learning areas selector is independent of subject and module. Assigned books appear in the relevant learner's **For you** view and in each matching Program or Reboot/Global Library; public books still open in the Academy PDF reader. Public book cards are arranged by subject and module. [Open Library details](docs/ACADEMY-OPEN-LIBRARY.md).
+
 # V105.4.2.19 — Linked subjects, modules and pasted covers
 
 The Open Library book editor now lists active Academy, Global Subject, Reboot and Program subjects and modules. Choosing a subject filters the module list, and the server saves their stable source-aware IDs with their current names. Editors can also paste a JPG/PNG cover directly from the clipboard, preview it, and save it through the existing cover upload path. [Open Library details](docs/ACADEMY-OPEN-LIBRARY.md).

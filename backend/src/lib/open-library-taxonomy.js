@@ -50,7 +50,19 @@ export function buildOpenLibraryTaxonomy({ academy = [], globalSubjects = [], gl
       addModule(`PROGRAM:${clean(program.id)}:${clean(row.ProgramModuleID)}`, sharedId, clean(row.Name), clean(program.name));
     }
   }
-  return { subjects: [...subjects.values()].sort(sort), modules: [...modules.values()].sort(sort) };
+  const learningAreas = [];
+  for (const row of globalSubjects) if (active(row.Active)) {
+    const subjectId = `GLOBAL:${clean(row.SubjectID)}`;
+    if (subjects.has(subjectId)) learningAreas.push({ id: subjectId, name: clean(row.SubjectName),
+      source: 'Course' });
+  }
+  for (const course of reboot) {
+    learningAreas.push({ id: `REBOOT:${clean(course.id)}`, name: clean(course.name), source: 'Program' });
+  }
+  for (const program of programs) {
+    learningAreas.push({ id: `PROGRAM:${clean(program.id)}`, name: clean(program.name), source: 'Program' });
+  }
+  return { subjects: [...subjects.values()].sort(sort), modules: [...modules.values()].sort(sort), learningAreas: learningAreas.sort(sort) };
 }
 
 export async function loadOpenLibraryTaxonomy(env) {
@@ -87,15 +99,27 @@ export async function loadOpenLibraryTaxonomy(env) {
 }
 
 export function resolveOpenLibraryTaxonomySelection(input, taxonomy) {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) throw problem('Choose an Archive.org book from the current Open Library catalogue.');
+  const learningAreaRefs = input.learningAreaRefs ?? [];
+  if (!Array.isArray(learningAreaRefs) || learningAreaRefs.length > 100 ||
+      learningAreaRefs.some(ref => typeof ref !== 'string' || !ref || ref.length > 300) ||
+      new Set(learningAreaRefs).size !== learningAreaRefs.length) {
+    throw problem('Choose up to 100 different Programs and courses.');
+  }
   const subjectRef = clean(input.subjectRef);
   const moduleRef = clean(input.moduleRef);
+  const learningAreas = learningAreaRefs.map(ref => {
+    const area = taxonomy.learningAreas.find(item => item.id === ref);
+    if (!area) throw problem('Choose only active Programs and Global Subject courses.');
+    return area.name;
+  });
   if (!subjectRef && !moduleRef) {
     if (clean(input.subject) || clean(input.module)) throw problem('Choose a subject and module from the Academy lists.');
-    return { subjectRef: '', moduleRef: '', subject: '', module: '' };
+    return { learningAreaRefs, learningAreas, subjectRef: '', moduleRef: '', subject: '', module: '' };
   }
   const subject = taxonomy.subjects.find(item => item.id === subjectRef);
   if (!subject) throw problem('Choose an active subject from the Academy list.');
   const module = moduleRef ? taxonomy.modules.find(item => item.id === moduleRef && item.subjectId === subjectRef) : null;
   if (moduleRef && !module) throw problem('Choose a module belonging to the selected subject.');
-  return { subjectRef, moduleRef, subject: subject.name, module: module?.name || '' };
+  return { learningAreaRefs, learningAreas, subjectRef, moduleRef, subject: subject.name, module: module?.name || '' };
 }

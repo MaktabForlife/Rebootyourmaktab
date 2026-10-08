@@ -4,6 +4,7 @@ import { legacyR2ObjectKey, r2MediaFilename, r2MediaMimeType, createR2MediaToken
   R2_MEDIA_TTL_SECONDS } from '../lib/academy-r2-media.js';
 import { createCourseEnvironment, resolveOperationalAccountUser } from '../lib/course-routing.js';
 import { readPlatformSheets } from '../lib/platform-sheet.js';
+import { accessibleGlobalSubjectIds } from '../lib/global-subject-delivery.js';
 import { isActivePlatformValue, normalizePlatformIdentifier } from '../lib/platform-schema.js';
 import { json } from '../lib/http.js';
 import { buildGlobalLibrary, resolveAuthorisedCourses } from './library-catalogue.js';
@@ -65,7 +66,8 @@ export async function academyLibraryEndpoint(action, request, env) {
       return json({ success: false, error: 'Resource ID is required' }, 400);
     }
     const catalogue = await collectAcademyLibrary(env, user, action === 'catalogue' ? '' : requested);
-    if (action === 'catalogue') return json({ success: true, resources: catalogue.rows, warnings: catalogue.warnings }, 200, {
+    if (action === 'catalogue') return json({ success: true, resources: catalogue.rows,
+      learningAreaRefs: catalogue.learningAreaRefs, warnings: catalogue.warnings }, 200, {
       'Cache-Control': 'private, no-store'
     });
     if (action !== 'access' && action !== 'cover') return json({ success: false, error: 'Unknown action' }, 404);
@@ -121,6 +123,16 @@ export async function collectAcademyLibrary(env, user, requested = '') {
     if ((!requested || entry.id === requested) && entry.decision.visible) entries.push(entry);
   };
   const authorised = new Map(resolveAuthorisedCourses(user, tables).map(row => [row.courseId, row]));
+  const learningAreaRefs = new Set([...authorised.keys()].map(id => `REBOOT:${id}`));
+  for (const id of accessibleGlobalSubjectIds({ account, subjects: tables.GlobalSubjectList,
+    policyRows: tables.GlobalSubjectAccessPolicy, accessRows: tables.GlobalSubjectAccessMatrix })) {
+    learningAreaRefs.add(`GLOBAL:${id}`);
+  }
+  if (['GLOBAL_ADMIN', 'ADMIN'].includes(user.role)) {
+    for (const subject of tables.GlobalSubjectList.filter(row => isActivePlatformValue(row.Active))) {
+      learningAreaRefs.add(`GLOBAL:${normalizePlatformIdentifier(subject.SubjectID)}`);
+    }
+  }
   const courses = tables.CourseRegistry.filter(row => isActivePlatformValue(row.Active) &&
     !clean(row.SchemaVersion).includes('-program'));
   for (const course of courses.filter(row => !requested || requested.startsWith(`COURSE:${clean(row.CourseID)}:`))) {
@@ -195,9 +207,11 @@ export async function collectAcademyLibrary(env, user, requested = '') {
     try {
       const repository = timetableRepository(env, program);
       const data = await repository.load();
+      const role = user.scope === 'COURSE' && user.courseid === program.id
+        ? user.role : programViewerRole(user, roles[program.id]);
+      if (role) learningAreaRefs.add(`PROGRAM:${program.id}`);
       if (!data.prepared || !data.libraryPrepared) continue;
       const shared = await repository.subjectReferences(data);
-      const role = programViewerRole(user, roles[program.id]);
       const snapshot = managementState(data, program).snapshot;
       const byId = new Map(snapshot.ProgramResources.map(row => [clean(row.ResourceID), row]));
       for (const resource of visibleProgramResources(data, program, shared)) {
@@ -220,7 +234,7 @@ export async function collectAcademyLibrary(env, user, requested = '') {
     hasCover, accessState: decision.state, locked: Boolean(decision.locked),
     forYou: Boolean(decision.forYou) }));
   rows.sort((a, b) => a.sourceName.localeCompare(b.sourceName) || a.subject.localeCompare(b.subject) || a.name.localeCompare(b.name));
-  return { rows, entries, warnings };
+  return { rows, entries, warnings, learningAreaRefs: [...learningAreaRefs] };
 }
 
 function globalRoot(config) {

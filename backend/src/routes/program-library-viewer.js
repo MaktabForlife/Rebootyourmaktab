@@ -62,7 +62,8 @@ export function programLibraryViewerEndpoint(action) {
       if (program.status !== 'DRAFT') throw problem('This Program Library is unavailable.', 404);
       const repository = timetableRepository(env, program);
       const data = await repository.load();
-      if (!data.prepared || !data.libraryPrepared) throw problem('This Program Library is not ready.', 404);
+      if (!data.prepared || (!data.libraryPrepared && action !== 'catalogue'))
+        throw problem('This Program Library is not ready.', 404);
       const snapshot = managementState(data, program).snapshot;
       const currentProgramSession = user.scope === 'COURSE' && user.courseid === program.id;
       const roleAccounts = user.role === 'GLOBAL_ADMIN' || currentProgramSession ? [] : await readProgramRoleAccounts(env, program.id);
@@ -74,7 +75,7 @@ export function programLibraryViewerEndpoint(action) {
       const [globalMatrix, globalSubjects] = subscriptionPolicy ? await Promise.all([
         readPlatformSheet(env, 'GlobalSubjectAccessMatrix'), readPlatformSheet(env, 'GlobalSubjectList')
       ]) : [[], []];
-      const resources = visibleProgramResources(data, program, sharedSubjects).filter(row => {
+      const resources = (data.libraryPrepared ? visibleProgramResources(data, program, sharedSubjects) : []).filter(row => {
         const decision = academyResourceDecision({
           key: `PROGRAM:${program.id}:${row.id}`, source: 'PROGRAM', sourceActive: true,
           assigned: Boolean(role), role: role || user.role, accountId: user.accountid,

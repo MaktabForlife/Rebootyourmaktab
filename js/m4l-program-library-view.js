@@ -6,7 +6,7 @@
   const types = {EBOOK:'eBook', PRINTABLE:'Printable', AUDIO:'Audio', VIDEO:'Video', OTHER:'Other'};
   const icons = {EBOOK:'/icons/ebook.svg', PRINTABLE:'/icons/printable.svg', AUDIO:'/icons/audio.svg', VIDEO:'/icons/video.svg', OTHER:'/icons/other.svg'};
   const programId = new URLSearchParams(location.search).get('program') || '';
-  const state = {resources:[], subject:'ALL', coverCache:new Map(), coverQueued:new Set(), coverRunning:false, coverTimer:0, observer:null};
+  const state = {resources:[], subject:'ALL', coverCache:new Map(), coverQueued:new Set(), coverRunning:false, coverTimer:0, observer:null, openResource:null};
   const status = (message, error=false) => { $('lv-status').textContent=message; $('lv-status').classList.toggle('is-error', error); };
 
   async function api(action, body={}) {
@@ -42,7 +42,9 @@
   function card(row) {
     const cache = state.coverCache.get(row.id);
     const hasFreshCover = cache && cache.expiry > Date.now();
-    const cover = row.hasCover && hasFreshCover
+    const cover = row.publicBook && row.coverUrl
+      ? `<img src="${esc(row.coverUrl)}" alt="Cover of ${esc(row.name)}" loading="lazy">`
+      : row.hasCover && hasFreshCover
       ? `<img src="${esc(cache.url)}" alt="Cover of ${esc(row.name)}" loading="lazy">`
       : row.hasCover
         ? `<span class="lv-cover-placeholder" data-cover="${esc(row.id)}" aria-hidden="true">▣</span>`
@@ -121,19 +123,79 @@
     return `/pdf-file/${btoa(binary).replaceAll('+','-').replaceAll('/','_').replaceAll('=','')}`;
   }
 
+  function showPublicPdf(resource, volume) {
+    const url = volume?.pdfUrl || resource.pdfUrl;
+    const frame = document.createElement('iframe');
+    frame.title = `${resource.name}${volume ? `, ${volume.label || `volume ${volume.number}`}` : ''} PDF`;
+    frame.src = `/pdf-viewer/web/viewer.html?file=${encodeURIComponent(pdfProxy(url))}`;
+    $('lv-preview-media').replaceChildren(frame);
+    $('lv-open-file').href = url;
+    $('lv-open-file').textContent = 'Open original PDF at Archive.org ↗';
+    $('lv-open-file').hidden = false;
+  }
+
+  async function loadPublicBooks() {
+    const [catalogueResponse, metadataResponse] = await Promise.all([
+      fetch('/academy/open-library/catalogue'),
+      fetch(`${window.M4L_CONFIG?.API_BASE || ''}/api/academy/open-library/metadata/public`)
+    ]);
+    if (!catalogueResponse.ok || !metadataResponse.ok) return;
+    const [catalogue, metadata] = await Promise.all([catalogueResponse.json(), metadataResponse.json()]);
+    const records = new Map((metadata.records || []).map(record => [record.id, record]));
+    const existing = new Set(state.resources.map(row => row.id));
+    const pdf = url => /^https:\/\/archive\.org\/download\/[^?#]+\.pdf$/i.test(url || '');
+    const books = (catalogue.books || []).flatMap(book => {
+      const record = records.get(book.id);
+      if (!record?.learningAreaRefs?.includes(`PROGRAM:${programId}`) || existing.has(book.id)) return [];
+      const volumes = Array.isArray(book.volumes) ? book.volumes.filter(volume =>
+        Number.isInteger(volume.number) && pdf(volume.pdfUrl)) : [];
+      const pdfUrl = pdf(book.pdfUrl) ? book.pdfUrl : '';
+      if (!volumes.length && !pdfUrl) return [];
+      const subjectName = record.subject || book.subject || 'Books';
+      const moduleName = record.module || 'General';
+      const matchingSubject = state.resources.find(row => row.subjectName.toLocaleLowerCase() === subjectName.toLocaleLowerCase());
+      const matchingModule = state.resources.find(row => row.subjectId === matchingSubject?.subjectId &&
+        row.moduleName.toLocaleLowerCase() === moduleName.toLocaleLowerCase());
+      return [{ id: book.id, type: 'EBOOK', name: record.title || book.title,
+        description: record.description || book.description || '', author: record.author || book.details || '',
+        subjectId: matchingSubject?.subjectId || record.subjectRef || `OPEN:${subjectName}`,
+        subjectName, levelId: matchingModule?.levelId || '', levelName: matchingModule?.levelName || '',
+        moduleId: matchingModule?.moduleId || record.moduleRef || '', moduleName,
+        hasCover: Boolean(record.coverUrl || book.coverUrl), coverUrl: record.coverUrl || book.coverUrl || '',
+        publicBook: true, volumes, pdfUrl }];
+    });
+    state.resources.push(...books);
+    state.resources.sort((a, b) => a.subjectName.localeCompare(b.subjectName) ||
+      a.moduleName.localeCompare(b.moduleName) || a.name.localeCompare(b.name));
+    renderSubjects(); renderResults();
+    status(`${state.resources.length} ${state.resources.length === 1 ? 'resource' : 'resources'} available`);
+  }
+
   async function openResource(id) {
     const resource=state.resources.find(row=>row.id===id);
     if (!resource) return;
+    state.openResource=resource;
     const dialog=$('lv-preview');
     $('lv-preview-title').textContent=resource.name;
     $('lv-preview-type').textContent=types[resource.type]||'Resource';
     $('lv-preview-details').textContent=[resource.author&&`By ${resource.author}`,resource.publisher,
       resource.publicationYear,resource.isbn&&`ISBN ${resource.isbn}`,resource.description,resource.taskName]
       .filter(Boolean).join(' · ');
-    $('lv-preview-status').textContent='Opening protected file…';
+    $('lv-preview-status').textContent=resource.publicBook ? '' : 'Opening protected file…';
     $('lv-preview-media').replaceChildren();
     $('lv-open-file').hidden=true;
+    $('lv-volume-wrap').hidden=!resource.publicBook || !resource.volumes.length;
+    $('lv-volume').replaceChildren();
+    if (resource.publicBook && resource.volumes.length) {
+      for (const volume of resource.volumes) {
+        const option=document.createElement('option');
+        option.value=String(volume.number);
+        option.textContent=volume.label || `Volume ${volume.number}`;
+        $('lv-volume').append(option);
+      }
+    }
     dialog.showModal();
+    if (resource.publicBook) { showPublicPdf(resource,resource.volumes[0]); return; }
     try {
       const result=await api('access',{resourceId:id});
       if (!dialog.open || $('lv-preview-title').textContent!==resource.name) return;
@@ -166,6 +228,9 @@
       $('lv-controls').hidden=false;
       renderSubjects();renderResults();
       status(`${state.resources.length} ${state.resources.length===1?'resource':'resources'} available`);
+      if (result.role) {
+        try { await loadPublicBooks(); } catch { /* Protected resources remain available. */ }
+      }
     } catch(error) { state.resources=[];$('lv-controls').hidden=true;status(error.message,true); }
   }
 
@@ -182,7 +247,12 @@
       const button=event.target.closest('[data-resource]');if(button)void openResource(button.dataset.resource);
     });
     $('lv-close').addEventListener('click',() => $('lv-preview').close());
-    $('lv-preview').addEventListener('close',() => $('lv-preview-media').replaceChildren());
+    $('lv-preview').addEventListener('close',() => { state.openResource=null;$('lv-preview-media').replaceChildren(); });
+    $('lv-volume').addEventListener('change',event => {
+      const resource=state.openResource;
+      const volume=resource?.volumes?.find(item => String(item.number)===event.target.value);
+      if (resource?.publicBook && volume) showPublicPdf(resource,volume);
+    });
     void load();
   }
 })();

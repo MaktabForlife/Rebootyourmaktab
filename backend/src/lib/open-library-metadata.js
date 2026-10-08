@@ -8,7 +8,6 @@ const FIELD_LIMITS = Object.freeze({
   module: 160,
   subjectRef: 300,
   moduleRef: 300,
-  level: 80,
   author: 180,
   description: 1000
 });
@@ -27,6 +26,14 @@ export function validateOpenLibraryMetadata(input) {
     const normalized = value.normalize('NFC').replace(/\s+/gu, ' ').trim();
     if (normalized.length > limit) throw problem(`${field} must be text up to ${limit} characters.`);
     record[field] = normalized;
+  }
+  for (const [field, limit] of [['learningAreaRefs', 300], ['learningAreas', 160]]) {
+    const values = input[field] ?? [];
+    if (!Array.isArray(values) || values.length > 100 ||
+        values.some(value => typeof value !== 'string' || !value.trim() || value.length > limit)) {
+      throw problem(`Choose valid ${field === 'learningAreaRefs' ? 'learning areas' : 'learning area names'}.`);
+    }
+    record[field] = values.map(value => value.normalize('NFC').trim());
   }
   const coverUrl = input.coverUrl ?? '';
   if (typeof coverUrl !== 'string' || coverUrl.length > 2048) throw problem('Cover must be a JPG or PNG image link.');

@@ -9,7 +9,11 @@ const book = {
   title: 'Tafseer ul Jalalain', subject: 'Tafseer', module: 'Quran commentary',
   level: 'Intermediate', author: 'Imam Jalaluddin', description: 'Three volumes', coverUrl: ''
 };
-assert.deepEqual(validateOpenLibraryMetadata(book), { ...book, subjectRef: '', moduleRef: '' });
+const { level: unusedLegacyLevel, ...currentBook } = book;
+assert.deepEqual(validateOpenLibraryMetadata(book), { ...currentBook, subjectRef: '', moduleRef: '',
+  learningAreas: [], learningAreaRefs: [] });
+assert.deepEqual(validateOpenLibraryMetadata({ ...book, learningAreaRefs: ['PROGRAM:P1', 'GLOBAL:G1'],
+  learningAreas: ['Aalimiya', 'Quran'] }).learningAreaRefs, ['PROGRAM:P1', 'GLOBAL:G1']);
 assert.throws(() => validateOpenLibraryMetadata({ ...book, id: 'PROGRAM:BOOK:1' }), /Choose an Archive.org book/);
 assert.throws(() => validateOpenLibraryMetadata({ ...book, title: 'x'.repeat(181) }), /title must be text/);
 assert.throws(() => validateOpenLibraryMetadata({ ...book, description: { html: '<script>' } }), /description must be text/);

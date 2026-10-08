@@ -5,7 +5,8 @@
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]);
   const icons = { EBOOK: '/icons/ebook.svg', PRINTABLE: '/icons/printable.svg',
     AUDIO: '/icons/audio.svg', VIDEO: '/icons/video.svg', OTHER: '/icons/other.svg' };
-  const state = { rows: [], view: 'you', covers: new Map(), observer: null, openRow: null };
+  const state = { rows: [], view: 'you', covers: new Map(), observer: null, openRow: null,
+    learningAreaRefs: new Set() };
 
   function pdfProxy(url) {
     const bytes = new TextEncoder().encode(url);
@@ -24,10 +25,12 @@
       /^https:\/\/archive\.org\/download\/[^?#]+\.pdf$/i.test(book.pdfUrl) ? book.pdfUrl : '';
     if (!volumes.length && !pdfUrl) return null;
     return {
-      id: book.id, name: book.title, subject: book.subject || 'Books', module: book.module || '', level: book.level || '',
-      source: 'EXTERNAL', sourceName: 'Internet Archive', type: 'EBOOK',
+      id: book.id, name: book.title, subject: book.subject || 'Books', module: book.module || '',
+      learningAreas: Array.isArray(book.learningAreas) ? book.learningAreas : [],
+      source: 'EXTERNAL', sourceName: 'Open Library', type: 'EBOOK',
       description: book.description || '', author: book.details || '',
-      forYou: false, publicBook: true, volumes, pdfUrl, coverUrl: book.coverUrl || ''
+      forYou: (book.learningAreaRefs || []).some(ref => state.learningAreaRefs.has(ref)),
+      publicBook: true, volumes, pdfUrl, coverUrl: book.coverUrl || ''
     };
   }
 
@@ -52,7 +55,7 @@
       (state.view === 'you' ? row.forYou : !row.forYou) &&
       (type === 'ALL' || row.type === type) &&
       (source === 'ALL' || `${row.source}:${row.sourceName}` === source) &&
-      (!query || [row.name, row.subject, row.module, row.level, row.sourceName, row.description, row.author]
+      (!query || [row.name, row.subject, row.module, row.level, ...(row.learningAreas || []), row.sourceName, row.description, row.author]
         .some(value => String(value || '').toLocaleLowerCase().includes(query))));
   }
 
@@ -82,15 +85,21 @@
       : row.hasCover && !row.locked
         ? `<span data-cover="${esc(row.id)}" aria-hidden="true">▣</span>`
         : `<img src="${esc(icons[row.type] || icons.OTHER)}" alt="" width="48" height="48">`;
-    return `<button type="button" class="al-card" data-resource="${esc(row.id)}" aria-label="${row.locked ? 'Locked: ' : 'Open '}${esc(row.name)}"><span class="al-art">${art}</span><small>${esc(row.sourceName)} · ${esc(row.subject)}</small><strong>${esc(row.name)}</strong>${row.volumes?.length ? `<span class="al-volume-count">${row.volumes.length} volumes · Choose volume</span>` : ''}${row.locked ? '<span class="al-lock">Subscription required</span>' : ''}</button>`;
+    const sourceName = row.publicBook && row.learningAreas?.length
+      ? `${row.learningAreas[0]}${row.learningAreas.length > 1 ? ` +${row.learningAreas.length - 1}` : ''}` : row.sourceName;
+    return `<button type="button" class="al-card" data-resource="${esc(row.id)}" aria-label="${row.locked ? 'Locked: ' : 'Open '}${esc(row.name)}"><span class="al-art">${art}</span><small>${esc(sourceName)} · ${esc(row.subject)}</small><strong>${esc(row.name)}</strong>${row.volumes?.length ? `<span class="al-volume-count">${row.volumes.length} volumes</span>` : ''}${row.locked ? '<span class="al-lock">Subscription required</span>' : ''}</button>`;
   }
 
   function render() {
-    const rows = filtered();
+    const rows = filtered().sort((a, b) => String(a.subject || '').localeCompare(String(b.subject || '')) ||
+      String(a.sourceName || '').localeCompare(String(b.sourceName || '')) ||
+      String(a.module || '').localeCompare(String(b.module || '')) ||
+      String(a.name || '').localeCompare(String(b.name || '')));
     const groups = new Map();
     for (const row of rows) {
-      const key = `${row.sourceName}|${row.subject}`;
-      if (!groups.has(key)) groups.set(key, { label: `${row.subject} · ${row.sourceName}`, modules: new Map() });
+      const sourceName = row.sourceName;
+      const key = `${sourceName}|${row.subject}`;
+      if (!groups.has(key)) groups.set(key, { label: `${row.subject} · ${sourceName}`, modules: new Map() });
       const modules = groups.get(key).modules;
       const module = row.module || 'General';
       if (!modules.has(module)) modules.set(module, []);
@@ -136,7 +145,8 @@
     $('al-preview-source').textContent = `${row.sourceName} · ${row.subject}`;
     $('al-preview-title').textContent = row.name;
     $('al-preview-details').textContent = [row.type === 'EBOOK' ? 'eBook' : row.type,
-      row.author, row.publisher, row.module, row.description].filter(Boolean).join(' · ');
+      row.author, row.publisher, row.module, row.description,
+      row.learningAreas?.length ? `Used in ${row.learningAreas.join(', ')}` : ''].filter(Boolean).join(' · ');
     $('al-preview-status').textContent = row.locked ? 'An active subscription is required to open this resource.' : row.publicBook ? '' : 'Checking access…';
     $('al-media').replaceChildren();
     $('al-open').hidden = true;
@@ -212,7 +222,9 @@
             const record = byId.get(book.id);
             return record ? {
               ...book, title: record.title || book.title, subject: record.subject || book.subject,
-              module: record.module || '', level: record.level || '',
+              module: record.module || '',
+              learningAreas: Array.isArray(record.learningAreas) ? record.learningAreas : [],
+              learningAreaRefs: Array.isArray(record.learningAreaRefs) ? record.learningAreaRefs : [],
               details: record.author || book.details, description: record.description || book.description,
               coverUrl: record.coverUrl || book.coverUrl
             } : book;
@@ -245,6 +257,7 @@
       const result = await api('catalogue');
       if (!localStorage.getItem('m4l_account_token')) return showSignedOut();
       state.rows = Array.isArray(result.resources) ? result.resources : [];
+      state.learningAreaRefs = new Set(Array.isArray(result.learningAreaRefs) ? result.learningAreaRefs : []);
       refreshSources();
       $('al-content').hidden = false;
       $('al-status').textContent = result.warnings?.length ? result.warnings.join(' ') : '';

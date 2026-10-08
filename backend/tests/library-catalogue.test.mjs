@@ -205,6 +205,9 @@ try {
   ]);
   assert.equal(result.data.globalCurriculumVersion, 13);
   assert.equal(result.data.count, 6);
+  assert.deepEqual(result.data.learningAreaRefs, [
+    'REBOOT:COURSE1', 'REBOOT:COURSE2', 'GLOBAL:GSUBJ1', 'GLOBAL:GSUBJ2'
+  ]);
 
   const courseOne = result.data.libraries.find(library => library.id === "COURSE:COURSE1");
   const courseTwo = result.data.libraries.find(library => library.id === "COURSE:COURSE2");
@@ -234,6 +237,12 @@ try {
   assert.deepEqual(resourceNames(archived.data.libraries.find(library => library.id === 'COURSE:COURSE1')),
     ['Course 1 Group 1'], 'The legacy EBOOKS category must match the canonical EBOOK policy key');
   delete platformTables.AcademyLibraryAccess;
+
+  platformTables.GlobalSubjectAccessMatrix[1][1] = false;
+  const revoked = await post('/api/library/catalogue', {});
+  assert.equal(revoked.response.status, 200);
+  assert.equal(revoked.data.learningAreaRefs.includes('GLOBAL:GSUBJ1'), false);
+  assert.equal(revoked.data.learningAreaRefs.includes('GLOBAL:GSUBJ2'), true);
 
   const forbidden = await post("/api/library/course-resource/access", {
     courseId: "COURSE3",

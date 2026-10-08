@@ -1,7 +1,6 @@
 .ol-search{display:grid;gap:8px;max-width:460px;margin:28px 0 22px;color:#69536d;font-size:.85rem;font-weight:700}
 .ol-search input{width:100%;padding:13px;border:1px solid #d8c6dd;border-radius:12px;background:#fff;color:#292132;font:inherit}
-.ol-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:18px}
-.ol-card{display:flex;flex-direction:column;gap:10px;min-width:0;width:100%;min-height:410px;padding:13px;text-align:left;background:#fff;color:#292132;border:1px solid #e4d8e6;border-radius:18px;box-shadow:0 6px 18px #543b5911;font:inherit;cursor:pointer}
+.ol-card{display:flex;flex:0 0 180px;flex-direction:column;gap:10px;min-width:0;min-height:390px;padding:13px;text-align:left;background:#fff;color:#292132;border:1px solid #e4d8e6;border-radius:18px;box-shadow:0 6px 18px #543b5911;font:inherit;cursor:pointer;scroll-snap-align:start}
 .ol-card:hover,.ol-card:focus-visible{border-color:#8d5a96;box-shadow:0 8px 24px #543b5925}
 .ol-card-art{position:relative;display:grid;place-items:center;flex:none;aspect-ratio:2/3;overflow:hidden;border-radius:11px;background:#f4edf5}
 .ol-card-art img{width:58px;height:58px}
@@ -23,4 +22,4 @@
 #ol-viewer{display:block;width:100%;height:min(54vh,650px);border:0;background:#f4edf5}
 .ol-viewer-note{font-size:.85rem;color:#685a6b;margin:12px 0 8px}
 #ol-original{display:inline-block;color:#704778;font-weight:700;margin-bottom:12px}
-@media(max-width:650px){.ol-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.ol-card{min-height:0;padding:10px}#ol-viewer{height:45vh}}
+@media(max-width:650px){.ol-card{flex-basis:150px;min-height:320px;padding:10px}#ol-viewer{height:45vh}}
