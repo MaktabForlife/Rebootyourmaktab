@@ -2,3 +2,9 @@
 
 .lv-card-caption{display:flex;align-items:flex-start;justify-content:center;gap:5px;width:100%;text-align:left}.lv-card img.lv-media-icon{flex:none;width:16px;height:16px;object-fit:contain;border-radius:0;background:transparent;box-shadow:none}
 .lv-volume-wrap{display:grid;gap:5px;max-width:220px;margin:8px 0 14px;color:var(--pb-muted);font-size:12px;font-weight:650}.lv-volume-wrap select{min-height:40px;padding:8px;border:1px solid var(--pb-line);border-radius:8px;background:#fff;color:var(--pb-ink)}
+
+.lv-category-pills{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 16px}
+.lv-category-pills button{font:inherit;font-size:13px;font-weight:700;color:var(--pb-purple);background:#fff;border:1px solid var(--pb-line);border-radius:999px;padding:9px 16px;cursor:pointer}
+.lv-category-pills button[aria-pressed=true]{color:#fff;background:var(--pb-purple);border-color:var(--pb-purple)}
+.lv-category-pills button:focus-visible{outline:3px solid var(--pb-purple);outline-offset:2px}
+.lv-card .lv-part-count{display:block;width:100%;text-align:left;font-size:11px;font-weight:700;color:var(--pb-purple)}

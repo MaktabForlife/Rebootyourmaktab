@@ -9,7 +9,7 @@ function element() {
     append(...children) { this.children.push(...children); },
     replaceChildren(...children) { this.children = children; if (!children.some(item => item.value === this.value)) this.value = children[0]?.value || ''; } };
 }
-const ids = ['olm-status', 'olm-form', 'olm-add', 'olm-book', 'olm-source', 'olm-link-fields', 'olm-category-wrap', 'olm-category', 'olm-linkUrl', 'olm-active', 'olm-title', 'olm-subject', 'olm-module',
+const ids = ['olm-status', 'olm-form', 'olm-add', 'olm-search', 'olm-book', 'olm-source', 'olm-link-fields', 'olm-category-wrap', 'olm-category', 'olm-linkUrl', 'olm-active', 'olm-title', 'olm-subject', 'olm-module',
   'olm-learning-area-summary', 'olm-learning-areas-list', 'olm-author', 'olm-description', 'olm-coverUrl', 'olm-cover-file', 'olm-cover-paste',
   'olm-remove-cover', 'olm-cover-preview', 'olm-save'];
 const nodes = Object.fromEntries(ids.map(id => [id, element()]));
@@ -31,7 +31,9 @@ const fetch = async (url, init) => {
     learningAreas: [{ id: 'PROGRAM:P1', name: 'Program One', source: 'Program' },
       { id: 'GLOBAL:S2', name: 'Quran', source: 'Course' }] }) };
   if (url === '/academy/open-library/catalogue') return { ok: true, json: async () => ({ books: [
-    { id, source: 'Internet Archive', title: 'Book', subject: 'Books', resourceType: 'EBOOK', coverUrl: '' }
+    { id, source: 'Internet Archive', title: 'Book', subject: 'Books', resourceType: 'EBOOK', coverUrl: '' },
+    { id: 'EXTERNAL:INTERNET_ARCHIVE:BOOK2', source: 'Internet Archive', title: 'Second book',
+      subject: 'Hadith', resourceType: 'EBOOK', coverUrl: '' }
   ] }) };
   if (url.endsWith('/metadata/save')) {
     savedBody = init.body instanceof FormData ? JSON.parse(init.body.get('details')) : JSON.parse(init.body);
@@ -48,6 +50,23 @@ runInNewContext(source, { document, window: { M4L_CONFIG: { API_BASE: apiBase } 
     createObjectURL: () => 'blob:cover', revokeObjectURL() {} } });
 await new Promise(resolve => setImmediate(resolve));
 assert.deepEqual(nodes['olm-category'].children.map(item => item.value), ['EBOOK', 'PRINTABLE']);
+let enterPrevented = false;
+nodes['olm-search'].listeners.keydown({ key: 'Enter', preventDefault() { enterPrevented = true; } });
+assert.equal(enterPrevented, true, 'Searching cannot submit the edit form');
+nodes['olm-search'].value = 'second';
+nodes['olm-search'].listeners.input();
+assert.deepEqual(nodes['olm-book'].children.map(item => item.value), ['EXTERNAL:INTERNET_ARCHIVE:BOOK2']);
+assert.equal(nodes['olm-book'].value, 'EXTERNAL:INTERNET_ARCHIVE:BOOK2');
+nodes['olm-search'].value = 'not in this catalogue';
+nodes['olm-search'].listeners.input();
+assert.equal(nodes['olm-book'].disabled, true);
+assert.equal(nodes['olm-save'].disabled, true);
+await nodes['olm-form'].listeners.submit({ preventDefault() {} });
+assert.equal(savedBody, undefined, 'An empty search cannot save the previously selected resource');
+nodes['olm-search'].value = 'books';
+nodes['olm-search'].listeners.input();
+assert.equal(nodes['olm-book'].value, id);
+assert.equal(nodes['olm-save'].disabled, false);
 nodes['olm-category'].value = 'PRINTABLE';
 assert.equal(nodes['olm-subject'].children.length, 3);
 assert.equal(nodes['olm-module'].disabled, true);

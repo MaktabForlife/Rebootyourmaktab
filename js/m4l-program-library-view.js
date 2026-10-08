@@ -6,7 +6,13 @@
   const types = {EBOOK:'eBook', PRINTABLE:'Printable', AUDIO:'Audio', VIDEO:'Video', OTHER:'Other'};
   const icons = {EBOOK:'/icons/ebook.svg', PRINTABLE:'/icons/printable.svg', AUDIO:'/icons/audio.svg', VIDEO:'/icons/video.svg', OTHER:'/icons/other.svg'};
   const programId = new URLSearchParams(location.search).get('program') || '';
-  const state = {resources:[], subject:'ALL', coverCache:new Map(), coverQueued:new Set(), coverRunning:false, coverTimer:0, observer:null, openResource:null};
+  const state = {resources:[], subject:'ALL', category:'ALL', coverCache:new Map(), coverQueued:new Set(), coverRunning:false, coverTimer:0, observer:null, openResource:null};
+  function matchesCategory(type) {
+    if (state.category === 'ALL') return true;
+    if (state.category === 'PDF') return type === 'EBOOK' || type === 'PRINTABLE';
+    if (state.category === 'AUDIO_VISUAL') return type === 'AUDIO' || type === 'VIDEO';
+    return type === 'OTHER';
+  }
   function clearPreviewMedia() {
     for (const player of $('lv-preview-media').children) {
       player.pause?.();
@@ -31,9 +37,8 @@
 
   function selectedResources() {
     const query = $('lv-search').value.trim().toLocaleLowerCase();
-    const type = $('lv-type').value;
     return state.resources.filter(row =>
-      (type === 'ALL' || row.type === type) &&
+      matchesCategory(row.type) &&
       (state.subject === 'ALL' || row.subjectId === state.subject) &&
       (!query || [row.name,row.author,row.publisher,row.description,row.subjectName,row.moduleName].some(value =>
         String(value || '').toLocaleLowerCase().includes(query)))
@@ -57,7 +62,9 @@
       : row.hasCover
         ? `<span class="lv-cover-placeholder" data-cover="${esc(row.id)}" aria-hidden="true">▣</span>`
         : `<span class="lv-cover-placeholder" aria-hidden="true"><img src="${esc(icons[row.type] || icons.OTHER)}" alt="" width="34" height="34"></span>`;
-    const caption = `<span class="lv-card-caption"><img class="lv-media-icon" src="${esc(icons[row.type] || icons.OTHER)}" alt=""><strong>${esc(row.name)}</strong></span>${!row.hasCover&&row.author?`<span class="lv-author">${esc(row.author)}</span>`:''}`;
+    const count = row.volumes?.length > 1 ? `${row.volumes.length} volumes` :
+      row.mediaFiles?.length > 1 ? `${row.mediaFiles.length} recordings` : '';
+    const caption = `<span class="lv-card-caption"><img class="lv-media-icon" src="${esc(icons[row.type] || icons.OTHER)}" alt=""><strong>${esc(row.name)}</strong></span>${count ? `<span class="lv-part-count">${count}</span>` : ''}${!row.hasCover&&row.author?`<span class="lv-author">${esc(row.author)}</span>`:''}`;
     return `<button type="button" class="lv-card" data-resource="${esc(row.id)}" aria-label="Open ${esc(row.name)} (${esc(types[row.type] || 'Resource')})">${cover}${caption}</button>`;
   }
 
@@ -292,7 +299,13 @@
   else {
     $('lv-refresh').addEventListener('click',load);
     $('lv-search').addEventListener('input',renderResults);
-    $('lv-type').addEventListener('change',renderResults);
+    $('lv-categories').addEventListener('click',event => {
+      const button=event.target.closest('[data-category]');if(!button)return;
+      state.category=button.dataset.category;
+      $('lv-categories').querySelectorAll('[data-category]').forEach(item =>
+        item.setAttribute('aria-pressed',String(item===button)));
+      renderResults();
+    });
     $('lv-subjects').addEventListener('click',event => {
       const button=event.target.closest('[data-subject]');if(!button)return;
       state.subject=button.dataset.subject;renderSubjects();renderResults();

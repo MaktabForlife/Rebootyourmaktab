@@ -7,8 +7,15 @@
     AUDIO: '/icons/audio.svg', VIDEO: '/icons/video.svg', OTHER: '/icons/other.svg' };
   const typeNames = { EBOOK: 'eBook', PRINTABLE: 'Printable', AUDIO: 'Audio',
     VIDEO: 'Video', OTHER: 'Other' };
-  const state = { rows: [], view: 'you', covers: new Map(), observer: null, openRow: null,
+  const state = { rows: [], view: 'you', category: 'ALL', covers: new Map(), observer: null, openRow: null,
     learningAreaRefs: new Set() };
+
+  function matchesCategory(type) {
+    if (state.category === 'ALL') return true;
+    if (state.category === 'PDF') return type === 'EBOOK' || type === 'PRINTABLE';
+    if (state.category === 'AUDIO_VISUAL') return type === 'AUDIO' || type === 'VIDEO';
+    return type === 'OTHER';
+  }
 
   function clearMedia() {
     for (const player of $('al-media').children) {
@@ -77,11 +84,10 @@
 
   function filtered() {
     const query = $('al-search').value.trim().toLocaleLowerCase();
-    const type = $('al-type').value;
     const source = $('al-source').value;
     return state.rows.filter(row =>
       (state.view === 'you' ? row.forYou : !row.forYou) &&
-      (type === 'ALL' || row.type === type) &&
+      matchesCategory(row.type) &&
       (source === 'ALL' || `${row.source}:${row.sourceName}` === source) &&
       (!query || [row.name, row.subject, row.module, row.level, ...(row.learningAreas || []), row.sourceName, row.description, row.author]
         .some(value => String(value || '').toLocaleLowerCase().includes(query))));
@@ -113,7 +119,9 @@
       : row.hasCover && !row.locked
         ? `<span data-cover="${esc(row.id)}" aria-hidden="true">▣</span>`
         : `<img src="${esc(icons[row.type] || icons.OTHER)}" alt="" width="48" height="48">`;
-    return `<button type="button" class="al-card" data-resource="${esc(row.id)}" aria-label="${row.locked ? 'Locked: ' : 'Open '}${esc(row.name)} (${esc(typeNames[row.type] || 'Resource')})"><span class="al-art">${art}</span><small>${esc(row.subject)}</small><span class="al-card-title"><img src="${esc(icons[row.type] || icons.OTHER)}" alt="" width="18" height="18"><strong>${esc(row.name)}</strong></span>${row.volumes?.length ? `<span class="al-volume-count">${row.volumes.length} volumes</span>` : ''}${row.locked ? '<span class="al-lock">Subscription required</span>' : ''}</button>`;
+    const partCount = row.volumes?.length ? `${row.volumes.length} volumes` :
+      row.mediaFiles?.length > 1 ? `${row.mediaFiles.length} recordings` : '';
+    return `<button type="button" class="al-card" data-resource="${esc(row.id)}" aria-label="${row.locked ? 'Locked: ' : 'Open '}${esc(row.name)} (${esc(typeNames[row.type] || 'Resource')})"><span class="al-art">${art}</span><small>${esc(row.subject)}</small><span class="al-card-title"><img src="${esc(icons[row.type] || icons.OTHER)}" alt="" width="18" height="18"><strong>${esc(row.name)}</strong></span>${partCount ? `<span class="al-volume-count">${partCount}</span>` : ''}${row.locked ? '<span class="al-lock">Subscription required</span>' : ''}</button>`;
   }
 
   function render() {
@@ -314,7 +322,15 @@
     document.querySelectorAll('[data-view]').forEach(tab => tab.setAttribute('aria-selected', String(tab === button)));
     render();
   }));
-  for (const id of ['al-search', 'al-type', 'al-source']) $(id).addEventListener('input', render);
+  for (const id of ['al-search', 'al-source']) $(id).addEventListener('input', render);
+  $('al-categories').addEventListener('click', event => {
+    const button = event.target.closest('[data-category]');
+    if (!button) return;
+    state.category = button.dataset.category;
+    $('al-categories').querySelectorAll('[data-category]').forEach(item =>
+      item.setAttribute('aria-pressed', String(item === button)));
+    render();
+  });
   $('al-volume').addEventListener('change', event => {
     const row = state.openRow;
     const mediaType = row?.type === 'AUDIO' || row?.type === 'VIDEO';

@@ -7,22 +7,23 @@
   <title>Program Library · Maktabhelper</title>
   <link rel="icon" href="/admin-favicon-32x32.png">
   <link rel="stylesheet" href="/css/m4l-program-builder.css?v=105.4.2.9">
-  <link rel="stylesheet" href="/css/m4l-program-library-view.css?v=105.4.2.20">
+  <link rel="stylesheet" href="/css/m4l-program-library-view.css?v=105.4.2.25">
 </head>
 <body>
-  <header class="pb-header"><a class="pb-brand" href="/"><img src="/logo.png" alt="">Maktabhelper <span>/ Library</span></a><span class="pb-version">V105.4.2.24 · Library viewer</span></header>
+  <header class="pb-header"><a class="pb-brand" href="/"><img src="/logo.png" alt="">Maktabhelper <span>/ Library</span></a><span class="pb-version">V105.4.2.25 · Library viewer</span></header>
   <main class="lv-main">
     <div class="pb-heading"><div><p class="pb-eyebrow">﷽ &nbsp; Program Library</p><h1 id="lv-title">Library</h1><p>Browse books, printables, audio, video and other resources.</p></div><a id="lv-account" href="/">← Academy Home</a></div>
     <p id="lv-status" class="pb-message" role="status" aria-live="polite">Checking your Library access…</p>
     <div id="lv-controls" hidden>
       <div class="lv-actions"><a id="lv-manage" href="#" hidden>Manage Library →</a><button id="lv-refresh" class="pb-secondary" type="button">↻ Refresh</button></div>
-      <div class="lv-filters"><label>Search Library<input id="lv-search" type="search" placeholder="Title, author or description" autocomplete="off"></label><label>Category<select id="lv-type"><option value="ALL">All categories</option><option value="EBOOK">eBooks</option><option value="PRINTABLE">Printables</option><option value="AUDIO">Audio</option><option value="VIDEO">Video</option><option value="OTHER">Other</option></select></label></div>
+      <div class="lv-filters"><label>Search Library<input id="lv-search" type="search" placeholder="Title, author or description" autocomplete="off"></label></div>
+      <div id="lv-categories" class="lv-category-pills" role="group" aria-label="Filter by category"><button type="button" data-category="ALL" aria-pressed="true">All</button><button type="button" data-category="PDF" aria-pressed="false">PDF</button><button type="button" data-category="AUDIO_VISUAL" aria-pressed="false">Audio Visual</button><button type="button" data-category="OTHER" aria-pressed="false">Other</button></div>
       <nav id="lv-subjects" class="lv-subjects" aria-label="Library subjects"></nav>
       <div id="lv-results" class="lv-results"></div>
     </div>
   </main>
   <dialog id="lv-preview" class="lv-preview" aria-labelledby="lv-preview-title"><div class="lv-preview-head"><div><p id="lv-preview-type" class="lv-kicker"></p><h2 id="lv-preview-title"></h2></div><button id="lv-close" class="pb-secondary" type="button" aria-label="Close resource">✕</button></div><p id="lv-preview-details"></p><p id="lv-preview-status" role="status" aria-live="polite"></p><label id="lv-volume-wrap" class="lv-volume-wrap" hidden><span id="lv-volume-label">Volume</span> <select id="lv-volume"></select></label><div id="lv-preview-media" class="lv-preview-media"></div><div class="lv-preview-actions"><a id="lv-open-file" target="_blank" rel="noopener noreferrer" hidden>Open file in new tab ↗</a></div></dialog>
   <script src="/js/m4l-config.js?v=102.4"></script>
-  <script src="/js/m4l-program-library-view.js?v=105.4.2.24"></script>
+  <script src="/js/m4l-program-library-view.js?v=105.4.2.25"></script>
 </body>
 </html>

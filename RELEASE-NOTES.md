@@ -1,3 +1,7 @@
+# V105.4.2.25 — Search and grouped categories
+
+The Academy resource editor filters its existing resources by title, subject, source and saved details, and disables saving when no selection matches. Public, signed-in Academy, Program and Reboot/Global Libraries show four category pills: All, PDF (eBooks and Printables), Audio Visual (Audio and Video), and Other. Archive.org audio/video cards identify multi-file recordings by count while retaining their in-app player and file selector. The public Open Library introduction now contains just its eyebrow and heading. This release is prepared locally; the feature branch and Development deployments are unchanged.
+
 # V105.4.2.24 — Clearer Library cards
 
 Show a media type icon on every Library card and remove the visible media type text. Public and signed-in Academy cards omit Program and course names while retaining subject and title. Their pale lavender cover panels change to light sage. Learning area assignments and access rules are unchanged. This version targets the Development feature branch; production remains unchanged.

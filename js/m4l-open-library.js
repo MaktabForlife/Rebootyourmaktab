@@ -25,6 +25,14 @@
   const media = $('ol-media');
   const status = $('ol-status');
   let openBook = null;
+  let selectedCategory = 'ALL';
+
+  function matchesCategory(type) {
+    if (selectedCategory === 'ALL') return true;
+    if (selectedCategory === 'PDF') return ['EBOOK', 'PRINTABLE'].includes(type || 'EBOOK');
+    if (selectedCategory === 'AUDIO_VISUAL') return ['AUDIO', 'VIDEO'].includes(type);
+    return type === 'OTHER';
+  }
 
   function clearMedia() {
     for (const player of media.children) {
@@ -44,8 +52,7 @@
 
   function render() {
     const query = $('ol-search').value.trim().toLocaleLowerCase();
-    const type = $('ol-type').value;
-    const matches = books.filter(book => (type === 'ALL' || (book.resourceType || 'EBOOK') === type) &&
+    const matches = books.filter(book => matchesCategory(book.resourceType) &&
       [book.title, book.subject, book.module, ...(book.learningAreas || []), book.source, book.details, book.description, book.resourceType]
         .some(value => String(value || '').toLocaleLowerCase().includes(query)))
       .sort((a, b) => (a.subject || 'Books').localeCompare(b.subject || 'Books') || a.title.localeCompare(b.title));
@@ -105,8 +112,12 @@
         content.append(titleRow);
         const action = document.createElement('span');
         action.className = 'ol-card-action';
-        action.textContent = book.linkUrl ? 'Visit website ↗' : book.resourceType === 'AUDIO' ? 'Listen →' :
-          book.resourceType === 'VIDEO' ? 'Watch →' : book.volumes ? `${book.volumes.length} volumes →` : 'Read book →';
+        const fileCount = Array.isArray(book.mediaFiles) ? book.mediaFiles.length : 0;
+        action.textContent = book.linkUrl ? 'Visit website ↗' : book.resourceType === 'AUDIO' ?
+          (fileCount > 1 ? `${fileCount} recordings · Listen →` : 'Listen →') :
+          book.resourceType === 'VIDEO' ?
+            (fileCount > 1 ? `${fileCount} recordings · Watch →` : 'Watch →') :
+            book.volumes ? `${book.volumes.length} volumes →` : 'Read book →';
         content.append(action);
         card.append(art, content);
         list.append(card);
@@ -185,7 +196,14 @@
     if (book && !book.linkUrl) open(book);
   });
   $('ol-search').addEventListener('input', render);
-  $('ol-type').addEventListener('change', render);
+  $('ol-categories').addEventListener('click', event => {
+    const button = event.target.closest('[data-category]');
+    if (!button) return;
+    selectedCategory = button.dataset.category;
+    $('ol-categories').querySelectorAll('[data-category]').forEach(item =>
+      item.setAttribute('aria-pressed', String(item === button)));
+    render();
+  });
   $('ol-volume').addEventListener('change', event => {
     const parts = openBook?.resourceType === 'AUDIO' || openBook?.resourceType === 'VIDEO' ?
       openBook.mediaFiles : openBook?.volumes;

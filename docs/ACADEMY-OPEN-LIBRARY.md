@@ -1,6 +1,8 @@
 # Academy Open Library
 
-8 October 2026 · V105.4.2.24 feature branch candidate
+8 October 2026 · V105.4.2.25 feature branch candidate
+
+The resource editor has a search field above its existing resource selector. Public, signed-in Academy, Program and Reboot/Global viewing Libraries filter through All, PDF, Audio Visual and Other pills. These group the existing eBook/Printable and Audio/Video resource types without changing the saved category or access rules. Multi-file Archive.org audio/video cards show the recording count. The public Library has a shorter introduction.
 
 ## Academy resource details
 

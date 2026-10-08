@@ -67,11 +67,11 @@ assert.doesNotMatch(
 );
 assert.match(styles, /m4l-05-home-timetable\.css\?v=100\.10\.5/);
 
-assert.match(admin, /styles\.css\?v=105\.4\.2\.24/);
+assert.match(admin, /styles\.css\?v=105\.4\.2\.25/);
 
 for (const html of [student, root]) {
   assert.match(html, /m4l-timetable\.js\?v=102\.9\.1/);
-  assert.match(html, /styles\.css\?v=105\.4\.2\.24/);
+  assert.match(html, /styles\.css\?v=105\.4\.2\.25/);
 }
 
 assert.match(admin, /m4l-timetable\.js\?v=102\.9\.1/);

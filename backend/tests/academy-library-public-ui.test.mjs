@@ -18,12 +18,16 @@ function element() {
   };
 }
 
-const ids = ['al-search', 'al-type', 'al-source', 'al-content', 'al-status', 'al-preview',
+const ids = ['al-search', 'al-categories', 'al-source', 'al-content', 'al-status', 'al-preview',
   'al-results', 'al-media', 'al-open', 'al-volume-wrap', 'al-volume-label', 'al-volume', 'al-preview-source',
   'al-preview-title', 'al-preview-details', 'al-preview-status', 'al-close', 'al-manage-books'];
 const nodes = Object.fromEntries(ids.map(id => [id, element()]));
-nodes['al-type'].value = 'ALL';
 nodes['al-source'].value = 'ALL';
+const categoryButtons = ['ALL', 'PDF', 'AUDIO_VISUAL', 'OTHER'].map(category => ({ dataset: { category }, setAttribute() {} }));
+nodes['al-categories'].querySelectorAll = () => categoryButtons;
+const chooseCategory = category => nodes['al-categories'].listeners.click({
+  target: { closest: () => categoryButtons.find(button => button.dataset.category === category) }
+});
 const tabs = ['you', 'explore'].map(view => ({ ...element(), dataset: { view } }));
 const calls = [];
 const opened = [];
@@ -102,6 +106,15 @@ assert.match(nodes['al-results'].innerHTML, /al-card-title"><img src="\/icons\/a
 assert.doesNotMatch(nodes['al-results'].innerHTML, /Academy Quran book/);
 assert.match(nodes['al-results'].innerHTML, /4 volumes/);
 assert.doesNotMatch(nodes['al-results'].innerHTML, /Choose volume/);
+chooseCategory('PDF');
+assert.match(nodes['al-results'].innerHTML, /Ihya Ulum ad-Din/);
+assert.doesNotMatch(nodes['al-results'].innerHTML, /Public audio|Public video/);
+chooseCategory('AUDIO_VISUAL');
+assert.match(nodes['al-results'].innerHTML, /Public audio|Public video/);
+assert.doesNotMatch(nodes['al-results'].innerHTML, /Ihya Ulum ad-Din/);
+chooseCategory('OTHER');
+assert.doesNotMatch(nodes['al-results'].innerHTML, /Public audio|Public video|Ihya Ulum ad-Din/);
+chooseCategory('ALL');
 assert.ok(nodes['al-source'].options.some(option => option.textContent === 'Open Library'));
 tabs[0].listeners.click();
 assert.match(nodes['al-results'].innerHTML, /Introduction/);

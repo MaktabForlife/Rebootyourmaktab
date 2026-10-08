@@ -92,6 +92,11 @@
   text-align: left;
 }
 
+.library-category-pills{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 16px}
+.library-category-pills button{font:inherit;font-size:.88rem;font-weight:700;color:var(--primary);background:#fff;border:1px solid var(--surface-track);border-radius:999px;padding:9px 16px;cursor:pointer}
+.library-category-pills button[aria-pressed="true"]{background:var(--primary);border-color:var(--primary);color:var(--text-inverse)}
+.library-category-pills button:focus-visible{outline:3px solid var(--primary);outline-offset:2px}
+
 .library-source-section {
   display: grid;
   gap: 12px;
@@ -234,6 +239,8 @@
   text-transform: uppercase;
   overflow-wrap: anywhere;
 }
+
+.library-resource-part-count{font-size:.76rem;font-weight:700;color:var(--primary)}
 
 .library-inline-preview {
   width: 100%;

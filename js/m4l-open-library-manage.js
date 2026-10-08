@@ -55,7 +55,12 @@
     $('olm-form').hidden = false;
     $('olm-link-fields').hidden = false;
     $('olm-category-wrap').hidden = true;
+    $('olm-search').value = '';
+    $('olm-book').replaceChildren(option('', 'Select a resource to edit'), ...books.map(book =>
+      option(book.id, saved.get(book.id)?.title || book.title)));
+    $('olm-book').disabled = !books.length;
     $('olm-book').value = '';
+    $('olm-save').disabled = false;
     $('olm-source').textContent = 'New public link · Other';
     for (const field of fields) $(`olm-${field}`).value = '';
     $('olm-linkUrl').value = '';
@@ -104,6 +109,7 @@
     const book = books.find(item => item.id === $('olm-book').value);
     if (!book) return;
     isNew = false;
+    $('olm-save').disabled = false;
     const record = saved.get(book.id) || {};
     const manual = record.kind === 'LINK';
     $('olm-link-fields').hidden = !manual;
@@ -141,6 +147,28 @@
     status.textContent = `${manual ? 'Edit this public link and its learning areas.' : record.revision ? 'Academy details saved for this book.' : 'This book is using Archive.org details.'}${taxonomyWarnings.length ? ` ${taxonomyWarnings.join(' ')}` : ''}`;
   }
 
+  function refreshBookChoices(preferredId = $('olm-book').value) {
+    const query = $('olm-search').value.trim().toLocaleLowerCase();
+    const matches = books.filter(book => {
+      const record = saved.get(book.id) || {};
+      return [book.title, book.subject, book.source, book.details, book.description,
+        record.title, record.subject, record.module, record.author, book.id]
+        .some(value => String(value || '').toLocaleLowerCase().includes(query));
+    });
+    $('olm-book').replaceChildren(...(matches.length ? matches.map(book =>
+      option(book.id, saved.get(book.id)?.title || book.title)) :
+      [option('', 'No matching resources')]));
+    $('olm-book').disabled = !matches.length;
+    if (!matches.length) {
+      isNew = false;
+      $('olm-save').disabled = true;
+      $('olm-source').textContent = 'No resources match. Clear the search to see all resources.';
+      return;
+    }
+    $('olm-book').value = matches.some(book => book.id === preferredId) ? preferredId : matches[0].id;
+    showBook();
+  }
+
   async function start() {
     if (!token) {
       status.textContent = 'Sign in through your Academy account to manage books.';
@@ -174,18 +202,16 @@
       });
       $('olm-add').hidden = false;
       if (!books.length) { showNew(); return; }
-      $('olm-book').replaceChildren(...books.map(book => {
-        const option = document.createElement('option');
-        option.value = book.id;
-        option.textContent = book.title;
-        return option;
-      }));
       $('olm-form').hidden = false;
-      showBook();
+      refreshBookChoices();
     } catch (error) { status.textContent = error.message; }
   }
 
   $('olm-add').addEventListener('click', showNew);
+  $('olm-search').addEventListener('input', () => refreshBookChoices());
+  $('olm-search').addEventListener('keydown', event => {
+    if (event.key === 'Enter') event.preventDefault();
+  });
   $('olm-book').addEventListener('change', showBook);
   $('olm-learning-areas-list').addEventListener('change', updateAreaSummary);
   $('olm-subject').addEventListener('change', () => showModules());
@@ -267,15 +293,12 @@
         const added = { id: result.record.id, title: result.record.title,
           source: 'Academy · Other', coverUrl: result.record.coverUrl || '' };
         books.push(added);
-        $('olm-book').append(option(added.id, added.title));
-        $('olm-book').value = added.id;
       } else if (book && result.record.kind === 'LINK') {
         book.title = result.record.title;
         book.coverUrl = result.record.coverUrl || '';
-        const choice = [...$('olm-book').children].find(item => item.value === book.id);
-        if (choice) choice.textContent = book.title;
       }
-      showBook();
+      $('olm-search').value = '';
+      refreshBookChoices(result.record.id);
       status.textContent = 'Resource saved. It will appear in the public and assigned Libraries when refreshed.';
     } catch (error) { status.textContent = error.message; }
     finally { button.disabled = false; }

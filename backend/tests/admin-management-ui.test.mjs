@@ -11,7 +11,7 @@ assert.match(adminHtml, /id="open-manage-admins-btn"/);
 assert.match(adminHtml, /id="manage-admins-screen"/);
 assert.match(adminHtml, /id="manage-admins-content"/);
 assert.match(adminHtml, /m4l-manage-admins\.js\?v=102\.6\.2/);
-assert.match(adminHtml, /styles\.css\?v=105\.4\.2\.24/);
+assert.match(adminHtml, /styles\.css\?v=105\.4\.2\.25/);
 
 assert.match(manageAdminsJs, /getCurrentRole\(\) === "ADMIN"/);
 assert.match(manageAdminsJs, /\/api\/admin\/admins\/search/);

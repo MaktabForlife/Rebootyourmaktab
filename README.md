@@ -1,3 +1,7 @@
+# V105.4.2.25 — Library category pills and resource search
+
+Public, signed-in Academy, Program and Reboot/Global Libraries now have All, PDF, Audio Visual and Other category pills. The Academy resource editor can search titles, subjects and sources before selecting a resource. Public Library cards show the number of recordings in a multi-file Archive.org item, and its two explanatory paragraphs have been removed. This update is prepared locally for feature-branch testing; it has not been pushed or deployed.
+
 # V105.4.2.24 — Media icons on Library cards
 
 Public, signed-in Academy, Program and Reboot Library cards show the media type icon with the resource title instead of a media type label. Public and signed-in Academy cards no longer show assigned Program or course names, and their cover panels use light sage; assignments still decide where learners find the resource. This update targets the Development feature branch; production is unchanged.
