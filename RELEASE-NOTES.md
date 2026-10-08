@@ -1,3 +1,7 @@
+# V105.4.2.26 — Co-taught Program lessons
+
+The Program timetable editor can assign up to eight additional named teachers to a single-class lesson. Validation checks every assigned teacher for Program access, clashes, availability and weekly teaching limits. Publication history retains all assignments, and each teacher sees the lesson on their own timetable. Class and whole Program previews, published views, images and PDFs omit teacher names when more than one teacher is assigned to the lesson. Single-teacher and unassigned lesson displays remain as before. Prepared locally; not pushed or deployed.
+
 # V105.4.2.25 — Search and grouped categories
 
 The Academy resource editor filters its existing resources by title, subject, source and saved details, and disables saving when no selection matches. Public, signed-in Academy, Program and Reboot/Global Libraries show four category pills: All, PDF (eBooks and Printables), Audio Visual (Audio and Video), and Other. Archive.org audio/video cards identify multi-file recordings by count while retaining their in-app player and file selector. The public Open Library introduction now contains just its eyebrow and heading. This release is prepared locally; the feature branch and Development deployments are unchanged.

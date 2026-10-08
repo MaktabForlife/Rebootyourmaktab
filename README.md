@@ -1,3 +1,7 @@
+# V105.4.2.26 — Co-taught Program lessons
+
+A lesson for one class can name a lead teacher and additional teachers. Each teacher receives the lesson in their own timetable and is checked for clashes, availability and teaching hours. The class and whole Program publication omit teacher names for a co-taught lesson; lessons with one named teacher keep showing that name. This update is prepared locally for feature-branch review and has not been pushed or deployed.
+
 # V105.4.2.25 — Library category pills and resource search
 
 Public, signed-in Academy, Program and Reboot/Global Libraries now have All, PDF, Audio Visual and Other category pills. The Academy resource editor can search titles, subjects and sources before selecting a resource. Public Library cards show the number of recordings in a multi-file Archive.org item, and its two explanatory paragraphs have been removed. This update is prepared locally for feature-branch testing; it has not been pushed or deployed.

@@ -5,7 +5,7 @@
   const time=v=>String(v||'').replace(':','h');
   function link(value){try{if(typeof value!=='string'||value.length>2048||/[\u0000-\u001f\u007f]/.test(value))return '';const u=new URL(value);return u.protocol==='https:'&&!u.username&&!u.password?u.href:'';}catch{return '';}}
   const defaults=()=>({alignment:'center',mergeShared:true,columnWidths:{},rowHeights:{}});
-  const teacherLabel=row=>row.kind==='BREAK'?'':(row.teacherIds?.length||row.teacherNames?.length||0)>1?'':row.assignmentMode==='NONE'?'No teacher':row.assignmentMode==='CLASS'?(row.classTeachersAssigned===false||!row.classTeachersAssigned&&!row.teacherId?'No teacher':''):(row.teacherNames?.length?row.teacherNames.join(', '):row.teacherName)||'No teacher';
+  const teacherLabel=row=>row.kind==='BREAK'?'':Math.max(row.teacherIds?.length||0,row.teacherNames?.length||0)>1?'':row.assignmentMode==='NONE'?'No teacher':row.assignmentMode==='CLASS'?(row.classTeachersAssigned===false||!row.classTeachersAssigned&&!row.teacherId?'No teacher':''):(row.teacherNames?.length?row.teacherNames.join(', '):row.teacherName)||'No teacher';
   function displayOccurrences(occurrences,{program=false}={}){
     if(!program)return occurrences;
     const grouped=new Map(),display=[];
