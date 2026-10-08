@@ -6,6 +6,7 @@ const originalFetch = globalThis.fetch;
 const listUrl = 'https://archive.org/services/users/@hbn_naidu/lists/1';
 let members = ['IhyaUlumAlDinVol1_201503', 'IhyaUlumAlDinVol2', 'IhyaUlumAlDinVol4'];
 let badRedirect = false;
+let listRedirect = false;
 const calls = [];
 const metadata = Object.fromEntries(members.map((identifier, index) => [identifier, {
   metadata: { mediatype: 'texts', title: `Ihya volume ${[1, 2, 4][index]}`, subject: 'Sufism' },
@@ -24,9 +25,12 @@ globalThis.fetch = async (input, options = {}) => {
   const url = String(input);
   calls.push({ url, options });
   if (url === listUrl) {
+    assert.equal(options.redirect, 'manual', 'Workers-compatible manual redirects keep list requests on Archive.org');
+    if (listRedirect) return new Response(null, { status: 302, headers: { Location: 'https://evil.example/list' } });
     return Response.json({ value: { members: members.map(identifier => ({ identifier })) } });
   }
   if (url.startsWith('https://archive.org/metadata/')) {
+    assert.equal(options.redirect, 'manual', 'Workers-compatible manual redirects keep metadata requests on Archive.org');
     const identifier = decodeURIComponent(url.split('/').at(-1));
     return metadata[identifier] ? Response.json(metadata[identifier]) : new Response('missing', { status: 404 });
   }
@@ -69,6 +73,10 @@ try {
   assert.equal(firstBooks[0].volumes[0].pdfUrl, 'https://archive.org/download/IhyaUlumAlDinVol1_201503/Ihya%20Ulum%20Al%20Din%20Vol%201.pdf');
   assert.equal(firstBooks[0].volumes[2].pdfUrl, 'https://archive.org/download/IhyaUlumAlDinVol3/Ihya%20Ulum%20Al%20Din%20Vol%203.pdf');
   assert.equal(firstBooks[0].volumes[3].pdfUrl, 'https://archive.org/download/GAZALIIhyaUlumAlDin4/GAZALI__-Ihya-Ulum-Al-Din-4.pdf');
+
+  listRedirect = true;
+  assert.equal((await catalogue()).status, 502);
+  listRedirect = false;
 
   members.push('NewBook', 'PrivateBook', 'NoDownloadBook');
   metadata.NewBook = {

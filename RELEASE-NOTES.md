@@ -1,6 +1,10 @@
+# V105.4.2.16 — Archive catalogue loading
+
+The public Archive.org list request no longer uses a redirect setting unsupported by Cloudflare Workers. Unexpected redirects still fail closed. A local Pages preview loaded six Archive books, including Ihya Ulum ad-Din as four volumes, and returned PDF bytes through the existing proxy. This fix is awaiting a feature-branch push; the Git-connected Development Pages project may deploy automatically when pushed.
+
 # V105.4.2.15 — Academy version and Library menu
 
-The public Academy welcome page now shows **Website V105.4.2.15** in its header. The existing left-hand Library item opens `/academy/open-library/` before sign-in and `/academy/library/` after the Academy session is verified. Signing out returns the item to the public destination. The feature branch has been updated; the development Pages site requires a separate deployment.
+The public Academy welcome page now shows **Website V105.4.2.15** in its header. The existing left-hand Library item opens `/academy/open-library/` before sign-in and `/academy/library/` after the Academy session is verified. Signing out returns the item to the public destination. This version is visible on the Development Pages site.
 
 # V105.4.2.14 — Archive books in Academy Explore
 

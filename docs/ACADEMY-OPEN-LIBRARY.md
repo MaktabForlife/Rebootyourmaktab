@@ -1,6 +1,6 @@
 # Academy Open Library
 
-8 October 2026 · V105.4.2.15 feature branch
+8 October 2026 · V105.4.2.16 feature branch
 
 Open Library is a separate public catalogue at `/academy/open-library/`. It does not require an Academy account and does not read or expose the personal For you / Explore catalogue. The Academy welcome page links to it separately from My Library.
 
@@ -18,6 +18,6 @@ The public [Ummabbablibrary Archive.org list](https://archive.org/details/@hbn_n
 
 Archive PDFs also open in Reboot's PDF.js viewer. On every `/pdf-file` request, the Pages function verifies that the exact PDF belongs to a listed item or one of the two explicitly selected Ihya replacement items, and matches its public metadata. It streams the file from Archive.org, follows only HTTPS redirects within `archive.org`, forwards byte ranges, and never stores a PDF copy. The Archive.org item remains the source of the content and metadata. The public catalogue does not inherit Academy's Assigned, Subscription, or Staff only protections.
 
-If Archive.org's list or metadata service is unavailable, the Academy page keeps the Essential Duas entry and displays an Archive.org loading error. Other external websites still require an individual source review and explicit proxy allowlist entry.
+If Archive.org's list or metadata service is unavailable, the Academy page keeps the Essential Duas entry and displays an Archive.org loading error. Other external websites still require an individual source review and explicit proxy allowlist entry. V105.4.2.16 fixes a Pages runtime 502 caused by an unsupported redirect mode on the Archive list request; the response status still rejects unexpected redirects.
 
-The local implementation and proxy unit tests are complete. The Archive.org list API and PDF streaming cannot be verified end to end until a Development deployment; desktop and iPhone reading checks remain then. Pushing this feature branch does not deploy the Pages site or Worker.
+The local Pages runtime loaded six current Archive books from the public list and returned a 206 PDF byte-range response with a `%PDF` header. Desktop and iPhone reading checks on the hosted Development site remain open until this fix is deployed. The Development Pages project is Git-connected and may deploy automatically when the feature branch is pushed.

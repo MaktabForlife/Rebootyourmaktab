@@ -39,7 +39,7 @@ async function readJson(response) {
 async function archiveJson(url) {
   const response = await fetch(url, {
     headers: { Accept: 'application/json' },
-    redirect: 'error'
+    redirect: 'manual'
   });
   return readJson(response);
 }

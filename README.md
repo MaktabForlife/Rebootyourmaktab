@@ -1,8 +1,14 @@
+# V105.4.2.16 — Archive catalogue loading
+
+Fix the public Open Library's Archive.org catalogue request in the Cloudflare Pages runtime. Unexpected redirects remain rejected. A local Pages preview loaded six Archive books, including the four-volume Ihya set, and streamed a PDF byte range. [Open Library details](docs/ACADEMY-OPEN-LIBRARY.md).
+
+This change has been verified locally and is awaiting a feature-branch push. The development Pages project is Git-connected, so a push may deploy it automatically.
+
 # V105.4.2.15 — Academy version and Library menu
 
 The Academy welcome page shows its website version in the header. Its existing left-hand **Library** menu opens the public Open Library for signed-out visitors and the personal Academy Library after a verified sign-in. [Release notes](RELEASE-NOTES.md).
 
-Feature branch only; the development Pages site still needs a separate deployment before this version appears there.
+The Development Pages site is showing this version.
 
 # V105.4.2.14 — Archive books in Academy Explore
 
