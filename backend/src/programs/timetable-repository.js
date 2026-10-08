@@ -7,6 +7,7 @@ import { isActivePlatformValue as active } from '../lib/platform-schema.js';
 import { parseTable, assertUnique, problem, clean } from './model.js';
 import { managementState } from './management-model.js';
 import { TIMETABLE_HEADERS } from './timetable-model.js';
+import { ATTENDANCE_HEADERS } from './attendance-model.js';
 import { getResourceConfig, getRootFolderId, requireItemInsideRoot, validateFileForResourceType } from '../routes/drive-library.js';
 import { listGoogleDriveFolder } from '../lib/google-drive.js';
 import { extractGoogleDriveFolderId, findSystemConfigRowIndexes, getSystemConfigValue, PROGRAM_LIBRARY_DRIVE_FOLDER_ID_KEY, PROGRAM_LIBRARY_PREVIOUS_FOLDER_IDS_KEY, readSystemConfigRows } from '../lib/system-config.js';
@@ -100,6 +101,12 @@ export function timetableRepository(env, program) {
     },
     prepare:()=>prepareNamed(Object.keys(TIMETABLE_HEADERS)),
     prepareLibrary:()=>prepareNamed(LIBRARY_TABLES),
+    async hasAttendanceOn(date){
+      if(!(await properties()).some(sheet=>sheet.title==='ProgramAttendanceRegisters'))return false;
+      const rows=(await read(['ProgramAttendanceRegisters']))[0];
+      if(!rows.length)return false;
+      return parseTable(rows,ATTENDANCE_HEADERS.ProgramAttendanceRegisters,'ProgramAttendanceRegisters').some(row=>row.CourseID===program.id&&row.AttendanceDate===date);
+    },
     async load() {
       const sheets=await properties();
       const names=Object.keys(TIMETABLE_HEADERS), present=names.filter(name=>sheets.some(s=>s.title===name));

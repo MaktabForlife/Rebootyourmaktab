@@ -5,9 +5,11 @@ import { academySubjectRepository, academySubjectService } from './academy-subje
 import { DurableObject } from 'cloudflare:workers';
 import { createRequestEnvironment } from '../lib/request-context.js';
 import { timetableCoordinator } from './timetable-coordination.js';
-import { timetableUser, timetableProgram, programLibraryUser } from './timetable-context.js';
+import { timetableUser, timetableProgram, programLibraryUser, programAttendanceUser } from './timetable-context.js';
 import { timetableService } from './timetable-service.js';
 import { timetableRepository } from './timetable-repository.js';
+import { attendanceService } from './attendance-service.js';
+import { attendanceRepository } from './attendance-repository.js';
 import { programFailure } from './errors.js';
 import { openLibraryMetadataUser } from '../routes/open-library-metadata.js';
 import { validateOpenLibraryMetadata, publicOpenLibraryMetadata, isAcademyLinkId } from '../lib/open-library-metadata.js';
@@ -16,6 +18,7 @@ import { problem } from './model.js';
 export class ProgramTimetableCoordinator extends DurableObject {
   constructor(ctx,env) {
     super(ctx,env);
+    this.programTail=Promise.resolve();
     const sql=ctx.storage.sql;
     sql.exec('CREATE TABLE IF NOT EXISTS open_library_metadata (id TEXT PRIMARY KEY, metadata TEXT NOT NULL, revision INTEGER NOT NULL, updated_at TEXT NOT NULL, updated_by TEXT NOT NULL)');
     sql.exec('CREATE TABLE IF NOT EXISTS pending (id INTEGER PRIMARY KEY CHECK(id=1), intent TEXT NOT NULL)');
@@ -53,6 +56,19 @@ export class ProgramTimetableCoordinator extends DurableObject {
       const user=resourceChange?await programLibraryUser(request,fresh,id):await timetableUser(request,fresh);
       const program=await timetableProgram(fresh,id);
       return {user,service:timetableService(timetableRepository(fresh,program),program)};
+    });
+    sql.exec('CREATE TABLE IF NOT EXISTS attendance_pending (id INTEGER PRIMARY KEY CHECK(id=1), intent TEXT NOT NULL)');
+    const attendanceJournal={
+      get:async()=>{const row=sql.exec('SELECT intent FROM attendance_pending WHERE id=1').toArray()[0];return row?JSON.parse(row.intent):null;},
+      set:async value=>{sql.exec('INSERT OR REPLACE INTO attendance_pending(id,intent) VALUES(1,?)',JSON.stringify(value));},
+      clear:async()=>{sql.exec('DELETE FROM attendance_pending WHERE id=1');}
+    };
+    this.attendance=timetableCoordinator(attendanceJournal,async(id,authorization,action)=>{
+      const fresh=createRequestEnvironment(env);
+      const request=new Request('https://internal.invalid/program-attendance',{headers:{Authorization:authorization}});
+      const user=await programAttendanceUser(request,fresh,id,{prepare:action==='prepare'||action==='recover'});
+      const program=await timetableProgram(fresh,id);
+      return {user,service:attendanceService(attendanceRepository(fresh,program),program)};
     });
   }
   async profilesRun(action,input,authorization){
@@ -104,7 +120,20 @@ export class ProgramTimetableCoordinator extends DurableObject {
     catch(error){return programFailure(error,action,'catalogue-coordinator');}
   }
   async run(action,input,authorization) {
-    try {return {success:true,...await this.coordinator.run(action,input,authorization)};}
-    catch(error) {return programFailure(error,action,'program-coordinator');}
+    return this.queueProgram(async()=>{
+      try {return {success:true,...await this.coordinator.run(action,input,authorization)};}
+      catch(error) {return programFailure(error,action,'program-coordinator');}
+    });
+  }
+  async attendanceRun(action,input,authorization){
+    return this.queueProgram(async()=>{
+      try{return {success:true,...await this.attendance.run(action,input,authorization)};}
+      catch(error){return programFailure(error,action,'attendance-coordinator');}
+    });
+  }
+  queueProgram(action){
+    const result=this.programTail.then(action);
+    this.programTail=result.catch(()=>{});
+    return result;
   }
 }

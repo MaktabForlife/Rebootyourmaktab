@@ -1,3 +1,7 @@
+# V105.4.3.0 — Program attendance
+
+Published Program lessons now have Present, Absent and Excused registers. Teachers submit one lesson or all assigned lessons for the current day, including co-taught lessons; unfinished registers remain unknown. Program and account screens link to attendance. Reboot history remains day-level, with no invented past lesson results. [Program attendance](docs/PROGRAM-ATTENDANCE.md) describes the storage, day summary and reporting limits. This release is for the feature branch; live comparison and Excused percentage policy remain open.
+
 # V105.4.2.26 — Co-taught Program lessons
 
 The Program timetable editor can assign up to eight additional named teachers to a single-class lesson. Validation checks every assigned teacher for Program access, clashes, availability and weekly teaching limits. Publication history retains all assignments, and each teacher sees the lesson on their own timetable. Class and whole Program previews, published views, images and PDFs omit teacher names when more than one teacher is assigned to the lesson. Single-teacher and unassigned lesson displays remain as before. Prepared locally; not pushed or deployed.

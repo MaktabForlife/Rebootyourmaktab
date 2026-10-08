@@ -241,6 +241,10 @@
         link.textContent=`Open ${program.name} Library →`;
         const row=document.createElement('p');row.appendChild(link);holder.appendChild(row);
         if(program.role!=='STUDENT'){
+          const attendance=document.createElement('a');
+          attendance.href=`/programs/attendance.html?program=${encodeURIComponent(program.id)}`;
+          attendance.textContent='Take attendance →';
+          const attendanceRow=document.createElement('p');attendanceRow.appendChild(attendance);holder.appendChild(attendanceRow);
           const manage=document.createElement('a');
           manage.href=`/programs/library.html?program=${encodeURIComponent(program.id)}`;
           manage.textContent='Manage resources →';

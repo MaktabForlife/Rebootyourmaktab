@@ -108,6 +108,7 @@ export function timetableService(repository,program,now=()=>new Date()) {
       if (action==='publish') {
         effectiveFrom=input.effectiveFrom||current.today;
         if(!validDate(effectiveFrom)||effectiveFrom<current.today)throw problem('Choose today or a future date for the new timetable. Published history cannot be backdated.',409);
+        if(effectiveFrom===current.today&&await repository.hasAttendanceOn?.(effectiveFrom))throw problem('Attendance has already been submitted today. Publish the revised timetable from tomorrow or a later date.',409);
         validation=validateWeeklyTimetable(draft,await repository.catalog(data),program,effectiveFrom);
         if (!validation.valid) throw problem('Publication blocked: resolve all validation issues and timetable conflicts, then preview again.',409);
       }

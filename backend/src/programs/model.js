@@ -7,7 +7,7 @@ export const DEFINITION_HEADERS = Object.freeze([
 export const IDENTITY_HEADERS = Object.freeze(["CourseID", "SchemaVersion"]);
 export const CAPABILITIES = Object.freeze({
   configuration: true, timetable: true, management: true, membership: true, curriculum: true,
-  libraryManagement: true, library: false, attendance: false, progress: false, planner: false
+  libraryManagement: true, library: false, attendance: true, progress: false, planner: false
 });
 export const clean = value => String(value ?? "").trim();
 export const key = value => clean(value).toUpperCase();

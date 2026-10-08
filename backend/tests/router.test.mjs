@@ -13,6 +13,7 @@ const expectedPaths = [
   ...["get", "link", "save", "recover"].map(action => `/api/admin/platform/user-profiles/${action}`),
   ...["get", "import-preview", "save", "recover"].map(action => `/api/admin/platform/academy-subjects/${action}`),
   ...["get", "prepare", "prepare-library", "save", "validate", "preview", "publish", "published", "history", "recover", "manage-get", "manage-save"].map(action => `/api/admin/platform/program-timetable/${action}`),
+  ...['get','prepare','submit','recover'].map(action => `/api/program-attendance/${action}`),
   ...["list", "create", "save", "readiness", "prepare"].map(action => `/api/admin/platform/programs/${action}`),
   "/api/account/check",
   "/api/account/setup-pin",
@@ -137,7 +138,7 @@ assert.equal(root.status, 200);
 assert.deepEqual(await root.json(), {
   success: true,
   service: "rebootworker",
-  version: "105.4.2.26"
+  version: "105.4.3.0"
 });
 
 const preflight = await worker.fetch(new Request("https://worker.test/api/login", {

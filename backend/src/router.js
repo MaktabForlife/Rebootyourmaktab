@@ -1,6 +1,7 @@
 import { userProfilesEndpoint } from './routes/user-profiles.js';
 import { academySubjectsEndpoint } from './routes/academy-subjects.js';
 import { programTimetableEndpoint } from './routes/program-timetable.js';
+import { programAttendanceEndpoint } from './routes/program-attendance.js';
 import { programLibraryEndpoint } from './routes/program-library.js';
 import { programLibraryViewerEndpoint } from './routes/program-library-viewer.js';
 import { academyLibraryEndpoint } from './routes/academy-library.js';
@@ -190,6 +191,9 @@ const ROUTES = new Map([
   ]),
   ...["get", "prepare", "prepare-library", "save", "validate", "preview", "publish", "published", "history", "recover", "manage-get", "manage-save"].map(action => [
     `/api/admin/platform/program-timetable/${action}`, workerRoute("program-timetable", programTimetableEndpoint(action))
+  ]),
+  ...['get','prepare','submit','recover'].map(action => [
+    `/api/program-attendance/${action}`, workerRoute('program-attendance',programAttendanceEndpoint(action))
   ]),
   ...["list", "create", "save", "readiness", "prepare"].map(action => [
     `/api/admin/platform/programs/${action}`, workerRoute("program-builder", programEndpoint(action))

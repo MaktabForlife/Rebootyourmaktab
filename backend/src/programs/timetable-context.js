@@ -20,6 +20,16 @@ export async function programLibraryUser(request,env,id,{adminOnly=false}={}) {
   if(!account?.Roles.some(role=>['ADMIN','SENIOR','TEACHER'].includes(role)))throw problem('Your Program Library access has changed. Sign in again.',403);
   return user;
 }
+export async function programAttendanceUser(request,env,id,{prepare=false}={}) {
+  const user=await getAuthUser(request,env,{allowProgram:true});
+  if(!user||user.type!=='account')throw problem('Sign in through your personal Academy account link.',401);
+  if(user.role==='GLOBAL_ADMIN')return {...user,programRoles:['GLOBAL_ADMIN']};
+  if(prepare)throw problem('Only a global administrator can prepare or recover attendance storage.',403);
+  const accounts=await readProgramRoleAccounts(env,id);
+  const account=accounts.find(row=>row.AccountID===user.accountid&&row.Active);
+  if(!account?.Roles.some(role=>['ADMIN','SENIOR','TEACHER'].includes(role)))throw problem('Your Program attendance access has changed. Sign in again.',403);
+  return {...user,programRoles:account.Roles};
+}
 export async function timetableProgram(env,id) {
   programId(id);
   const repository=sheetsProgramRepository(env);

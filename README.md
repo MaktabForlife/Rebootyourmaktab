@@ -1,3 +1,9 @@
+# V105.4.3.0 — Program attendance
+
+Teachers can submit attendance for one published Program lesson or all their assigned lessons today, including lessons they co-teach. Learners start Present; teachers mark Absent or Excused exceptions. Unsubmitted registers remain unknown, and complete days show Present, Partial or Absent according to lesson attendance. Reboot's historical day records are preserved. [Attendance workflow and reporting limits](docs/PROGRAM-ATTENDANCE.md).
+
+Feature branch only; Development verification and the Excused percentage policy remain open.
+
 # V105.4.2.26 — Co-taught Program lessons
 
 A lesson for one class can name a lead teacher and additional teachers. Each teacher receives the lesson in their own timetable and is checked for clashes, availability and teaching hours. The class and whole Program publication omit teacher names for a co-taught lesson; lessons with one named teacher keep showing that name. This update is prepared locally for feature-branch review and has not been pushed or deployed.
