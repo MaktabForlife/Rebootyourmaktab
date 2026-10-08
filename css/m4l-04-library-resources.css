@@ -224,21 +224,6 @@
   mask: var(--library-resource-icon-url) center / contain no-repeat;
 }
 
-.library-resource-type-label {
-  display: block;
-  max-width: 100%;
-  color: currentColor;
-  background: transparent;
-  border: 0;
-  border-radius: 0;
-  padding: 0;
-  font-size: 0.68rem;
-  font-weight: 400;
-  line-height: 1.1;
-  text-align: center;
-  white-space: nowrap;
-}
-
 .library-resource-title {
   display: block;
   min-width: 0;

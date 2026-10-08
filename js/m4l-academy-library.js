@@ -5,6 +5,8 @@
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]);
   const icons = { EBOOK: '/icons/ebook.svg', PRINTABLE: '/icons/printable.svg',
     AUDIO: '/icons/audio.svg', VIDEO: '/icons/video.svg', OTHER: '/icons/other.svg' };
+  const typeNames = { EBOOK: 'eBook', PRINTABLE: 'Printable', AUDIO: 'Audio',
+    VIDEO: 'Video', OTHER: 'Other' };
   const state = { rows: [], view: 'you', covers: new Map(), observer: null, openRow: null,
     learningAreaRefs: new Set() };
 
@@ -111,9 +113,7 @@
       : row.hasCover && !row.locked
         ? `<span data-cover="${esc(row.id)}" aria-hidden="true">▣</span>`
         : `<img src="${esc(icons[row.type] || icons.OTHER)}" alt="" width="48" height="48">`;
-    const sourceName = row.publicBook && row.learningAreas?.length
-      ? `${row.learningAreas[0]}${row.learningAreas.length > 1 ? ` +${row.learningAreas.length - 1}` : ''}` : row.sourceName;
-    return `<button type="button" class="al-card" data-resource="${esc(row.id)}" aria-label="${row.locked ? 'Locked: ' : 'Open '}${esc(row.name)}"><span class="al-art">${art}</span><small>${esc(sourceName)} · ${esc(row.subject)}</small><strong>${esc(row.name)}</strong>${row.volumes?.length ? `<span class="al-volume-count">${row.volumes.length} volumes</span>` : ''}${row.locked ? '<span class="al-lock">Subscription required</span>' : ''}</button>`;
+    return `<button type="button" class="al-card" data-resource="${esc(row.id)}" aria-label="${row.locked ? 'Locked: ' : 'Open '}${esc(row.name)} (${esc(typeNames[row.type] || 'Resource')})"><span class="al-art">${art}</span><small>${esc(row.subject)}</small><span class="al-card-title"><img src="${esc(icons[row.type] || icons.OTHER)}" alt="" width="18" height="18"><strong>${esc(row.name)}</strong></span>${row.volumes?.length ? `<span class="al-volume-count">${row.volumes.length} volumes</span>` : ''}${row.locked ? '<span class="al-lock">Subscription required</span>' : ''}</button>`;
   }
 
   function render() {
@@ -270,7 +270,7 @@
         learningAreas: record.learningAreas || [], learningAreaRefs: record.learningAreaRefs || [],
         details: record.author || book.details, description: record.description || book.description,
         coverUrl: record.coverUrl || book.coverUrl,
-        resourceType: book.resourceType === 'EBOOK' && record.resourceType === 'PRINTABLE' ?
+        resourceType: (!book.resourceType || book.resourceType === 'EBOOK') && record.resourceType === 'PRINTABLE' ?
           'PRINTABLE' : book.resourceType || 'EBOOK' } : book;
     });
     const existing = new Set(state.rows.filter(row => !row.publicBook).map(row => row.id));

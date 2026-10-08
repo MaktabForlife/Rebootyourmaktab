@@ -1,6 +1,6 @@
 # Academy Open Library
 
-8 October 2026 · V105.4.2.23 feature branch
+8 October 2026 · V105.4.2.24 feature branch candidate
 
 ## Academy resource details
 

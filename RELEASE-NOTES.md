@@ -1,3 +1,7 @@
+# V105.4.2.24 — Clearer Library cards
+
+Show a media type icon on every Library card and remove the visible media type text. Public and signed-in Academy cards omit Program and course names while retaining subject and title. Their pale lavender cover panels change to light sage. Learning area assignments and access rules are unchanged. This version targets the Development feature branch; production remains unchanged.
+
 # V105.4.2.23 — Full Archive audio track list
 
 Raise the per-item media limit to include every track in the live Surahs Teacher and Students Archive.org item (104 MP3 files). A catalogue regression now checks that more than 100 tracks remain available. The Development frontend and Worker are updated together; production is unchanged.

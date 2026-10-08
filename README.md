@@ -1,3 +1,7 @@
+# V105.4.2.24 — Media icons on Library cards
+
+Public, signed-in Academy, Program and Reboot Library cards show the media type icon with the resource title instead of a media type label. Public and signed-in Academy cards no longer show assigned Program or course names, and their cover panels use light sage; assignments still decide where learners find the resource. This update targets the Development feature branch; production is unchanged.
+
 # V105.4.2.23 — Complete Archive audio track lists
 
 The Open Library now keeps up to 250 playable files per listed Archive.org audio or video item. The live Surahs Teacher and Students item has 104 public MP3 tracks, and all 104 are available in its in-app selector. [Open Library details](docs/ACADEMY-OPEN-LIBRARY.md).

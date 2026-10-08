@@ -38,6 +38,7 @@ const fetch = async url => {
   if (url === 'https://worker.test/api/academy/open-library/metadata/public') return {
     ok: true, json: async () => ({ success: true, records: [{
       id: archiveBook.id, title: 'Academy title', subject: 'Tafseer',
+      resourceType: 'PRINTABLE',
       module: 'Jalalain', learningAreas: ['Aalimiya', 'Quran'], author: 'Academy author',
       description: 'Academy description', coverUrl: 'https://worker.test/cover?id=Book1'
     }, {
@@ -60,9 +61,9 @@ assert(sections.every(section => section.className === 'ol-subject'));
 const card = sections[3].children[1].children[0];
 assert(card);
 assert.equal(card.dataset.resource, archiveBook.id);
-assert.equal(card.children[1].children[0].textContent, 'Academy title');
-assert.equal(card.children[1].children[1].textContent, 'Aalimiya +1');
-assert.equal(card.children[1].children[2].textContent, '2 volumes →');
+assert.equal(card.children[1].children[0].children[0].src, '/icons/printable.svg');
+assert.equal(card.children[1].children[0].children[1].textContent, 'Academy title');
+assert.equal(card.children[1].children[1].textContent, '2 volumes →');
 assert.equal(card.children[0].children[0].src, 'https://worker.test/cover?id=Book1');
 const linkCard = sections[4].children[1].children[0];
 assert.equal(linkCard.tagName, 'a');
@@ -70,10 +71,15 @@ assert.equal(linkCard.href, 'https://example.org/learning');
 assert.equal(linkCard.target, '_blank');
 assert.equal(linkCard.rel, 'noopener noreferrer');
 assert.equal(linkCard.children[0].children[0].src, '/icons/other.svg');
-assert.equal(linkCard.children[1].children[1].textContent, 'Other');
+assert.equal(linkCard.children[1].children[0].children[0].src, '/icons/other.svg');
 assert.equal(linkCard.children[1].children.at(-1).textContent, 'Visit website ↗');
 assert.equal(sections[0].children[1].children[0].children[1].children.length, 2,
-  'Unassigned books have only a title and reading action');
+  'Each card shows an icon with its title and reading action');
+assert.equal(sections[0].children[1].children[0].children[1].children[0].children[0].src, '/icons/ebook.svg');
+assert.equal(sections[1].children[1].children[0].children[1].children[0].children[0].src, '/icons/video.svg');
+assert.equal(sections[2].children[1].children[0].children[1].children[0].children[0].src, '/icons/audio.svg');
+assert.equal(JSON.stringify(sections).includes('Aalimiya'), false);
+assert.equal(JSON.stringify(sections).includes('Quran +1'), false);
 assert.equal(JSON.stringify(sections).includes('Internet Archive'), false);
 assert.equal(JSON.stringify(sections).includes('Open Library'), false);
 assert.equal(JSON.stringify(sections).includes('Jalalain'), false);

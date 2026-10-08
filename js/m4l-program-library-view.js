@@ -57,10 +57,8 @@
       : row.hasCover
         ? `<span class="lv-cover-placeholder" data-cover="${esc(row.id)}" aria-hidden="true">▣</span>`
         : `<span class="lv-cover-placeholder" aria-hidden="true"><img src="${esc(icons[row.type] || icons.OTHER)}" alt="" width="34" height="34"></span>`;
-    const caption = row.hasCover
-      ? `<span class="lv-card-caption"><img class="lv-media-icon" src="${esc(icons[row.type] || icons.OTHER)}" alt=""><strong>${esc(row.name)}</strong></span>`
-      : `<small>${esc(types[row.type] || 'Resource')}</small><strong>${esc(row.name)}</strong>${row.author?`<span class="lv-author">${esc(row.author)}</span>`:''}`;
-    return `<button type="button" class="lv-card" data-resource="${esc(row.id)}" aria-label="Open ${esc(row.name)}">${cover}${caption}</button>`;
+    const caption = `<span class="lv-card-caption"><img class="lv-media-icon" src="${esc(icons[row.type] || icons.OTHER)}" alt=""><strong>${esc(row.name)}</strong></span>${!row.hasCover&&row.author?`<span class="lv-author">${esc(row.author)}</span>`:''}`;
+    return `<button type="button" class="lv-card" data-resource="${esc(row.id)}" aria-label="Open ${esc(row.name)} (${esc(types[row.type] || 'Resource')})">${cover}${caption}</button>`;
   }
 
   function renderResults() {

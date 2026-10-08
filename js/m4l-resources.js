@@ -1296,7 +1296,6 @@ function renderLibraryResourceCard(resource) {
           style="--library-resource-icon-url: url('${escapeForAttribute(resource.icon)}')"
           aria-hidden="true"
         ></span>
-        <span class="library-resource-type-label">${escapeHtml(resource.typeLabel)}</span>
       </span>
       <span class="library-resource-title">${escapeHtml(resource.title)}</span>
     </button>

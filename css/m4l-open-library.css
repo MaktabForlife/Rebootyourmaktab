@@ -6,10 +6,12 @@
 .ol-subject-books{display:grid;align-content:start;gap:10px}
 .ol-card{display:flex;flex-direction:column;gap:10px;width:100%;min-width:0;min-height:375px;padding:12px;text-align:left;text-decoration:none;background:#fff;color:#292132;border:1px solid #e4d8e6;border-radius:17px;box-shadow:0 6px 18px #543b5911;font:inherit;cursor:pointer}
 .ol-card:hover,.ol-card:focus-visible{border-color:#8d5a96;box-shadow:0 8px 24px #543b5925}
-.ol-card-art{position:relative;display:grid;place-items:center;width:100%;aspect-ratio:2/3;overflow:hidden;border-radius:10px;background:#f4edf5}
+.ol-card-art{position:relative;display:grid;place-items:center;width:100%;aspect-ratio:2/3;overflow:hidden;border-radius:10px;background:#e9f0e8}
 .ol-card-art img{width:58px;height:58px}
 .ol-card-art img.ol-cover{position:absolute;inset:8px;width:calc(100% - 16px);height:calc(100% - 16px);object-fit:contain}
 .ol-card-content{display:flex;flex-direction:column;flex:1;gap:5px;min-width:0}
+.ol-title-row{display:flex;align-items:flex-start;gap:7px;min-width:0}
+.ol-title-row .ol-type-icon{flex:none;width:18px;height:18px;margin-top:1px;object-fit:contain}
 .ol-list-source{font-size:.95rem}
 .ol-list-source a{color:#704778;font-weight:700}
 .ol-status{color:#685a6b;font-size:.9rem}

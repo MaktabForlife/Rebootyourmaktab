@@ -17,6 +17,8 @@
   const $ = id => document.getElementById(id);
   const mediaIcons = { EBOOK: '/icons/ebook.svg', PRINTABLE: '/icons/printable.svg',
     AUDIO: '/icons/audio.svg', VIDEO: '/icons/video.svg', OTHER: '/icons/other.svg' };
+  const mediaNames = { EBOOK: 'eBook', PRINTABLE: 'Printable', AUDIO: 'Audio',
+    VIDEO: 'Video', OTHER: 'Other' };
   const results = $('ol-results');
   const dialog = $('ol-preview');
   const viewer = $('ol-viewer');
@@ -73,7 +75,8 @@
         card.dataset.resource = book.id;
         const verb = book.linkUrl ? 'Visit' : book.resourceType === 'AUDIO' ? 'Listen to' :
           book.resourceType === 'VIDEO' ? 'Watch' : 'Read';
-        card.setAttribute('aria-label', `${verb} ${book.title}`);
+        const mediaType = book.resourceType || 'EBOOK';
+        card.setAttribute('aria-label', `${verb} ${book.title} (${mediaNames[mediaType] || 'Resource'})`);
         const art = document.createElement('div');
         art.className = 'ol-card-art';
         const icon = document.createElement('img');
@@ -90,18 +93,16 @@
         art.append(icon);
         const content = document.createElement('span');
         content.className = 'ol-card-content';
-        const areas = book.learningAreas || [];
+        const titleRow = document.createElement('span');
+        titleRow.className = 'ol-title-row';
+        const typeIcon = document.createElement('img');
+        typeIcon.className = 'ol-type-icon';
+        typeIcon.src = mediaIcons[mediaType] || mediaIcons.OTHER;
+        typeIcon.alt = '';
         const title = document.createElement('strong');
         title.textContent = book.title;
-        content.append(title);
-        if (book.resourceType === 'OTHER' || book.resourceType === 'AUDIO' || book.resourceType === 'VIDEO' || areas.length) {
-          const area = document.createElement('small');
-          area.textContent = [['OTHER', 'Other'], ['AUDIO', 'Audio'], ['VIDEO', 'Video']].find(([type]) => type === book.resourceType)?.[1] || '';
-          area.textContent = [area.textContent,
-            areas.length ? `${areas[0]}${areas.length > 1 ? ` +${areas.length - 1}` : ''}` : '']
-            .filter(Boolean).join(' · ');
-          content.append(area);
-        }
+        titleRow.append(typeIcon, title);
+        content.append(titleRow);
         const action = document.createElement('span');
         action.className = 'ol-card-action';
         action.textContent = book.linkUrl ? 'Visit website ↗' : book.resourceType === 'AUDIO' ? 'Listen →' :
@@ -238,7 +239,7 @@
         learningAreas: Array.isArray(record.learningAreas) ? record.learningAreas : [],
         details: record.author || book.details, description: record.description || book.description,
         coverUrl: record.coverUrl || book.coverUrl,
-        resourceType: book.resourceType === 'EBOOK' && record.resourceType === 'PRINTABLE' ?
+        resourceType: (!book.resourceType || book.resourceType === 'EBOOK') && record.resourceType === 'PRINTABLE' ?
           'PRINTABLE' : book.resourceType || 'EBOOK'
       };
     });
