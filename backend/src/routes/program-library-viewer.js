@@ -54,7 +54,8 @@ export function programLibraryViewerEndpoint(action) {
           if (!role && account?.Roles.includes('STUDENT')) role = 'STUDENT';
           if (role) visible.push({ id: program.id, name: program.name, role });
         }
-        return json({ success: true, programs: visible });
+        return json({ success: true, programs: visible,
+          accountPath: `/account/${encodeURIComponent(user.uniqueid)}` });
       }
 
       const id = clean(body.id);

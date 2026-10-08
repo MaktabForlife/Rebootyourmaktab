@@ -1,3 +1,7 @@
+# V105.4.3.2 — Class-column attendance
+
+Teaching Programs appear as pills. The selected Program shows classes side by side, each with one lesson or All lessons, its own submit button and learner statuses. Teachers see classes where they teach a lesson or are class teacher; Seniors and Admins see all active classes. Breaks remain excluded. Submitted marks can be edited, including on earlier dates, with the saved roster retained and revisions appended for audit. Earlier combined multi-class registers remain together in a labelled column. Account navigation uses the signed-in person's personal link, and a Program Library link is available.
+
 # V105.4.3.1 — Batch class assignments and lesson-only attendance
 
 Program Management’s Save all submits changed student classes as one coordinated spreadsheet write instead of one request per student. Interrupted saves retain their retry identifier, including an individual save already pending in a browser session. A Google Sheets rate limit leaves the pending change available for retry after the cooldown. Program attendance omits timetable breaks from register cards and lesson totals; existing submitted lesson rosters remain unchanged.

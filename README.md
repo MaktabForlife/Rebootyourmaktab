@@ -1,3 +1,7 @@
+# V105.4.3.2 — Attendance by Program and class
+
+Attendance now shows teaching Programs as pills and classes in adjacent columns. Each class has a lesson selector, Submit attendance button and learner list; Teachers see their classes, while Seniors and Admins see all classes. Submitted marks can be edited with their original roster preserved. The Account link now returns to the signed-in person's personal page. [Attendance details](docs/PROGRAM-ATTENDANCE.md).
+
 # V105.4.3.1 — Class saves and attendance breaks
 
 Program Management now saves all selected student class assignments in one coordinated change, with a single retry identifier if Google Sheets is temporarily busy. Attendance excludes timetable breaks from its registers and lesson totals. [Release notes](RELEASE-NOTES.md).

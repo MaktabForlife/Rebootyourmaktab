@@ -9,6 +9,12 @@ export const ATTENDANCE_HEADERS = Object.freeze({
 });
 export const LESSON_STATUSES = Object.freeze(['PRESENT','ABSENT','EXCUSED']);
 
+export function classLesson(lesson, classId, className) {
+  return {...lesson, sourceAnchor:lesson.anchor,
+    anchor:lesson.classIds.length>1?`${lesson.anchor}::${classId}`:lesson.anchor,
+    classId,classIds:[classId],classNames:[className]};
+}
+
 export function scheduledLessons(publicationRows, program, date) {
   if (!validDate(date)) throw problem('Choose a valid attendance date.');
   const history=publicationRows.map(row=>publicationRecord(row,program));
@@ -61,7 +67,6 @@ export function readRegisters(registers, marks, programId) {
   for(const row of registers){
     if(row.CourseID!==programId||!validDate(row.AttendanceDate)||!row.RegisterID||byId.has(row.RegisterID))throw problem('Program attendance registers need repair.',409);
     const key=`${row.AttendanceDate}|${row.PublicationID}|${row.LessonAnchor}`;
-    if(byLesson.has(key))throw problem('A lesson has duplicate submitted registers. Repair attendance data.',409);
     let lesson;try{lesson=JSON.parse(row.LessonJSON);}catch{throw problem('A submitted lesson snapshot is unreadable.',409);}
     if(lesson.anchor!==row.LessonAnchor||lesson.publicationId!==row.PublicationID||lesson.date!==row.AttendanceDate)throw problem('A submitted lesson snapshot does not match its register.',409);
     const count=Number(row.LearnerCount);
@@ -82,7 +87,7 @@ export function readRegisters(registers, marks, programId) {
 export function dayView(date, lessons, registerIndex, rosterForLesson, excusedPolicy='EXCUSED') {
   const rows=lessons.map(lesson=>{
     const register=registerIndex.get(`${date}|${lesson.publicationId}|${lesson.anchor}`);
-    return {lesson,submitted:Boolean(register),submittedAt:register?.submittedAt||'',
+    return {lesson,submitted:Boolean(register),registerId:register?.id||'',submittedAt:register?.submittedAt||'',
       marks:register?register.marks:rosterForLesson(lesson).map(row=>({...row,status:null}))};
   });
   const learners=new Map();
