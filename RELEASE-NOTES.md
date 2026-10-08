@@ -1,6 +1,10 @@
+# V105.4.2.17 — Open Library book cards
+
+Public book cards now use a taller portrait image panel and a narrower grid. Archive.org covers stay inside that panel, and long metadata titles wrap instead of overflowing into adjacent cards. The layout also keeps two portrait cards per row on phone widths. Public original PDFs within one Archive.org item become selectable volumes, and distinct listed items with matching numbered series titles combine into one card. This groups the current Tafseer Jalalain volumes and shows all public PDFs for Maariful Quran, Tasheelul Fiqh and Aqaaid, Yassarnal Quraan, and Riyaadus Saliheen. Original PDFs take precedence over Archive.org derivative copies; the proxy rechecks each selected file against the public list and current metadata.
+
 # V105.4.2.16 — Archive catalogue loading
 
-The public Archive.org list request no longer uses a redirect setting unsupported by Cloudflare Workers. Unexpected redirects still fail closed. A local Pages preview loaded six Archive books, including Ihya Ulum ad-Din as four volumes, and returned PDF bytes through the existing proxy. This fix is awaiting a feature-branch push; the Git-connected Development Pages project may deploy automatically when pushed.
+The public Archive.org list request no longer uses a redirect setting unsupported by Cloudflare Workers. Unexpected redirects still fail closed. A local Pages preview loaded six Archive books, including Ihya Ulum ad-Din as four volumes, and returned PDF bytes through the existing proxy. The fix was pushed to the feature branch and deployed by the Git-connected Development Pages project.
 
 # V105.4.2.15 — Academy version and Library menu
 

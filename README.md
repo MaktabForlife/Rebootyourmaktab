@@ -1,8 +1,12 @@
+# V105.4.2.17 — Open Library book cards
+
+The public Open Library uses narrower portrait cards so Archive.org book covers fit inside their image panels without overlapping the source or title. Long titles wrap within the card. Multiple public PDFs in one Archive.org item appear as selectable volumes, and clearly numbered items in the same series share one card. [Open Library details](docs/ACADEMY-OPEN-LIBRARY.md).
+
 # V105.4.2.16 — Archive catalogue loading
 
 Fix the public Open Library's Archive.org catalogue request in the Cloudflare Pages runtime. Unexpected redirects remain rejected. A local Pages preview loaded six Archive books, including the four-volume Ihya set, and streamed a PDF byte range. [Open Library details](docs/ACADEMY-OPEN-LIBRARY.md).
 
-This change has been verified locally and is awaiting a feature-branch push. The development Pages project is Git-connected, so a push may deploy it automatically.
+This fix was pushed to the feature branch and deployed by the Git-connected Development Pages project.
 
 # V105.4.2.15 — Academy version and Library menu
 

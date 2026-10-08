@@ -121,7 +121,7 @@
     const url = volume?.pdfUrl || row.pdfUrl;
     const media = document.createElement('iframe');
     media.src = `/pdf-viewer/web/viewer.html?file=${encodeURIComponent(pdfProxy(url))}`;
-    media.title = `${row.name}${volume ? `, volume ${volume.number}` : ''} PDF`;
+    media.title = `${row.name}${volume ? `, ${volume.label || `volume ${volume.number}`}` : ''} PDF`;
     $('al-media').replaceChildren(media);
     $('al-open').href = url;
     $('al-open').textContent = 'Open original PDF at Archive.org ↗';
@@ -144,7 +144,7 @@
       for (const volume of row.volumes) {
         const option = document.createElement('option');
         option.value = String(volume.number);
-        option.textContent = `Volume ${volume.number}`;
+        option.textContent = volume.label || `Volume ${volume.number}`;
         volumeSelect.append(option);
       }
       volumeSelect.value = String(row.volumes[0].number);

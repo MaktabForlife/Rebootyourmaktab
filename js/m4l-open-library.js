@@ -68,7 +68,7 @@
   function showPdf(book, volume) {
     const selected = volume || book;
     $('ol-original').href = selected.pdfUrl;
-    viewer.title = `${book.title}${volume ? `, volume ${volume.number}` : ''} PDF`;
+    viewer.title = `${book.title}${volume ? `, ${volume.label || `volume ${volume.number}`}` : ''} PDF`;
     viewer.src = `/pdf-viewer/web/viewer.html?file=${encodeURIComponent(pdfProxy(selected.pdfUrl))}`;
     const url = new URL(window.location.href);
     url.searchParams.set('resource', book.id);
@@ -91,7 +91,7 @@
       for (const item of book.volumes) {
         const option = document.createElement('option');
         option.value = String(item.number);
-        option.textContent = `Volume ${item.number}`;
+        option.textContent = item.label || `Volume ${item.number}`;
         volumeSelect.append(option);
       }
       volume = book.volumes.find(item => String(item.number) === String(requestedVolume)) || book.volumes[0];

@@ -1,8 +1,12 @@
 # Academy Open Library
 
-8 October 2026 · V105.4.2.16 feature branch
+8 October 2026 · V105.4.2.17 feature branch
 
 Open Library is a separate public catalogue at `/academy/open-library/`. It does not require an Academy account and does not read or expose the personal For you / Explore catalogue. The Academy welcome page links to it separately from My Library.
+
+Book cards use portrait cover panels sized for Archive.org metadata images. Covers remain contained within those panels, and long titles wrap inside the cards.
+
+When a listed Archive.org item has several public original PDFs, the catalogue shows one book with a volume selector. It sorts numbered files naturally and excludes derivative copies when originals exist. Separately listed items with matching numbered series titles, such as Tafseer Jalalain Volumes 1–3, also become one card. Ambiguous titles remain separate to avoid mixing different books. Every volume's PDF is checked against the current list and metadata when opened; removing or restricting a file revokes direct access.
 
 The welcome page's left-hand Library item opens this public catalogue for signed-out visitors. Once the Academy account session is verified, the same item opens the personal Library at `/academy/library/`. The welcome page header shows the frontend version present in that deployment.
 
@@ -20,4 +24,4 @@ Archive PDFs also open in Reboot's PDF.js viewer. On every `/pdf-file` request, 
 
 If Archive.org's list or metadata service is unavailable, the Academy page keeps the Essential Duas entry and displays an Archive.org loading error. Other external websites still require an individual source review and explicit proxy allowlist entry. V105.4.2.16 fixes a Pages runtime 502 caused by an unsupported redirect mode on the Archive list request; the response status still rejects unexpected redirects.
 
-The local Pages runtime loaded six current Archive books from the public list and returned a 206 PDF byte-range response with a `%PDF` header. Desktop and iPhone reading checks on the hosted Development site remain open until this fix is deployed. The Development Pages project is Git-connected and may deploy automatically when the feature branch is pushed.
+The local Pages runtime loaded the current Archive list as eight book cards after volume grouping. A grouped Tafseer volume and a PDF from within the Maariful Quran item each returned a 206 byte-range response with a `%PDF` header. Portrait cards were checked at desktop and phone widths. Hosted Development and iPhone reading checks remain open. The Git-connected Development Pages project deploys feature-branch pushes automatically.

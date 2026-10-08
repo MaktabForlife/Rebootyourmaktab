@@ -129,6 +129,42 @@ try {
   assert.equal((await openProxy(firstBooks[0].volumes[2].pdfUrl)).status, 403);
   assert.equal((await openProxy(firstBooks[0].volumes[3].pdfUrl)).status, 403);
 
+  badRedirect = false;
+  members = ['NewBook', 'MultiPdf', 'JalalainVol2', 'JalalainVol3', 'JalalainVol1'];
+  metadata.MultiPdf = {
+    metadata: { mediatype: 'texts', title: 'One book with several files' },
+    files: [
+      { name: 'Book 10.pdf', source: 'original' },
+      { name: 'Book 2.pdf', source: 'original' },
+      { name: 'Book 1_text.pdf', source: 'derivative' },
+      { name: 'Book 1.pdf', source: 'original' },
+      { name: 'Private 4.pdf', source: 'original', private: true }
+    ]
+  };
+  for (const number of [1, 2, 3]) {
+    const suffix = number === 1 ? '' : '_COLOR';
+    metadata[`JalalainVol${number}`] = {
+      metadata: { mediatype: 'texts', title: `TAFSEER_UL_JALALAIN_VOL_${number}_AL_BUSHRA${suffix}.pdf` },
+      files: [{ name: `Jalalain Volume ${number}.pdf`, source: 'original' }]
+    };
+  }
+  const groupedBooks = (await (await catalogue()).json()).books;
+  assert.deepEqual(groupedBooks.map(book => book.id), [
+    'EXTERNAL:INTERNET_ARCHIVE:NewBook',
+    'EXTERNAL:INTERNET_ARCHIVE:MultiPdf',
+    'EXTERNAL:INTERNET_ARCHIVE:SERIES:TAFSEER_UL_JALALAIN_AL_BUSHRA'
+  ]);
+  assert.deepEqual(groupedBooks[1].volumes.map(volume => volume.number), [1, 2, 10]);
+  assert.equal(groupedBooks[1].volumes[2].label, 'Volume 10');
+  assert.deepEqual(groupedBooks[2].volumes.map(volume => volume.number), [1, 2, 3]);
+  assert.equal((await openProxy(groupedBooks[1].volumes[1].pdfUrl)).status, 200);
+  assert.equal((await openProxy(groupedBooks[2].volumes[2].pdfUrl)).status, 200);
+  assert.equal((await openProxy('https://archive.org/download/MultiPdf/Book%201_text.pdf')).status, 403);
+  assert.equal((await openProxy('https://archive.org/download/MultiPdf/Private%204.pdf')).status, 403);
+
+  members = ['NewBook', 'MultiPdf'];
+  assert.equal((await openProxy(groupedBooks[2].volumes[2].pdfUrl)).status, 403);
+
   console.log('academy-open-library-archive.test.mjs: PASS');
 } finally {
   globalThis.fetch = originalFetch;
