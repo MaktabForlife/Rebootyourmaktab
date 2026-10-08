@@ -11,6 +11,14 @@ const metadata = Object.fromEntries(members.map((identifier, index) => [identifi
   metadata: { mediatype: 'texts', title: `Ihya volume ${[1, 2, 4][index]}`, subject: 'Sufism' },
   files: [{ name: `Ihya Ulum Al Din Vol ${[1, 2, 4][index]}.pdf`, source: 'original', private: false }]
 }]));
+metadata.GAZALIIhyaUlumAlDin4 = {
+  metadata: { mediatype: 'texts', title: 'Ihya ulum al-din, vol. 4' },
+  files: [{ name: 'GAZALI__-Ihya-Ulum-Al-Din-4.pdf', source: 'original' }]
+};
+metadata.IhyaUlumAlDinVol3 = {
+  metadata: { mediatype: 'texts', title: 'Ihya volume 3' },
+  files: [{ name: 'Ihya Ulum Al Din Vol 3.pdf', source: 'original' }]
+};
 
 globalThis.fetch = async (input, options = {}) => {
   const url = String(input);
@@ -55,9 +63,12 @@ try {
   assert.equal(first.status, 200);
   assert.match(first.headers.get('Cache-Control'), /max-age=300/);
   const firstBooks = (await first.json()).books;
-  assert.equal(firstBooks.length, 3);
-  assert.equal(firstBooks[0].id, 'EXTERNAL:INTERNET_ARCHIVE:IhyaUlumAlDinVol1_201503');
-  assert.equal(firstBooks[0].pdfUrl, 'https://archive.org/download/IhyaUlumAlDinVol1_201503/Ihya%20Ulum%20Al%20Din%20Vol%201.pdf');
+  assert.equal(firstBooks.length, 1);
+  assert.equal(firstBooks[0].id, 'EXTERNAL:INTERNET_ARCHIVE:IHYA_ULUM_AD_DIN_SET');
+  assert.deepEqual(firstBooks[0].volumes.map(volume => volume.number), [1, 2, 3, 4]);
+  assert.equal(firstBooks[0].volumes[0].pdfUrl, 'https://archive.org/download/IhyaUlumAlDinVol1_201503/Ihya%20Ulum%20Al%20Din%20Vol%201.pdf');
+  assert.equal(firstBooks[0].volumes[2].pdfUrl, 'https://archive.org/download/IhyaUlumAlDinVol3/Ihya%20Ulum%20Al%20Din%20Vol%203.pdf');
+  assert.equal(firstBooks[0].volumes[3].pdfUrl, 'https://archive.org/download/GAZALIIhyaUlumAlDin4/GAZALI__-Ihya-Ulum-Al-Din-4.pdf');
 
   members.push('NewBook', 'PrivateBook', 'NoDownloadBook');
   metadata.NewBook = {
@@ -74,30 +85,41 @@ try {
     files: [{ name: 'Blocked.pdf', source: 'original' }]
   };
   const refreshedBooks = (await (await catalogue()).json()).books;
-  assert.equal(refreshedBooks.length, 4);
+  assert.equal(refreshedBooks.length, 2);
+  assert.deepEqual(refreshedBooks[0].volumes.map(volume => volume.number), [1, 2, 3, 4]);
   assert.ok(refreshedBooks.some(book => book.title === 'New public book'));
   assert.ok(!refreshedBooks.some(book => book.title === 'Restricted book'));
   assert.ok(!refreshedBooks.some(book => book.title === 'Download disabled'));
 
-  const rangeResponse = await openProxy(firstBooks[0].pdfUrl, 'bytes=0-3');
+  const rangeResponse = await openProxy(firstBooks[0].volumes[0].pdfUrl, 'bytes=0-3');
   assert.equal(rangeResponse.status, 206);
   assert.equal(rangeResponse.headers.get('Content-Type'), 'application/pdf');
   assert.equal(rangeResponse.headers.get('Set-Cookie'), null);
   assert.match(rangeResponse.headers.get('Cache-Control'), /no-store/);
   assert.equal(calls.at(-1).options.headers.get('Range'), 'bytes=0-3');
   assert.equal(calls.at(-1).options.redirect, 'manual');
+  assert.equal((await openProxy(firstBooks[0].volumes[2].pdfUrl)).status, 200);
+  assert.equal((await openProxy(firstBooks[0].volumes[3].pdfUrl)).status, 200);
 
   assert.equal((await openProxy('https://archive.org/download/Unlisted/book.pdf')).status, 403);
   assert.equal((await openProxy('https://archive.org/download/PrivateBook/Private.pdf')).status, 403);
   assert.equal((await openProxy('https://archive.org/download/NoDownloadBook/Blocked.pdf')).status, 403);
-  assert.equal((await openProxy(`${firstBooks[0].pdfUrl}?other=1`)).status, 403);
+  assert.equal((await openProxy(`${firstBooks[0].volumes[0].pdfUrl}?other=1`)).status, 403);
+
+  metadata.GAZALIIhyaUlumAlDin4.nodownload = true;
+  const restrictedBooks = (await (await catalogue()).json()).books;
+  assert.deepEqual(restrictedBooks[0].volumes.map(volume => volume.number), [1, 2, 3]);
+  assert.equal((await openProxy(firstBooks[0].volumes[3].pdfUrl)).status, 403);
+  delete metadata.GAZALIIhyaUlumAlDin4.nodownload;
 
   badRedirect = true;
-  assert.equal((await openProxy(firstBooks[0].pdfUrl)).status, 502);
+  assert.equal((await openProxy(firstBooks[0].volumes[0].pdfUrl)).status, 502);
 
   members = ['NewBook'];
   const afterRemoval = (await (await catalogue()).json()).books;
   assert.deepEqual(afterRemoval.map(book => book.id), ['EXTERNAL:INTERNET_ARCHIVE:NewBook']);
+  assert.equal((await openProxy(firstBooks[0].volumes[2].pdfUrl)).status, 403);
+  assert.equal((await openProxy(firstBooks[0].volumes[3].pdfUrl)).status, 403);
 
   console.log('academy-open-library-archive.test.mjs: PASS');
 } finally {

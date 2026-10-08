@@ -1,3 +1,9 @@
+# V105.4.2.13 — Public Open Library volumes
+
+The public Academy Open Library groups **Ihya Ulum ad-Din** into one book with four selectable volumes. Each PDF opens in the existing reader; the source files remain on Archive.org. Other public list items continue to sync automatically. [Source mapping and access checks](docs/ACADEMY-OPEN-LIBRARY.md).
+
+Feature branch only; Development reading checks remain open.
+
 # V105.4.2.12 — All-class publication display
 
 Program timetable previews, published history and image/PDF exports show one entry for an all-class lesson using class teachers. The entry says **All classes** and omits individual class teacher names. A named lesson teacher is shown by name; a lesson without any teacher says **No teacher**. Class and teacher views retain their own lesson links. [Details](docs/V105.4-PROGRAM-LIBRARY.md).

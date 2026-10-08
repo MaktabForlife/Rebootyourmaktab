@@ -1,3 +1,7 @@
+# V105.4.2.13 — Public Open Library volumes
+
+Ihya Ulum ad-Din appears as one public book with a selector for four Archive.org volumes. The Archive list continues to sync other public PDFs. [Open Library details](docs/ACADEMY-OPEN-LIBRARY.md). Live PDF delivery and device checks remain open.
+
 # V105.4 — Program curriculum and Library management
 
 Program curriculum now includes subject-level and module-level task definitions. Program administrators can organise protected Drive resources into eBooks, Printables, Audio, Video and Other by subject, optional level, module and task. Existing Program spreadsheets can add two task/resource tables without rewriting earlier curriculum or timetable records. [Workflow and acceptance](docs/V105.4-PROGRAM-LIBRARY.md).

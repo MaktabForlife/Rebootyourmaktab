@@ -19,6 +19,7 @@
   const dialog = $('ol-preview');
   const viewer = $('ol-viewer');
   const status = $('ol-status');
+  let openBook = null;
 
   function pdfProxy(url) {
     const bytes = new TextEncoder().encode(url);
@@ -57,24 +58,47 @@
       const title = document.createElement('strong');
       title.textContent = book.title;
       const action = document.createElement('span');
-      action.textContent = 'Read book →';
+      action.textContent = book.volumes ? `${book.volumes.length} volumes · Choose volume →` : 'Read book →';
       card.append(art, source, title, action);
       results.append(card);
     }
     $('ol-empty').hidden = matches.length > 0;
   }
 
-  function open(book) {
+  function showPdf(book, volume) {
+    const selected = volume || book;
+    $('ol-original').href = selected.pdfUrl;
+    viewer.title = `${book.title}${volume ? `, volume ${volume.number}` : ''} PDF`;
+    viewer.src = `/pdf-viewer/web/viewer.html?file=${encodeURIComponent(pdfProxy(selected.pdfUrl))}`;
+    const url = new URL(window.location.href);
+    url.searchParams.set('resource', book.id);
+    if (volume) url.searchParams.set('volume', String(volume.number));
+    else url.searchParams.delete('volume');
+    history.replaceState(null, '', url);
+  }
+
+  function open(book, requestedVolume) {
+    openBook = book;
     $('ol-source').textContent = `${book.source} · ${book.subject}`;
     $('ol-title').textContent = book.title;
     $('ol-details').textContent = book.details;
-    $('ol-original').href = book.pdfUrl;
-    viewer.title = `${book.title} PDF`;
-    viewer.src = `/pdf-viewer/web/viewer.html?file=${encodeURIComponent(pdfProxy(book.pdfUrl))}`;
+    const volumeWrap = $('ol-volume-wrap');
+    const volumeSelect = $('ol-volume');
+    volumeSelect.replaceChildren();
+    volumeWrap.hidden = !book.volumes;
+    let volume = null;
+    if (book.volumes?.length) {
+      for (const item of book.volumes) {
+        const option = document.createElement('option');
+        option.value = String(item.number);
+        option.textContent = `Volume ${item.number}`;
+        volumeSelect.append(option);
+      }
+      volume = book.volumes.find(item => String(item.number) === String(requestedVolume)) || book.volumes[0];
+      volumeSelect.value = String(volume.number);
+    }
+    showPdf(book, volume);
     dialog.showModal();
-    const url = new URL(window.location.href);
-    url.searchParams.set('resource', book.id);
-    history.replaceState(null, '', url);
   }
 
   results.addEventListener('click', event => {
@@ -83,11 +107,17 @@
     if (book) open(book);
   });
   $('ol-search').addEventListener('input', render);
+  $('ol-volume').addEventListener('change', event => {
+    const volume = openBook?.volumes?.find(item => String(item.number) === event.target.value);
+    if (volume) showPdf(openBook, volume);
+  });
   $('ol-close').addEventListener('click', () => dialog.close());
   dialog.addEventListener('close', () => {
+    openBook = null;
     viewer.src = 'about:blank';
     const url = new URL(window.location.href);
     url.searchParams.delete('resource');
+    url.searchParams.delete('volume');
     history.replaceState(null, '', url);
   });
 
@@ -106,7 +136,7 @@
       status.textContent = 'Archive.org books are temporarily unavailable. Please try again later.';
     }
     const linkedBook = books.find(book => book.id === new URLSearchParams(window.location.search).get('resource'));
-    if (linkedBook) open(linkedBook);
+    if (linkedBook) open(linkedBook, new URLSearchParams(window.location.search).get('volume'));
   }
 
   loadArchiveBooks();

@@ -17,6 +17,9 @@
 #ol-preview small{color:#75577b}
 #ol-close{border:0;background:#f1eaf3;border-radius:8px;padding:8px 12px;cursor:pointer;font:inherit}
 #ol-details{color:#685a6b}
+.ol-volume{display:grid;gap:6px;max-width:240px;margin:0 0 14px;color:#69536d;font-size:.9rem;font-weight:700}
+.ol-volume[hidden]{display:none}
+.ol-volume select{padding:10px 12px;border:1px solid #d8c6dd;border-radius:9px;background:#fff;color:#292132;font:inherit}
 #ol-viewer{display:block;width:100%;height:min(54vh,650px);border:0;background:#f4edf5}
 .ol-viewer-note{font-size:.85rem;color:#685a6b;margin:12px 0 8px}
 #ol-original{display:inline-block;color:#704778;font-weight:700;margin-bottom:12px}

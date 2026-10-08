@@ -1,6 +1,15 @@
 const LIST_API = 'https://archive.org/services/users/@hbn_naidu/lists/1';
 const IDENTIFIER = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,79}$/;
 const MAX_ITEMS = 200;
+const IHYA_VOLUMES = [
+  { number: 1, listedId: 'IhyaUlumAlDinVol1_201503', sourceId: 'IhyaUlumAlDinVol1_201503' },
+  { number: 2, listedId: 'IhyaUlumAlDinVol2', sourceId: 'IhyaUlumAlDinVol2' },
+  { number: 3, listedId: 'IhyaUlumAlDinVol3', sourceId: 'IhyaUlumAlDinVol3' },
+  // The list's Vol4 scan has a Vol. III title page. Use the matching Vol. IV scan.
+  { number: 4, listedId: 'IhyaUlumAlDinVol4', sourceId: 'GAZALIIhyaUlumAlDin4' }
+];
+const IHYA_LIST_IDS = new Set(IHYA_VOLUMES.map(volume => volume.listedId));
+IHYA_LIST_IDS.add('GAZALIIhyaUlumAlDin4');
 
 async function readJson(response) {
   if (!response.ok) throw new Error(`Archive.org returned ${response.status}`);
@@ -92,8 +101,13 @@ function catalogueBook(identifier, data) {
 }
 
 export async function archiveCatalogue() {
-  const identifiers = await listedIdentifiers();
-  const books = [];
+  const listed = await listedIdentifiers();
+  const hasIhya = listed.some(identifier => IHYA_LIST_IDS.has(identifier));
+  const identifiers = [...new Set([
+    ...listed,
+    ...(hasIhya ? IHYA_VOLUMES.map(volume => volume.sourceId) : [])
+  ])];
+  const byId = new Map();
   let failures = 0;
   for (let index = 0; index < identifiers.length; index += 6) {
     const batch = await Promise.allSettled(identifiers.slice(index, index + 6).map(itemMetadata));
@@ -103,11 +117,39 @@ export async function archiveCatalogue() {
         return;
       }
       const book = catalogueBook(identifiers[index + offset], result.value);
-      if (book) books.push(book);
+      if (book) byId.set(identifiers[index + offset], book);
     });
   }
-  if (failures && !books.length && identifiers.length) {
+  if (failures && !byId.size && identifiers.length) {
     throw new Error('Archive.org item metadata is unavailable');
+  }
+  const volumes = IHYA_VOLUMES
+    .map(volume => {
+      const book = byId.get(volume.sourceId);
+      return book && { number: volume.number, pdfUrl: book.pdfUrl };
+    })
+    .filter(Boolean);
+  const series = volumes.length ? {
+    id: 'EXTERNAL:INTERNET_ARCHIVE:IHYA_ULUM_AD_DIN_SET',
+    title: 'Ihya Ulum ad-Din',
+    subject: 'Islamic studies',
+    source: 'Internet Archive',
+    details: 'Imam al-Ghazali · translated by Fazl-ul-Karim',
+    description: 'The Revival of Religious Learnings, in separate volumes.',
+    coverUrl: byId.get(IHYA_VOLUMES[0].sourceId)?.coverUrl || byId.get(IHYA_VOLUMES[1].sourceId)?.coverUrl,
+    volumes
+  } : null;
+  const books = [];
+  let seriesAdded = false;
+  for (const identifier of listed) {
+    if (IHYA_LIST_IDS.has(identifier)) {
+      if (series && !seriesAdded) {
+        books.push(series);
+        seriesAdded = true;
+      }
+    } else if (byId.has(identifier)) {
+      books.push(byId.get(identifier));
+    }
   }
   return books;
 }
@@ -123,7 +165,9 @@ export async function isListedArchivePdfUrl(url) {
     return false;
   }
   const identifiers = await listedIdentifiers();
-  if (!identifiers.includes(match[1])) return false;
+  if (!identifiers.includes(match[1]) &&
+      !(IHYA_VOLUMES.some(volume => volume.sourceId === match[1]) &&
+        identifiers.some(identifier => IHYA_LIST_IDS.has(identifier)))) return false;
   const data = await itemMetadata(match[1]);
   const file = publicPdf(data);
   return data.metadata?.mediatype === 'texts' && !!file &&
