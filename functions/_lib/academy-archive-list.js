@@ -2,6 +2,7 @@ const LIST_API = 'https://archive.org/services/users/@hbn_naidu/lists/1';
 const IDENTIFIER = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,79}$/;
 const MAX_ITEMS = 200;
 const MAX_PDFS_PER_ITEM = 100;
+const MAX_MEDIA_FILES_PER_ITEM = 100;
 const IHYA_VOLUMES = [
   { number: 1, listedId: 'IhyaUlumAlDinVol1_201503', sourceId: 'IhyaUlumAlDinVol1_201503' },
   { number: 2, listedId: 'IhyaUlumAlDinVol2', sourceId: 'IhyaUlumAlDinVol2' },
@@ -60,9 +61,7 @@ async function itemMetadata(identifier) {
 }
 
 function publicPdfFiles(data) {
-  if (!data || data.is_dark === true || data.is_dark === 'true' ||
-      data.nodownload === true || data.nodownload === 'true' ||
-      data.metadata?.['access-restricted-item'] === 'true') return [];
+  if (restricted(data)) return [];
   const files = Array.isArray(data.files) ? data.files : [];
   const publicFiles = files.filter(file =>
     typeof file.name === 'string' &&
@@ -76,6 +75,30 @@ function publicPdfFiles(data) {
       return difference || left.name.localeCompare(right.name, 'en', { numeric: true, sensitivity: 'base' });
     })
     .slice(0, MAX_PDFS_PER_ITEM);
+}
+
+function restricted(data) {
+  return !data || data.is_dark === true || data.is_dark === 'true' ||
+      data.nodownload === true || data.nodownload === 'true' ||
+      data.metadata?.['access-restricted-item'] === true ||
+      data.metadata?.['access-restricted-item'] === 'true';
+}
+
+function publicMediaFiles(data, type) {
+  if (restricted(data)) return [];
+  const files = Array.isArray(data.files) ? data.files : [];
+  const preferred = type === 'AUDIO' ? ['mp3', 'm4a', 'ogg'] : ['mp4', 'webm'];
+  const publicFiles = files.filter(file =>
+    typeof file.name === 'string' &&
+    !/[\\/]/.test(file.name) && preferred.some(ext => file.name.toLowerCase().endsWith(`.${ext}`)) &&
+    file.private !== true && file.private !== 'true');
+  const selectedExtension = preferred.find(ext => publicFiles.some(file => file.name.toLowerCase().endsWith(`.${ext}`)));
+  if (!selectedExtension) return [];
+  const compatible = publicFiles.filter(file => file.name.toLowerCase().endsWith(`.${selectedExtension}`));
+  const originals = compatible.filter(file => file.source === 'original');
+  return (originals.length ? originals : compatible)
+    .sort((left, right) => left.name.localeCompare(right.name, 'en', { numeric: true, sensitivity: 'base' }))
+    .slice(0, MAX_MEDIA_FILES_PER_ITEM);
 }
 
 function publicPdf(data) {
@@ -102,19 +125,33 @@ function volumeInfo(filename, fallbackNumber) {
 }
 
 function catalogueBook(identifier, data) {
-  const files = publicPdfFiles(data);
-  if (!files.length || data.metadata?.mediatype !== 'texts') return null;
+  const mediatype = data?.metadata?.mediatype;
+  const resourceType = mediatype === 'texts' ? 'EBOOK' : mediatype === 'audio' ? 'AUDIO' :
+    mediatype === 'movies' ? 'VIDEO' : '';
+  if (!resourceType) return null;
+  const files = resourceType === 'EBOOK' ? publicPdfFiles(data) : publicMediaFiles(data, resourceType);
+  if (!files.length) return null;
   const title = shortText(data.metadata?.title) || identifier;
   const book = {
     id: `EXTERNAL:INTERNET_ARCHIVE:${identifier}`,
     title,
     subject: shortText(data.metadata?.subject, 80) || 'Books',
     source: 'Internet Archive',
+    resourceType,
     details: shortText(data.metadata?.creator, 180),
     description: 'From the Ummabbablibrary Archive.org list.',
-    pdfUrl: archivePdfUrl(identifier, files[0].name),
     coverUrl: `https://archive.org/download/${encodeURIComponent(identifier)}/__ia_thumb.jpg`
   };
+  if (resourceType !== 'EBOOK') {
+    book.mediaUrl = archivePdfUrl(identifier, files[0].name);
+    book.mediaFiles = files.map((file, index) => ({
+      number: index + 1,
+      label: files.length === 1 ? title : file.name.replace(/\.[^.]+$/, '').replace(/_/g, ' '),
+      mediaUrl: archivePdfUrl(identifier, file.name)
+    }));
+    return book;
+  }
+  book.pdfUrl = archivePdfUrl(identifier, files[0].name);
   if (files.length > 1) {
     const info = files.map((file, index) => volumeInfo(file.name, index + 1));
     const useFileNumbers = new Set(info.map(volume => volume.number)).size === info.length;
@@ -128,7 +165,7 @@ function catalogueBook(identifier, data) {
 }
 
 function seriesCandidate(book) {
-  if (book.volumes) return null;
+  if (book.resourceType !== 'EBOOK' || book.volumes) return null;
   const title = book.title.replace(/\.pdf$/i, '').replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim();
   const volume = title.match(/\b(?:vol(?:ume)?|part)\s*(\d{1,3})\b/i);
   if (!volume || !Number(volume[1])) return null;
@@ -174,6 +211,7 @@ export async function archiveCatalogue() {
     title: 'Ihya Ulum ad-Din',
     subject: 'Islamic studies',
     source: 'Internet Archive',
+    resourceType: 'EBOOK',
     details: 'Imam al-Ghazali · translated by Fazl-ul-Karim',
     description: 'The Revival of Religious Learnings, in separate volumes.',
     coverUrl: byId.get(IHYA_VOLUMES[0].sourceId)?.coverUrl || byId.get(IHYA_VOLUMES[1].sourceId)?.coverUrl,
@@ -198,6 +236,7 @@ export async function archiveCatalogue() {
       title: first.candidate.title,
       subject: first.book.subject,
       source: 'Internet Archive',
+      resourceType: 'EBOOK',
       details: first.book.details,
       description: 'Volumes from the Ummabbablibrary Archive.org list.',
       coverUrl: first.book.coverUrl,

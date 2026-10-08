@@ -1,3 +1,9 @@
+# V105.4.2.22 — Public Other links and Archive media
+
+The Academy Library editor can add and edit public HTTPS links in the **Other** category. Each new link receives a stable Academy ID and may be assigned to multiple Programs or courses. Its public card opens the source in a new tab; eligible learners also see it in their assigned Libraries. Editors can hide a link without losing its details. Title, category, URL and subject are checked on the server, and only active Academy administrators and teachers can save changes.
+
+The curated Archive.org list now includes public audio and video items with browser-playable files as well as PDFs. The public Library has a category filter; signed-in Academy, Program and Reboot/Global views place listed media in Audio and Video. Public, Academy and Program previews play the files in-page, with a track/file selector for multi-file items. Archive PDFs remain in PDF.js and can be classified as eBooks or Printables. Archive.org remains the source, and no audio or video is copied into Academy storage. Prepared for feature-branch review; production is unchanged.
+
 # V105.4.2.21 — Public Library subject columns
 
 The public Library shows one column per subject, with book cards stacked as rows in that column. The portrait cover remains prominent. Book cards no longer say “Open Library,” and the public catalogue and book dialog omit module names. Module metadata remains available for editing and search. This version targets the Development feature branch; production is unchanged.

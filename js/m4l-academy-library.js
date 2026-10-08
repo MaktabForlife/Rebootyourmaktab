@@ -8,6 +8,15 @@
   const state = { rows: [], view: 'you', covers: new Map(), observer: null, openRow: null,
     learningAreaRefs: new Set() };
 
+  function clearMedia() {
+    for (const player of $('al-media').children) {
+      player.pause?.();
+      player.removeAttribute?.('src');
+      player.load?.();
+    }
+    $('al-media').replaceChildren();
+  }
+
   function pdfProxy(url) {
     const bytes = new TextEncoder().encode(url);
     let binary = '';
@@ -23,15 +32,32 @@
       Number.isInteger(volume.number) && /^https:\/\/archive\.org\/download\/[^?#]+\.pdf$/i.test(volume.pdfUrl)) : [];
     const pdfUrl = typeof book.pdfUrl === 'string' &&
       /^https:\/\/archive\.org\/download\/[^?#]+\.pdf$/i.test(book.pdfUrl) ? book.pdfUrl : '';
-    if (!volumes.length && !pdfUrl) return null;
+    const mediaFiles = Array.isArray(book.mediaFiles) ? book.mediaFiles.filter(file =>
+      Number.isInteger(file.number) && /^https:\/\/archive\.org\/download\/[^?#]+\.(?:mp3|m4a|ogg|mp4|webm)$/i.test(file.mediaUrl)) : [];
+    const mediaUrl = /^https:\/\/archive\.org\/download\/[^?#]+\.(?:mp3|m4a|ogg|mp4|webm)$/i.test(book.mediaUrl || '') ? book.mediaUrl : '';
+    const mediaType = book.resourceType === 'AUDIO' || book.resourceType === 'VIDEO' ? book.resourceType : '';
+    if (!volumes.length && !pdfUrl && !(mediaType && (mediaFiles.length || mediaUrl))) return null;
     return {
       id: book.id, name: book.title, subject: book.subject || 'Books', module: book.module || '',
       learningAreas: Array.isArray(book.learningAreas) ? book.learningAreas : [],
-      source: 'EXTERNAL', sourceName: 'Open Library', type: 'EBOOK',
+      source: 'EXTERNAL', sourceName: 'Open Library', type: mediaType || (book.resourceType === 'PRINTABLE' ? 'PRINTABLE' : 'EBOOK'),
       description: book.description || '', author: book.details || '',
       forYou: (book.learningAreaRefs || []).some(ref => state.learningAreaRefs.has(ref)),
-      publicBook: true, volumes, pdfUrl, coverUrl: book.coverUrl || ''
+      publicBook: true, volumes, pdfUrl, mediaFiles, mediaUrl, coverUrl: book.coverUrl || ''
     };
+  }
+
+  function linkRow(record) {
+    if (record?.kind !== 'LINK' || record.resourceType !== 'OTHER' || record.active === false ||
+        !record.id?.startsWith('EXTERNAL:ACADEMY_LINK:') ||
+        typeof record.linkUrl !== 'string' || !/^https:\/\//i.test(record.linkUrl)) return null;
+    return { id: record.id, name: record.title, subject: record.subject || 'Other',
+      module: record.module || '', learningAreas: record.learningAreas || [],
+      source: 'EXTERNAL', sourceName: 'Website', type: 'OTHER',
+      description: record.description || '', author: record.author || '',
+      forYou: (record.learningAreaRefs || []).some(ref => state.learningAreaRefs.has(ref)),
+      publicBook: true, publicLink: true, linkUrl: record.linkUrl,
+      coverUrl: record.coverUrl || '' };
   }
 
   async function api(action, body = {}) {
@@ -134,9 +160,23 @@
     const media = document.createElement('iframe');
     media.src = `/pdf-viewer/web/viewer.html?file=${encodeURIComponent(pdfProxy(url))}`;
     media.title = `${row.name}${volume ? `, ${volume.label || `volume ${volume.number}`}` : ''} PDF`;
-    $('al-media').replaceChildren(media);
+    clearMedia();
+    $('al-media').append(media);
     $('al-open').href = url;
     $('al-open').textContent = 'Open original PDF at Archive.org ↗';
+    $('al-open').hidden = false;
+  }
+
+  function showArchiveMedia(row, file) {
+    const url = file?.mediaUrl || row.mediaUrl;
+    const player = document.createElement(row.type === 'AUDIO' ? 'audio' : 'video');
+    player.controls = true;
+    player.preload = 'metadata';
+    player.src = url;
+    clearMedia();
+    $('al-media').append(player);
+    $('al-open').href = url;
+    $('al-open').textContent = `Open original ${row.type === 'AUDIO' ? 'audio' : 'video'} at Archive.org ↗`;
     $('al-open').hidden = false;
   }
 
@@ -148,23 +188,26 @@
       row.author, row.publisher, row.module, row.description,
       row.learningAreas?.length ? `Used in ${row.learningAreas.join(', ')}` : ''].filter(Boolean).join(' · ');
     $('al-preview-status').textContent = row.locked ? 'An active subscription is required to open this resource.' : row.publicBook ? '' : 'Checking access…';
-    $('al-media').replaceChildren();
+    clearMedia();
     $('al-open').hidden = true;
     const volumeSelect = $('al-volume');
     volumeSelect.replaceChildren();
-    $('al-volume-wrap').hidden = !row.publicBook || !row.volumes?.length;
-    if (row.publicBook && row.volumes?.length) {
-      for (const volume of row.volumes) {
+    const parts = row.type === 'AUDIO' || row.type === 'VIDEO' ? row.mediaFiles : row.volumes;
+    $('al-volume-wrap').hidden = !row.publicBook || !parts?.length || (parts.length < 2 && !row.volumes?.length);
+    $('al-volume-label').textContent = row.type === 'AUDIO' ? 'Track' : row.type === 'VIDEO' ? 'Video' : 'Volume';
+    if (row.publicBook && parts?.length) {
+      for (const volume of parts) {
         const option = document.createElement('option');
         option.value = String(volume.number);
         option.textContent = volume.label || `Volume ${volume.number}`;
         volumeSelect.append(option);
       }
-      volumeSelect.value = String(row.volumes[0].number);
+      volumeSelect.value = String(parts[0].number);
     }
     $('al-preview').showModal();
     if (row.publicBook) {
-      showArchivePdf(row, row.volumes?.[0]);
+      if (row.type === 'AUDIO' || row.type === 'VIDEO') showArchiveMedia(row, row.mediaFiles?.[0]);
+      else showArchivePdf(row, row.volumes?.[0]);
       return;
     }
     if (row.locked) return;
@@ -202,43 +245,40 @@
   }
 
   async function loadArchiveBooks() {
+    let archiveBooks = [];
+    let archiveUnavailable = false;
     try {
       const response = await fetch('/academy/open-library/catalogue');
       if (!response.ok) throw new Error('Archive.org catalogue unavailable');
       const data = await response.json();
       if (!Array.isArray(data.books)) throw new Error('Invalid Archive.org catalogue');
-      if (!localStorage.getItem('m4l_account_token')) return;
-      const existing = new Set(state.rows.map(row => row.id));
-      state.rows.push(...data.books.map(archiveRow).filter(row => row && !existing.has(row.id)));
-      refreshSources();
-      render();
-      try {
-        const metadataResponse = await fetch(`${window.M4L_CONFIG?.API_BASE || ''}/api/academy/open-library/metadata/public`);
-        if (metadataResponse.ok) {
-          const metadata = await metadataResponse.json();
-          if (!localStorage.getItem('m4l_account_token')) return;
-          const byId = new Map((Array.isArray(metadata.records) ? metadata.records : []).map(record => [record.id, record]));
-          const edited = data.books.map(book => {
-            const record = byId.get(book.id);
-            return record ? {
-              ...book, title: record.title || book.title, subject: record.subject || book.subject,
-              module: record.module || '',
-              learningAreas: Array.isArray(record.learningAreas) ? record.learningAreas : [],
-              learningAreaRefs: Array.isArray(record.learningAreaRefs) ? record.learningAreaRefs : [],
-              details: record.author || book.details, description: record.description || book.description,
-              coverUrl: record.coverUrl || book.coverUrl
-            } : book;
-          });
-          const updates = new Map(edited.map(book => [book.id, archiveRow(book)]));
-          state.rows = state.rows.map(row => updates.get(row.id) || row);
-          render();
-        }
-      } catch { /* Archive books remain available if Academy details cannot load. */ }
+      archiveBooks = data.books;
     } catch (_error) {
-      if (localStorage.getItem('m4l_account_token')) {
-        $('al-status').textContent = `${$('al-status').textContent} Public Archive.org books are temporarily unavailable.`.trim();
-      }
+      archiveUnavailable = true;
     }
+    let records = [];
+    try {
+      const response = await fetch(`${window.M4L_CONFIG?.API_BASE || ''}/api/academy/open-library/metadata/public`);
+      if (response.ok) records = (await response.json()).records || [];
+    } catch { /* Archive books remain available if Academy details cannot load. */ }
+    if (!localStorage.getItem('m4l_account_token')) return;
+    const byId = new Map(records.map(record => [record.id, record]));
+    const edited = archiveBooks.map(book => {
+      const record = byId.get(book.id);
+      return record ? { ...book, title: record.title || book.title,
+        subject: record.subject || book.subject, module: record.module || '',
+        learningAreas: record.learningAreas || [], learningAreaRefs: record.learningAreaRefs || [],
+        details: record.author || book.details, description: record.description || book.description,
+        coverUrl: record.coverUrl || book.coverUrl,
+        resourceType: book.resourceType === 'EBOOK' && record.resourceType === 'PRINTABLE' ?
+          'PRINTABLE' : book.resourceType || 'EBOOK' } : book;
+    });
+    const existing = new Set(state.rows.filter(row => !row.publicBook).map(row => row.id));
+    state.rows = [...state.rows.filter(row => !row.publicBook),
+      ...[...edited.map(archiveRow), ...records.map(linkRow)].filter(row => row && !existing.has(row.id))];
+    refreshSources();
+    render();
+    if (archiveUnavailable) $('al-status').textContent = `${$('al-status').textContent} Public Archive.org books are temporarily unavailable.`.trim();
   }
 
   async function showManageBooksForAdmin() {
@@ -277,18 +317,21 @@
   for (const id of ['al-search', 'al-type', 'al-source']) $(id).addEventListener('input', render);
   $('al-volume').addEventListener('change', event => {
     const row = state.openRow;
-    const volume = row?.volumes?.find(item => String(item.number) === event.target.value);
-    if (row?.publicBook && volume) showArchivePdf(row, volume);
+    const mediaType = row?.type === 'AUDIO' || row?.type === 'VIDEO';
+    const volume = (mediaType ? row.mediaFiles : row?.volumes)?.find(item => String(item.number) === event.target.value);
+    if (row?.publicBook && volume && mediaType) showArchiveMedia(row, volume);
+    else if (row?.publicBook && volume) showArchivePdf(row, volume);
   });
   $('al-results').addEventListener('click', event => {
     const id = event.target.closest('[data-resource]')?.dataset.resource;
     const row = state.rows.find(item => item.id === id);
-    if (row) void open(row);
+    if (row?.publicLink) window.open(row.linkUrl, '_blank', 'noopener,noreferrer');
+    else if (row) void open(row);
   });
   $('al-close').addEventListener('click', () => $('al-preview').close());
   $('al-preview').addEventListener('close', () => {
     state.openRow = null;
-    $('al-media').replaceChildren();
+    clearMedia();
   });
   void start();
 })();

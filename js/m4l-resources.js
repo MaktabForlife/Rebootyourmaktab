@@ -382,30 +382,52 @@ async function loadResourceCategories(apiPath, body = {}, options = {}) {
 
 async function loadAssignedPublicBooks(result, sequence) {
   try {
-    const [catalogueResponse, metadataResponse] = await Promise.all([
-      fetch('/academy/open-library/catalogue'),
-      fetch(`${window.M4L_CONFIG?.API_BASE || ''}/api/academy/open-library/metadata/public`)
-    ]);
-    if (!catalogueResponse.ok || !metadataResponse.ok) return;
-    const [catalogue, metadata] = await Promise.all([catalogueResponse.json(), metadataResponse.json()]);
+    let catalogue = { books: [] };
+    try {
+      const response = await fetch('/academy/open-library/catalogue');
+      if (response.ok) catalogue = await response.json();
+    } catch { /* Public Academy links remain available if Archive.org is unavailable. */ }
+    const metadataResponse = await fetch(`${window.M4L_CONFIG?.API_BASE || ''}/api/academy/open-library/metadata/public`);
+    if (!metadataResponse.ok) return;
+    const metadata = await metadataResponse.json();
     if (!hasUnifiedLibraryAccount() || sequence !== libraryPublicLoadSequence) return;
     const available = new Set(Array.isArray(result.learningAreaRefs) ? result.learningAreaRefs : []);
     const records = new Map((Array.isArray(metadata.records) ? metadata.records : [])
       .filter(row => typeof row.id === 'string').map(row => [row.id, row]));
     const additions = new Map();
     const pdf = url => /^https:\/\/archive\.org\/download\/[^?#]+\.pdf$/i.test(url || '');
+    const media = url => /^https:\/\/archive\.org\/download\/[^?#]+\.(?:mp3|m4a|ogg|mp4|webm)$/i.test(url || '');
     for (const book of Array.isArray(catalogue.books) ? catalogue.books : []) {
       const record = records.get(book.id);
       if (!record || !book.id?.startsWith('EXTERNAL:INTERNET_ARCHIVE:') ||
-          !(pdf(book.pdfUrl) || book.volumes?.some(volume => pdf(volume.pdfUrl)))) continue;
+          !(pdf(book.pdfUrl) || book.volumes?.some(volume => pdf(volume.pdfUrl)) ||
+            ((book.resourceType === 'AUDIO' || book.resourceType === 'VIDEO') &&
+              (media(book.mediaUrl) || book.mediaFiles?.some(file => media(file.mediaUrl)))))) continue;
       for (const ref of Array.isArray(record.learningAreaRefs) ? record.learningAreaRefs : []) {
         if (!available.has(ref) || (!ref.startsWith('REBOOT:') && !ref.startsWith('GLOBAL:'))) continue;
         const libraryId = ref.startsWith('REBOOT:') ? `COURSE:${ref.slice(7)}` : 'GLOBAL';
         if (!additions.has(libraryId)) additions.set(libraryId, []);
         if (additions.get(libraryId).some(item => item.id === book.id)) continue;
         additions.get(libraryId).push({ id: book.id, name: record.title || book.title,
+          type: book.resourceType === 'AUDIO' || book.resourceType === 'VIDEO' ? book.resourceType :
+            record.resourceType === 'PRINTABLE' ? 'PRINTABLE' : 'EBOOK',
           subject: record.subject || book.subject || 'Books', module: record.module || 'General',
           subjectRef: record.subjectRef || '', moduleRef: record.moduleRef || '' });
+      }
+    }
+    for (const record of Array.isArray(metadata.records) ? metadata.records : []) {
+      if (record.kind !== 'LINK' || record.resourceType !== 'OTHER' || record.active === false ||
+          !record.id?.startsWith('EXTERNAL:ACADEMY_LINK:') ||
+          typeof record.linkUrl !== 'string' || !/^https:\/\//i.test(record.linkUrl)) continue;
+      for (const ref of Array.isArray(record.learningAreaRefs) ? record.learningAreaRefs : []) {
+        if (!available.has(ref) || (!ref.startsWith('REBOOT:') && !ref.startsWith('GLOBAL:'))) continue;
+        const libraryId = ref.startsWith('REBOOT:') ? `COURSE:${ref.slice(7)}` : 'GLOBAL';
+        if (!additions.has(libraryId)) additions.set(libraryId, []);
+        if (additions.get(libraryId).some(item => item.id === record.id)) continue;
+        additions.get(libraryId).push({ id: record.id, name: record.title, type: 'OTHER',
+          subject: record.subject || 'Other', module: record.module || 'General',
+          subjectRef: record.subjectRef || '', moduleRef: record.moduleRef || '',
+          linkUrl: record.linkUrl });
       }
     }
     if (!additions.size) return;
@@ -435,13 +457,22 @@ async function loadAssignedPublicBooks(result, sequence) {
         if (!subject.modules.has(moduleKey)) subject.modules.set(moduleKey, {
           moduleid: nativeModule?.moduleid || book.moduleRef || '', modulename: book.module, resources: [] });
         subject.modules.get(moduleKey).resources.push({ id: book.id, resourceid: book.id,
-          name: book.name, type: 'EBOOK', format: 'PDF', publicBook: true,
-          link: `/academy/open-library/?resource=${encodeURIComponent(book.id)}` });
+          name: book.name, type: book.type, format: book.linkUrl ? 'LINK' :
+            book.type === 'AUDIO' ? 'AUDIO' : book.type === 'VIDEO' ? 'VIDEO' : 'PDF', publicBook: true,
+          link: book.linkUrl || `/academy/open-library/?resource=${encodeURIComponent(book.id)}` });
       }
-      const group = { key: 'ebooks', type: 'EBOOK', label: 'eBooks', count: books.length,
-        subjects: [...subjects.values()].map(subject => ({ ...subject,
-          modules: [...subject.modules.values()] })) };
-      library.catalogue.groups.push(group);
+      for (const type of ['EBOOK', 'PRINTABLE', 'AUDIO', 'VIDEO', 'OTHER']) {
+        const count = books.filter(book => book.type === type).length;
+        if (!count) continue;
+        const groupedSubjects = [...subjects.values()].map(subject => ({ ...subject,
+          modules: [...subject.modules.values()].map(module => ({ ...module,
+            resources: module.resources.filter(resource => resource.type === type) }))
+            .filter(module => module.resources.length) })).filter(subject => subject.modules.length);
+        const labels = { EBOOK: ['ebooks', 'eBooks'], PRINTABLE: ['printables', 'Printables'],
+          AUDIO: ['audio', 'Audio'], VIDEO: ['video', 'Video'], OTHER: ['other', 'Other'] };
+        library.catalogue.groups.push({ key: labels[type][0], type,
+          label: labels[type][1], count, subjects: groupedSubjects });
+      }
       library.catalogue.count = Number(library.catalogue.count || 0) + books.length;
     }
     libraryCatalogueResult = { ...result, libraries, sources };
@@ -1357,6 +1388,10 @@ async function openLibraryResourceById(resourceId) {
 
   if (resource.source?.publicBook && /^\/academy\/open-library\/\?resource=/.test(resource.link)) {
     window.location.href = resource.link;
+    return true;
+  }
+  if (resource.source?.publicBook && /^https:\/\//i.test(resource.link)) {
+    window.open(resource.link, '_blank', 'noopener,noreferrer');
     return true;
   }
 

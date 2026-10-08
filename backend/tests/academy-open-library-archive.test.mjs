@@ -162,6 +162,36 @@ try {
   assert.equal((await openProxy('https://archive.org/download/MultiPdf/Book%201_text.pdf')).status, 403);
   assert.equal((await openProxy('https://archive.org/download/MultiPdf/Private%204.pdf')).status, 403);
 
+  members = ['NewBook', 'PublicAudio', 'PublicVideo', 'PrivateAudio', 'NoPlayableVideo'];
+  metadata.PublicAudio = {
+    metadata: { mediatype: 'audio', title: 'Lessons in recitation', subject: 'Quran' },
+    files: [
+      { name: 'Lesson 2.mp3', source: 'original' },
+      { name: 'Lesson 1.mp3', source: 'original' },
+      { name: 'private.mp3', source: 'original', private: true },
+      { name: 'Lesson 1.ogg', source: 'derivative' }
+    ]
+  };
+  metadata.PublicVideo = {
+    metadata: { mediatype: 'movies', title: 'A lesson on film' },
+    files: [{ name: 'lesson.webm', source: 'original' },
+      { name: 'lesson.mp4', source: 'derivative' }, { name: 'private.webm', private: true }]
+  };
+  metadata.PrivateAudio = {
+    nodownload: true, metadata: { mediatype: 'audio', title: 'Not public' },
+    files: [{ name: 'restricted.mp3', source: 'original' }]
+  };
+  metadata.NoPlayableVideo = {
+    metadata: { mediatype: 'movies', title: 'No browser format' },
+    files: [{ name: 'master.mkv', source: 'original' }]
+  };
+  const mixedBooks = (await (await catalogue()).json()).books;
+  assert.deepEqual(mixedBooks.map(book => book.resourceType), ['EBOOK', 'AUDIO', 'VIDEO']);
+  assert.deepEqual(mixedBooks[1].mediaFiles.map(file => file.label), ['Lesson 1', 'Lesson 2']);
+  assert.equal(mixedBooks[1].mediaUrl, 'https://archive.org/download/PublicAudio/Lesson%201.mp3');
+  assert.equal(mixedBooks[2].mediaUrl, 'https://archive.org/download/PublicVideo/lesson.mp4');
+  assert.ok(!mixedBooks.some(book => book.title === 'Not public' || book.title === 'No browser format'));
+
   members = ['NewBook', 'MultiPdf'];
   assert.equal((await openProxy(groupedBooks[2].volumes[2].pdfUrl)).status, 403);
 

@@ -6,7 +6,7 @@
   <meta name="robots" content="noindex,nofollow">
   <title>Open Library · Umm Abbad Academy</title>
   <link rel="stylesheet" href="/css/m4l-academy-library.css?v=105.4.2.14">
-  <link rel="stylesheet" href="/css/m4l-open-library.css?v=105.4.2.21">
+  <link rel="stylesheet" href="/css/m4l-open-library.css?v=105.4.2.22">
 </head>
 <body>
   <header class="al-header"><a href="/academy/#overview">← Academy</a><strong>Open Library</strong><a href="/academy/library/">My Library</a></header>
@@ -14,23 +14,24 @@
     <div class="al-intro">
       <p class="al-eyebrow">﷽ &nbsp; Read and discover</p>
       <h1>Open Library</h1>
-      <p>Selected public books from other libraries and publishers. Browse without signing in; the files stay with their sources.</p>
-      <p class="ol-list-source">Books in the <a href="https://archive.org/details/@hbn_naidu/lists/1/ummabbablibrary" target="_blank" rel="noopener noreferrer">Ummabbablibrary Archive.org list</a> appear here automatically when a public PDF is available.</p>
+      <p>Selected public books, audio and video from other libraries and publishers. Browse without signing in; the files stay with their sources.</p>
+      <p class="ol-list-source">Media in the <a href="https://archive.org/details/@hbn_naidu/lists/1/ummabbablibrary" target="_blank" rel="noopener noreferrer">Ummabbablibrary Archive.org list</a> appear here automatically when a public playable file is available.</p>
     </div>
-    <div class="ol-search"><label for="ol-search">Search books</label><input id="ol-search" type="search" placeholder="Title, subject or source"></div>
+    <div class="ol-search"><label for="ol-search">Search resources</label><input id="ol-search" type="search" placeholder="Title, subject or source"><label for="ol-type">Category</label><select id="ol-type"><option value="ALL">All categories</option><option value="EBOOK">eBooks</option><option value="PRINTABLE">Printables</option><option value="AUDIO">Audio</option><option value="VIDEO">Video</option><option value="OTHER">Other</option></select></div>
     <p id="ol-status" class="ol-status" role="status" aria-live="polite"></p>
     <div id="ol-results"></div>
-    <p id="ol-empty" class="al-empty" hidden>No books match your search.</p>
+    <p id="ol-empty" class="al-empty" hidden>No resources match your search.</p>
   </main>
   <dialog id="ol-preview" aria-labelledby="ol-title">
-    <div class="al-preview-head"><div><small id="ol-source"></small><h2 id="ol-title"></h2></div><button id="ol-close" type="button" aria-label="Close book">✕</button></div>
+    <div class="al-preview-head"><div><small id="ol-source"></small><h2 id="ol-title"></h2></div><button id="ol-close" type="button" aria-label="Close resource">✕</button></div>
     <p id="ol-details"></p>
-    <div id="ol-volume-wrap" class="ol-volume" hidden><label for="ol-volume">Volume</label><select id="ol-volume"></select></div>
+    <div id="ol-volume-wrap" class="ol-volume" hidden><label id="ol-volume-label" for="ol-volume">Volume</label><select id="ol-volume"></select></div>
     <a id="ol-original" target="_blank" rel="noopener noreferrer">Open original PDF at source ↗</a>
     <iframe id="ol-viewer" title="Book preview"></iframe>
+    <div id="ol-media"></div>
     <p class="ol-viewer-note">If the preview is unavailable, use the source link above.</p>
   </dialog>
   <script src="/js/m4l-config.js?v=102.4"></script>
-  <script src="/js/m4l-open-library.js?v=105.4.2.21" defer></script>
+  <script src="/js/m4l-open-library.js?v=105.4.2.22" defer></script>
 </body>
 </html>

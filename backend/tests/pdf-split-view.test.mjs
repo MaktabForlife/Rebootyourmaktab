@@ -25,7 +25,7 @@ for (const html of [adminHtml, studentHtml]) {
     html,
     /class="pdf-viewer-title-group"[\s\S]*?id="pdf-library-toggle"[\s\S]*?id="pdf-viewer-title"/
   );
-  assert.match(html, /m4l-resources\.js\?v=105\.4\.2\.20/);
+  assert.match(html, /m4l-resources\.js\?v=105\.4\.2\.22/);
 }
 
 assert.match(splitCss, /@media \(min-width: 1024px\)/);

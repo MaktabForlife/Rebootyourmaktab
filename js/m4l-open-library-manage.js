@@ -12,6 +12,7 @@
   let taxonomy = { subjects: [], modules: [], learningAreas: [] };
   let taxonomyWarnings = [];
   let areaBoxes = [];
+  let isNew = false;
 
   function option(value, label) {
     const item = document.createElement('option');
@@ -40,11 +41,42 @@
   function showCover() {
     const book = books.find(item => item.id === $('olm-book').value);
     const record = saved.get(book?.id) || {};
-    const value = $('olm-remove-cover').checked ? book?.coverUrl || '' :
+    const hiddenLink = record.kind === 'LINK' && record.active === false;
+    const value = hiddenLink && !localCoverPreview && !$('olm-coverUrl').value.trim() ? '' :
+      $('olm-remove-cover').checked ? record.kind === 'LINK' ? '' : book?.coverUrl || '' :
       localCoverPreview || $('olm-coverUrl').value.trim() || record.coverUrl || book?.coverUrl || '';
     const image = $('olm-cover-preview');
     image.hidden = !value;
     if (!image.hidden) image.src = value;
+  }
+
+  function showNew() {
+    isNew = true;
+    $('olm-form').hidden = false;
+    $('olm-link-fields').hidden = false;
+    $('olm-category-wrap').hidden = true;
+    $('olm-book').value = '';
+    $('olm-source').textContent = 'New public link · Other';
+    for (const field of fields) $(`olm-${field}`).value = '';
+    $('olm-linkUrl').value = '';
+    $('olm-active').checked = true;
+    $('olm-title').required = true;
+    $('olm-subject').required = true;
+    $('olm-linkUrl').required = true;
+    $('olm-subject').value = '';
+    showModules();
+    for (const box of areaBoxes) box.checked = false;
+    updateAreaSummary();
+    $('olm-coverUrl').value = '';
+    $('olm-cover-file').value = '';
+    $('olm-remove-cover').checked = false;
+    pastedCoverFile = null;
+    if (localCoverPreview) URL.revokeObjectURL(localCoverPreview);
+    localCoverPreview = '';
+    $('olm-title').placeholder = 'Resource title';
+    $('olm-coverUrl').placeholder = 'Optional public JPG/PNG cover image';
+    $('olm-cover-preview').hidden = true;
+    status.textContent = 'Add a public website link in Other. Choose a subject and save.';
   }
 
   async function api(action, body = {}, file = null) {
@@ -71,7 +103,23 @@
   function showBook() {
     const book = books.find(item => item.id === $('olm-book').value);
     if (!book) return;
+    isNew = false;
     const record = saved.get(book.id) || {};
+    const manual = record.kind === 'LINK';
+    $('olm-link-fields').hidden = !manual;
+    $('olm-category-wrap').hidden = manual;
+    if (!manual) {
+      const category = book.resourceType || 'EBOOK';
+      const choices = category === 'AUDIO' ? [['AUDIO', 'Audio']] : category === 'VIDEO' ?
+        [['VIDEO', 'Video']] : [['EBOOK', 'eBook'], ['PRINTABLE', 'Printable']];
+      $('olm-category').replaceChildren(...choices.map(([value, label]) => option(value, label)));
+      $('olm-category').value = choices.some(([value]) => value === record.resourceType) ? record.resourceType : category;
+    }
+    $('olm-linkUrl').required = manual;
+    $('olm-title').required = manual;
+    $('olm-subject').required = manual;
+    $('olm-linkUrl').value = manual ? record.linkUrl || '' : '';
+    $('olm-active').checked = record.active !== false;
     $('olm-source').textContent = `${book.source} · ${book.title}${book.volumes ? ` · ${book.volumes.length} volumes` : ''}`;
     for (const field of fields) $(`olm-${field}`).value = record[field] || '';
     const assigned = new Set(record.learningAreaRefs || []);
@@ -86,11 +134,11 @@
     $('olm-remove-cover').checked = false;
     if (localCoverPreview) URL.revokeObjectURL(localCoverPreview);
     localCoverPreview = '';
-    $('olm-title').placeholder = book.title;
+    $('olm-title').placeholder = manual ? 'Resource title' : book.title;
     $('olm-author').placeholder = book.details || 'Use Archive.org creator';
     $('olm-coverUrl').placeholder = book.coverUrl || 'Use Archive.org cover image';
     showCover();
-    status.textContent = `${record.revision ? 'Academy details saved for this book.' : 'This book is using Archive.org details.'}${taxonomyWarnings.length ? ` ${taxonomyWarnings.join(' ')}` : ''}`;
+    status.textContent = `${manual ? 'Edit this public link and its learning areas.' : record.revision ? 'Academy details saved for this book.' : 'This book is using Archive.org details.'}${taxonomyWarnings.length ? ` ${taxonomyWarnings.join(' ')}` : ''}`;
   }
 
   async function start() {
@@ -100,11 +148,15 @@
     }
     try {
       const [metadata, options] = await Promise.all([api('list'), api('options')]);
-      const response = await fetch('/academy/open-library/catalogue');
-      if (!response.ok) throw new Error('Archive.org catalogue is unavailable. Try again later.');
-      const catalogue = await response.json();
-      books = Array.isArray(catalogue.books) ? catalogue.books : [];
+      let archiveBooks = [];
+      try {
+        const response = await fetch('/academy/open-library/catalogue');
+        if (response.ok) archiveBooks = (await response.json()).books || [];
+      } catch { /* Manually added links remain editable while Archive.org is unavailable. */ }
       saved = new Map((Array.isArray(metadata.records) ? metadata.records : []).map(record => [record.id, record]));
+      books = [...archiveBooks, ...[...saved.values()].filter(record => record.kind === 'LINK').map(record => ({
+        id: record.id, title: record.title, source: 'Academy · Other', coverUrl: record.coverUrl || ''
+      }))];
       taxonomy = { subjects: Array.isArray(options.subjects) ? options.subjects : [],
         modules: Array.isArray(options.modules) ? options.modules : [],
         learningAreas: Array.isArray(options.learningAreas) ? options.learningAreas : [] };
@@ -120,7 +172,8 @@
         $('olm-learning-areas-list').append(label);
         return box;
       });
-      if (!books.length) { status.textContent = 'No Archive.org books are available to edit yet.'; return; }
+      $('olm-add').hidden = false;
+      if (!books.length) { showNew(); return; }
       $('olm-book').replaceChildren(...books.map(book => {
         const option = document.createElement('option');
         option.value = book.id;
@@ -132,6 +185,7 @@
     } catch (error) { status.textContent = error.message; }
   }
 
+  $('olm-add').addEventListener('click', showNew);
   $('olm-book').addEventListener('change', showBook);
   $('olm-learning-areas-list').addEventListener('change', updateAreaSummary);
   $('olm-subject').addEventListener('change', () => showModules());
@@ -190,21 +244,39 @@
   });
   $('olm-form').addEventListener('submit', async event => {
     event.preventDefault();
-    const book = books.find(item => item.id === $('olm-book').value);
-    if (!book) return;
+    const book = isNew ? null : books.find(item => item.id === $('olm-book').value);
+    if (!isNew && !book) return;
     const button = $('olm-save');
     button.disabled = true;
     status.textContent = 'Saving Academy details…';
     try {
-      const body = { id: book.id, baseRevision: saved.get(book.id)?.revision || 0,
+      const body = { ...(book ? { id: book.id } : {}), baseRevision: book ? saved.get(book.id)?.revision || 0 : 0,
         coverUrl: $('olm-coverUrl').value, removeCover: $('olm-remove-cover').checked,
         learningAreaRefs: selectedAreaRefs(),
         subjectRef: $('olm-subject').value, moduleRef: $('olm-module').value };
+      if (isNew || saved.get(book?.id)?.kind === 'LINK') {
+        body.kind = 'LINK';
+        body.resourceType = 'OTHER';
+        body.linkUrl = $('olm-linkUrl').value;
+        body.active = $('olm-active').checked;
+      } else body.resourceType = $('olm-category').value;
       for (const field of fields) body[field] = $(`olm-${field}`).value;
       const result = await api('save', body, pastedCoverFile || $('olm-cover-file').files?.[0] || null);
-      saved.set(book.id, result.record);
+      saved.set(result.record.id, result.record);
+      if (isNew) {
+        const added = { id: result.record.id, title: result.record.title,
+          source: 'Academy · Other', coverUrl: result.record.coverUrl || '' };
+        books.push(added);
+        $('olm-book').append(option(added.id, added.title));
+        $('olm-book').value = added.id;
+      } else if (book && result.record.kind === 'LINK') {
+        book.title = result.record.title;
+        book.coverUrl = result.record.coverUrl || '';
+        const choice = [...$('olm-book').children].find(item => item.value === book.id);
+        if (choice) choice.textContent = book.title;
+      }
       showBook();
-      status.textContent = 'Academy details saved. They will appear in the public and signed-in Library when refreshed.';
+      status.textContent = 'Resource saved. It will appear in the public and assigned Libraries when refreshed.';
     } catch (error) { status.textContent = error.message; }
     finally { button.disabled = false; }
   });

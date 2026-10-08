@@ -14,17 +14,30 @@ assert.deepEqual(validateOpenLibraryMetadata(book), { ...currentBook, subjectRef
   learningAreas: [], learningAreaRefs: [] });
 assert.deepEqual(validateOpenLibraryMetadata({ ...book, learningAreaRefs: ['PROGRAM:P1', 'GLOBAL:G1'],
   learningAreas: ['Aalimiya', 'Quran'] }).learningAreaRefs, ['PROGRAM:P1', 'GLOBAL:G1']);
-assert.throws(() => validateOpenLibraryMetadata({ ...book, id: 'PROGRAM:BOOK:1' }), /Choose an Archive.org book/);
+assert.equal(validateOpenLibraryMetadata({ ...book, resourceType: 'PRINTABLE' }).resourceType, 'PRINTABLE');
+assert.equal(validateOpenLibraryMetadata({ ...book, resourceType: 'AUDIO' }).resourceType, 'AUDIO');
+assert.throws(() => validateOpenLibraryMetadata({ ...book, resourceType: 'OTHER' }), /valid Archive.org resource category/);
+assert.throws(() => validateOpenLibraryMetadata({ ...book, id: 'PROGRAM:BOOK:1' }), /Choose a Library resource/);
 assert.throws(() => validateOpenLibraryMetadata({ ...book, title: 'x'.repeat(181) }), /title must be text/);
 assert.throws(() => validateOpenLibraryMetadata({ ...book, description: { html: '<script>' } }), /description must be text/);
 assert.equal(validateOpenLibraryMetadata({ ...book, coverUrl: 'https://archive.org/download/book/cover.png' }).coverUrl,
   'https://archive.org/download/book/cover.png');
 assert.throws(() => validateOpenLibraryMetadata({ ...book, coverUrl: 'http://example.com/cover.jpg' }), /public HTTPS/);
 assert.throws(() => validateOpenLibraryMetadata({ ...book, coverUrl: 'https://example.com/file.svg' }), /public HTTPS/);
+const link = { id: 'EXTERNAL:ACADEMY_LINK:12345678-1234-1234-1234-123456789abc',
+  kind: 'LINK', resourceType: 'OTHER', linkUrl: 'https://example.org/learning', active: true,
+  title: 'Learning website', subjectRef: 'ACADEMY:S1' };
+assert.equal(validateOpenLibraryMetadata(link).linkUrl, 'https://example.org/learning');
+assert.equal(validateOpenLibraryMetadata(link).resourceType, 'OTHER');
+assert.throws(() => validateOpenLibraryMetadata({ ...link, resourceType: 'EBOOK' }), /category and a public HTTPS/);
+assert.throws(() => validateOpenLibraryMetadata({ ...link, linkUrl: 'javascript:alert(1)' }), /public HTTPS/);
+assert.throws(() => validateOpenLibraryMetadata({ ...link, linkUrl: 'http://example.org/' }), /public HTTPS/);
+assert.throws(() => validateOpenLibraryMetadata({ ...link, subjectRef: '' }), /choose a subject/);
 
 const calls = [];
 const covers = new Map();
 let saveError = null;
+let storedRecords = [book];
 const env = {
   PLATFORM_SPREADSHEET_ID: 'platform-sheet',
   MEDIA_BUCKET: {
@@ -36,7 +49,7 @@ const env = {
     getByName(name) {
       assert.equal(name, 'platform-sheet:open-library-metadata');
       return {
-        async openLibraryMetadataList() { calls.push('list'); return [book]; },
+        async openLibraryMetadataList() { calls.push('list'); return storedRecords; },
         async openLibraryMetadataSave(input, auth, coverKey) {
           calls.push(['save', input, auth, coverKey]);
           if (saveError) throw saveError;
@@ -64,6 +77,12 @@ const learner = { type: 'account', role: 'STUDENT', accountid: 'LEARNER-1', scop
 let result = await openLibraryMetadataEndpoint('public')(request('public'), env);
 assert.equal(result.status, 200);
 assert.deepEqual((await result.json()).records, [{ ...book, hasUploadedCover: false }]);
+storedRecords = [book, { ...link, active: false }];
+result = await openLibraryMetadataEndpoint('public')(request('public'), env);
+assert.equal((await result.json()).records.length, 1, 'Hidden links stay out of the public catalogue');
+result = await openLibraryMetadataEndpoint('list')(request('list', admin), env);
+assert.equal((await result.json()).records.length, 2, 'Editors can still restore hidden links');
+storedRecords = [book];
 result = await openLibraryMetadataEndpoint('list')(request('list'), env);
 assert.equal(result.status, 401);
 result = await openLibraryMetadataEndpoint('save')(request('save', learner, book), env);

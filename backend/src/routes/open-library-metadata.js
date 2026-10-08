@@ -3,7 +3,7 @@ import { json } from '../lib/http.js';
 import { getPlatformSpreadsheetId } from '../lib/platform-sheet.js';
 import { problem } from '../programs/model.js';
 import { programFailure } from '../programs/errors.js';
-import { isArchiveOpenLibraryId, openLibraryMetadataForClient } from '../lib/open-library-metadata.js';
+import { isOpenLibraryMetadataId, openLibraryMetadataForClient } from '../lib/open-library-metadata.js';
 import { loadOpenLibraryTaxonomy } from '../lib/open-library-taxonomy.js';
 
 const MAX_COVER_BYTES = 5 * 1024 * 1024;
@@ -58,7 +58,7 @@ export function openLibraryMetadataEndpoint(action) {
       const stub = env.PROGRAM_TIMETABLE_COORDINATOR.getByName(`${getPlatformSpreadsheetId(env)}:open-library-metadata`);
       if (action === 'cover') {
         const id = new URL(request.url).searchParams.get('id');
-        if (!isArchiveOpenLibraryId(id)) throw problem('This cover is unavailable.', 404);
+        if (!isOpenLibraryMetadataId(id)) throw problem('This cover is unavailable.', 404);
         const key = await stub.openLibraryMetadataCoverKey(id);
         if (!key || !/^AcademyOpenLibrary\/Covers\/[0-9a-f-]{36}\.(?:jpg|png)$/.test(key)) throw problem('This cover is unavailable.', 404);
         if (!env.MEDIA_BUCKET) throw problem('Cover image storage is unavailable.', 503);
@@ -74,7 +74,9 @@ export function openLibraryMetadataEndpoint(action) {
       }
       if (action === 'public' || action === 'list') {
         const origin = new URL(request.url).origin;
-        const records = (await stub.openLibraryMetadataList()).map(record => openLibraryMetadataForClient(record, origin));
+        const records = (await stub.openLibraryMetadataList())
+          .filter(record => action === 'list' || record.kind !== 'LINK' || record.active !== false)
+          .map(record => openLibraryMetadataForClient(record, origin));
         return json({ success: true, records });
       }
       if (action !== 'save') throw problem('Unknown Open Library action.', 404);

@@ -19,13 +19,15 @@ function element() {
 }
 
 const ids = ['al-search', 'al-type', 'al-source', 'al-content', 'al-status', 'al-preview',
-  'al-results', 'al-media', 'al-open', 'al-volume-wrap', 'al-volume', 'al-preview-source',
+  'al-results', 'al-media', 'al-open', 'al-volume-wrap', 'al-volume-label', 'al-volume', 'al-preview-source',
   'al-preview-title', 'al-preview-details', 'al-preview-status', 'al-close', 'al-manage-books'];
 const nodes = Object.fromEntries(ids.map(id => [id, element()]));
 nodes['al-type'].value = 'ALL';
 nodes['al-source'].value = 'ALL';
 const tabs = ['you', 'explore'].map(view => ({ ...element(), dataset: { view } }));
 const calls = [];
+const opened = [];
+const linkId = 'EXTERNAL:ACADEMY_LINK:12345678-1234-1234-1234-123456789abc';
 const archiveVolumes = [1, 2, 3, 4].map(number => ({
   number, pdfUrl: `https://archive.org/download/IhyaVol${number}/Volume${number}.pdf`
 }));
@@ -44,6 +46,14 @@ const fetch = async (url, options = {}) => {
     }, {
       id: 'EXTERNAL:INTERNET_ARCHIVE:NewBook', title: 'New public book',
       subject: 'Quran', pdfUrl: 'https://archive.org/download/NewBook/NewBook.pdf'
+    }, {
+      id: 'EXTERNAL:INTERNET_ARCHIVE:Audio1', title: 'Public audio', subject: 'Quran',
+      resourceType: 'AUDIO', mediaUrl: 'https://archive.org/download/Audio1/track.mp3',
+      mediaFiles: [{ number: 1, label: 'Track', mediaUrl: 'https://archive.org/download/Audio1/track.mp3' }]
+    }, {
+      id: 'EXTERNAL:INTERNET_ARCHIVE:Video1', title: 'Public video', subject: 'History',
+      resourceType: 'VIDEO', mediaUrl: 'https://archive.org/download/Video1/film.mp4',
+      mediaFiles: [{ number: 1, label: 'Film', mediaUrl: 'https://archive.org/download/Video1/film.mp4' }]
     }] })
   };
   if (url === '/api/academy/open-library/metadata/public') return {
@@ -53,6 +63,10 @@ const fetch = async (url, options = {}) => {
       learningAreaRefs: ['PROGRAM:P1', 'GLOBAL:S2'],
       author: 'Academy author', description: 'Academy description',
       coverUrl: 'https://example.test/cover.png'
+    }, {
+      id: linkId, kind: 'LINK', resourceType: 'OTHER', active: true,
+      title: 'Useful website', subject: 'Tafseer', linkUrl: 'https://example.org/learning',
+      learningAreaRefs: ['PROGRAM:P1']
     }] })
   };
   if (url === '/api/academy/library/access') return {
@@ -65,7 +79,8 @@ const document = {
   querySelectorAll: selector => selector === '[data-view]' ? tabs : [],
   createElement: () => element()
 };
-const window = { M4L_CONFIG: {}, addEventListener() {} };
+const window = { M4L_CONFIG: {}, addEventListener() {},
+  open: (...args) => opened.push(args) };
 const script = await readFile(new URL('../../js/m4l-academy-library.js', import.meta.url), 'utf8');
 runInNewContext(script, {
   document, window, fetch, TextEncoder, btoa, encodeURIComponent,
@@ -75,6 +90,7 @@ await new Promise(resolve => setImmediate(resolve));
 
 assert.match(nodes['al-results'].innerHTML, /Assigned book/);
 assert.match(nodes['al-results'].innerHTML, /Academy Quran book/);
+assert.match(nodes['al-results'].innerHTML, /Useful website/);
 assert.doesNotMatch(nodes['al-results'].innerHTML, /Ihya Ulum/);
 tabs[1].listeners.click();
 assert.match(nodes['al-results'].innerHTML, /Ihya Ulum ad-Din/);
@@ -86,6 +102,8 @@ tabs[0].listeners.click();
 assert.match(nodes['al-results'].innerHTML, /Introduction/);
 assert.match(nodes['al-results'].innerHTML, /https:\/\/example\.test\/cover\.png/);
 assert.match(nodes['al-results'].innerHTML, /Tafseer · Open Library/);
+clickResource(linkId);
+assert.deepEqual(opened, [['https://example.org/learning', '_blank', 'noopener,noreferrer']]);
 
 function clickResource(id) {
   nodes['al-results'].listeners.click({ target: { closest: () => ({ dataset: { resource: id } }) } });
@@ -118,4 +136,13 @@ clickResource('REBOOT:BOOK:1');
 await new Promise(resolve => setImmediate(resolve));
 assert.equal(calls.filter(call => call.url === '/api/academy/library/access').length, 1);
 assert.equal(nodes['al-media'].children[0].src, '/private-book.pdf');
+nodes['al-preview'].close();
+clickResource('EXTERNAL:INTERNET_ARCHIVE:Audio1');
+assert.equal(nodes['al-media'].children[0].src, 'https://archive.org/download/Audio1/track.mp3');
+assert.equal(nodes['al-media'].children[0].controls, true);
+assert.equal(nodes['al-open'].hidden, false);
+nodes['al-preview'].close();
+clickResource('EXTERNAL:INTERNET_ARCHIVE:Video1');
+assert.equal(nodes['al-media'].children[0].src, 'https://archive.org/download/Video1/film.mp4');
+assert.equal(nodes['al-preview-details'].textContent.startsWith('VIDEO'), true);
 console.log('academy-library-public-ui.test.mjs: PASS');
