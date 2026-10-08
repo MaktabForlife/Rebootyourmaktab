@@ -1,3 +1,7 @@
+# V105.4.2.23 — Full Archive audio track list
+
+Raise the per-item media limit to include every track in the live Surahs Teacher and Students Archive.org item (104 MP3 files). A catalogue regression now checks that more than 100 tracks remain available. The Development frontend and Worker are updated together; production is unchanged.
+
 # V105.4.2.22 — Public Other links and Archive media
 
 The Academy Library editor can add and edit public HTTPS links in the **Other** category. Each new link receives a stable Academy ID and may be assigned to multiple Programs or courses. Its public card opens the source in a new tab; eligible learners also see it in their assigned Libraries. Editors can hide a link without losing its details. Title, category, URL and subject are checked on the server, and only active Academy administrators and teachers can save changes.

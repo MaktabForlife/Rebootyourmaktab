@@ -1,6 +1,6 @@
 # Academy Open Library
 
-8 October 2026 · V105.4.2.22 feature branch
+8 October 2026 · V105.4.2.23 feature branch
 
 ## Academy resource details
 
@@ -31,6 +31,8 @@ The first selected item is **Essential Duas for Muslims (Grades 1–7)**, credit
 The public page opens the PDF in Reboot's PDF.js viewer. The existing Pages `/pdf-file` route streams this exact URL as a same-origin response, forwards PDF byte ranges, and returns `Cache-Control: no-store`. The original PDF link is also available as a fallback. There is no stored Academy PDF copy. The source may change, remove, or rate-limit the file; Academy cannot revoke direct public access.
 
 The public [Ummabbablibrary Archive.org list](https://archive.org/details/@hbn_naidu/lists/1/ummabbablibrary) is now a second curated source. The Pages `/academy/open-library/catalogue` endpoint reads the list's public membership API, then checks each item's public metadata for a PDF, audio file or video file that is not marked private or restricted. It prefers browser-compatible MP3 and MP4 formats when several formats exist. Newly added list items appear without editing the Academy site after the five-minute catalogue cache expires. Removed items disappear. Items without a supported public file are omitted. The public Library can filter by category. Audio and video open in-page and can select among multiple files; the original Archive.org file is also linked.
+
+The live Surahs Teacher and Students Archive.org item currently has 104 public MP3 tracks. The catalogue includes all 104 in one card's track selector.
 
 **Ihya Ulum ad-Din** is one catalogue item with a selector for volumes 1–4. The initial list includes volumes 1, 2, and an item labelled 4. The latter scan's title page says **Vol. III**. The grouped item uses the verified [Volume III](https://archive.org/details/IhyaUlumAlDinVol3) and [Volume IV](https://archive.org/details/GAZALIIhyaUlumAlDin4) scans instead. These two Archive items can be outside the list while at least one recognised Ihya item remains in it. Removing every Ihya item from the list removes the grouped item and its PDF proxy access. A scan that becomes restricted or loses its public PDF is omitted from the selector.
 

@@ -2,7 +2,7 @@ const LIST_API = 'https://archive.org/services/users/@hbn_naidu/lists/1';
 const IDENTIFIER = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,79}$/;
 const MAX_ITEMS = 200;
 const MAX_PDFS_PER_ITEM = 100;
-const MAX_MEDIA_FILES_PER_ITEM = 100;
+const MAX_MEDIA_FILES_PER_ITEM = 250;
 const IHYA_VOLUMES = [
   { number: 1, listedId: 'IhyaUlumAlDinVol1_201503', sourceId: 'IhyaUlumAlDinVol1_201503' },
   { number: 2, listedId: 'IhyaUlumAlDinVol2', sourceId: 'IhyaUlumAlDinVol2' },

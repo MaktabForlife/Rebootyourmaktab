@@ -191,6 +191,14 @@ try {
   assert.equal(mixedBooks[1].mediaUrl, 'https://archive.org/download/PublicAudio/Lesson%201.mp3');
   assert.equal(mixedBooks[2].mediaUrl, 'https://archive.org/download/PublicVideo/lesson.mp4');
   assert.ok(!mixedBooks.some(book => book.title === 'Not public' || book.title === 'No browser format'));
+  members.push('ManyAudio');
+  metadata.ManyAudio = {
+    metadata: { mediatype: 'audio', title: 'Many tracks' },
+    files: Array.from({ length: 104 }, (_, index) => ({
+      name: `${String(index + 1).padStart(3, '0')}.mp3`, source: 'original' }))
+  };
+  const manyTracks = (await (await catalogue()).json()).books.find(book => book.title === 'Many tracks');
+  assert.equal(manyTracks.mediaFiles.length, 104, 'The full listed audio item must remain selectable');
 
   members = ['NewBook', 'MultiPdf'];
   assert.equal((await openProxy(groupedBooks[2].volumes[2].pdfUrl)).status, 403);

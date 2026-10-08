@@ -1,3 +1,7 @@
+# V105.4.2.23 — Complete Archive audio track lists
+
+The Open Library now keeps up to 250 playable files per listed Archive.org audio or video item. The live Surahs Teacher and Students item has 104 public MP3 tracks, and all 104 are available in its in-app selector. [Open Library details](docs/ACADEMY-OPEN-LIBRARY.md).
+
 # V105.4.2.22 — Public Library website links and Archive media
 
 Academy administrators and teachers can use **Add a resource** to create a public **Other** card with an HTTPS website link, subject, optional cover and Learning areas. The card opens the source in a new tab and appears in assigned Academy, Program and Reboot/Global Libraries. Items in the curated Archive.org list sync as eBooks, Audio or Video; editors can classify a PDF as Printable. Public and signed-in users can play listed audio and video in the Library, and PDF books keep their in-app reader. [Open Library details](docs/ACADEMY-OPEN-LIBRARY.md).
