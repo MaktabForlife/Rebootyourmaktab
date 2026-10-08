@@ -1,3 +1,9 @@
+# V105.4.2.14 — Archive books in Academy Explore
+
+Signed-in learners can browse the public Archive.org list in **Explore** and read its PDFs inside the Academy Library, including the four-volume Ihya item. The public Open Library remains available without sign-in. Both views use the same public catalogue and PDF proxy; protected Academy resources keep their own access checks. [Open Library details](docs/ACADEMY-OPEN-LIBRARY.md).
+
+Feature branch only; hosted Development and device reading checks remain open.
+
 # V105.4.2.13 — Public Open Library volumes
 
 The public Academy Open Library groups **Ihya Ulum ad-Din** into one book with four selectable volumes. Each PDF opens in the existing reader; the source files remain on Archive.org. Other public list items continue to sync automatically. [Source mapping and access checks](docs/ACADEMY-OPEN-LIBRARY.md).

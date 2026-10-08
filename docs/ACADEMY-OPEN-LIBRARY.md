@@ -1,8 +1,10 @@
 # Academy Open Library
 
-8 October 2026 · V105.4.2.13 feature branch
+8 October 2026 · V105.4.2.14 feature branch
 
 Open Library is a separate public catalogue at `/academy/open-library/`. It does not require an Academy account and does not read or expose the personal For you / Explore catalogue. The Academy welcome page links to it separately from My Library.
+
+Signed-in learners also see the Archive.org list's public books in their Academy Library **Explore** view. Those cards use the same public catalogue endpoint and PDF proxy as Open Library. The four Ihya volumes stay grouped as one card with a volume selector. Archive.org books are public links, so opening them does not use the protected Academy resource access endpoint. For you and protected Explore resources continue to use their existing server-side access checks. A signed-out user can follow the visible Public Open Library link to browse without an account.
 
 The first selected item is **Essential Duas for Muslims (Grades 1–7)**, credited to Ta’limi Board KZN. Its source-aware ID is `EXTERNAL:TALIMI_BOARD_KZN:ESSENTIAL_DUAS_GR_1_7`. The PDF remains at the [publisher's URL](https://talimiboardkzn.org/wp-content/uploads/2018/10/essential_duas_for_muslims_gr_1-7.pdf). The book is shown once despite being listed under seven grades on the [publisher's Books page](https://talimiboardkzn.org/?page_id=37).
 

@@ -1,3 +1,7 @@
+# V105.4.2.14 — Archive books in Academy Explore
+
+The signed-in Academy Library now shows public Archive.org books in Explore and opens them in its in-page PDF.js reader. The Ihya card has a four-volume selector. The public Open Library continues to work without an account, while protected resources retain their separate server access checks. [Open Library details](docs/ACADEMY-OPEN-LIBRARY.md). Hosted Development and device reading checks remain open.
+
 # V105.4.2.13 — Public Open Library volumes
 
 Ihya Ulum ad-Din appears as one public book with a selector for four Archive.org volumes. The Archive list continues to sync other public PDFs. [Open Library details](docs/ACADEMY-OPEN-LIBRARY.md). Live PDF delivery and device checks remain open.
