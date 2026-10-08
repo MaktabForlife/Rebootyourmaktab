@@ -1,5 +1,5 @@
 import { managementState, managementView, applyManagementChange, MANAGEMENT_KINDS, managementRowRevision, studentClassRevision } from './management-model.js';
-import { problem } from './model.js';
+import { problem, clean } from './model.js';
 import { programFailure } from './errors.js';
 import { TIMETABLE_SCHEMA, boundedJSON, validDate, normalizeDraft as normalizeDatedDraft } from './timetable-model.js';
 import { WEEKLY_SCHEMA, TIMETABLE_TIMEZONE, emptyWeeklyDraft, normalizeWeeklyDraft, readWeeklyDraft, validateWeeklyTimetable, publicationRecord, publicationSchedule, programToday } from './weekly-timetable.js';
@@ -64,6 +64,35 @@ export function timetableService(repository,program,now=()=>new Date()) {
         const separate=['tasks','resources'].includes(input.kind);
         if(separate&&!data.libraryPrepared)throw problem('Prepare the Program task and Library tables first.',409);
         const current=managementState(data,program),shared=await repository.managementReferences(data);
+        if(input.kind==='student-classes'){
+          const changes=input.changes;
+          if(!Array.isArray(changes)||!changes.length||changes.length>100)throw problem('Choose between one and 100 student class changes.');
+          const seen=new Set();
+          for(const change of changes){
+            const accountId=clean(change?.AccountID);
+            if(!accountId||seen.has(accountId)||typeof change.ClassID!=='string'||typeof change.baseRowRevision!=='string'||!change.baseRowRevision)throw problem('Each student needs one valid class change.');
+            seen.add(accountId);
+            const currentRecord={AccountID:accountId,enrollments:current.snapshot.ProgramEnrollments.filter(row=>row.AccountID===accountId)};
+            const rowRevision=await studentClassRevision(current.snapshot.ProgramEnrollments,accountId);
+            if(change.baseRowRevision!==rowRevision)throw Object.assign(problem('A saved student class changed since editing began. Review that student’s class before saving.',409),
+              {code:'ROW_CHANGED',entryKey:accountId,currentRecord,rowRevision});
+          }
+          let snapshot=current.snapshot;
+          const records=[];
+          for(const change of changes){
+            const applied=applyManagementChange({snapshot},{kind:'student-class',record:{AccountID:clean(change.AccountID),ClassID:clean(change.ClassID)}},shared,program);
+            snapshot=applied.snapshot;
+            records.push({...applied.record,rowRevision:await studentClassRevision(snapshot.ProgramEnrollments,clean(change.AccountID))});
+          }
+          const persisted={...snapshot};delete persisted.ProgramTasks;delete persisted.ProgramResources;
+          const snapshotJSON=JSON.stringify(persisted);
+          if(snapshotJSON.length>40000)throw problem('This Program has reached the current management storage limit. No changes were saved.');
+          const revision=crypto.randomUUID(),timestamp=new Date().toISOString(),result={revision,records};
+          return {plan:repository.plan(data,[
+            {table:'ProgramManagementState',record:{Revision:revision,CourseID:program.id,Sequence:current.sequence+1,SnapshotJSON:snapshotJSON,ModifiedDate:timestamp,ModifiedByAccountID:user.accountid}},
+            {table:'ProgramTimetableOperations',record:{OperationID:input.operationId,PayloadHash:hash,ResultJSON:boundedJSON(result),DateStamp:timestamp,AccountID:user.accountid,Action:'manage-student-classes'}}
+          ]),result};
+        }
         const spec=MANAGEMENT_KINDS[input.kind];
         const studentClass=input.kind==='student-class',accountId=input.record?.AccountID;
         const currentRecord=spec?current.snapshot[spec.table].find(r=>r[spec.key]===input.record?.[spec.key])||null:studentClass?{AccountID:accountId,enrollments:current.snapshot.ProgramEnrollments.filter(r=>r.AccountID===accountId)}:null;

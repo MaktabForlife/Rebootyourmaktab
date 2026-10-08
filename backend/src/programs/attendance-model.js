@@ -16,7 +16,7 @@ export function scheduledLessons(publicationRows, program, date) {
   const publication=schedule.publications.find(row=>row.id===schedule.currentPublicationId);
   if(!publication)return [];
   const weekday=new Date(`${date}T00:00:00Z`).getUTCDay();
-  return publication.occurrences.filter(row=>row.status!=='CANCELLED' &&
+  return publication.occurrences.filter(row=>row.kind!=='BREAK'&&row.status!=='CANCELLED' &&
     (publication.pattern==='WEEKLY'?row.weekday===weekday:row.date===date))
     .map(row=>({publicationId:publication.id,anchor:row.anchor,date,ruleId:row.ruleId,
       moduleId:row.moduleId||'',moduleName:row.moduleName||'',subjectName:row.subjectName||'',

@@ -101,6 +101,32 @@ assert.equal((await groupService.read('manage-get')).rows.enrollments.filter(r=>
 await assert.rejects(groupCoordinator.run('manage-save',await groupInput('TEACHER-1','CLASS-1'),'token'),/Student role/);
 console.log('Student classes: one active class, archived history, clear, conflict, recovery and Student-role guard passed.');
 
+// Save all class choices in one coordinated snapshot and one operation receipt.
+const grouped=timetableFixture(),groupedService=timetableService(grouped.repository,grouped.program);
+const groupedCoordinator=timetableCoordinator(grouped.journal,async()=>({service:groupedService,user:{accountid:'ADMIN'}}));
+grouped.shared.accounts.push({AccountID:'LEARNER-2',DisplayName:'Second learner',Active:true,Roles:['STUDENT']});
+const groupedInput=async changes=>{
+  const current=await groupedService.read('manage-get');
+  return {id:grouped.program.id,kind:'student-classes',operationId:crypto.randomUUID(),revision:current.revision,
+    changes:changes.map(([AccountID,ClassID])=>({AccountID,ClassID,baseRowRevision:current.studentClassRevisions[AccountID]}))};
+};
+const groupedSave=await groupedInput([['LEARNER-DEMO','CLASS-1'],['LEARNER-2','CLASS-2']]);
+grouped.failNext('after');await assert.rejects(groupedCoordinator.run('manage-save',groupedSave,'token'),/Injected/);
+assert.equal(grouped.plans.length,1);
+assert.equal(grouped.plans[0].records.length,2,'One snapshot and one retry receipt cover every changed student');
+const groupedResult=await groupedCoordinator.run('manage-save',groupedSave,'token');
+assert.equal(groupedResult.records.length,2);assert(groupedResult.replayed);
+let groupedView=await groupedService.read('manage-get');
+assert.equal(groupedView.rows.enrollments.filter(row=>row.Active&&row.AccountID==='LEARNER-DEMO').length,1);
+assert.equal(groupedView.rows.enrollments.find(row=>row.Active&&row.AccountID==='LEARNER-2')?.ClassID,'CLASS-2');
+const staleBatch=await groupedInput([['LEARNER-DEMO','CLASS-2'],['LEARNER-2','CLASS-1']]);
+await groupedCoordinator.run('manage-save',await groupedInput([['LEARNER-2','CLASS-1']]),'token');
+await assert.rejects(groupedCoordinator.run('manage-save',staleBatch,'token'),error=>error.code==='ROW_CHANGED'&&error.entryKey==='LEARNER-2');
+groupedView=await groupedService.read('manage-get');
+assert.equal(groupedView.rows.enrollments.find(row=>row.Active&&row.AccountID==='LEARNER-DEMO')?.ClassID,'CLASS-1','A stale batch changes no student');
+await assert.rejects(groupedCoordinator.run('manage-save',await groupedInput([['LEARNER-DEMO','CLASS-2'],['LEARNER-DEMO','CLASS-1']]),'token'),/one valid class change/);
+console.log('Student class batch: one coordinated write, retry replay and all-or-nothing conflict passed.');
+
 view=await service.read('manage-get');
 await assert.rejects(coordinator.run('manage-save',input({AccountID:'LEARNER-DEMO',Active:true},'teachers'),'token'),/needs an active Teacher/);
 await coordinator.run('manage-save',input({AccountID:'TEACHER-1',Active:true},'teachers'),'token');

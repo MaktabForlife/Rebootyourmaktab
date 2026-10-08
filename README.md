@@ -1,3 +1,7 @@
+# V105.4.3.1 — Class saves and attendance breaks
+
+Program Management now saves all selected student class assignments in one coordinated change, with a single retry identifier if Google Sheets is temporarily busy. Attendance excludes timetable breaks from its registers and lesson totals. [Release notes](RELEASE-NOTES.md).
+
 # V105.4.3.0 — Program attendance
 
 Teachers can submit attendance for one published Program lesson or all their assigned lessons today, including lessons they co-teach. Learners start Present; teachers mark Absent or Excused exceptions. Unsubmitted registers remain unknown, and complete days show Present, Partial or Absent according to lesson attendance. Reboot's historical day records are preserved. [Attendance workflow and reporting limits](docs/PROGRAM-ATTENDANCE.md).

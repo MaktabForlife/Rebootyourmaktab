@@ -1,3 +1,7 @@
+# V105.4.3.1 — Batch class assignments and lesson-only attendance
+
+Program Management’s Save all submits changed student classes as one coordinated spreadsheet write instead of one request per student. Interrupted saves retain their retry identifier, including an individual save already pending in a browser session. A Google Sheets rate limit leaves the pending change available for retry after the cooldown. Program attendance omits timetable breaks from register cards and lesson totals; existing submitted lesson rosters remain unchanged.
+
 # V105.4.3.0 — Program attendance
 
 Published Program lessons now have Present, Absent and Excused registers. Teachers submit one lesson or all assigned lessons for the current day, including co-taught lessons; unfinished registers remain unknown. Program and account screens link to attendance. Reboot history remains day-level, with no invented past lesson results. [Program attendance](docs/PROGRAM-ATTENDANCE.md) describes the storage, day summary and reporting limits. This release is for the feature branch; live comparison and Excused percentage policy remain open.

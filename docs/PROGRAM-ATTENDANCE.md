@@ -1,6 +1,8 @@
-# V105.4.3.0 — Program attendance registers
+# V105.4.3.1 — Program attendance registers
 
-Program attendance uses the published timetable for each teaching date. A cancelled lesson has no register. A teacher sees lessons where they are the primary or an additional teacher; Program administrators and global administrators see all lessons. A register opens with every currently enrolled learner set to Present. The teacher changes only Absent or Excused exceptions and submits one lesson or all assigned lessons for the current Program day.
+Program attendance uses the published timetable for each teaching date. Breaks and cancelled lessons have no register. A teacher sees lessons where they are the primary or an additional teacher; Program administrators and global administrators see all lessons. A register opens with every currently enrolled learner set to Present. The teacher changes only Absent or Excused exceptions and submits one lesson or all assigned lessons for the current Program day.
+
+A learner needs both an active Student role in the Program and an active class assignment covering that date. Program Management saves multiple class selections together through Save all. Assign the intended classes before submitting attendance; a submitted register keeps its original learner roster.
 
 Three Program spreadsheet tabs store attendance independently of the timetable and management snapshots:
 

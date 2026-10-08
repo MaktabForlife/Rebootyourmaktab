@@ -11,12 +11,13 @@ import { timetableFixture } from '../../scripts/program-timetable-fixtures.mjs';
 const date='2026-10-06',program={id:'PRG-11111111-1111-4111-8111-111111111111',name:'Alimiyah',status:'DRAFT',spreadsheetId:'private-sheet-id'};
 const rules=['READ','WRITE'].map((name,index)=>({id:`RULE-${name}`,moduleId:`MOD-${name}`,moduleName:name,subjectName:'Arabic',
   weekdays:[2],startTime:index?'10:00':'09:00',endTime:index?'11:00':'10:00',classIds:['CLS-1'],classNames:['Level 1'],teacherId:'TEACHER',teacherName:'Teacher'}));
-const snapshot={schema:WEEKLY_SCHEMA,format:WEEKLY_SCHEMA,programId:program.id,programName:program.name,effectiveFrom:'2026-10-01',rules,breaks:[]};
+const snapshot={schema:WEEKLY_SCHEMA,format:WEEKLY_SCHEMA,programId:program.id,programName:program.name,effectiveFrom:'2026-10-01',rules,
+  breaks:[{id:'BREAK-1',label:'Break',weekdays:[2],startTime:'11:00',endTime:'11:15'}]};
 rules[0].teacherIds=['TEACHER','CO_TEACHER'];
 rules[0].teacherNames=['Teacher','Co-teacher'];
 const publications=[{PublicationID:'PUB-1',CourseID:program.id,VersionNo:1,PublishedDate:'2026-09-30',PublishedByAccountID:'ADMIN',SnapshotJSON:JSON.stringify(snapshot)}];
 const lessonRows=scheduledLessons(publications,program,date);
-assert.equal(lessonRows.length,2);
+assert.equal(lessonRows.length,2,'Timetable breaks have no attendance register');
 assert.deepEqual(lessonRows[0].teacherNames,['Teacher','Co-teacher']);
 assert.equal(scheduledLessons(publications,program,'2026-10-07').length,0);
 assert.deepEqual(lessonRoster(lessonRows[0],[{active:true,classId:'CLS-1',accountId:'LEARNER',startDate:'',endDate:''},{active:true,classId:'CLS-1',accountId:'LEARNER',startDate:'',endDate:''}],

@@ -24,13 +24,13 @@
     const token=localStorage.getItem('m4l_account_token');if(!token)throw Object.assign(new Error('Sign in through your personal Academy account link, then open Programs.'),{status:401,retryable:false});
     const response=await fetch(`${window.M4L_CONFIG?.API_BASE||''}/api/admin/platform/${shared?`academy-subjects/${action}`:`program-timetable/${action}`}`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify(shared?body:{id:programId,...body})});
     let result;try{result=await response.json();}catch{throw new Error('The response could not be read. Your edits are kept.');}
-    if(!response.ok||!result.success)throw Object.assign(new Error(result.error||'The change could not be confirmed.'),{status:response.status,code:result.code,currentRecord:result.currentRecord,rowRevision:result.rowRevision,retryable:result.retryable,retryAfterMs:result.retryAfterMs,reference:result.reference});return result;
+    if(!response.ok||!result.success)throw Object.assign(new Error(result.error||'The change could not be confirmed.'),{status:response.status,code:result.code,currentRecord:result.currentRecord,rowRevision:result.rowRevision,entryKey:result.entryKey,retryable:result.retryable,retryAfterMs:result.retryAfterMs,reference:result.reference});return result;
   }
   function controls(){
     const locked=state.busy||Boolean(state.pending)||Boolean(state.importPending),editable=state.data?.prepared&&state.data?.coordinatorAvailable&&state.data?.program.status==='DRAFT'&&(state.kind!=='tasks'||state.data.libraryPrepared);
     $('pm-editor').disabled=locked||!editable||Boolean(state.edit&&!visibleEdit());
     $('pm-add').disabled=locked||!editable||Boolean(state.edit)||Boolean(state.classPending);
-    $('pm-save-all').disabled=locked||!editable||Boolean(state.edit)||Boolean(state.classPending)||state.refreshWaiting||!Object.entries(state.classDrafts).some(([id,draft])=>enrolledAccountIds().has(id)&&draft.classId!==draft.baseClassId);
+    $('pm-save-all').disabled=locked||!editable||Boolean(state.edit)||state.refreshWaiting||(!state.classPending&&!Object.entries(state.classDrafts).some(([id,draft])=>enrolledAccountIds().has(id)&&draft.classId!==draft.baseClassId));
     $('pm-prepare').disabled=locked;
     $('pm-library-prepare').disabled=locked;
     $('pm-reload').disabled=state.busy;$('pm-recover').disabled=state.busy;$('pm-retry').disabled=state.busy;
@@ -140,13 +140,13 @@
       const conflict=draft?.conflict,pending=state.classPending?.accountId===id;
       const options=[{ClassID:'',Name:'No class'},...classes];
       if(selected&&!options.some(row=>row.ClassID===selected))options.push({ClassID:selected,Name:`${state.data.rows.classes.find(row=>row.ClassID===selected)?.Name||selected} (archived)`});
-      const choice=`<select data-group-account="${esc(id)}" aria-label="Class for ${esc(account.DisplayName)}" ${pending||state.edit?'disabled':''}>${options.map(row=>`<option value="${esc(row.ClassID)}" ${row.ClassID===selected?'selected':''}>${esc(row.Name)}</option>`).join('')}</select>`;
+      const choice=`<select data-group-account="${esc(id)}" aria-label="Class for ${esc(account.DisplayName)}" ${state.classPending||state.edit?'disabled':''}>${options.map(row=>`<option value="${esc(row.ClassID)}" ${row.ClassID===selected?'selected':''}>${esc(row.Name)}</option>`).join('')}</select>`;
       const warning=memberships.length>1&&!draft?`<small class="pm-muted">Multiple saved classes. Choose one to reconcile them, or clear the class.</small><button type="button" class="pb-secondary" data-class-clear-multiple="${esc(id)}">Clear class</button>`:'';
       const review=conflict?`<div class="pm-group-conflict">Saved class changed. Your choice is kept.<br><button type="button" class="pb-secondary" data-group-use-saved="${esc(id)}">Use saved class</button><button type="button" class="pb-secondary" data-group-use-mine="${esc(id)}">Keep my choice</button></div>`:'';
-      return `<tr class="${dirty?'is-editing':''}"><td data-label="Student"><strong>${esc(account.DisplayName)}</strong></td><td data-label="Class">${choice}${warning}${review}</td><td data-label="Changes"><button type="button" data-group-save="${esc(id)}" ${!dirty||conflict?'disabled':''}>${pending?'Retry save':'Save'}</button>${dirty?'<small class="pm-muted">Unsaved change</small>':'<small class="pm-muted">Saved</small>'}</td></tr>`;
+      return `<tr class="${dirty?'is-editing':''}"><td data-label="Student"><strong>${esc(account.DisplayName)}</strong></td><td data-label="Class">${choice}${warning}${review}</td><td data-label="Changes"><button type="button" data-group-save="${esc(id)}" ${!dirty||conflict||state.classPending&&!pending?'disabled':''}>${pending?'Retry save':'Save'}</button>${dirty?'<small class="pm-muted">Unsaved change</small>':'<small class="pm-muted">Saved</small>'}</td></tr>`;
     }).join('')||`<tr><td colspan="3" class="pm-empty">${search?'No enrolled students match your search.':'No enrolled students. Grant a Student role in shared User profiles.'}</td></tr>`;
     const changed=Object.entries(state.classDrafts).filter(([id,draft])=>enrolled.has(id)&&draft.classId!==draft.baseClassId).length;
-    $('pm-save-all').textContent=`Save all${changed?` (${changed})`:''}`;
+    $('pm-save-all').textContent=state.classPending?'Retry Save all':`Save all${changed?` (${changed})`:''}`;
   }
   function rememberClassDrafts(){sessionStorage.setItem(storageKey+':classes',JSON.stringify(state.classDrafts));if(state.classPending)sessionStorage.setItem(storageKey+':class-pending',JSON.stringify(state.classPending));else sessionStorage.removeItem(storageKey+':class-pending');}
   function replaceStudentEnrollments(accountId,rows){state.data.rows.enrollments=state.data.rows.enrollments.filter(row=>row.AccountID!==accountId).concat(rows||[]);}
@@ -279,7 +279,7 @@
         if(error.code==='ROW_CHANGED'){
           draft.conflict={record:error.currentRecord,rowRevision:error.rowRevision};state.classPending=null;rememberClassDrafts();render();message('This student’s saved class changed elsewhere. Review the row before saving.',true);return false;
         }
-        if(error.retryable!==false&&(!error.status||error.status>=500||error.code==='RECOVERY_REQUIRED')){
+        if(error.code!=='SHEETS_RATE_LIMITED'&&error.retryable!==false&&(!error.status||error.status>=500||error.code==='RECOVERY_REQUIRED')){
           await api('recover');result=await api('manage-save',state.classPending.body);
         }else throw error;
       }
@@ -297,16 +297,45 @@
     }
   }
   async function saveAllStudentClasses(){
-    const enrolled=enrolledAccountIds(),ids=Object.keys(state.classDrafts).filter(id=>enrolled.has(id)&&state.classDrafts[id].classId!==state.classDrafts[id].baseClassId);
-    if(!ids.length)return;
+    const enrolled=enrolledAccountIds();
     let count=0;
-    let conflict=false;
-    for(const id of ids){
-      if(!state.classDrafts[id])continue;
-      try{if(await saveStudentClass(id,false))count++;else {conflict=true;break;}}catch(error){message(`${count} ${count===1?'class':'classes'} saved. ${error.message}`,true);return;}
+    if(state.classPending?.body?.kind==='student-class'){
+      try{if(await saveStudentClass(state.classPending.accountId,false))count++;else return;}
+      catch(error){message(`The earlier class save is still unconfirmed. ${error.message}`,true);return;}
+    }
+    const ids=Object.keys(state.classDrafts).filter(id=>enrolled.has(id)&&state.classDrafts[id].classId!==state.classDrafts[id].baseClassId);
+    if(!state.classPending&&ids.length){
+      const conflict=ids.find(id=>state.classDrafts[id].conflict);
+      if(conflict){message('Review the changed student class before saving the other changes.',true);return;}
+      state.classPending={accountId:null,body:{kind:'student-classes',changes:ids.map(id=>({AccountID:id,ClassID:state.classDrafts[id].classId,baseRowRevision:state.classDrafts[id].baseRowRevision})),revision:state.data.revision,operationId:crypto.randomUUID()}};
+      rememberClassDrafts();render();
+    }
+    if(state.classPending?.body?.kind==='student-classes'){
+      try{
+        let result;
+        try{result=await api('manage-save',state.classPending.body);}
+        catch(error){
+          if(error.code!=='RECOVERY_REQUIRED')throw error;
+          await api('recover');
+          result=await api('manage-save',state.classPending.body);
+        }
+        for(const record of result.records){replaceStudentEnrollments(record.AccountID,record.enrollments);state.data.studentClassRevisions[record.AccountID]=record.rowRevision;delete state.classDrafts[record.AccountID];}
+        state.data.revision=result.revision;count+=result.records.length;
+        state.classPending=null;rememberClassDrafts();render();
+      }catch(error){
+        if(error.code==='ROW_CHANGED'&&error.entryKey){
+          const draft=state.classDrafts[error.entryKey];
+          if(draft)draft.conflict={record:error.currentRecord,rowRevision:error.rowRevision};
+          state.classPending=null;rememberClassDrafts();render();
+          message('A student’s saved class changed. Review that row before retrying Save all.',true);
+        }else{
+          if(error.status&&error.status<500&&error.code!=='RECOVERY_REQUIRED'){state.classPending=null;rememberClassDrafts();render();}
+          message(`${count} ${count===1?'class':'classes'} confirmed. ${error.message}${error.code==='SHEETS_RATE_LIMITED'?' Wait about a minute, then use Retry Save all.':''}`,true);
+        }
+        return;
+      }
     }
     if(count)await refresh({savedMessage:`${count} ${count===1?'class':'classes'} saved.`});
-    if(conflict)message(`${count} ${count===1?'class':'classes'} saved. Review the changed student row before continuing.`,true);
   }
   function keepPending(){sessionStorage.setItem(storageKey,JSON.stringify(state.pending));}
   async function save(automaticRetry=true){if(!state.edit)return;const returning=!visibleEdit();state.kind=state.edit.kind||state.kind;state.overview=false;if(returning)render();if(state.edit.conflict||state.edit.subjectConflict){message('Review the saved version and your entry below before saving.',true);return;}
