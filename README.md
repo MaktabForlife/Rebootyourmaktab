@@ -1,3 +1,7 @@
+# V105.4.2.19 — Linked subjects, modules and pasted covers
+
+The Open Library book editor now lists active Academy, Global Subject, Reboot and Program subjects and modules. Choosing a subject filters the module list, and the server saves their stable source-aware IDs with their current names. Editors can also paste a JPG/PNG cover directly from the clipboard, preview it, and save it through the existing cover upload path. [Open Library details](docs/ACADEMY-OPEN-LIBRARY.md).
+
 # V105.4.2.18 — Academy Open Library details
 
 Academy administrators and signed-in teachers can edit the title, subject, module, level, author, description and JPG/PNG cover for Archive.org books and grouped sets. Covers can be linked from a public site or uploaded from a device. Public and signed-in Libraries display these Academy details while PDFs stay at Archive.org. [Open Library details](docs/ACADEMY-OPEN-LIBRARY.md).

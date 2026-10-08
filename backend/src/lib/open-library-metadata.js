@@ -4,8 +4,10 @@ const ARCHIVE_ID = /^EXTERNAL:INTERNET_ARCHIVE:[A-Za-z0-9_.:-]{1,220}$/;
 export const isArchiveOpenLibraryId = value => typeof value === 'string' && ARCHIVE_ID.test(value);
 const FIELD_LIMITS = Object.freeze({
   title: 180,
-  subject: 100,
-  module: 120,
+  subject: 160,
+  module: 160,
+  subjectRef: 300,
+  moduleRef: 300,
   level: 80,
   author: 180,
   description: 1000

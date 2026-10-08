@@ -1,13 +1,32 @@
 (() => {
   'use strict';
   const $ = id => document.getElementById(id);
-  const fields = ['title', 'subject', 'module', 'level', 'author', 'description'];
+  const fields = ['title', 'level', 'author', 'description'];
   const status = $('olm-status');
   const token = localStorage.getItem('m4l_account_token');
   const base = window.M4L_CONFIG?.API_BASE || '';
   let books = [];
   let saved = new Map();
   let localCoverPreview = '';
+  let pastedCoverFile = null;
+  let taxonomy = { subjects: [], modules: [] };
+  let taxonomyWarnings = [];
+
+  function option(value, label) {
+    const item = document.createElement('option');
+    item.value = value;
+    item.textContent = label;
+    return item;
+  }
+
+  function showModules(selected = '') {
+    const subjectId = $('olm-subject').value;
+    const modules = taxonomy.modules.filter(item => item.subjectId === subjectId);
+    $('olm-module').replaceChildren(option('', 'General / no module'), ...modules.map(item =>
+      option(item.id, `${item.name} · ${item.source}`)));
+    $('olm-module').disabled = !subjectId || !modules.length;
+    $('olm-module').value = modules.some(item => item.id === selected) ? selected : '';
+  }
 
   function showCover() {
     const book = books.find(item => item.id === $('olm-book').value);
@@ -46,17 +65,20 @@
     const record = saved.get(book.id) || {};
     $('olm-source').textContent = `${book.source} · ${book.title}${book.volumes ? ` · ${book.volumes.length} volumes` : ''}`;
     for (const field of fields) $(`olm-${field}`).value = record[field] || '';
+    $('olm-subject').value = taxonomy.subjects.some(item => item.id === record.subjectRef) ? record.subjectRef : '';
+    showModules(record.moduleRef);
     $('olm-coverUrl').value = record.hasUploadedCover ? '' : record.coverUrl || '';
     $('olm-cover-file').value = '';
+    pastedCoverFile = null;
+    $('olm-cover-paste').textContent = 'Or paste a copied JPG/PNG cover here with ⌘V or Ctrl+V';
     $('olm-remove-cover').checked = false;
     if (localCoverPreview) URL.revokeObjectURL(localCoverPreview);
     localCoverPreview = '';
     $('olm-title').placeholder = book.title;
-    $('olm-subject').placeholder = book.subject || 'Books';
     $('olm-author').placeholder = book.details || 'Use Archive.org creator';
     $('olm-coverUrl').placeholder = book.coverUrl || 'Use Archive.org cover image';
     showCover();
-    status.textContent = record.revision ? 'Academy details saved for this book.' : 'This book is using Archive.org details.';
+    status.textContent = `${record.revision ? 'Academy details saved for this book.' : 'This book is using Archive.org details.'}${taxonomyWarnings.length ? ` ${taxonomyWarnings.join(' ')}` : ''}`;
   }
 
   async function start() {
@@ -65,12 +87,17 @@
       return;
     }
     try {
-      const metadata = await api('list');
+      const [metadata, options] = await Promise.all([api('list'), api('options')]);
       const response = await fetch('/academy/open-library/catalogue');
       if (!response.ok) throw new Error('Archive.org catalogue is unavailable. Try again later.');
       const catalogue = await response.json();
       books = Array.isArray(catalogue.books) ? catalogue.books : [];
       saved = new Map((Array.isArray(metadata.records) ? metadata.records : []).map(record => [record.id, record]));
+      taxonomy = { subjects: Array.isArray(options.subjects) ? options.subjects : [],
+        modules: Array.isArray(options.modules) ? options.modules : [] };
+      taxonomyWarnings = Array.isArray(options.warnings) ? options.warnings : [];
+      $('olm-subject').replaceChildren(option('', 'Use Archive.org subject'), ...taxonomy.subjects.map(item =>
+        option(item.id, `${item.name} · ${item.source}`)));
       if (!books.length) { status.textContent = 'No Archive.org books are available to edit yet.'; return; }
       $('olm-book').replaceChildren(...books.map(book => {
         const option = document.createElement('option');
@@ -84,8 +111,10 @@
   }
 
   $('olm-book').addEventListener('change', showBook);
+  $('olm-subject').addEventListener('change', () => showModules());
   $('olm-coverUrl').addEventListener('input', () => {
     $('olm-cover-file').value = '';
+    pastedCoverFile = null;
     $('olm-remove-cover').checked = false;
     if (localCoverPreview) URL.revokeObjectURL(localCoverPreview);
     localCoverPreview = '';
@@ -100,15 +129,37 @@
       return;
     }
     $('olm-coverUrl').value = '';
+    pastedCoverFile = null;
     $('olm-remove-cover').checked = false;
     if (localCoverPreview) URL.revokeObjectURL(localCoverPreview);
     localCoverPreview = URL.createObjectURL(file);
     showCover();
   });
+  document.addEventListener('paste', event => {
+    const file = [...(event.clipboardData?.items || [])]
+      .filter(item => item.kind === 'file' && ['image/jpeg', 'image/png'].includes(item.type))
+      .map(item => item.getAsFile()).find(Boolean);
+    if (!file || $('olm-form').hidden) return;
+    event.preventDefault();
+    if (file.size < 1 || file.size > 5 * 1024 * 1024) {
+      status.textContent = 'Choose a JPG or PNG image up to 5 MB.';
+      return;
+    }
+    pastedCoverFile = file;
+    $('olm-cover-file').value = '';
+    $('olm-coverUrl').value = '';
+    $('olm-remove-cover').checked = false;
+    if (localCoverPreview) URL.revokeObjectURL(localCoverPreview);
+    localCoverPreview = URL.createObjectURL(file);
+    $('olm-cover-paste').textContent = 'Pasted cover ready to save';
+    showCover();
+    status.textContent = 'Cover pasted. Save Academy details to use it.';
+  });
   $('olm-remove-cover').addEventListener('change', () => {
     if ($('olm-remove-cover').checked) {
       $('olm-coverUrl').value = '';
       $('olm-cover-file').value = '';
+      pastedCoverFile = null;
       if (localCoverPreview) URL.revokeObjectURL(localCoverPreview);
       localCoverPreview = '';
     }
@@ -123,9 +174,10 @@
     status.textContent = 'Saving Academy details…';
     try {
       const body = { id: book.id, baseRevision: saved.get(book.id)?.revision || 0,
-        coverUrl: $('olm-coverUrl').value, removeCover: $('olm-remove-cover').checked };
+        coverUrl: $('olm-coverUrl').value, removeCover: $('olm-remove-cover').checked,
+        subjectRef: $('olm-subject').value, moduleRef: $('olm-module').value };
       for (const field of fields) body[field] = $(`olm-${field}`).value;
-      const result = await api('save', body, $('olm-cover-file').files?.[0] || null);
+      const result = await api('save', body, pastedCoverFile || $('olm-cover-file').files?.[0] || null);
       saved.set(book.id, result.record);
       showBook();
       status.textContent = 'Academy details saved. They will appear in the public and signed-in Library when refreshed.';

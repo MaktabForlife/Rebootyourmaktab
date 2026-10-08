@@ -1,3 +1,7 @@
+# V105.4.2.19 — Linked Library classification and pasted covers
+
+The Archive.org book editor now offers active subject and module dropdowns from the Academy shared catalogue, Global Subjects, Reboot courses and draft Programs. Modules are filtered to the selected subject. Saves resolve the chosen IDs against the current records, so an altered ID or archived subject or module cannot create an unlinked classification. Editors may paste a JPG/PNG cover from the clipboard as well as upload or link one; the existing server-side image checks still apply. The PDFs remain at Archive.org.
+
 # V105.4.2.18 — Academy Open Library details
 
 An editor for active Academy global administrators and teachers adds Academy title, subject, module, level, author, description and JPG/PNG cover details to each Archive.org book or volume set. The public and signed-in catalogues apply these details over the automatically synced Archive list. Covers may use a public HTTPS JPG/PNG URL or a device upload to Academy media storage. PDFs remain at Archive.org. [Details](docs/ACADEMY-OPEN-LIBRARY.md).

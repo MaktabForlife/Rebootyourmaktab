@@ -4,6 +4,7 @@ import { getPlatformSpreadsheetId } from '../lib/platform-sheet.js';
 import { problem } from '../programs/model.js';
 import { programFailure } from '../programs/errors.js';
 import { isArchiveOpenLibraryId, openLibraryMetadataForClient } from '../lib/open-library-metadata.js';
+import { loadOpenLibraryTaxonomy } from '../lib/open-library-taxonomy.js';
 
 const MAX_COVER_BYTES = 5 * 1024 * 1024;
 async function limitedBytes(request, limit) {
@@ -53,6 +54,7 @@ export function openLibraryMetadataEndpoint(action) {
     try {
       if (!env.PROGRAM_TIMETABLE_COORDINATOR) throw problem('Open Library storage is unavailable.', 503);
       if (!publicRead) await openLibraryMetadataUser(request, env);
+      if (action === 'options') return json({ success: true, ...await loadOpenLibraryTaxonomy(env) });
       const stub = env.PROGRAM_TIMETABLE_COORDINATOR.getByName(`${getPlatformSpreadsheetId(env)}:open-library-metadata`);
       if (action === 'cover') {
         const id = new URL(request.url).searchParams.get('id');
@@ -107,7 +109,9 @@ export function openLibraryMetadataEndpoint(action) {
       let result;
       try { result = await stub.openLibraryMetadataSave(input, request.headers.get('Authorization') || '', key); }
       catch (error) {
-        if (key && error?.status === 409) await env.MEDIA_BUCKET.delete(key);
+        if (key) {
+          try { await env.MEDIA_BUCKET.delete(key); } catch { /* Preserve the original save error. */ }
+        }
         throw error;
       }
       if (result.previousCoverKey) {

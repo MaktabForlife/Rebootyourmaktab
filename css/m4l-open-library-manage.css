@@ -5,6 +5,9 @@
 #olm-form label{display:grid;gap:6px;font-weight:700;color:#604668}
 #olm-form input,#olm-form select,#olm-form textarea{box-sizing:border-box;width:100%;padding:12px;border:1px solid #d8c6dd;border-radius:10px;background:#fff;color:#292132;font:inherit}
 #olm-form textarea{resize:vertical}
+#olm-form select:disabled{background:#f4eef5;color:#746778}
+.olm-paste{align-self:end;padding:14px;border:2px dashed #cdb7d3;border-radius:10px;color:#604668;background:#fbf8fc;outline-offset:3px}
+.olm-paste:focus{outline:2px solid #704778}
 .olm-source,.olm-help{margin:0;color:#695d6e;font-size:.9rem}
 .olm-cover-preview{display:grid;gap:6px;color:#604668;font-weight:700}
 .olm-cover-preview img{height:180px;max-width:100%;object-fit:contain;object-position:left center}

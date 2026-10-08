@@ -2,13 +2,14 @@ import assert from 'node:assert/strict';
 import { validateOpenLibraryMetadata } from '../src/lib/open-library-metadata.js';
 import { openLibraryMetadataEndpoint } from '../src/routes/open-library-metadata.js';
 import { setRequestAuthUser } from '../src/lib/request-context.js';
+import { problem } from '../src/programs/model.js';
 
 const book = {
   id: 'EXTERNAL:INTERNET_ARCHIVE:SERIES:TAFSEER_UL_JALALAIN',
   title: 'Tafseer ul Jalalain', subject: 'Tafseer', module: 'Quran commentary',
   level: 'Intermediate', author: 'Imam Jalaluddin', description: 'Three volumes', coverUrl: ''
 };
-assert.deepEqual(validateOpenLibraryMetadata(book), book);
+assert.deepEqual(validateOpenLibraryMetadata(book), { ...book, subjectRef: '', moduleRef: '' });
 assert.throws(() => validateOpenLibraryMetadata({ ...book, id: 'PROGRAM:BOOK:1' }), /Choose an Archive.org book/);
 assert.throws(() => validateOpenLibraryMetadata({ ...book, title: 'x'.repeat(181) }), /title must be text/);
 assert.throws(() => validateOpenLibraryMetadata({ ...book, description: { html: '<script>' } }), /description must be text/);
@@ -19,6 +20,7 @@ assert.throws(() => validateOpenLibraryMetadata({ ...book, coverUrl: 'https://ex
 
 const calls = [];
 const covers = new Map();
+let saveError = null;
 const env = {
   PLATFORM_SPREADSHEET_ID: 'platform-sheet',
   MEDIA_BUCKET: {
@@ -33,6 +35,7 @@ const env = {
         async openLibraryMetadataList() { calls.push('list'); return [book]; },
         async openLibraryMetadataSave(input, auth, coverKey) {
           calls.push(['save', input, auth, coverKey]);
+          if (saveError) throw saveError;
           return { ...input, coverKey, revision: 1 };
         },
         async openLibraryMetadataCoverKey() { return [...covers.keys()][0] || ''; }
@@ -87,6 +90,14 @@ assert.equal(uploaded.hasUploadedCover, true);
 assert.match(uploaded.coverUrl, /\/api\/academy\/open-library\/metadata\/cover\?id=/);
 assert.equal(Object.hasOwn(uploaded, 'coverKey'), false);
 assert.equal(covers.size, 1);
+saveError = problem('Choose an active subject from the Academy list.');
+const rejected = new Request('https://example.test/api/academy/open-library/metadata/save', {
+  method: 'POST', headers: { Authorization: 'Bearer test-account' }, body: form
+});
+setRequestAuthUser(rejected, teacher);
+assert.equal((await openLibraryMetadataEndpoint('save')(rejected, env)).status, 400);
+assert.equal(covers.size, 1, 'Failed metadata saves remove their newly uploaded cover');
+saveError = null;
 result = await openLibraryMetadataEndpoint('cover')(new Request(`https://example.test/api/academy/open-library/metadata/cover?id=${encodeURIComponent(book.id)}`), env);
 assert.equal(result.status, 200);
 assert.equal(result.headers.get('Content-Type'), 'image/png');

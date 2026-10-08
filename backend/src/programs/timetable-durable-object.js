@@ -11,6 +11,7 @@ import { timetableRepository } from './timetable-repository.js';
 import { programFailure } from './errors.js';
 import { openLibraryMetadataUser } from '../routes/open-library-metadata.js';
 import { validateOpenLibraryMetadata, publicOpenLibraryMetadata } from '../lib/open-library-metadata.js';
+import { loadOpenLibraryTaxonomy, resolveOpenLibraryTaxonomySelection } from '../lib/open-library-taxonomy.js';
 import { problem } from './model.js';
 export class ProgramTimetableCoordinator extends DurableObject {
   constructor(ctx,env) {
@@ -69,7 +70,8 @@ export class ProgramTimetableCoordinator extends DurableObject {
     const user = await openLibraryMetadataUser(new Request('https://internal.invalid/open-library-metadata', {
       headers: { Authorization: authorization }
     }), createRequestEnvironment(this.env));
-    const record = validateOpenLibraryMetadata(input);
+    const taxonomy = await loadOpenLibraryTaxonomy(createRequestEnvironment(this.env));
+    const record = validateOpenLibraryMetadata({ ...input, ...resolveOpenLibraryTaxonomySelection(input, taxonomy) });
     const expected = Number(input?.baseRevision);
     if (!Number.isInteger(expected) || expected < 0) throw problem('Refresh the book details before saving.', 409);
     const sql = this.ctx.storage.sql;

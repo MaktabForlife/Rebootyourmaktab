@@ -167,7 +167,7 @@ import { json } from "./lib/http.js";
 import { createRequestEnvironment } from "./lib/request-context.js";
 
 const ROUTES = new Map([
-  ...['public', 'cover', 'list', 'save'].map(action => [
+  ...['public', 'cover', 'list', 'save', 'options'].map(action => [
     `/api/academy/open-library/metadata/${action}`,
     workerRoute('program-library-viewer', openLibraryMetadataEndpoint(action))
   ]),
