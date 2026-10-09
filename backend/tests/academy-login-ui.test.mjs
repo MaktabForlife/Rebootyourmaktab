@@ -60,7 +60,7 @@ async function loadPage({ id = '', pin = '', replies = {}, storedToken = '', aca
     },
     fetch: async (url, options) => {
       const path = url.slice('https://test.example'.length);
-      calls.push({ path, body: JSON.parse(options.body) });
+      calls.push({ path, body: JSON.parse(options.body), headers: options.headers });
       const configuredReply = replies[path];
       const reply = Array.isArray(configuredReply) ? configuredReply.shift() : configuredReply;
       assert.ok(reply, `Unexpected request: ${path}`);
@@ -170,4 +170,23 @@ assert.equal(newTab.elements.get('academy-home-card').hidden, false, 'A new Acad
 assert.equal(newTab.elements.get('academy-library-nav').href, '/academy/library/');
 assert.equal(newTab.session.get('m4l_academy_signed_in'), 'TEST-USER');
 
-console.log('Academy overview sign-in, session, and sign-out checks passed.');
+const d1Session = await loadPage({ storedToken: 'D1_SESSION', replies: {
+  '/api/account/session': { body: { success: true, sessionStore: 'D1', account: { uniqueid: 'TEST-USER' } } },
+  '/api/account/logout': { body: { success: true } }
+} });
+d1Session.signOut();
+await new Promise(resolve => setImmediate(resolve));
+assert.equal(d1Session.calls.at(-1).path, '/api/account/logout');
+assert.equal(d1Session.calls.at(-1).headers.Authorization, 'Bearer D1_SESSION');
+assert.equal(d1Session.storage.get('m4l_account_token'), undefined);
+assert.equal(d1Session.elements.get('academy-home-card').hidden, true);
+
+const failedD1Logout = await loadPage({ storedToken: 'D1_SESSION', replies: {
+  '/api/account/session': { body: { success: true, sessionStore: 'D1', account: { uniqueid: 'TEST-USER' } } },
+  '/api/account/logout': { status: 503, ok: false, body: { success: false } }
+} });
+failedD1Logout.signOut();
+await new Promise(resolve => setImmediate(resolve));
+assert.equal(failedD1Logout.storage.get('m4l_account_token'), undefined);
+assert.match(failedD1Logout.elements.get('login-status').textContent, /server session could not be ended/);
+console.log('Academy overview sign-in, session, sign-out, D1 revocation and page restoration checks passed.');

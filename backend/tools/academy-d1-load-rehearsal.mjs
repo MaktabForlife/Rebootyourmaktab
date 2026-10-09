@@ -34,7 +34,7 @@ try {
   for(const migration of migrations)run(resolve('backend/migrations/academy',migration.name),migration.name);
   run(save('synthetic.sql',operationalSQL(plan)),'SYNTHETIC_IMPORT');
   const bundle=join(directory,'worker.js');
-  await build({entryPoints:['backend/src/academy/d1/worker.js'],bundle:true,format:'esm',platform:'browser',target:'es2022',outfile:bundle,logLevel:'silent'});
+  await build({entryPoints:['backend/src/worker-runtime.js'],bundle:true,format:'esm',platform:'browser',target:'es2022',external:['cloudflare:workers'],outfile:bundle,logLevel:'silent'});
   let outboundRequests=0;
   step='START_LOCAL_WORKER';
   mf=new miniflare.Miniflare(miniflare.convertV4MiniflareOptions({name:'academy-d1-load-local',modules:true,scriptPath:bundle,compatibilityDate,
@@ -89,7 +89,7 @@ try {
   await db.prepare("UPDATE role_assignments SET active=0 WHERE account_id='account-0012'").run();
   ensure(await post('/api/account/session',{},tokens[11]),401);
   if(outboundRequests!==0)throw Error('Unexpected external request');
-  const report={success:true,runtime:'LOCAL_WORKERS_D1',compatibilityDate,syntheticAccounts:true,...burst,securitySmokeChecks:'PASS',externalRequests:outboundRequests,
+  const report={success:true,runtime:'LOCAL_WORKERS_D1',workerEntrypoint:'backend/src/worker-runtime.js',compatibilityDate,syntheticAccounts:true,...burst,securitySmokeChecks:'PASS',externalRequests:outboundRequests,
     cloudPerformanceMeasured:false,cutoverReady:false};
   save('report.json',JSON.stringify(report,null,2));
   console.log(JSON.stringify({step:'COMPLETE',...report,privateReport:join(directory,'report.json')}));

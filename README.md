@@ -1,3 +1,7 @@
+# Unreleased — D1 integration on V105.4.3.17
+
+Run the isolated D1 login/home flow through the application's actual Worker entrypoint and prepare its main-database binding for the current development Worker. Revoke D1 sessions on sign-out and skip account-page requests immediately before returning home. Preserve V105.4.3.17 navigation/timetable behavior and its earlier Sheets rollback. All 111 regression files, 1,680 source comparisons and 200 simultaneous local synthetic flows pass. Browser acceptance remains blocked by an unavailable browser security-policy check. No deployment or website switch. [Integration evidence and remaining work](docs/ACADEMY-D1-WORKER-INTEGRATION.md).
+
 # Unreleased — Main Academy D1 prepared
 
 Initialize the user-created `maktab-academy` main database from the current development application's fresh Academy source. Import 73 active accounts, five Programs and two Global Courses, excluding the legacy workspace and inactive records. Exact cloud readback passes across all 45 tables; refreshed permission/home parity passes 1,680 comparisons. The current Worker remains on Sheets while application integration and cutover checks continue. [Main database report](docs/ACADEMY-MAIN-D1-PREPARATION.md).

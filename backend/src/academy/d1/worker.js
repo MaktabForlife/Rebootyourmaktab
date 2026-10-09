@@ -5,7 +5,7 @@ import { d1Entrance } from './entrance.js';
 const audience='academy-d1-rehearsal';
 const contextEqual=(a,b)=>a.scope===b.scope&&a.courseId.toUpperCase()===b.courseId.toUpperCase()&&a.role===b.role;
 const publicAccount=state=>({displayName:state.account.display_name,uniqueid:state.account.login_link_id});
-const sessionResponse=(state,context,token)=>({account:publicAccount(state),context,contexts:state.contexts,operationalAccessActive:['COURSE','GLOBAL'].includes(context.scope),...(token?{token}:{})});
+const sessionResponse=(state,context,token)=>({account:publicAccount(state),context,contexts:state.contexts,sessionStore:'D1',operationalAccessActive:['COURSE','GLOBAL'].includes(context.scope),...(token?{token}:{})});
 const requireActive=state=>{if(!state)throw rehearsalError('Invalid account link',404,'ACCOUNT_NOT_FOUND');if(!state.account.active)throw rehearsalError('Account disabled',403,'ACCOUNT_DISABLED');};
 
 async function boundedBody(request) {
@@ -41,6 +41,8 @@ async function rateLimit(env,login) {
   if(!result.success)throw rehearsalError('Too many sign-in attempts. Please wait one minute.',429,'LOGIN_RATE_LIMITED');
 }
 async function dispatch(request,env) {
+  if (![env.PIN_SECRET,env.SESSION_SECRET].every(value=>typeof value==='string'&&value.trim()))
+    throw rehearsalError('Academy authentication is not configured.');
   const repository=academyD1Repository(env);
   const path=new URL(request.url).pathname;
   if(path==='/api/health'&&request.method==='GET')return {success:true,store:'D1_REHEARSAL',cutoverReady:false};

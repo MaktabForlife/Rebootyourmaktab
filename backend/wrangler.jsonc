@@ -12,6 +12,14 @@
   "env": {
     "development": {
       "name": "devrebootworker",
+      "d1_databases": [
+        {
+          "binding": "ACADEMY_DB",
+          "database_name": "maktab-academy",
+          "database_id": "7e732b79-a72f-4da6-be83-524919c49ba4",
+          "migrations_dir": "migrations/academy"
+        }
+      ],
       "observability": {"enabled": true, "head_sampling_rate": 1},
       "r2_buckets": [
         {

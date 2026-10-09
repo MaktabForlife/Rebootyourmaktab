@@ -55,6 +55,8 @@ The source snapshot SHA-256 is `795fe7b2629577b371ba167e7fc5a95bd2de2795a85adcb8
 
 ## Next integration boundary
 
+The [application Worker integration](ACADEMY-D1-WORKER-INTEGRATION.md) now verifies the actual entrypoint locally on V105.4.3.17 and prepares the main binding in the development configuration. This does not deploy the binding or switch website storage; browser acceptance and the dependent workflows below remain outstanding.
+
 Connect the **current development Worker/application** through the controlled D1 integration while preserving its existing PIN secret and the credential revocation rules. Complete dependent account, role, registry and other writers consistently; the isolated login/home rehearsal does not yet cover the whole application. Resolve Program Admin/HOD and admission/subscription rules before activating new authority. Keep the legacy production application separate.
 
 The imported candidate remains `SHEETS/STAGING`, with migration run state `IMPORTED`, and `cutoverReady=false`. There is no ongoing synchronization: changes made in Sheets after the capture are not automatically reflected in D1. Before the eventual switch, reconcile subsequent changes with a fresh coordinated capture or a verified change-capture process.

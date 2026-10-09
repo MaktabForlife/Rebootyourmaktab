@@ -1,5 +1,7 @@
 # Academy D1 login-to-home rehearsal — 9 October 2026
 
+The later [application Worker integration](ACADEMY-D1-WORKER-INTEGRATION.md) repeats these checks through the actual entrypoint on V105.4.3.17. This report remains the earlier isolated milestone.
+
 This report records the local flow milestone. The subsequent [main database preparation](ACADEMY-MAIN-D1-PREPARATION.md) imports a fresh candidate into the user's main Cloudflare D1 database and confirms that development is the current application; the production-named Worker is legacy.
 
 The separate development API now completes account checks, PIN login/setup, session checks, context switching, logout and Academy home/activity reads using D1. It also implements isolated administrator account reads, profile changes and PIN resets. The live website and its main Worker still use Sheets; no cloud database, deployment or ownership switch was made in this milestone.

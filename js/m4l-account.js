@@ -21,6 +21,7 @@
     account: null,
     context: null,
     contexts: [],
+    sessionStore: "",
     busy: false,
     workspaceOpening: false,
     academyViewStart: "",
@@ -128,7 +129,7 @@
     let loginFailed = false;
     try {
       const result = await api("/api/account/login", { uniqueid: uniqueId, pin });
-      await acceptSession(result, true, { autoOpen: false });
+      await acceptSession(result, true, { autoOpen: false, redirectingToAcademy: returnToAcademy });
       if (returnToAcademy) {
         sessionStorage.setItem("m4l_academy_signed_in", uniqueId);
         window.location.assign("/academy/#overview");
@@ -168,7 +169,7 @@
         pin,
         pinConfirmation
       });
-      await acceptSession(result, true, { autoOpen: false });
+      await acceptSession(result, true, { autoOpen: false, redirectingToAcademy: returnToAcademy });
       if (returnToAcademy) {
         sessionStorage.setItem("m4l_academy_signed_in", uniqueId);
         window.location.assign("/academy/#overview");
@@ -189,14 +190,17 @@
     state.account = result.account;
     state.context = result.context;
     state.contexts = Array.isArray(result.contexts) ? result.contexts : [];
+    state.sessionStore = result.sessionStore || "";
     localStorage.setItem(CONTEXT_KEY, JSON.stringify(state.context));
     localStorage.setItem(CONTEXTS_KEY, JSON.stringify(state.contexts));
     if (previousContext && !sameContext(previousContext, state.context)) {
       clearCourseDataCaches();
     }
     renderContextView();
-    void loadAvailableProgramLibraries();
-    if(!/^PRG-[0-9a-f-]{36}$/i.test(String(state.context?.courseId||'')))await loadAcademyTimetable({ resetWeek: true });
+    if (!options.redirectingToAcademy) {
+      void loadAvailableProgramLibraries();
+      if(!/^PRG-[0-9a-f-]{36}$/i.test(String(state.context?.courseId||'')))await loadAcademyTimetable({ resetWeek: true });
+    }
     if (options.autoOpen === true && ["COURSE", "GLOBAL"].includes(state.context?.scope)) {
       await openCurrentWorkspace();
     }
@@ -992,6 +996,7 @@
   async function api(path, payload, token = "") {
     const response = await fetch(`${API_BASE}${path}`, {
       method: "POST",
+      ...(path === "/api/account/logout" ? { keepalive: true } : {}),
       headers: {
         "Content-Type": "application/json",
         ...(token ? { Authorization: `Bearer ${token}` } : {})
@@ -1011,9 +1016,17 @@
     return result;
   }
 
-  function logout() {
+  async function logout() {
+    const token = state.token;
+    const revokeSession = state.sessionStore === "D1";
     clearStoredSession();
-    window.location.reload();
+    try {
+      if (revokeSession && token) await api("/api/account/logout", {}, token);
+    } catch (_) {
+      // The local sign-in is cleared even if the server cannot be reached.
+    } finally {
+      window.location.reload();
+    }
   }
 
   function clearStoredSession() {

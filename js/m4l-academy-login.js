@@ -18,6 +18,7 @@
   const libraryNav = document.getElementById("academy-library-nav");
   const avatar = document.getElementById("academy-avatar");
   let activeToken = "";
+  let sessionStore = "";
   let sessionGeneration = 0;
 
   if (!form || !linkInput || !pinInput || !apiBase) return;
@@ -33,8 +34,16 @@
     pinToggle.setAttribute("aria-label", `${showing ? "Hide" : "Show"} PIN`);
   });
   signOutButton.addEventListener("click", () => {
+    const token = activeToken;
+    const revokeSession = sessionStore === "D1";
     clearStoredAccountState();
     showSignedOut();
+    const generation = sessionGeneration;
+    if (revokeSession && token) {
+      void api("/api/account/logout", {}, token).catch(() => {
+        if (generation === sessionGeneration) showStatus("Signed out on this device. The server session could not be ended.");
+      });
+    }
   });
   sessionRetry.addEventListener("click", () => { void restoreAcademySession(); });
   window.addEventListener("storage", event => {
@@ -57,6 +66,7 @@
   function showSignedOut() {
     sessionGeneration++;
     activeToken = "";
+    sessionStore = "";
     homeCard.hidden = true;
     signOutButton.hidden = true;
     sessionLoading.hidden = true;
@@ -100,7 +110,7 @@
         throw Object.assign(new Error("The signed-in account has changed."), { status: 401 });
       }
       sessionStorage.setItem(academySessionKey, account.uniqueid);
-      showSignedIn(account);
+      showSignedIn(account, result.sessionStore);
     } catch (error) {
       if (generation !== sessionGeneration || localStorage.getItem(tokenKey) !== token) return;
       if (isTemporaryServiceError(error) &&
@@ -117,8 +127,9 @@
     }
   }
 
-  function showSignedIn(account) {
+  function showSignedIn(account, store = "") {
     activeToken = localStorage.getItem(tokenKey) || "";
+    sessionStore = store;
     const uniqueId = String(account.uniqueid || "").trim();
     const name = String(account.displayName || "Academy member").trim();
     accountName.textContent = name;
@@ -183,7 +194,7 @@
       sessionStorage.setItem(academySessionKey, result.account?.uniqueid || uniqueId);
       pinInput.value = "";
       showStatus("");
-      showSignedIn(result.account || { uniqueid: uniqueId });
+      showSignedIn(result.account || { uniqueid: uniqueId }, result.sessionStore);
       window.location.hash = "overview";
     } catch (error) {
       pinInput.value = "";
@@ -224,6 +235,7 @@
   async function api(path, payload, token = "") {
     const response = await fetch(`${apiBase}${path}`, {
       method: "POST",
+      ...(path === "/api/account/logout" ? { keepalive: true } : {}),
       headers: {
         "Content-Type": "application/json",
         ...(token ? { Authorization: `Bearer ${token}` } : {})

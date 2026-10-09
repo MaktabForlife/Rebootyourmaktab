@@ -49,7 +49,10 @@ export function academyD1Repository(env) {
     db,
     publicAccount,
     async ready(){
-      const result=await prepare("SELECT run_id FROM migration_runs WHERE state='IMPORTED' AND environment IN ('LOCAL','DEVELOPMENT')").first();
+      const result=await prepare(`SELECT run_id FROM migration_runs WHERE state='IMPORTED' AND environment IN ('LOCAL','DEVELOPMENT')
+        AND NOT EXISTS (SELECT 1 FROM activities a LEFT JOIN data_ownership o
+          ON o.dataset_key='ACADEMY' AND o.scope_key=a.activity_key
+          WHERE a.active=1 AND (o.scope_key IS NULL OR o.authoritative_store<>'SHEETS' OR o.phase<>'STAGING'))`).first();
       if(!result)throw rehearsalError('A development import is required.');
     },
     async byLogin(login){return stateFor(await prepare(`${accountSQL} WHERE a.login_link_id=? COLLATE NOCASE`,login).first());},

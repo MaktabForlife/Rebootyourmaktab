@@ -1,7 +1,7 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "academy-d1-rehearsal",
-  "main": "src/academy/d1/worker.js",
+  "main": "src/worker-runtime.js",
   "compatibility_date": "2026-10-09",
   "observability": {"enabled": true, "head_sampling_rate": 1},
   "secrets": {"required": ["PIN_SECRET", "SESSION_SECRET"]},

@@ -3,10 +3,21 @@
 */
 import { corsResponse, json } from "./lib/http.js";
 import { routeRequest } from "./router.js";
+import academyD1Worker from "./academy/d1/worker.js";
 
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+
+    // The complete request stays in one store. This opt-in rehearsal uses the
+    // application's entrypoint; unmigrated operations must not reach Sheets.
+    if (env.ACADEMY_D1_MODE === "REHEARSAL") {
+      return academyD1Worker.fetch(request, env);
+    }
+    if (env.ACADEMY_D1_MODE && env.ACADEMY_D1_MODE !== "OFF") {
+      return json({ success: false, error: "Academy storage configuration is unavailable.",
+        code: "ACADEMY_STORAGE_MODE_INVALID", retryable: false }, 503);
+    }
 
     try {
       if (request.method === "OPTIONS") {

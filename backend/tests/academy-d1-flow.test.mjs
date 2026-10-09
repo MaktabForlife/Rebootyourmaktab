@@ -1,10 +1,11 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import worker from '../src/academy/d1/worker.js';
+import worker from '../src/worker.js';
 import {academyD1Repository} from '../src/academy/d1/repository.js';
 import {createSessionToken,hashPin,isSaltedPinHash} from '../src/lib/auth.js';
 import {fixtureDatabase} from './fixtures/academy-d1-fixture.mjs';
 import {compareSnapshotFlow} from '../tools/academy-d1-parity.mjs';
+import {readFileSync} from 'node:fs';
 
 async function call(env,path,body={},token='',extra={}) {
   const r=await worker.fetch(new Request(`http://localhost${path}`,{method:'POST',headers:{'Content-Type':'application/json',...(token?{Authorization:`Bearer ${token}`}:{ }),...extra},body:JSON.stringify(body)}),env);
@@ -124,4 +125,34 @@ test('the snapshot comparison checks every active account context and every publ
   const {snapshot,policy}=await flowFixture(12),report=await compareSnapshotFlow(snapshot,policy);
   assert.equal(report.accountsChecked,12);assert.equal(report.contextsChecked,23);
   assert.equal(report.activitiesChecked,3);assert.equal(report.clockScenarios,2);assert.equal(report.pageComparisons,192);
+});
+
+test('the application entrypoint keeps rehearsals isolated and fails closed on an invalid mode',()=>use(async({env,db})=>{
+  const originalFetch=globalThis.fetch;
+  let outbound=0;
+  globalThis.fetch=async()=>{outbound++;throw Error('Sheets must not be contacted');};
+  try {
+    const admin=await login(env,'0001');assert.equal(admin.body.sessionStore,'D1');
+    assert.equal((await call({...env,ACADEMY_D1_MODE:'OFF'},'/api/account/session',{},admin.body.token)).status,401);
+    const unmigrated=await call(env,'/api/admin/platform/programs/create',{name:'Blocked'},admin.body.token);
+    assert.equal(unmigrated.status,501);
+    assert.equal((await call({...env,ACADEMY_D1_MODE:'TYPO'},'/api/account/check',{uniqueid:'login-0002'})).body.code,'ACADEMY_STORAGE_MODE_INVALID');
+    assert.equal((await call({...env,ACADEMY_DB:undefined},'/api/account/check',{uniqueid:'login-0002'})).status,503);
+    const before=db.prepare('SELECT count(*) AS n FROM account_sessions').get().n;
+    assert.equal((await login({...env,SESSION_SECRET:''})).status,503);
+    assert.equal(db.prepare('SELECT count(*) AS n FROM account_sessions').get().n,before);
+    db.exec("UPDATE data_ownership SET phase='RECOVERY'");
+    assert.equal((await login(env)).status,503);
+    assert.equal(outbound,0);
+    const regular=await worker.fetch(new Request('http://localhost/'),{ACADEMY_D1_MODE:'OFF'});
+    assert.equal((await regular.json()).service,'rebootworker');
+  }finally{globalThis.fetch=originalFetch;}
+}));
+
+test('only the current development Worker configuration binds the main Academy database',()=>{
+  const config=JSON.parse(readFileSync(new URL('../wrangler.jsonc',import.meta.url),'utf8'));
+  assert.equal(config.d1_databases,undefined);
+  assert.equal(config.env.development.name,'devrebootworker');
+  assert.deepEqual(config.env.development.d1_databases,[{binding:'ACADEMY_DB',database_name:'maktab-academy',database_id:'7e732b79-a72f-4da6-be83-524919c49ba4',migrations_dir:'migrations/academy'}]);
+  assert.equal(config.env.development.vars,undefined);
 });
