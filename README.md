@@ -1,22 +1,17 @@
-# Unreleased — D1 integration on V105.4.3.17
+# V106.0 — Academy D1 preparation and application integration
 
-Run the isolated D1 login/home flow through the application's actual Worker entrypoint and prepare its main-database binding for the current development Worker. Revoke D1 sessions on sign-out and skip account-page requests immediately before returning home. Preserve V105.4.3.17 navigation/timetable behavior and its earlier Sheets rollback. All 111 regression files, 1,680 source comparisons and 200 simultaneous local synthetic flows pass. Browser acceptance remains blocked by an unavailable browser security-policy check. No deployment or website switch. [Integration evidence and remaining work](docs/ACADEMY-D1-WORKER-INTEGRATION.md).
+Prepare the main Academy D1 database and integrate an opt-in login/home rehearsal through the application's actual Worker entrypoint. The feature branch deploys both the website and the current development Worker. This release declares the main D1 binding for `devrebootworker`; it keeps `ACADEMY_D1_MODE` unset/OFF, so live authentication, reads and writes continue using Google Sheets. The production-named legacy Worker has no D1 binding.
 
-# Unreleased — Main Academy D1 prepared
+Skip account-page Library and timetable requests immediately before returning to Academy home. D1 sessions support server-side sign-out when used in the isolated rehearsal. Retain the V105.4.3.17 navigation cache and timetable presentation, including its deliberate rollback of the earlier Sheets request-efficiency changes.
 
-Initialize the user-created `maktab-academy` main database from the current development application's fresh Academy source. Import 73 active accounts, five Programs and two Global Courses, excluding the legacy workspace and inactive records. Exact cloud readback passes across all 45 tables; refreshed permission/home parity passes 1,680 comparisons. The current Worker remains on Sheets while application integration and cutover checks continue. [Main database report](docs/ACADEMY-MAIN-D1-PREPARATION.md).
+Add private source capture, validation, an active-data converter and the D1 schema. The separately completed main import contains 73 active accounts, five intended active Programs, two Global Courses and six publications with 68 timetable entries. It excludes the old Reboot workspace and inactive records; 20 legacy privileged assignments remain pending review. Source snapshots, credentials and database exports stay outside Git. [Main database report](docs/ACADEMY-MAIN-D1-PREPARATION.md) · [Migration tooling](docs/ACADEMY-MIGRATION-PREFLIGHT.md) · [Active import](docs/ACADEMY-ACTIVE-IMPORT.md).
 
-# Unreleased — D1 login-to-home rehearsal
+Validation: 111/111 regression test files, 1,680 exact source comparisons and 200 simultaneous local synthetic login/home flows pass. Browser click-through remains unverified because the browser tool could not verify its required administrator security policy. These local results do not establish hosted capacity. [Application integration and remaining work](docs/ACADEMY-D1-WORKER-INTEGRATION.md) · [Earlier rehearsal](docs/ACADEMY-D1-FLOW-REHEARSAL.md).
 
-Add an isolated D1 development API for account authentication, sessions, safe account changes and Academy home/activity reads. Verify all 73 active accounts and 104 contexts with 1,680 source comparisons; pass 200 concurrent synthetic HTTP flows in local Workers/D1 with zero external requests. Sheets remains authoritative and the live website is unchanged. [Results and remaining work](docs/ACADEMY-D1-FLOW-REHEARSAL.md).
+**D1 is not the live website store.** Publishing this release does not import data, run database migrations or enable rehearsal mode. Complete the remaining workflows, authority/admission decisions, refreshed-source reconciliation and acceptance checks before a separate cutover. The candidate does not automatically synchronize later Sheets edits.
 
-# Unreleased — Active Academy import rehearsal
+---
 
-Add the operational schema and active-data converter. The real development baseline imports and verifies locally and in the D1 emulator: 73 active accounts, five intended active Programs and two active Global Courses. Preserve credentials, exclude inactive/archive records and keep 20 legacy privileged assignments pending review. Sheets remains authoritative; application integration and load testing remain pending. [Rehearsal report and tooling](docs/ACADEMY-ACTIVE-IMPORT.md).
-
-# Unreleased — Academy migration preflight
-
-Add private source capture, structural and reference validation, a local staging archive, and an explicit inclusion manifest. Development data has been captured and checked. The migration selects active accounts and the five intended active Programs, excludes the old Reboot workspace, and separates Program status from timetable publication. [First data report](docs/ACADEMY-MIGRATION-REPORT-2026-10-09.md) · [Dependency map and tooling](docs/ACADEMY-MIGRATION-PREFLIGHT.md). Operational conversion and cutover remain pending.
 # V105.4.3.17 — Uniform timetable cards and cached Program navigation
 
 Timetable cards have equal dimensions, a consistent shade for each Program and one shared shade for all Courses. Teacher participation uses a thick border on all four sides, including shared-room cards with teaching involvement. Keep next/in-progress indicators and authorised Join controls within the same card size.

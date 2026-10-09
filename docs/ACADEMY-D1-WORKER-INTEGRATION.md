@@ -1,6 +1,6 @@
 # Academy D1 application integration — 9 October 2026
 
-The D1 login/home rehearsal now runs through the application's actual `backend/src/worker-runtime.js` entrypoint. This unreleased work is based on the verified feature release **V105.4.3.17**, commit `9dacef489ebaf76bfeaf97a05e5f0b961dafb40d`. Its navigation cache and timetable presentation are retained, together with the deliberate V105.4.3.15 rollback of the earlier Sheets request-efficiency changes.
+The D1 login/home rehearsal now runs through the application's actual `backend/src/worker-runtime.js` entrypoint. Release **V106.0** is based on the verified feature release **V105.4.3.17**, commit `9dacef489ebaf76bfeaf97a05e5f0b961dafb40d`. Its navigation cache and timetable presentation are retained, together with the deliberate V105.4.3.15 rollback of the earlier Sheets request-efficiency changes. Pushing the feature branch deploys both the frontend and current development backend; this release keeps D1 mode unset/OFF.
 
 ## Integration and configuration
 
@@ -20,7 +20,7 @@ When the account login/PIN setup page is returning immediately to Academy home, 
 
 ## Verification
 
-- **111/111 regression test files pass** on the merged V105.4.3.17 code.
+- **111/111 regression test files pass** on the merged V105.4.3.17 code. V106.0 repeats the full suite and updates the active version assertions; its website labels, version endpoints, package metadata and Worker health response agree.
 - The current source capture still passes **1,680** exact account-context/home comparisons: 73 active accounts, 104 available contexts, 116 Program grants, all seven activities and two clock scenarios. Preserved hashes are compared without entering real account PINs.
 - **200/200 simultaneous synthetic flows pass** through the actual runtime entrypoint: 800 account-check, login, session and home HTTP requests. PIN reset/setup, stale session rejection, disable/re-enable, logout, concurrent setup and permission-removal checks pass. There are **zero outbound Worker requests**.
 - The local burst completes in 2,281 ms (p50 2,083 ms; p95/p99 2,281 ms). This is local emulator evidence, not a hosted capacity or latency measurement. The installed executable runtime supports `2026-09-28`; the real development Worker retains its existing compatibility date and its build passes.
@@ -32,6 +32,8 @@ Private verification evidence is retained under the ignored `.academy-migration/
 - `main-db-integrated-v105.4.3.17-parity.json`
 - `d1-load-OQ6Q2x/report.json`
 - `integrated-v17-worker-dryrun/`
+
+V106.0 release checks are recorded in `release-v106.0-regression.log`, `release-v106.0-ui-recheck.log`, `main-db-v106.0-parity.json` and `v106.0-worker-dryrun/`. The initial full suite passed 109 files and identified two UI assertions still expecting the prior version; both pass after updating those assertions. The source comparison again passes all 1,680 comparisons, and the development deployment dry run passes with the main D1 binding and no rehearsal-mode variable.
 
 ## Local browser preview
 
