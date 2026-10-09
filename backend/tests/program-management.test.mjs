@@ -8,7 +8,10 @@ let authorized=true;
 const coordinator=timetableCoordinator(f.journal,async()=>{if(!authorized)throw new Error('revoked');return {service,user:{accountid:'ADMIN'}};});
 let view=await service.read('manage-get');
 const input=(record,kind='classes',creating=true)=>({id:f.program.id,operationId:crypto.randomUUID(),revision:view.revision,referenceRevision:view.referenceRevision,kind,record,creating});
-await coordinator.run('manage-save',input({ClassID:'CLS-1',Name:'Evening',Active:true}),'token');
+await coordinator.run('manage-save',input({ClassID:'CLS-1',Name:'Evening',TeacherAccountID:'TEACHER-1',Active:true}),'token');
+assert.equal((await service.read('get')).catalog.classes.find(row=>row.id==='CLS-1').classTeacherId,'TEACHER-1');
+view=await service.read('manage-get');
+await assert.rejects(coordinator.run('manage-save',input({ClassID:'CLS-NO-ROLE',Name:'No role',TeacherAccountID:'LEARNER-DEMO',Active:true}),'token'),/Teacher, Senior or Admin role/);
 const firstPlan=structuredClone(f.plans[0]);
 view=await service.read('manage-get');
 const requests=[input({ClassID:'CLS-2',Name:'Morning',Active:true}),input({ClassID:'CLS-3',Name:'Weekend',Active:true})];
@@ -77,6 +80,52 @@ const retained=rowEdit({ClassID:'CLS-B',Name:'Independent B updated',Active:true
 f.shared.accounts.push({AccountID:'UNRELATED',DisplayName:'Unrelated account',Active:true});
 await coordinator.run('manage-save',retained,'token');
 console.log('Row revisions: independent concurrent additions, unrelated references and same-row conflicts passed.');
+
+// A student has one active class in a Program; changing it keeps the old record archived.
+const groupFixture=timetableFixture(),groupService=timetableService(groupFixture.repository,groupFixture.program);
+const groupCoordinator=timetableCoordinator(groupFixture.journal,async()=>({service:groupService,user:{accountid:'ADMIN'}}));
+const groupInput=async(accountId,classId)=>{const current=await groupService.read('manage-get');return {id:groupFixture.program.id,operationId:crypto.randomUUID(),kind:'student-class',record:{AccountID:accountId,ClassID:classId},baseRowRevision:current.studentClassRevisions[accountId],revision:current.revision};};
+const initialGroup=await groupInput('LEARNER-DEMO','CLASS-1');
+await groupCoordinator.run('manage-save',initialGroup,'token');
+let groupRows=(await groupService.read('manage-get')).rows.enrollments.filter(r=>r.AccountID==='LEARNER-DEMO');
+assert.equal(groupRows.filter(r=>r.Active).length,1);assert.equal(groupRows.find(r=>r.Active).ClassID,'CLASS-1');
+assert.equal(groupRows.filter(r=>!r.Active).length,2);
+const staleGroup=await groupInput('LEARNER-DEMO','CLASS-2');
+await groupCoordinator.run('manage-save',await groupInput('LEARNER-DEMO',''),'token');
+await assert.rejects(groupCoordinator.run('manage-save',staleGroup,'token'),error=>error.code==='ROW_CHANGED'&&error.currentRecord.enrollments.every(r=>!r.Active));
+const interruptedGroup=await groupInput('LEARNER-DEMO','CLASS-2');groupFixture.failNext('after');
+await assert.rejects(groupCoordinator.run('manage-save',interruptedGroup,'token'),/Injected/);
+await groupCoordinator.run('recover',{id:groupFixture.program.id},'token');
+assert((await groupCoordinator.run('manage-save',interruptedGroup,'token')).replayed);
+assert.equal((await groupService.read('manage-get')).rows.enrollments.filter(r=>r.AccountID==='LEARNER-DEMO'&&r.Active).length,1);
+await assert.rejects(groupCoordinator.run('manage-save',await groupInput('TEACHER-1','CLASS-1'),'token'),/Student role/);
+console.log('Student classes: one active class, archived history, clear, conflict, recovery and Student-role guard passed.');
+
+// Save all class choices in one coordinated snapshot and one operation receipt.
+const grouped=timetableFixture(),groupedService=timetableService(grouped.repository,grouped.program);
+const groupedCoordinator=timetableCoordinator(grouped.journal,async()=>({service:groupedService,user:{accountid:'ADMIN'}}));
+grouped.shared.accounts.push({AccountID:'LEARNER-2',DisplayName:'Second learner',Active:true,Roles:['STUDENT']});
+const groupedInput=async changes=>{
+  const current=await groupedService.read('manage-get');
+  return {id:grouped.program.id,kind:'student-classes',operationId:crypto.randomUUID(),revision:current.revision,
+    changes:changes.map(([AccountID,ClassID])=>({AccountID,ClassID,baseRowRevision:current.studentClassRevisions[AccountID]}))};
+};
+const groupedSave=await groupedInput([['LEARNER-DEMO','CLASS-1'],['LEARNER-2','CLASS-2']]);
+grouped.failNext('after');await assert.rejects(groupedCoordinator.run('manage-save',groupedSave,'token'),/Injected/);
+assert.equal(grouped.plans.length,1);
+assert.equal(grouped.plans[0].records.length,2,'One snapshot and one retry receipt cover every changed student');
+const groupedResult=await groupedCoordinator.run('manage-save',groupedSave,'token');
+assert.equal(groupedResult.records.length,2);assert(groupedResult.replayed);
+let groupedView=await groupedService.read('manage-get');
+assert.equal(groupedView.rows.enrollments.filter(row=>row.Active&&row.AccountID==='LEARNER-DEMO').length,1);
+assert.equal(groupedView.rows.enrollments.find(row=>row.Active&&row.AccountID==='LEARNER-2')?.ClassID,'CLASS-2');
+const staleBatch=await groupedInput([['LEARNER-DEMO','CLASS-2'],['LEARNER-2','CLASS-1']]);
+await groupedCoordinator.run('manage-save',await groupedInput([['LEARNER-2','CLASS-1']]),'token');
+await assert.rejects(groupedCoordinator.run('manage-save',staleBatch,'token'),error=>error.code==='ROW_CHANGED'&&error.entryKey==='LEARNER-2');
+groupedView=await groupedService.read('manage-get');
+assert.equal(groupedView.rows.enrollments.find(row=>row.Active&&row.AccountID==='LEARNER-DEMO')?.ClassID,'CLASS-1','A stale batch changes no student');
+await assert.rejects(groupedCoordinator.run('manage-save',await groupedInput([['LEARNER-DEMO','CLASS-2'],['LEARNER-DEMO','CLASS-1']]),'token'),/one valid class change/);
+console.log('Student class batch: one coordinated write, retry replay and all-or-nothing conflict passed.');
 
 view=await service.read('manage-get');
 await assert.rejects(coordinator.run('manage-save',input({AccountID:'LEARNER-DEMO',Active:true},'teachers'),'token'),/needs an active Teacher/);

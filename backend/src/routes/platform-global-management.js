@@ -1,6 +1,7 @@
 /* M4L V102.10 - Central global curriculum, policy-aware access and protected Drive resources. */
 
 import { getAuthUser } from "../lib/auth.js";
+import { readAcademyLibraryPolicies, academyResourceDecision } from "../lib/academy-library-policy.js";
 import { batchUpdateGoogleSheetValues } from "../lib/google-sheets.js";
 import {
   GOOGLE_DRIVE_FOLDER_MIME,
@@ -246,20 +247,16 @@ export async function createPlatformGlobalDriveAccessEndpoint(request, env) {
       if (!isActivePlatformValue(task.Active)) throw clientError("Global task is inactive", 403);
     }
 
-    const authority = normalizePlatformIdentifier(user.role);
-    if (!["ADMIN", "GLOBAL_ADMIN"].includes(authority)) {
-      const policy = resolveGlobalSubjectAccessPolicy(
-        tables.GlobalSubjectAccessPolicy,
-        resource.SubjectID
-      );
-      const entitled = policy.accessModel === "FREE" || hasActiveGlobalSubjectSubscription(
-        tables.GlobalSubjectAccessMatrix,
-        user.accountid,
-        resource.SubjectID
-      );
-      if (!entitled) {
-        throw clientError("An active global-subject subscription is required for this SUBSCRIPTION subject", 403);
-      }
+    const publication = (await readAcademyLibraryPolicies(env)).get(`GLOBAL:${resource.ResourceID}`);
+    const policy = resolveGlobalSubjectAccessPolicy(tables.GlobalSubjectAccessPolicy, resource.SubjectID);
+    const decision = academyResourceDecision({
+      key: `GLOBAL:${resource.ResourceID}`, source: 'GLOBAL', sourceActive: true,
+      assigned: false, role: user.role, accountId: user.accountid, policy: publication,
+      globalAccessModel: policy.accessModel, globalSubjectId: resource.SubjectID,
+      globalMatrix: tables.GlobalSubjectAccessMatrix
+    });
+    if (!decision.open) {
+      throw clientError('This Global resource is not available to your account', 403);
     }
 
     const fileId = extractDriveFileId(resource.ResourceLink);

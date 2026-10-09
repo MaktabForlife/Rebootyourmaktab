@@ -38,6 +38,8 @@ let studentResourceViewMode = "student";
 let libraryResourceSessionReady = false;
 let libraryCatalogueResult = null;
 let selectedLibrarySourceId = "ALL";
+let selectedLibraryCategory = "ALL";
+let libraryPublicLoadSequence = 0;
 
 const PDFJS_VIEWER_PATH = "/pdf-viewer/web/viewer.html";
 const PDFJS_VIEWER_VERSION = "99.0";
@@ -304,12 +306,16 @@ async function loadResourceCategories(apiPath, body = {}, options = {}) {
   }
 
   const applyResult = result => {
+    const sequence = ++libraryPublicLoadSequence;
     libraryCatalogueResult = result || {};
     const availableSourceIds = new Set((result?.sources || []).map(source => String(source.id || "")));
     if (!availableSourceIds.has(selectedLibrarySourceId)) selectedLibrarySourceId = "ALL";
     renderLibrarySourceSelector(result || {});
     applyLibrarySourceSelection();
     libraryResourceSessionReady = true;
+    if (hasUnifiedLibraryAccount() && Array.isArray(result?.libraries)) {
+      void loadAssignedPublicBooks(result, sequence);
+    }
   };
 
   const fetchFresh = async () => {
@@ -373,6 +379,109 @@ async function loadResourceCategories(apiPath, body = {}, options = {}) {
       console.warn("The Library refresh failed; the existing cached screen was retained.", err);
     }
   }
+}
+
+async function loadAssignedPublicBooks(result, sequence) {
+  try {
+    let catalogue = { books: [] };
+    try {
+      const response = await fetch('/academy/open-library/catalogue');
+      if (response.ok) catalogue = await response.json();
+    } catch { /* Public Academy links remain available if Archive.org is unavailable. */ }
+    const metadataResponse = await fetch(`${window.M4L_CONFIG?.API_BASE || ''}/api/academy/open-library/metadata/public`);
+    if (!metadataResponse.ok) return;
+    const metadata = await metadataResponse.json();
+    if (!hasUnifiedLibraryAccount() || sequence !== libraryPublicLoadSequence) return;
+    const available = new Set(Array.isArray(result.learningAreaRefs) ? result.learningAreaRefs : []);
+    const records = new Map((Array.isArray(metadata.records) ? metadata.records : [])
+      .filter(row => typeof row.id === 'string').map(row => [row.id, row]));
+    const additions = new Map();
+    const pdf = url => /^https:\/\/archive\.org\/download\/[^?#]+\.pdf$/i.test(url || '');
+    const media = url => /^https:\/\/archive\.org\/download\/[^?#]+\.(?:mp3|m4a|ogg|mp4|webm)$/i.test(url || '');
+    for (const book of Array.isArray(catalogue.books) ? catalogue.books : []) {
+      const record = records.get(book.id);
+      if (!record || !book.id?.startsWith('EXTERNAL:INTERNET_ARCHIVE:') ||
+          !(pdf(book.pdfUrl) || book.volumes?.some(volume => pdf(volume.pdfUrl)) ||
+            ((book.resourceType === 'AUDIO' || book.resourceType === 'VIDEO') &&
+              (media(book.mediaUrl) || book.mediaFiles?.some(file => media(file.mediaUrl)))))) continue;
+      for (const ref of Array.isArray(record.learningAreaRefs) ? record.learningAreaRefs : []) {
+        if (!available.has(ref) || (!ref.startsWith('REBOOT:') && !ref.startsWith('GLOBAL:'))) continue;
+        const libraryId = ref.startsWith('REBOOT:') ? `COURSE:${ref.slice(7)}` : 'GLOBAL';
+        if (!additions.has(libraryId)) additions.set(libraryId, []);
+        if (additions.get(libraryId).some(item => item.id === book.id)) continue;
+        additions.get(libraryId).push({ id: book.id, name: record.title || book.title,
+          type: book.resourceType === 'AUDIO' || book.resourceType === 'VIDEO' ? book.resourceType :
+            record.resourceType === 'PRINTABLE' ? 'PRINTABLE' : 'EBOOK',
+          partCount: book.mediaFiles?.length > 1 ? book.mediaFiles.length : book.volumes?.length > 1 ? book.volumes.length : 0,
+          partLabel: book.mediaFiles?.length > 1 ? 'recordings' : 'volumes',
+          subject: record.subject || book.subject || 'Books', module: record.module || 'General',
+          subjectRef: record.subjectRef || '', moduleRef: record.moduleRef || '' });
+      }
+    }
+    for (const record of Array.isArray(metadata.records) ? metadata.records : []) {
+      if (record.kind !== 'LINK' || record.resourceType !== 'OTHER' || record.active === false ||
+          !record.id?.startsWith('EXTERNAL:ACADEMY_LINK:') ||
+          typeof record.linkUrl !== 'string' || !/^https:\/\//i.test(record.linkUrl)) continue;
+      for (const ref of Array.isArray(record.learningAreaRefs) ? record.learningAreaRefs : []) {
+        if (!available.has(ref) || (!ref.startsWith('REBOOT:') && !ref.startsWith('GLOBAL:'))) continue;
+        const libraryId = ref.startsWith('REBOOT:') ? `COURSE:${ref.slice(7)}` : 'GLOBAL';
+        if (!additions.has(libraryId)) additions.set(libraryId, []);
+        if (additions.get(libraryId).some(item => item.id === record.id)) continue;
+        additions.get(libraryId).push({ id: record.id, name: record.title, type: 'OTHER',
+          subject: record.subject || 'Other', module: record.module || 'General',
+          subjectRef: record.subjectRef || '', moduleRef: record.moduleRef || '',
+          linkUrl: record.linkUrl });
+      }
+    }
+    if (!additions.size) return;
+    const libraries = result.libraries.map(library => ({ ...library,
+      catalogue: { ...library.catalogue,
+        groups: [...(library.catalogue?.groups || [])] } }));
+    const sources = [...(result.sources || [])];
+    if (additions.has('GLOBAL') && !libraries.some(library => library.id === 'GLOBAL')) {
+      libraries.push({ id: 'GLOBAL', label: 'Global Subjects', scope: 'GLOBAL', available: true,
+        catalogue: { count: 0, groups: [] } });
+      sources.push({ id: 'GLOBAL', label: 'Global Subjects', scope: 'GLOBAL' });
+    }
+    for (const library of libraries) {
+      const books = additions.get(library.id);
+      if (!books?.length || library.available === false) continue;
+      const subjects = new Map();
+      for (const book of books) {
+        const key = book.subjectRef || book.subject;
+        const nativeSubject = library.catalogue.groups.flatMap(group => group.subjects || [])
+          .find(subject => String(subject.subjectname || '').toLocaleLowerCase() === book.subject.toLocaleLowerCase());
+        if (!subjects.has(key)) subjects.set(key, { subjectid: nativeSubject?.subjectid || `OPEN:${key}`, subjectname: book.subject,
+          modules: new Map() });
+        const subject = subjects.get(key);
+        const moduleKey = book.moduleRef || book.module;
+        const nativeModule = nativeSubject?.modules?.find(module =>
+          String(module.modulename || '').toLocaleLowerCase() === book.module.toLocaleLowerCase());
+        if (!subject.modules.has(moduleKey)) subject.modules.set(moduleKey, {
+          moduleid: nativeModule?.moduleid || book.moduleRef || '', modulename: book.module, resources: [] });
+        subject.modules.get(moduleKey).resources.push({ id: book.id, resourceid: book.id,
+          name: book.name, type: book.type, format: book.linkUrl ? 'LINK' :
+            book.type === 'AUDIO' ? 'AUDIO' : book.type === 'VIDEO' ? 'VIDEO' : 'PDF', publicBook: true,
+          partCount: book.partCount, partLabel: book.partLabel,
+          link: book.linkUrl || `/academy/open-library/?resource=${encodeURIComponent(book.id)}` });
+      }
+      for (const type of ['EBOOK', 'PRINTABLE', 'AUDIO', 'VIDEO', 'OTHER']) {
+        const count = books.filter(book => book.type === type).length;
+        if (!count) continue;
+        const groupedSubjects = [...subjects.values()].map(subject => ({ ...subject,
+          modules: [...subject.modules.values()].map(module => ({ ...module,
+            resources: module.resources.filter(resource => resource.type === type) }))
+            .filter(module => module.resources.length) })).filter(subject => subject.modules.length);
+        const labels = { EBOOK: ['ebooks', 'eBooks'], PRINTABLE: ['printables', 'Printables'],
+          AUDIO: ['audio', 'Audio'], VIDEO: ['video', 'Video'], OTHER: ['other', 'Other'] };
+        library.catalogue.groups.push({ key: labels[type][0], type,
+          label: labels[type][1], count, subjects: groupedSubjects });
+      }
+      library.catalogue.count = Number(library.catalogue.count || 0) + books.length;
+    }
+    libraryCatalogueResult = { ...result, libraries, sources };
+    applyLibrarySourceSelection();
+  } catch { /* Existing course resources remain available if public books cannot load. */ }
 }
 
 function renderLibrarySourceSelector(result) {
@@ -957,18 +1066,36 @@ function getModuleResources(module) {
   return [];
 }
 
+function matchesLibraryCategory(type) {
+  const resourceType = normalizeLibraryResourceType(type);
+  if (selectedLibraryCategory === "ALL") return true;
+  if (selectedLibraryCategory === "PDF") return resourceType === "EBOOK" || resourceType === "PRINTABLE";
+  if (selectedLibraryCategory === "AUDIO_VISUAL") return resourceType === "AUDIO" || resourceType === "VIDEO";
+  return resourceType === "OTHER";
+}
+
+function renderLibraryCategoryPills() {
+  const categories = [["ALL", "All"], ["PDF", "PDF"], ["AUDIO_VISUAL", "Audio Visual"], ["OTHER", "Other"]];
+  return `<div class="library-category-pills" role="group" aria-label="Filter by category">${categories.map(([id, label]) =>
+    `<button type="button" data-library-category="${id}" aria-pressed="${selectedLibraryCategory === id}">${label}</button>`
+  ).join("")}</div>`;
+}
+
 function renderStudentResourceSubjects() {
   const container = getDomElement("student-resource-subject-list");
   if (!container) return;
 
-  if (libraryResourceSubjects.length === 0) {
-    setDomHtml(container, `<p class="helper-text">No resources are available yet.</p>`);
-    return;
-  }
+  const visibleSubjects = libraryResourceSubjects.map(subject => ({
+    ...subject,
+    modules: subject.modules.map(module => ({
+      ...module,
+      resources: module.resources.filter(resource => matchesLibraryCategory(resource.type))
+    })).filter(module => module.resources.length)
+  })).filter(subject => subject.modules.length);
 
   const sourceGroups = [];
   const sourceMap = new Map();
-  libraryResourceSubjects.forEach(subject => {
+  visibleSubjects.forEach(subject => {
     const sourceId = String(subject.sourceId || "CURRENT_COURSE");
     if (!sourceMap.has(sourceId)) {
       const group = {
@@ -984,8 +1111,9 @@ function renderStudentResourceSubjects() {
   });
 
   setDomHtml(container, `
+    ${renderLibraryCategoryPills()}
     <div class="library-resource-browser" aria-label="Library resources">
-      ${sourceGroups.map(source => `
+      ${sourceGroups.length ? sourceGroups.map(source => `
         <section class="library-source-section" aria-labelledby="library-source-${escapeForAttribute(makeDomSafeId(source.id))}">
           <div class="library-source-section__header">
             <h3 id="library-source-${escapeForAttribute(makeDomSafeId(source.id))}">${escapeHtml(source.label)}</h3>
@@ -995,7 +1123,7 @@ function renderStudentResourceSubjects() {
             subject.modules.map(module => renderLibraryModuleSection(subject, module)).join("")
           )).join("")}
         </section>
-      `).join("")}
+      `).join("") : '<p class="helper-text">No resources match this category.</p>'}
     </div>
   `);
 
@@ -1191,9 +1319,9 @@ function renderLibraryResourceCard(resource) {
           style="--library-resource-icon-url: url('${escapeForAttribute(resource.icon)}')"
           aria-hidden="true"
         ></span>
-        <span class="library-resource-type-label">${escapeHtml(resource.typeLabel)}</span>
       </span>
       <span class="library-resource-title">${escapeHtml(resource.title)}</span>
+      ${resource.source?.partCount > 1 ? `<span class="library-resource-part-count">${resource.source.partCount} ${escapeHtml(resource.source.partLabel)}</span>` : ""}
     </button>
   `;
 }
@@ -1230,6 +1358,18 @@ function bindResourceUiHandlers() {
   }
 
   document.addEventListener("click", event => {
+    const categoryButton = event.target && event.target.closest
+      ? event.target.closest("[data-library-category]")
+      : null;
+
+    if (categoryButton) {
+      event.preventDefault();
+      selectedLibraryCategory = categoryButton.dataset.libraryCategory || "ALL";
+      clearInlineResourcePreviews();
+      renderStudentResourceSubjects();
+      return;
+    }
+
     const sourceButton = event.target && event.target.closest
       ? event.target.closest("[data-library-source-id]")
       : null;
@@ -1279,6 +1419,15 @@ async function openLibraryResourceById(resourceId) {
   if (!resource.link) {
     alert("This resource does not have a link yet.");
     return false;
+  }
+
+  if (resource.source?.publicBook && /^\/academy\/open-library\/\?resource=/.test(resource.link)) {
+    window.location.href = resource.link;
+    return true;
+  }
+  if (resource.source?.publicBook && /^https:\/\//i.test(resource.link)) {
+    window.open(resource.link, '_blank', 'noopener,noreferrer');
+    return true;
   }
 
   try {

@@ -6,16 +6,22 @@ import { payloadHash } from './timetable-model.js';
 export function timetableCoordinator(journal, open) {
   let tail=Promise.resolve();
   async function execute(action,input,credential) {
-    const {service,user}=await open(input.id,credential); // Fresh authority INSIDE the queue.
+    const {service,user}=await open(input.id,credential,action,input); // Fresh authority INSIDE the queue.
     const pending=await journal.get();
     if (action==='recover') {
       if (!pending) return {recovered:false};
+      if(input.kind==='resources'&&(pending.kind!=='write'||pending.inputKind!=='resources'))throw problem('A different Program change needs administrator recovery.',403);
       return finish(service,pending);
     }
     if (action==='prepare') {
       if (pending&&pending.kind!=='prepare') throw problem('An earlier save or publication needs recovery first.',409);
       if (!pending) await journal.set({kind:'prepare'});
       await service.prepare(); await journal.clear(); return {prepared:true};
+    }
+    if(action==='prepare-library'){
+      if(pending&&pending.kind!=='prepare-library')throw problem('An earlier change needs recovery first.',409);
+      if(!pending)await journal.set({kind:'prepare-library'});
+      await service.prepareLibrary();await journal.clear();return {libraryPrepared:true};
     }
     if (!['save','publish','manage-save'].includes(action)) throw problem('Unknown timetable change.');
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(input.operationId||'')) throw problem('This change needs a valid retry identifier.');
@@ -27,12 +33,13 @@ export function timetableCoordinator(journal, open) {
     const receipt=await service.receipt(input.operationId,hash);
     if (receipt) return receipt;
     const planned=await service.plan(action,input,user,hash);
-    const intent={kind:'write',operationId:input.operationId,hash,...planned};
+    const intent={kind:'write',inputKind:action==='manage-save'?input.kind:'',operationId:input.operationId,hash,...planned};
     await journal.set(intent); // Storage output gate persists intent before external I/O.
     return finish(service,intent);
   }
   async function finish(service,intent) {
     if (intent.kind==='prepare') {await service.prepare();await journal.clear();return {prepared:true,recovered:true};}
+    if(intent.kind==='prepare-library'){await service.prepareLibrary();await journal.clear();return {libraryPrepared:true,recovered:true};}
     const receipt=await service.receipt(intent.operationId,intent.hash);
     if (!receipt) await service.apply(intent.plan);
     await journal.clear();

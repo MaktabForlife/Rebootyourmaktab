@@ -6,10 +6,11 @@ import { academySubjectRepository, academySubjectService } from '../src/programs
 import { timetableCoordinator } from '../src/programs/timetable-coordination.js';
 import { timetableService } from '../src/programs/timetable-service.js';
 import { timetableRepository } from '../src/programs/timetable-repository.js';
-import { timetableProgram,timetableUser } from '../src/programs/timetable-context.js';
+import { timetableProgram,timetableUser,programLibraryUser } from '../src/programs/timetable-context.js';
 import { createRequestEnvironment } from '../src/lib/request-context.js';
 import { TIMETABLE_HEADERS } from '../src/programs/timetable-model.js';
 import { readWeeklyDraft } from '../src/programs/weekly-timetable.js';
+import { loadCentralAccountState } from '../src/routes/account-auth.js';
 import { timetableFixture } from '../../scripts/program-timetable-fixtures.mjs';
 import assert from "node:assert/strict";
 import nodeWorker from "../src/worker.js";
@@ -36,16 +37,34 @@ book(platformId, {
   PlatformAuditLog: [PLATFORM_SHEET_HEADERS.PlatformAuditLog]
 });
 book(targetId, { Setup: [["Development only"]] });
-book(legacyId, { SubjectList:[['SubjectID','SubjectName','Active'],['REBOOT-AR','Arabic',true],['REBOOT-TF','Tafseer',true],['REBOOT-DUP','  ARABIC  ',true],['REBOOT-OLD','Old subject',false]], StudentRecords: [["Legacy records must remain unchanged"]] });
+book(legacyId, { SubjectList:[['SubjectID','SubjectName','Active'],['REBOOT-AR','Arabic',true],['REBOOT-TF','Tafseer',true],['REBOOT-DUP','  ARABIC  ',true],['REBOOT-OLD','Old subject',false]], StudentRecords: [["Legacy records must remain unchanged"]], SystemConfig:[['Key','Value','UpdatedAt','UpdatedBy','UpdatedByName'],['ProgramLibraryDriveFolderId','library-root','','',''],['ProgramLibraryPreviousFolderIds','','','','']] });
+const rebootResourceHeaders=['ResourceID','ResourceName','SubjectID','Subject','ModuleID','Module','TaskID','ClassGroup','Format','Description','Link','Active','CreatedDate'];
+const r2Base='https://pub-d0f00cecdced454598b794da754a3939.r2.dev/';
+for(const [title,rows] of Object.entries({
+ eBooks:[['REBOOT-BOOK','Reboot book','REBOOT-AR','Arabic','MOD-1','Reading','','ALL','PDF','','/api/library/drive/file/library-pdf',true,''],
+  ['QURAN-BOOK','Quran Part 1','REBOOT-AR','Quran','MOD-1','Reading','','ALL','PDF','',`${r2Base}Resources/ebooks/Quran%20Part%201.pdf`,true,'']],
+ Printable:[['REBOOT-PRINT','Reboot printable','REBOOT-AR','Arabic','MOD-1','Reading','','ALL','PDF','','/api/library/drive/file/library-pdf',true,''],
+  ['R2-PRINT','R2 printable','REBOOT-AR','Arabic','MOD-1','Reading','','ALL','PDF','',`${r2Base}Resources/printables/Names.pdf`,true,'']],
+ Audio:[['R2-AUDIO','Surah audio','REBOOT-AR','Quran','MOD-1','Reading','','ALL','MP3','',`${r2Base}Resources/audio/Surah.mp3`,true,''],
+  ['MISSING-AUDIO','Missing audio','REBOOT-AR','Quran','MOD-1','Reading','','ALL','MP3','','',true,'']],
+ Video:[['R2-VIDEO','Quran lesson','REBOOT-AR','Quran','MOD-1','Reading','','ALL','MP4','',`${r2Base}Resources/video/Quran/Lesson%201.mp4`,true,'']],
+ OtherResource:[['R2-OTHER','Quran flashcard','REBOOT-AR','Quran','MOD-1','Reading','','ALL','PDF','',`${r2Base}Resources/other/Flashcard.pdf`,true,'']]
+}))books.get(legacyId).push({title,sheetId:20+books.get(legacyId).length,rows:[rebootResourceHeaders,...rows]});
 books.get(platformId).find(sheet => sheet.title === "UserAccounts").rows.push(["ACCOUNT2", "Local Admin", "LOCAL-LINK", true, hash, true]);
 books.get(platformId).find(sheet => sheet.title === "UserCourseAccess").rows.push(["ACCESS2", "ACCOUNT2", "REBOOT", "ADMIN", true, true, "", "", "", "", "", "", "", "LOCAL-ADMIN"]);
 const table = (id, title) => books.get(id).find(sheet => sheet.title === title).rows;
-const originalLegacy = structuredClone(books.get(legacyId));
+let originalLegacy = structuredClone(books.get(legacyId));
 const originalRegistryRow = structuredClone(table(platformId, "CourseRegistry")[1]);
 const keyPair = await crypto.subtle.generateKey({ name: "RSASSA-PKCS1-v1_5", modulusLength: 2048, publicExponent: new Uint8Array([1,0,1]), hash: "SHA-256" }, true, ["sign", "verify"]);
 const privateBytes = new Uint8Array(await crypto.subtle.exportKey("pkcs8", keyPair.privateKey));
-const env = { PLATFORM_SPREADSHEET_ID: platformId, GOOGLE_SPREADSHEET_ID: legacyId, SESSION_SECRET: "program-session-secret",
+const env = { PLATFORM_SPREADSHEET_ID: platformId, GOOGLE_SPREADSHEET_ID: legacyId, SESSION_SECRET: "program-session-secret", M4L_GOOGLE_DRIVE_ROOT_FOLDER_ID:'library-root',
   GOOGLE_SERVICE_ACCOUNT_JSON: JSON.stringify({ type:"service_account", client_email:"program-test@example.iam.gserviceaccount.com", private_key_id:"program-test-key", private_key:`-----BEGIN PRIVATE KEY-----\n${Buffer.from(privateBytes).toString("base64")}\n-----END PRIVATE KEY-----` }) };
+const r2Keys=new Set(['Resources/ebooks/Quran Part 1.pdf','Resources/printables/Names.pdf',
+ 'Resources/audio/Surah.mp3','Resources/video/Quran/Lesson 1.mp4','Resources/other/Flashcard.pdf']);
+env.MEDIA_BUCKET={
+ head:async key=>r2Keys.has(key)?{key,etag:`etag-${key}`,size:8,httpMetadata:{}}:null,
+ get:async key=>r2Keys.has(key)?{key,etag:`etag-${key}`,size:8,httpMetadata:{},body:new Response('12345678').body}:null
+};
 const token = await createSessionToken({ type:"account", accountid:"ACCOUNT1", uniqueid:"ADMIN-LINK", username:"Platform Admin", role:"GLOBAL_ADMIN", scope:"PLATFORM", authrow:2, credentialHash:hash }, env);
 const centralAdminToken = await createSessionToken({ type:"account", accountid:"ACCOUNT2", uniqueid:"LOCAL-LINK", role:"ADMIN", scope:"COURSE", authrow:3, credentialHash:hash, accessrow:2, accessid:"ACCESS2", courseid:"REBOOT", courserecordid:"LOCAL-ADMIN" }, env);
 const legacyToken = await createSessionToken({ type:"admin", role:"ADMIN" }, env);
@@ -59,7 +78,25 @@ const originalFetch = globalThis.fetch;
 globalThis.fetch = async (url, init = {}) => {
   const parsed = new URL(url);
   const result = value => new Response(JSON.stringify(value), { status:200 });
+  if(parsed.hostname==='script.google.com'){
+    const body=JSON.parse(init.body);
+    const payload=JSON.parse(Buffer.from(body.data.payload,'base64url').toString());
+    assert.equal(payload.folderId,table(legacyId,'SystemConfig')[1][1],'The signed Drive operation uses the global Resources folder');
+    if(body.action==='startProgramLibraryUpload')return result({success:true,sessionUrl:'https://www.googleapis.com/upload/drive/v3/files?upload_id=teacher-test'});
+    throw new Error(`Unexpected Apps Script action ${body.action}`);
+  }
   if (parsed.hostname === "oauth2.googleapis.com") return result({ access_token:"program-test-access", expires_in:3600 });
+  if (parsed.hostname === 'www.googleapis.com' && parsed.pathname.startsWith('/drive/v3/files')) {
+    const files={
+      'library-root':{id:'library-root',name:'Protected root',mimeType:'application/vnd.google-apps.folder',parents:[]},
+      'library-pdf':{id:'library-pdf',name:'Lesson.pdf',mimeType:'application/pdf',parents:['library-root'],capabilities:{canDownload:true}},
+      'library-cover':{id:'library-cover',name:'Cover.png',mimeType:'image/png',parents:['library-root'],capabilities:{canDownload:true}},
+      'outside-folder':{id:'outside-folder',name:'Outside',mimeType:'application/vnd.google-apps.folder',parents:[]}
+    };
+    if(parsed.pathname==='/drive/v3/files')return result({files:[files['library-pdf']],nextPageToken:''});
+    const file=files[decodeURIComponent(parsed.pathname.split('/').at(-1))];
+    return file?result(file):new Response(JSON.stringify({error:{message:'Missing file'}}),{status:404});
+  }
   assert.equal(parsed.hostname, "sheets.googleapis.com");
   const match = /^\/v4\/spreadsheets\/([^/:]+)(.*)$/.exec(parsed.pathname);
   const [, id, suffix] = match;
@@ -76,6 +113,15 @@ globalThis.fetch = async (url, init = {}) => {
   if (suffix === "") return result({ sheets:sheets.map(({ sheetId, title, tables }) => ({ properties:{ sheetId,title },tables })) });
   if (suffix.startsWith("/values/")) return result({ values:rangeValues(decodeURIComponent(suffix.slice(8))) });
   if (suffix === "/values:batchGet") return result({ valueRanges:parsed.searchParams.getAll("ranges").map(range => ({ values:rangeValues(range) })) });
+  if (suffix === "/values:batchUpdate") {
+    for(const update of JSON.parse(init.body).data){
+      const matched=/^SystemConfig!B(\d+):E\1$/.exec(update.range);
+      assert(matched,'Only SystemConfig values may change here');
+      const row=table(legacyId,'SystemConfig')[Number(matched[1])-1];
+      update.values[0].forEach((value,index)=>{row[index+1]=value;});
+    }
+    writes++;return result({totalUpdatedRows:1});
+  }
   assert.equal(suffix, ":batchUpdate");
   writes++;
   if (failWrite) { failWrite = false; return new Response(JSON.stringify({ error:{ message:"Injected write failure" } }), { status:500 }); }
@@ -126,10 +172,11 @@ const input={id:f.program.id,name:'Aalimiya',spreadsheetId:targetId,durationYear
 const journals=new Map(),coordinators=new Map(),names=[];
 const binding={getByName(name){names.push(name);if(!coordinators.has(name)){
  const journal={get:async()=>journals.get(name)||null,set:async p=>journals.set(name,structuredClone(p)),clear:async()=>journals.delete(name)};
- coordinators.set(name,timetableCoordinator(journal,async(id,authorization)=>{
+ coordinators.set(name,timetableCoordinator(journal,async(id,authorization,action,body)=>{
   const fresh=createRequestEnvironment(env),request=new Request('https://test.invalid',{headers:{Authorization:authorization}});
   if(name.endsWith(':user-profiles'))return {user:await profileUser(request,fresh),service:profileService(profileRepository(fresh))};
-  const user=await timetableUser(request,fresh);
+  const libraryWrite=(action==='manage-save'||action==='recover')&&body.kind==='resources';
+  const user=libraryWrite?await programLibraryUser(request,fresh,id):await timetableUser(request,fresh);
   if(name.endsWith(':academy-subjects'))return {user,service:academySubjectService(academySubjectRepository(fresh))};
   const program=await timetableProgram(fresh,id);return {user,service:timetableService(timetableRepository(fresh,program),program)};
  }));}
@@ -138,6 +185,18 @@ const binding={getByName(name){names.push(name);if(!coordinators.has(name)){
 async function tt(action,body={},auth=token,expected=200,method='POST'){
  const response=await worker.fetch(new Request(`https://worker.test/api/admin/platform/program-timetable/${action}`,{method,headers:{'Content-Type':'application/json',...(auth?{Authorization:`Bearer ${auth}`}:{})},...(method==='POST'?{body:typeof body==='string'?body:JSON.stringify({id:input.id,...body})}:{})}),env);
  const result=await response.json();assert.equal(response.status,expected,JSON.stringify(result));assert.equal(response.headers.get('Cache-Control'),'no-store');return result;
+}
+async function library(action,body={},auth=token,expected=200,method='POST'){
+ const response=await worker.fetch(new Request(`https://worker.test/api/admin/platform/program-library/${action}`,{method,headers:{'Content-Type':'application/json',...(auth?{Authorization:`Bearer ${auth}`}:{})},...(method==='POST'?{body:JSON.stringify({id:input.id,...body})}:{})}),env);
+ const result=await response.json();assert.equal(response.status,expected,JSON.stringify(result));assert.equal(response.headers.get('Cache-Control'),'no-store');return result;
+}
+async function viewer(action,body={},auth=token,expected=200){
+ const response=await worker.fetch(new Request(`https://worker.test/api/program-library/${action}`,{method:'POST',headers:{'Content-Type':'application/json',...(auth?{Authorization:`Bearer ${auth}`}:{})},body:JSON.stringify({id:input.id,...body})}),env);
+ const result=await response.json();assert.equal(response.status,expected,JSON.stringify(result));assert.equal(response.headers.get('Cache-Control'),'no-store');return result;
+}
+async function academyLibrary(action,body={},auth=token,expected=200){
+ const response=await worker.fetch(new Request(`https://worker.test/api/academy/library/${action}`,{method:'POST',headers:{'Content-Type':'application/json',...(auth?{Authorization:`Bearer ${auth}`}:{})},body:JSON.stringify(body)}),env);
+ const result=await response.json();assert.equal(response.status,expected,JSON.stringify(result));return result;
 }
 async function academy(action,body={},auth=token,expected=200){
  const response=await worker.fetch(new Request(`https://worker.test/api/admin/platform/academy-subjects/${action}`,{method:'POST',headers:{'Content-Type':'application/json',...(auth?{Authorization:`Bearer ${auth}`}:{})},body:JSON.stringify(body)}),env);
@@ -149,9 +208,13 @@ async function profiles(action,body={},auth=token,expected=200){
  const result=await response.json();assert.equal(response.status,expected,JSON.stringify(result));assert.equal(response.headers.get('Cache-Control'),'no-store');return result;
 }
 try{
- for(const action of ['get','prepare','save','validate','preview','publish','published','history','recover','manage-get','manage-save']){
+ for(const action of ['get','prepare','prepare-library','save','validate','preview','publish','published','history','recover','manage-get','manage-save']){
   for(const auth of [legacyToken,studentToken,centralAdminToken])await tt(action,{},auth,403);
   await tt(action,{},'',401);
+ }
+ for(const action of ['browse','access']){
+  for(const auth of [legacyToken,studentToken,centralAdminToken])await library(action,{},auth,403);
+  await library(action,{},'',401);
  }
  assert.equal(writes,0);
  await tt('get',{},token,405,'GET');await tt('get','bad',token,400);await tt('save','x'.repeat(65537),token,413);await tt('get',{id:'REBOOT'},token,400);
@@ -161,9 +224,156 @@ try{
  if(!useRuntime)await tt('prepare',{},token,503);env.PROGRAM_TIMETABLE_COORDINATOR=binding;
  loseResponse=true;await tt('prepare',{},token,503);if(!useRuntime)assert.equal(journals.size,1);
  await tt('recover');assert.equal(journals.size,0);const before=writes;await tt('prepare');assert.equal(writes,before,'Preparation is idempotent');
+ // Existing prepared Programs can add the two V105.4 tables without rewriting curriculum.
+ books.set(targetId,books.get(targetId).filter(sheet=>!['ProgramTasks','ProgramResources'].includes(sheet.title)));
+ let libraryView=await tt('manage-get');assert.equal(libraryView.prepared,true);assert.equal(libraryView.libraryPrepared,false);
+ await tt('prepare-library');libraryView=await tt('manage-get');assert.equal(libraryView.libraryPrepared,true);
+ const libraryWrites=writes;await tt('prepare-library');assert.equal(writes,libraryWrites,'Library preparation is idempotent');
  for(const [name,rows] of Object.entries({ProgramSubjects:[['PS-TAFSEER',input.id,'TAFSEER',true]],ProgramModules:[['MOD-DEMO','PS-TAFSEER','','Demo module',1,true]],ProgramClasses:[['CLASS-1',input.id,'Year 1','2026',true],['CLASS-2',input.id,'Year 2','2026',true]]}))table(targetId,name).push(...rows);
- table(platformId,'UserAccounts').push(['TEACHER-1','Demo Teacher','TEACHER-LINK',false,'',true]);
- table(platformId,'UserCourseAccess').push(['ACCESS-TEACHER','TEACHER-1',input.id,'TEACHER',true]);
+ const libraryFiles=await library('browse');assert.equal(libraryFiles.items[0].name,'Lesson.pdf');assert(libraryFiles.items[0].supportedTypes.includes('EBOOK'));
+ await library('browse',{folderId:'outside-folder'},token,400);
+ table(targetId,'ProgramResources')[0]=table(targetId,'ProgramResources')[0].slice(0,11);
+ const legacyLibrary=await tt('manage-get');assert.equal(legacyLibrary.libraryPrepared,true);
+ await tt('manage-save',{kind:'resources',creating:true,revision:legacyLibrary.revision,baseRowRevision:legacyLibrary.emptyRowRevision,operationId:crypto.randomUUID(),record:{ResourceID:'RES-BOOK',ProgramSubjectID:'PS-TAFSEER',LevelID:'',ProgramModuleID:'MOD-DEMO',TaskID:'',ResourceType:'EBOOK',Name:'Book',Description:'Example',DriveFileID:'library-pdf',Active:true,Author:'A. Author',Publisher:'Publisher',ISBN:'978-1-23456-789-0',PublicationYear:'2025',CoverDriveFileID:'library-cover'}});
+ const resourceTable=table(targetId,'ProgramResources');
+ assert.deepEqual(resourceTable[0],TIMETABLE_HEADERS.ProgramResources,'The first metadata save upgrades legacy Library headers without replacing resource rows');
+ const metadata=Object.fromEntries(resourceTable[0].map((name,index)=>[name,resourceTable[1][index]]));
+ assert.equal(metadata.Author,'A. Author');assert.equal(metadata.CoverDriveFileID,'library-cover');
+ const cover=await library('cover',{resourceId:'RES-BOOK'});assert.match(cover.url,/\/api\/library\/drive\/file\/library-cover\?access=/);
+ const visibleLibrary=await viewer('catalogue');
+ assert.deepEqual(visibleLibrary.resources.map(row=>row.id),['RES-BOOK']);
+ assert.equal(visibleLibrary.resources[0].author,'A. Author');
+ assert(!JSON.stringify(visibleLibrary).includes('library-pdf'),'Read-only catalogue must not disclose Drive IDs');
+ const academyTables=['GlobalSubjectAccessMatrix','GlobalSubjectAccessPolicy','GlobalSubjectRuns','GlobalModuleList','GlobalTaskList','GlobalResources','PlatformConfig','AcademyLibraryAccess'];
+ for(const title of academyTables)books.get(platformId).push({title,sheetId:30+academyTables.indexOf(title),rows:[PLATFORM_SHEET_HEADERS[title]]});
+ table(platformId,'AcademyLibraryAccess')[0]=['ResourceKey','Status','AccessState','EntitlementSource','SubscriptionScope'];
+ const combinedLibrary=await academyLibrary('catalogue');
+ assert(combinedLibrary.resources.some(row=>row.id===`PROGRAM:${input.id}:RES-BOOK`&&row.forYou));
+ assert(combinedLibrary.resources.some(row=>row.id==='COURSE:REBOOT:EBOOK:REBOOT-BOOK'&&row.type==='EBOOK'&&row.forYou));
+ assert(combinedLibrary.resources.some(row=>row.id==='COURSE:REBOOT:PRINTABLE:REBOOT-PRINT'&&row.type==='PRINTABLE'&&row.forYou));
+ for(const [type,id] of [['EBOOK','QURAN-BOOK'],['PRINTABLE','R2-PRINT'],['AUDIO','R2-AUDIO'],
+  ['VIDEO','R2-VIDEO'],['OTHER','R2-OTHER']]){
+  assert(combinedLibrary.resources.some(row=>row.id===`COURSE:REBOOT:${type}:${id}`&&row.forYou),`${type} R2 media must be listed`);
+ }
+ assert(!combinedLibrary.resources.some(row=>row.id==='COURSE:REBOOT:AUDIO:MISSING-AUDIO'),'An audio row without a file remains unavailable');
+ assert(!JSON.stringify(combinedLibrary).includes('library-pdf'),'Academy catalogue must not disclose Drive IDs');
+ assert(!JSON.stringify(combinedLibrary).includes('r2.dev'),'Academy catalogue must not disclose public R2 links');
+ assert.match((await academyLibrary('access',{resourceId:'COURSE:REBOOT:EBOOK:REBOOT-BOOK'})).url,/library-pdf/);
+ const r2Access=await academyLibrary('access',{resourceId:'COURSE:REBOOT:EBOOK:QURAN-BOOK'});
+ assert.match(r2Access.url,/\/api\/academy\/library\/media\?access=/);
+ const r2Stream=await worker.fetch(new Request(r2Access.url),env);
+ assert.equal(r2Stream.status,200);assert.equal(r2Stream.headers.get('content-type'),'application/pdf');
+ assert.equal(await r2Stream.text(),'12345678');
+ for(const [type,id,mimeType] of [['PRINTABLE','R2-PRINT','application/pdf'],
+  ['AUDIO','R2-AUDIO','audio/mpeg'],['VIDEO','R2-VIDEO','video/mp4'],['OTHER','R2-OTHER','application/pdf']]){
+  const access=await academyLibrary('access',{resourceId:`COURSE:REBOOT:${type}:${id}`});
+  assert.equal(access.mimeType,mimeType,`${type} R2 media must open with the correct type`);
+ }
+ assert.equal((await worker.fetch(new Request('https://worker.test/api/academy/library/media'),env)).status,401);
+ assert.match((await academyLibrary('access',{resourceId:`PROGRAM:${input.id}:RES-BOOK`})).url,/\/api\/library\/drive\/file\/library-pdf\?access=/);
+ await academyLibrary('access',{resourceId:`PROGRAM:${input.id}:RES-UNKNOWN`},token,403);
+ const outsiderAccountRow=table(platformId,'UserAccounts').length+1;
+ const outsiderAccessRow=table(platformId,'UserCourseAccess').length+1;
+ table(platformId,'UserAccounts').push(['LEARNER-OUTSIDE','Unassigned Learner','OUTSIDE-LINK',true,hash,true]);
+ table(platformId,'UserCourseAccess').push(['ACCESS-OUTSIDE','LEARNER-OUTSIDE','REBOOT','STUDENT',true,false,'','','','','','','','REBOOT-STUDENT']);
+ const outsiderToken=await createSessionToken({type:'account',accountid:'LEARNER-OUTSIDE',uniqueid:'OUTSIDE-LINK',role:'STUDENT',scope:'COURSE',courseid:'REBOOT',authrow:outsiderAccountRow,accessrow:outsiderAccessRow,accessid:'ACCESS-OUTSIDE',courserecordid:'REBOOT-STUDENT',credentialHash:hash},env);
+ const quranPublication=['COURSE:REBOOT:EBOOK:QURAN-BOOK','ACTIVE','ACADEMY_LEARNERS','',''];
+ table(platformId,'AcademyLibraryAccess').push(quranPublication);
+ assert((await academyLibrary('catalogue',{},outsiderToken)).resources.some(row=>row.id===quranPublication[0]&&!row.forYou));
+ assert.match((await academyLibrary('access',{resourceId:quranPublication[0]},outsiderToken)).url,/\/api\/academy\/library\/media\?access=/);
+ quranPublication[2]='ASSIGNED';
+ assert(!(await academyLibrary('catalogue',{},outsiderToken)).resources.some(row=>row.id===quranPublication[0]));
+ await academyLibrary('access',{resourceId:quranPublication[0]},outsiderToken,403);
+ quranPublication[1]='ARCHIVED';quranPublication[2]='ACADEMY_LEARNERS';
+ await academyLibrary('access',{resourceId:quranPublication[0]},outsiderToken,403);
+ const publication=['PROGRAM:'+input.id+':RES-BOOK','ACTIVE','ACADEMY_LEARNERS','',''];
+ table(platformId,'AcademyLibraryAccess').push(publication);
+ assert((await academyLibrary('catalogue',{},outsiderToken)).resources.some(row=>row.id===publication[0]&&!row.forYou&&!row.locked));
+ assert.match((await academyLibrary('access',{resourceId:publication[0]},outsiderToken)).url,/library-pdf/);
+ assert.deepEqual((await viewer('catalogue',{},outsiderToken)).resources.map(row=>row.id),['RES-BOOK']);
+ resourceTable[1][10]=false;await academyLibrary('access',{resourceId:publication[0]},outsiderToken,403);resourceTable[1][10]=true;
+ table(platformId,'UserAccounts')[outsiderAccountRow-1][5]=false;
+ await academyLibrary('access',{resourceId:publication[0]},outsiderToken,401);
+ table(platformId,'UserAccounts')[outsiderAccountRow-1][5]=true;
+ publication[2]='ASSIGNED';
+ assert(!(await academyLibrary('catalogue',{},outsiderToken)).resources.some(row=>row.id===publication[0]));
+ await academyLibrary('access',{resourceId:publication[0]},outsiderToken,403);
+ publication[2]='STAFF_ONLY';await academyLibrary('access',{resourceId:publication[0]},outsiderToken,403);
+ publication[2]='SUBSCRIPTION';publication[3]='GLOBAL_SUBJECT';publication[4]='TAFSEER';
+ assert((await academyLibrary('catalogue',{},outsiderToken)).resources.some(row=>row.id===publication[0]&&row.locked));
+ await academyLibrary('access',{resourceId:publication[0]},outsiderToken,403);
+ table(platformId,'GlobalSubjectAccessMatrix')[0]=['AccountID','TAFSEER'];
+ table(platformId,'GlobalSubjectAccessMatrix').push(['LEARNER-OUTSIDE',true]);
+ assert((await academyLibrary('catalogue',{},outsiderToken)).resources.some(row=>row.id===publication[0]&&row.forYou&&!row.locked));
+ assert.match((await academyLibrary('access',{resourceId:publication[0]},outsiderToken)).url,/library-pdf/);
+ table(platformId,'GlobalSubjectAccessMatrix')[1][1]=false;
+ await academyLibrary('access',{resourceId:publication[0]},outsiderToken,403);
+ publication[1]='ARCHIVED';
+ assert(!(await academyLibrary('catalogue',{},outsiderToken)).resources.some(row=>row.id===publication[0]));
+ await academyLibrary('access',{resourceId:publication[0]},outsiderToken,403);
+ table(platformId,'UserAccounts').pop();table(platformId,'UserCourseAccess').pop();
+ books.set(platformId,books.get(platformId).filter(sheet=>!academyTables.includes(sheet.title)));
+ assert.match((await viewer('cover',{resourceId:'RES-BOOK'})).url,/\/api\/library\/drive\/file\/library-cover\?access=/);
+ assert.deepEqual((await viewer('covers',{resourceIds:['RES-BOOK','RES-UNKNOWN']})).covers.map(row=>row.id),['RES-BOOK']);
+ assert.match((await viewer('access',{resourceId:'RES-BOOK'})).url,/\/api\/library\/drive\/file\/library-pdf\?access=/);
+ await viewer('catalogue',{},studentToken,401);
+ await viewer('access',{resourceId:'RES-UNKNOWN'},token,404);
+ await tt('manage-get');
+ table(targetId,'ProgramResources').push(['RES-PREVIEW',input.id,'PS-TAFSEER','','MOD-DEMO','','EBOOK','Lesson','', 'library-pdf',true]);
+ const preview=await library('access',{resourceId:'RES-PREVIEW'});assert.match(preview.url,/\/api\/library\/drive\/file\/library-pdf\?access=/);
+ table(targetId,'ProgramResources').pop();
+ await library('access',{resourceId:'RES-PREVIEW'},token,404);
+ table(platformId,'UserAccounts').push(['TEACHER-1','Demo Teacher','TEACHER-LINK',true,hash,true]);
+ table(platformId,'UserCourseAccess').push(['ACCESS-TEACHER','TEACHER-1',input.id,'TEACHER',true,true,'','','','','','','','TEACHER-REC']);
+ const teacherToken=await createSessionToken({type:'account',accountid:'TEACHER-1',uniqueid:'TEACHER-LINK',role:'TEACHER',scope:'COURSE',courseid:input.id,authrow:4,accessrow:3,accessid:'ACCESS-TEACHER',courserecordid:'TEACHER-REC',credentialHash:hash},env);
+ const teacherLibrary=await library('manage',{},teacherToken);assert.equal(teacherLibrary.canManageFolder,false);
+ await library('folder-set',{folder:'outside-folder'},teacherToken,403);
+ await library('prepare-library',{},teacherToken,403);
+ await library('save',{kind:'resources',creating:false,baseRowRevision:teacherLibrary.rowRevisions.resources['RES-BOOK'],revision:teacherLibrary.revision,operationId:crypto.randomUUID(),record:{...teacherLibrary.rows.resources.find(r=>r.ResourceID==='RES-BOOK'),Description:'Updated by teacher'}},teacherToken);
+ assert.equal((await library('manage')).rows.resources.find(r=>r.ResourceID==='RES-BOOK').Description,'Updated by teacher');
+ table(platformId,'UserAccounts').push(['STUDENT-1','Enrolled Student','STUDENT-LINK',true,hash,true]);
+ table(platformId,'UserCourseAccess').push(['ACCESS-STUDENT','STUDENT-1',input.id,'STUDENT',true,true,'','','','','','','','STUDENT-REC']);
+ table(targetId,'ProgramEnrollments').push(['ENR-STUDENT',input.id,'CLASS-1','STUDENT-1','','',true]);
+ assert((await tt('get')).catalog.enrollments.some(row=>row.id==='ENR-STUDENT'&&row.active));
+ table(platformId,'UserCourseAccess').at(-1)[4]=false;
+ assert(!(await tt('get')).catalog.enrollments.find(row=>row.id==='ENR-STUDENT').active,'Removing the shared Student role removes the learner from the active timetable roster');
+ table(platformId,'UserCourseAccess').at(-1)[4]=true;
+ const temporarySheets=[
+  {title:'PlatformConfig',sheetId:900,rows:[PLATFORM_SHEET_HEADERS.PlatformConfig,['PlatformSchemaVersion','102.0.12','','','']]},
+  {title:'GlobalSubjectAccessMatrix',sheetId:901,rows:[PLATFORM_SHEET_HEADERS.GlobalSubjectAccessMatrix]},
+  {title:'GlobalSubjectAccessPolicy',sheetId:902,rows:[PLATFORM_SHEET_HEADERS.GlobalSubjectAccessPolicy]}
+ ];
+ books.get(platformId).push(...temporarySheets);
+ const studentState=await loadCentralAccountState(env,'STUDENT-LINK');
+ assert(studentState.contexts.some(row=>row.courseId===input.id&&row.role==='STUDENT'&&row.programLibrary));
+ books.set(platformId,books.get(platformId).filter(sheet=>!temporarySheets.includes(sheet)));
+ const programStudentToken=await createSessionToken({type:'account',accountid:'STUDENT-1',uniqueid:'STUDENT-LINK',role:'STUDENT',scope:'COURSE',courseid:input.id,authrow:5,credentialHash:hash},env);
+ assert((await viewer('available',{},programStudentToken)).programs.some(row=>row.id===input.id));
+ const studentCatalogue=await viewer('catalogue',{},programStudentToken);
+ assert.equal(studentCatalogue.canManage,false);
+ assert.deepEqual(studentCatalogue.resources.map(row=>row.id),['RES-BOOK']);
+ assert.match((await viewer('access',{resourceId:'RES-BOOK'},programStudentToken)).url,/library-pdf/);
+ await library('manage',{},programStudentToken,403);
+ table(targetId,'ProgramResources')[1][10]=false;
+ assert.deepEqual((await viewer('catalogue',{},programStudentToken)).resources,[]);
+ await viewer('access',{resourceId:'RES-BOOK'},programStudentToken,404);
+ table(targetId,'ProgramResources')[1][10]=true;
+ table(targetId,'ProgramEnrollments')[1][6]=false;
+ assert.equal((await viewer('catalogue',{},programStudentToken)).role,'STUDENT','Library access does not require a current class enrollment');
+ table(platformId,'UserCourseAccess').at(-1)[4]=false;
+ await viewer('catalogue',{},programStudentToken,401);
+ table(targetId,'ProgramEnrollments').pop();
+ table(platformId,'UserCourseAccess').pop();
+ table(platformId,'UserAccounts').pop();
+ env.APPS_SCRIPT_URL='https://script.google.com/macros/s/test/exec';env.M4L_LIBRARY_BRIDGE_SECRET='program-library-test-secret-long-enough';
+ assert((await library('upload-start',{fileName:'Teacher.pdf',mimeType:'application/pdf',size:42,resourceType:'EBOOK'},teacherToken)).ticket);
+ await library('copy',{file:'https://drive.google.com/file/d/teacher-file-123/view',resourceType:'EBOOK'},teacherToken,404);
+ const destinationChange=await library('folder-set',{folder:'outside-folder'});
+ assert.equal(destinationChange.folder.id,'outside-folder');
+ assert.equal(table(legacyId,'SystemConfig')[1][1],'outside-folder');
+ assert.equal(table(legacyId,'SystemConfig')[2][1],'library-root','The previous Resources folder remains available for existing resources');
+ assert.match((await library('access',{resourceId:'RES-BOOK'})).url,/library-pdf/);
+ originalLegacy=structuredClone(books.get(legacyId));
  loaded=await tt('get');assert.equal(loaded.prepared,true);assert.equal(loaded.catalog.modules.length,1);assert.equal(loaded.catalog.teachers.length,1);
  assert((await tt('preview',{draft:f.draft})).valid);
  const noSharedZoom=structuredClone(f.draft);noSharedZoom.rules[0].zoomLink='';assert.equal((await tt('preview',{draft:noSharedZoom})).valid,false);
@@ -200,8 +410,10 @@ try{
  assert(!JSON.stringify(management.accounts).includes('PINHash'));
  const edit=(kind,record,creating=true)=>({kind,record,creating,revision:management.revision,referenceRevision:management.referenceRevision,operationId:crypto.randomUUID()});
  const saveRow=async(kind,record,creating=true)=>{const result=await tt('manage-save',edit(kind,record,creating));management=await tt('manage-get');assert(Object.values(management.rowRevisions[kind]).includes(result.rowRevision),'Save acknowledgement includes the committed row revision');return result;};
- await saveRow('classes',{ClassID:'CLS-TEST',Name:'Evening class',AcademicYear:'2026',ZoomLink:'https://zoom.us/j/777?pwd=class',Active:true});
+ const classTeacherId=management.eligibleTeacherIds[0];
+ await saveRow('classes',{ClassID:'CLS-TEST',Name:'Evening class',AcademicYear:'2026',TeacherAccountID:classTeacherId,ZoomLink:'https://zoom.us/j/777?pwd=class',Active:true});
  assert.equal((await tt('get')).catalog.classes.find(r=>r.id==='CLS-TEST').zoomLink,'https://zoom.us/j/777?pwd=class');
+ assert.equal((await tt('get')).catalog.classes.find(r=>r.id==='CLS-TEST').classTeacherId,classTeacherId);
  await tt('manage-save',edit('classes',{ClassID:'CLS-UNSAFE',Name:'Invalid link',ZoomLink:'javascript:alert(1)',Active:true}),token,400);
  assert((await tt('get')).catalog.classes.some(r=>r.id==='CLS-TEST'));
  const stale=edit('classes',{ClassID:'CLS-STALE',Name:'Stale',Active:true});
@@ -238,9 +450,15 @@ try{
  assert(!(await tt('get')).catalog.teachers.some(r=>r.id==='ACCOUNT2'),'Explicit assignment cannot override a revoked program role');
  table(platformId,'UserCourseAccess').at(-1)[4]=true;
  assert.deepEqual(table(platformId,'UserCourseAccess'),centralAccessBefore);
- await saveRow('enrollments',{EnrollmentID:'ENR-TEST',ClassID:'CLS-TEST',AccountID:'ACCOUNT2',StartDate:'2026-09-01',EndDate:'',Active:true});
+ table(platformId,'UserCourseAccess').push(['ACCESS-PROGRAM-STUDENT-2','ACCOUNT2',input.id,'STUDENT',true],['ACCESS-PROGRAM-STUDENT-1','ACCOUNT1',input.id,'STUDENT',true]);
+ const undatedMembership=await saveRow('enrollments',{EnrollmentID:'ENR-TEST',ClassID:'CLS-TEST',AccountID:'ACCOUNT2',Active:true});
+ assert.equal(undatedMembership.record.StartDate,'');assert.equal(undatedMembership.record.EndDate,'');
+ const endOnlyMembership=await saveRow('enrollments',{EnrollmentID:'ENR-END-ONLY',ClassID:'CLS-TEST',AccountID:'ACCOUNT1',EndDate:'2026-09-30',Active:true});
+ assert.equal(endOnlyMembership.record.StartDate,'');assert.equal(endOnlyMembership.record.EndDate,'2026-09-30');
  await tt('manage-save',edit('enrollments',{EnrollmentID:'ENR-OVERLAP',ClassID:'CLS-TEST',AccountID:'ACCOUNT2',StartDate:'2026-09-24',EndDate:'',Active:true}),token,400);
  await tt('manage-save',edit('enrollments',{EnrollmentID:'ENR-BAD-DATE',ClassID:'CLS-TEST',AccountID:'ACCOUNT2',StartDate:'2026-02-30',EndDate:'',Active:true}),token,400);
+ table(platformId,'UserCourseAccess').splice(-2);
+ assert(!(await tt('get')).catalog.enrollments.find(row=>row.id==='ENR-TEST').active);
  await tt('manage-save',edit('classes',{ClassID:'CLS-TEST',Name:'Evening class',AcademicYear:'2026',Active:false},false),token,400);
  const managedDraft=structuredClone(f.draft);managedDraft.rules[0].moduleId='MOD-TEST';managedDraft.rules[0].classIds=['CLS-TEST'];managedDraft.rules[0].teacherId='ACCOUNT2';managedDraft.rules[0].zoomLink='';
  assert((await tt('preview',{draft:managedDraft})).valid);assert.equal((await tt('preview',{draft:managedDraft})).occurrences[0].zoomLink,'https://zoom.us/j/777?pwd=class');
@@ -350,6 +568,10 @@ try{
  await profiles('save',profileInput('ACCOUNT1',{active:false}),token,409);
  await profiles('save',roleInput('ACCOUNT2','PROGRAM',input.id,['GLOBAL_ADMIN']),token,400);
  await profiles('save',roleInput('ACCOUNT2','PROGRAM',input.id,['TEACHER','STUDENT'],{subscriptionConfirmed:true}));
+ assert((await library('available',{},centralAdminToken)).programs.some(row=>row.id===input.id),'A Reboot context can discover a Program Library granted by the Academy matrix');
+ assert.equal((await library('manage',{},centralAdminToken)).canManageFolder,false);
+ const matrixOnlyToken=await createSessionToken({type:'account',accountid:'ACCOUNT2',uniqueid:'LOCAL-LINK',role:'TEACHER',scope:'COURSE',courseid:input.id,authrow:3,credentialHash:hash},env);
+ assert.equal((await library('manage',{},matrixOnlyToken)).canManageFolder,false,'A Program Library session can use the Academy matrix without a legacy Course membership');
  assert.deepEqual(table(platformId,'UserCourseAccess'),beforeMatrixSetup[0]);
  directory=await profiles('get');
  const paidRoles=roleInput('ACCOUNT2','SUBJECT','TAFSEER',['STUDENT','TEACHER','ADMIN'],{subscriptionConfirmed:true});
@@ -431,7 +653,7 @@ try{
  assert.deepEqual((await tt('published')).publication.snapshot,activeBefore.snapshot);
  const futureView=(await tt('published',{date:effectiveFrom})).publication;
  assert.equal(futureView.occurrences[0].zoomLink,'https://zoom.us/j/777?pwd=class');assert.equal(futureView.occurrences[0].zoomSource,'CLASS');
- assert.equal(futureView.id,future.publicationId);assert.equal(futureView.occurrences[0].teacherId,'');assert.equal(futureView.occurrences[0].startTime,'08:45');
+ assert.equal(futureView.id,future.publicationId);assert.equal(futureView.occurrences[0].teacherId,classTeacherId);assert.equal(futureView.occurrences[0].startTime,'08:45');
  assert.equal((await tt('published',{date:'2099-12-31'})).publication.id,future.publicationId);
  assert.equal(futureView.snapshot.layout.columnWidths.time,220);assert.equal(futureView.snapshot.breaks[0].label,'Break');assert(futureView.occurrences.some(r=>r.kind==='BREAK'&&r.zoomLink===''));
  assert.equal((await tt('get')).draft.layout.rowHeights['10:15|10:30'],90);

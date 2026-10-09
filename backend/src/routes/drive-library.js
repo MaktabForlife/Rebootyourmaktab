@@ -25,6 +25,8 @@ import {
   listGoogleDriveFolder
 } from "../lib/google-drive.js";
 import { json } from "../lib/http.js";
+import { readAcademyLibraryPolicies, academyResourceDecision } from "../lib/academy-library-policy.js";
+import { readPlatformSheet } from "../lib/platform-sheet.js";
 
 const SUBJECT_LIST_SHEET = "SubjectList";
 const MODULE_LIST_SHEET = "ModuleList";
@@ -431,8 +433,22 @@ export async function createDriveFileAccessEndpoint(request, env) {
     : "";
   const resourceGroup = clean(getCell(row, columns.value.groupNo));
 
-  if (!groupMatches(resourceGroup, studentGroup)) {
+  if (authUser.type === 'student' && !groupMatches(resourceGroup, studentGroup)) {
     return json({ success: false, error: "Resource is not available to this group" }, 403);
+  }
+
+  const courseId = clean(env.M4L_AUTHENTICATED_COURSE_ID || authUser.courseid);
+  if (courseId) {
+    const key = `COURSE:${courseId}:${config.type}:${resourceId}`;
+    const policies = await readAcademyLibraryPolicies(env);
+    const globalMatrix = policies.get(key)?.state === 'SUBSCRIPTION'
+      ? await readPlatformSheet(env, 'GlobalSubjectAccessMatrix') : [];
+    const globalSubjects = policies.get(key)?.state === 'SUBSCRIPTION'
+      ? await readPlatformSheet(env, 'GlobalSubjectList') : [];
+    const decision = academyResourceDecision({ key, source: 'COURSE', sourceActive: true,
+      assigned: true, role: authUser.centralrole || authUser.role,
+      accountId: authUser.accountid, policy: policies.get(key), globalMatrix, globalSubjects });
+    if (!decision.open) return json({ success: false, error: 'Resource is unavailable' }, 403);
   }
 
   const fileId = extractDriveFileId(getCell(row, columns.value.link));
@@ -993,7 +1009,7 @@ export function getDriveAccessTtlSeconds(env) {
   return Math.min(MAX_ACCESS_TTL_SECONDS, Math.max(300, Math.floor(requested)));
 }
 
-function getRootFolderId(env) {
+export function getRootFolderId(env) {
   const id = clean(env.M4L_GOOGLE_DRIVE_ROOT_FOLDER_ID);
   if (!id) throw new Error("Missing M4L_GOOGLE_DRIVE_ROOT_FOLDER_ID Worker variable");
   if (!/^[A-Za-z0-9_-]+$/.test(id)) throw new Error("M4L_GOOGLE_DRIVE_ROOT_FOLDER_ID is invalid");
@@ -1040,7 +1056,6 @@ function groupMatches(rowGroup, studentGroup) {
   return studentValue === "0" ||
     !rowValue ||
     rowValue === "all" ||
-    !studentValue ||
     rowValue === studentValue;
 }
 

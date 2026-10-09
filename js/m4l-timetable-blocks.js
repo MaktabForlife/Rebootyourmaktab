@@ -16,21 +16,22 @@
   }
   function model(result,options={}){
     const weekly=result.pattern==='WEEKLY',lessons=result.occurrences.filter(r=>r.kind!=='BREAK');
-    const timetableType=options.teacherId?'teacher':'class',targetId=options.teacherId||options.classId||lessons[0]?.classIds[0]||'';
-    const selectedLessons=lessons.filter(r=>timetableType==='teacher'?r.teacherId===targetId:r.classIds.includes(targetId));
+    const timetableType=options.program?'program':options.teacherId?'teacher':'class',targetId=options.teacherId||options.classId||lessons[0]?.classIds[0]||'';
+    const selectedLessons=lessons.filter(r=>timetableType==='program'||(timetableType==='teacher'?(r.teacherIds||[r.teacherId]).includes(targetId):r.classIds.includes(targetId)));
     const selectedDays=new Set(selectedLessons.map(r=>weekly?r.weekday:r.date));
-    const selected=result.occurrences.filter(r=>r.kind==='BREAK'?(timetableType==='class'||selectedDays.has(weekly?r.weekday:r.date)):(timetableType==='teacher'?r.teacherId===targetId:r.classIds.includes(targetId)));
+    const selected=table.displayOccurrences(result.occurrences.filter(r=>r.kind==='BREAK'?(timetableType!=='teacher'||selectedDays.has(weekly?r.weekday:r.date)):(timetableType==='program'||(timetableType==='teacher'?(r.teacherIds||[r.teacherId]).includes(targetId):r.classIds.includes(targetId)))),{program:timetableType==='program'});
     const match=selectedLessons[0],classIndex=match?.classIds.indexOf(targetId)??-1;
-    const timetableName=timetableType==='teacher'?(match?.teacherName||targetId):(classIndex>=0?match.classNames[classIndex]:targetId);
+    const timetableName=timetableType==='program'?(result.snapshot?.programName||options.programName||'Program'):timetableType==='teacher'?(match?.teacherNames?.[(match?.teacherIds||[]).indexOf(targetId)]||match?.teacherName||targetId):(classIndex>=0?match.classNames[classIndex]:targetId);
     const base=table.model(result,{...options,classId:timetableType==='class'?targetId:''});
+    const allClassIds=options.allClassIds?.length?options.allClassIds:[...new Set(lessons.flatMap(r=>r.classIds))];
     const events=selected.map((r,i)=>({
       key:r.anchor||`${r.ruleId||i}@${weekly?r.weekday:r.date}`,ruleId:r.ruleId,day:weekly?r.weekday:r.date,
-      start:minutes(r.startTime),end:minutes(r.endTime),title:r.moduleName||r.subjectName||'Lesson',teacher:r.kind==='BREAK'?'':timetableType==='class'?(r.teacherName||''):'',classes:r.kind==='BREAK'?'':timetableType==='teacher'?r.classNames.join(', '):'',
+      start:minutes(r.startTime),end:minutes(r.endTime),title:r.label||r.moduleName||r.subjectName||'Lesson',teacher:timetableType==='teacher'?'':table.teacherLabel(r),classes:r.kind==='BREAK'?'':timetableType==='program'?(allClassIds.length>1&&allClassIds.every(id=>r.classIds.includes(id))?'All classes':r.classNames.join(', ')):timetableType==='teacher'?r.classNames.join(', '):'',
       url:r.status==='CANCELLED'?'':table.link(r.zoomLink),cancelled:r.status==='CANCELLED',kind:r.kind||'LESSON',
-      identity:JSON.stringify([r.moduleId||'',r.programSubjectId||'',r.teacherId||'',r.classIds.slice().sort()])
+      identity:JSON.stringify([r.moduleId||'',r.programSubjectId||'',r.assignmentMode||'',(r.teacherIds||[r.teacherId]).slice().sort(),r.classIds.slice().sort()])
     })).filter(r=>Number.isFinite(r.start)&&Number.isFinite(r.end)&&r.end>r.start);
-    const columns=weekly?[1,2,3,4,5,6,0].filter(day=>events.some(event=>event.day===day)).map(day=>({id:day,label:days[day]})):[...new Set(events.map(event=>event.day))].sort().map(day=>({id:day,label:day}));
-    return {...base,timetableType,timetableName,columns,events,start:events.length?Math.floor(Math.min(...events.map(r=>r.start))/30)*30:0,end:events.length?Math.ceil(Math.max(...events.map(r=>r.end))/30)*30:0};
+    const columns=weekly?[1,2,3,4,5,6,0].filter(day=>timetableType==='program'&&day>=1&&day<=5||events.some(event=>event.day===day)).map(day=>({id:day,label:days[day]})):[...new Set(events.map(event=>event.day))].sort().map(day=>({id:day,label:day}));
+    return {...base,timetableType,timetableName,allClassNames:options.allClassNames||[...new Set(lessons.flatMap(r=>r.classNames))],columns,events,start:events.length?Math.floor(Math.min(...events.map(r=>r.start))/30)*30:0,end:events.length?Math.ceil(Math.max(...events.map(r=>r.end))/30)*30:0};
   }
   // Interval groups use separate lanes: simultaneous classes never cover one another.
   function position(m,offset=0,count=m.columns.length){
@@ -101,7 +102,69 @@
     return `<section class="tt-block-sheet">${header(m)}<svg class="tt-block-grid" viewBox="0 0 ${s.width} ${top+s.height+28}" xmlns="http://www.w3.org/2000/svg" role="group" aria-label="${esc(m.timetableName)} timetable blocks positioned by start and end time" style="min-width:${Math.max(850,m.columns.length*230+120)}px;font-family:Arial,sans-serif">${cols}${ticks.join('')}${blocks}</svg><p class="tt-block-footnote">${esc(m.stamp)} · ${esc(m.timezone)}</p></section>`;
   }
   function rounded(ctx,x,y,w,h,fill,stroke){ctx.beginPath();ctx.roundRect(x,y,w,h,14);ctx.fillStyle=fill;ctx.fill();ctx.strokeStyle=stroke;ctx.lineWidth=1.5;ctx.stroke();}
+  // One Program publication is shown in time bands. Parallel class lessons remain
+  // separate cards, while a combined lesson appears once with "All classes".
+  function programRows(m,measure,width){
+    const bands=[];
+    for(const event of [...m.events].sort((a,b)=>a.start-b.start||a.end-b.end)){
+      const last=bands.at(-1);
+      if(last&&event.start<last.end){last.end=Math.max(last.end,event.end);last.events.push(event);}
+      else bands.push({start:event.start,end:event.end,events:[event]});
+    }
+    return bands.map(band=>{
+      const cells=m.columns.map(day=>band.events.filter(event=>event.day===day.id).sort((a,b)=>a.start-b.start||a.classes.localeCompare(b.classes)).map(event=>{
+        const lines=[];
+        for(const [value,size,bold] of [[`${clock(event.start)}–${clock(event.end)}`,15,true],[event.title,19,true],[event.classes,15,false],[event.teacher,15,false],...(event.cancelled?[['Cancelled',14,false]]:[])]){
+          if(!value)continue;font(measure,size,bold);
+          for(const line of wrap(measure,value,width-26))lines.push({text:line,size,bold,color:event.cancelled?'#756877':bold?'#392742':'#5f5365',url:bold&&size===19?event.url:''});
+        }
+        return {...event,lines,height:lines.reduce((sum,line)=>sum+line.size+4,0)+16};
+      }));
+      return {...band,cells,height:Math.max(88,...cells.map(items=>items.reduce((sum,item)=>sum+item.height+8,12)))};
+    });
+  }
+  function programScene(m,createCanvas){
+    const width=Math.max(1600,m.columns.length*300+140),left=130,right=25,dayWidth=(width-left-right)/Math.max(1,m.columns.length);
+    const measure=createCanvas(1,1).getContext('2d');
+    return {width,left,right,dayWidth,columns:m.columns,rows:programRows(m,measure,dayWidth-12)};
+  }
+  function programHtml(m,createCanvas){
+    if(!m.events.length)return '<p class="tt-empty">No lessons to display.</p>';
+    const s=programScene(m,createCanvas);
+    return `<section class="tt-block-sheet tt-program-sheet">${header(m)}<p class="tt-program-roster">All classes: ${m.allClassNames.map(esc).join(' · ')}</p><div class="tt-program-scroll"><table class="tt-program-grid"><caption class="pb-sr-only">${esc(m.timetableName)} timetable for all classes</caption><thead><tr><th scope="col">Time</th>${s.columns.map(day=>`<th scope="col">${esc(day.label)}</th>`).join('')}</tr></thead><tbody>${s.rows.map(row=>`<tr><th scope="row">${clock(row.start)}–${clock(row.end)}</th>${row.cells.map(items=>`<td>${items.map(item=>`<div class="tt-program-lesson ${item.cancelled?'tt-cancelled':''}"><strong>${esc(clock(item.start)+'–'+clock(item.end))}</strong>${item.url&&!item.cancelled?`<a href="${esc(item.url)}" target="_blank" rel="noopener noreferrer">${esc(item.title)}</a>`:`<b>${esc(item.title)}</b>`}<span>${esc(item.classes)}</span>${item.teacher?`<span>${esc(item.teacher)}</span>`:''}</div>`).join('')}</td>`).join('')}</tr>`).join('')}</tbody></table></div><p class="tt-block-footnote">${esc(m.stamp)} · ${esc(m.timezone)}</p></section>`;
+  }
+  function programCanvases(m,createCanvas,logo){
+    if(!m.events.length)throw Error('There are no lessons to export.');
+    const s=programScene(m,createCanvas),W=s.width,measure=createCanvas(1,1).getContext('2d');font(measure,17);
+    const roster=wrap(measure,'All classes: '+m.allClassNames.join(' · '),W-250),top=145+roster.length*23,headerHeight=47,H=Math.max(1132,top+headerHeight+s.rows.reduce((sum,row)=>sum+row.height,0)+65);
+    const canvas=createCanvas(W,H),ctx=canvas.getContext('2d'),links=[];
+    ctx.fillStyle='#fffdf8';ctx.fillRect(0,0,W,H);ctx.textAlign='center';ctx.textBaseline='top';
+    if(logo)ctx.drawImage(logo,40,25,86,86);
+    font(ctx,23,true);ctx.fillStyle='#42304b';ctx.fillText(m.academy,W/2,22);
+    font(ctx,32,true);ctx.fillText(`${m.timetableName} ${m.title}`,W/2,60);
+    font(ctx,17);ctx.fillStyle='#685f6e';roster.forEach((line,index)=>ctx.fillText(line,W/2,105+index*23));
+    const heads=[{x:0,w:s.left,text:'Time'},...s.columns.map((day,i)=>({x:s.left+i*s.dayWidth,w:s.dayWidth,text:day.label}))];
+    for(const head of heads){ctx.fillStyle='#e4d5eb';ctx.fillRect(head.x,top,head.w,headerHeight);ctx.strokeStyle='#bdadc4';ctx.strokeRect(head.x,top,head.w,headerHeight);font(ctx,21,true);ctx.fillStyle='#4c3058';ctx.fillText(head.text,head.x+head.w/2,top+10);}
+    let y=top+headerHeight;
+    for(const row of s.rows){
+      ctx.strokeStyle='#d9cddd';ctx.strokeRect(0,y,s.left,row.height);font(ctx,17,true);ctx.fillStyle='#4c3058';ctx.fillText(`${clock(row.start)}–${clock(row.end)}`,s.left/2,y+16);
+      row.cells.forEach((items,index)=>{
+        const x=s.left+index*s.dayWidth;ctx.strokeStyle='#d9cddd';ctx.strokeRect(x,y,s.dayWidth,row.height);
+        let cy=y+7;
+        for(const item of items){
+          rounded(ctx,x+5,cy,s.dayWidth-10,item.height-3,item.cancelled?'#eeeef0':item.kind==='BREAK'?'#edf4f1':'#f7f0fb',item.kind==='BREAK'?'#91b0a2':'#b598c3');
+          let ty=cy+8;ctx.textAlign='left';
+          for(const line of item.lines){font(ctx,line.size,line.bold);ctx.fillStyle=line.color;ctx.fillText(line.text,x+14,ty);if(line.url&&!item.cancelled){const textWidth=ctx.measureText(line.text).width;ctx.fillRect(x+14,ty+line.size+1,textWidth,1);links.push({url:line.url,x:x+14,y:ty,width:textWidth,height:line.size+3});}ty+=line.size+4;}
+          ctx.textAlign='center';cy+=item.height+8;
+        }
+      });
+      y+=row.height;
+    }
+    font(ctx,15);ctx.fillStyle='#685f6e';ctx.fillText(`${m.stamp} · ${m.timezone}`,W/2,H-32);
+    return [{canvas,links}];
+  }
   function canvases(m,createCanvas,logo){
+    if(m.timetableType==='program')return programCanvases(m,createCanvas,logo);
     if(!m.events.length)throw Error('There are no lessons to export.');
     const s=scene(m,createCanvas),W=s.width;
     const measure=createCanvas(1,1).getContext('2d'),headings=[];
@@ -129,5 +192,5 @@
     font(ctx,15);ctx.fillStyle='#685f6e';ctx.fillText(`${m.stamp} · ${m.timezone}`,W/2,H-32);
     return [{canvas,links}];
   }
-  window.M4L_TIMETABLE_BLOCKS={model,position,scene,html,canvases};
+  window.M4L_TIMETABLE_BLOCKS={model,position,scene,html:(m,createCanvas)=>m.timetableType==='program'?programHtml(m,createCanvas):html(m,createCanvas),canvases,programScene};
 })();

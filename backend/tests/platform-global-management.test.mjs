@@ -149,6 +149,11 @@ globalThis.fetch = async (input, init = {}) => {
     throw new Error(`Unexpected global-management fetch: ${url}`);
   }
   assert.match(url.pathname, /spreadsheets\/platform-global-management-sheet/);
+  if (url.pathname.endsWith('/spreadsheets/platform-global-management-sheet')) {
+    return response({ sheets: Object.keys(tables).map((title, sheetId) => ({
+      properties: { title, sheetId: sheetId + 1, gridProperties: { rowCount: 1000 } }
+    })) });
+  }
   if (url.pathname.endsWith("/values:batchUpdate")) {
     const payload = JSON.parse(init.body);
     payload.data.forEach(applyWrite);

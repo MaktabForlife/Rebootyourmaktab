@@ -6,7 +6,7 @@ export function programFailure(error, action, stage='request') {
     ...(error.code?{code:error.code}:{}),
     ...(typeof error.retryable==='boolean'?{retryable:error.retryable}:{}),
     ...(error.code==='ROW_CHANGED'?{currentRecord:error.currentRecord,rowRevision:error.rowRevision,...(error.entryKey?{entryKey:error.entryKey}:{})}:{})};
-  const save=['save','manage-save','publish','recover','prepare'].includes(action);
+  const save=['save','submit','manage-save','publish','recover','prepare','prepare-library'].includes(action);
   const reference=crypto.randomUUID(),google=error instanceof GoogleSheetsApiError;
   const upstreamStatus=google?error.status:null;
   // An uncertain coordinated write may be retried once using its exact operation ID.

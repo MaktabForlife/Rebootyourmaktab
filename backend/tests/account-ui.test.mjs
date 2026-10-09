@@ -14,7 +14,11 @@ assert.match(html, /id="context-view"/);
 assert.match(html, /id="context-list"/);
 assert.match(html, /id="open-workspace-button"/);
 assert.match(html, /Switch program or role/);
-assert.match(html, /m4l-account\.js\?v=105\.3\.3\.4/);
+assert.match(html, /m4l-account\.js\?v=105\.4\.3\.3/);
+assert.match(html, /id="program-library-links"/);
+assert.match(script, /program-library\/available/);
+assert.match(script, /library-view\.html\?program=/);
+assert.match(script, /attendance\.href='\/programs\/attendance\.html'/);
 assert.match(html, /id="user-profiles-link" class="hidden" href="\/users\/"/);
 assert.match(html, /m4l-23-account\.css\?v=104\.5\.4/);
 

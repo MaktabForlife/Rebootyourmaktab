@@ -156,7 +156,17 @@ globalThis.fetch = async (input, init = {}) => {
     throw new Error(`Unexpected Library test fetch: ${url}`);
   }
   assert.equal(init.headers.Authorization, "Bearer mock-library-token");
+  if (url.pathname.endsWith('/spreadsheets/platform-sheet-test')) {
+    return response({ sheets: Object.keys(platformTables).map((title, sheetId) => ({
+      properties: { title, sheetId: sheetId + 1 }
+    })) });
+  }
   const spreadsheetId = decodeURIComponent(url.pathname.match(/\/spreadsheets\/([^/]+)/)?.[1] || "");
+  if (spreadsheetId === 'platform-sheet-test' && url.pathname.endsWith('/values:batchGet')) {
+    return response({ valueRanges: url.searchParams.getAll('ranges').map(range => ({
+      values: platformTables[range.match(/^'([^']+)'!/)?.[1]] || []
+    })) });
+  }
   const range = decodeURIComponent(url.pathname.split("/values/")[1] || "");
   reads.push({ spreadsheetId, range });
 
@@ -195,6 +205,9 @@ try {
   ]);
   assert.equal(result.data.globalCurriculumVersion, 13);
   assert.equal(result.data.count, 6);
+  assert.deepEqual(result.data.learningAreaRefs, [
+    'REBOOT:COURSE1', 'REBOOT:COURSE2', 'GLOBAL:GSUBJ1', 'GLOBAL:GSUBJ2'
+  ]);
 
   const courseOne = result.data.libraries.find(library => library.id === "COURSE:COURSE1");
   const courseTwo = result.data.libraries.find(library => library.id === "COURSE:COURSE2");
@@ -214,6 +227,22 @@ try {
   assert.equal(JSON.stringify(result.data).includes("course-sheet-two"), false);
   assert.equal(reads.some(read => read.spreadsheetId === "course-sheet-three"), false);
   assert.equal(reads.some(read => read.spreadsheetId === "legacy-sheet-must-not-be-used"), false);
+
+  platformTables.AcademyLibraryAccess = [
+    ['ResourceKey', 'Status', 'AccessState', 'EntitlementSource', 'SubscriptionScope'],
+    ['COURSE:COURSE1:EBOOK:C1-ALL', 'ARCHIVED', 'ASSIGNED', '', '']
+  ];
+  const archived = await post('/api/library/catalogue', {});
+  assert.equal(archived.response.status, 200);
+  assert.deepEqual(resourceNames(archived.data.libraries.find(library => library.id === 'COURSE:COURSE1')),
+    ['Course 1 Group 1'], 'The legacy EBOOKS category must match the canonical EBOOK policy key');
+  delete platformTables.AcademyLibraryAccess;
+
+  platformTables.GlobalSubjectAccessMatrix[1][1] = false;
+  const revoked = await post('/api/library/catalogue', {});
+  assert.equal(revoked.response.status, 200);
+  assert.equal(revoked.data.learningAreaRefs.includes('GLOBAL:GSUBJ1'), false);
+  assert.equal(revoked.data.learningAreaRefs.includes('GLOBAL:GSUBJ2'), true);
 
   const forbidden = await post("/api/library/course-resource/access", {
     courseId: "COURSE3",

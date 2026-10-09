@@ -1,5 +1,5 @@
-import { managementState, managementView, applyManagementChange, MANAGEMENT_KINDS, managementRowRevision } from './management-model.js';
-import { problem } from './model.js';
+import { managementState, managementView, applyManagementChange, MANAGEMENT_KINDS, managementRowRevision, studentClassRevision } from './management-model.js';
+import { problem, clean } from './model.js';
 import { programFailure } from './errors.js';
 import { TIMETABLE_SCHEMA, boundedJSON, validDate, normalizeDraft as normalizeDatedDraft } from './timetable-model.js';
 import { WEEKLY_SCHEMA, TIMETABLE_TIMEZONE, emptyWeeklyDraft, normalizeWeeklyDraft, readWeeklyDraft, validateWeeklyTimetable, publicationRecord, publicationSchedule, programToday } from './weekly-timetable.js';
@@ -25,6 +25,7 @@ export function timetableService(repository,program,now=()=>new Date()) {
   const metadata=p=>{const {snapshot,occurrences,...rest}=p;return rest;};
   return {
     prepare:()=>repository.prepare(),
+    prepareLibrary:()=>repository.prepareLibrary(),
     async read(action,input={}) {
       const data=await repository.load();
       if(action==='manage-get'){
@@ -60,21 +61,63 @@ export function timetableService(repository,program,now=()=>new Date()) {
         if(program.status!=='DRAFT')throw problem('Archived Programs cannot change their records.',409);
         const data=await repository.load();
         if(!data.prepared)throw problem('Prepare the management tables first.',409);
+        const separate=['tasks','resources'].includes(input.kind);
+        if(separate&&!data.libraryPrepared)throw problem('Prepare the Program task and Library tables first.',409);
         const current=managementState(data,program),shared=await repository.managementReferences(data);
+        if(input.kind==='student-classes'){
+          const changes=input.changes;
+          if(!Array.isArray(changes)||!changes.length||changes.length>100)throw problem('Choose between one and 100 student class changes.');
+          const seen=new Set();
+          for(const change of changes){
+            const accountId=clean(change?.AccountID);
+            if(!accountId||seen.has(accountId)||typeof change.ClassID!=='string'||typeof change.baseRowRevision!=='string'||!change.baseRowRevision)throw problem('Each student needs one valid class change.');
+            seen.add(accountId);
+            const currentRecord={AccountID:accountId,enrollments:current.snapshot.ProgramEnrollments.filter(row=>row.AccountID===accountId)};
+            const rowRevision=await studentClassRevision(current.snapshot.ProgramEnrollments,accountId);
+            if(change.baseRowRevision!==rowRevision)throw Object.assign(problem('A saved student class changed since editing began. Review that student’s class before saving.',409),
+              {code:'ROW_CHANGED',entryKey:accountId,currentRecord,rowRevision});
+          }
+          let snapshot=current.snapshot;
+          const records=[];
+          for(const change of changes){
+            const applied=applyManagementChange({snapshot},{kind:'student-class',record:{AccountID:clean(change.AccountID),ClassID:clean(change.ClassID)}},shared,program);
+            snapshot=applied.snapshot;
+            records.push({...applied.record,rowRevision:await studentClassRevision(snapshot.ProgramEnrollments,clean(change.AccountID))});
+          }
+          const persisted={...snapshot};delete persisted.ProgramTasks;delete persisted.ProgramResources;
+          const snapshotJSON=JSON.stringify(persisted);
+          if(snapshotJSON.length>40000)throw problem('This Program has reached the current management storage limit. No changes were saved.');
+          const revision=crypto.randomUUID(),timestamp=new Date().toISOString(),result={revision,records};
+          return {plan:repository.plan(data,[
+            {table:'ProgramManagementState',record:{Revision:revision,CourseID:program.id,Sequence:current.sequence+1,SnapshotJSON:snapshotJSON,ModifiedDate:timestamp,ModifiedByAccountID:user.accountid}},
+            {table:'ProgramTimetableOperations',record:{OperationID:input.operationId,PayloadHash:hash,ResultJSON:boundedJSON(result),DateStamp:timestamp,AccountID:user.accountid,Action:'manage-student-classes'}}
+          ]),result};
+        }
         const spec=MANAGEMENT_KINDS[input.kind];
-        const currentRecord=spec?current.snapshot[spec.table].find(r=>r[spec.key]===input.record?.[spec.key])||null:null;
-        const rowRevision=await managementRowRevision(currentRecord);
-        const changed=spec&&typeof input.baseRowRevision==='string'?input.baseRowRevision!==rowRevision:input.revision!==current.revision;
+        const studentClass=input.kind==='student-class',accountId=input.record?.AccountID;
+        const currentRecord=spec?current.snapshot[spec.table].find(r=>r[spec.key]===input.record?.[spec.key])||null:studentClass?{AccountID:accountId,enrollments:current.snapshot.ProgramEnrollments.filter(r=>r.AccountID===accountId)}:null;
+        const rowRevision=studentClass?await studentClassRevision(current.snapshot.ProgramEnrollments,accountId):await managementRowRevision(currentRecord);
+        const changed=(spec||studentClass)&&typeof input.baseRowRevision==='string'?input.baseRowRevision!==rowRevision:input.revision!==current.revision;
         if(changed)throw Object.assign(problem(`The saved ${input.kind==='progress'?'class status':input.kind==='modules'?'module':'record'} changed since editing began. Your draft is kept. Review the saved row and your changes.`,409),{code:'ROW_CHANGED',currentRecord,rowRevision});
         // Validate against fresh references below. An unrelated account/catalogue change
         // must not reject this row; inactive/missing selections still fail validation.
-        const {snapshot,record}=applyManagementChange(current,input,shared,program);
-        const snapshotJSON=JSON.stringify(snapshot);
-        if(snapshotJSON.length>40000)throw problem('This Program has reached the current management storage limit. No changes were saved.');
-        const revision=crypto.randomUUID(),timestamp=new Date().toISOString(),result={revision,record,...(spec?{rowRevision:await managementRowRevision(record)}:{})};
+        const root=input.kind==='library-root'?await repository.verifyLibraryRoot(input.record?.FolderID):null;
+        const changeInput=root?{...input,record:root}:input;
+        const {snapshot,record}=applyManagementChange(current,changeInput,shared,program);
+        if(input.kind==='resources'){
+          const destination=repository.libraryDestination?await repository.libraryDestination():'';
+          const fileChanged=input.creating||currentRecord?.DriveFileID!==record.DriveFileID;
+          const coverChanged=input.creating||currentRecord?.CoverDriveFileID!==record.CoverDriveFileID;
+          if(record.Active||fileChanged)await repository.verifyResource(record,snapshot.ProgramLibraryRoots,fileChanged?destination:'');
+          if(record.CoverDriveFileID&&(record.Active||coverChanged))await repository.verifyCover(record,snapshot.ProgramLibraryRoots,coverChanged?destination:'');
+        }
+        const persisted={...snapshot};delete persisted.ProgramTasks;delete persisted.ProgramResources;
+        const snapshotJSON=JSON.stringify(persisted);
+        if(!separate&&snapshotJSON.length>40000)throw problem('This Program has reached the current management storage limit. No changes were saved.');
+        const revision=separate?current.revision:crypto.randomUUID(),timestamp=new Date().toISOString(),result={revision,record,...(studentClass?{rowRevision:await studentClassRevision(snapshot.ProgramEnrollments,accountId)}:spec?{rowRevision:await managementRowRevision(record)}:{})};
         if(input.kind==='modules'&&record.LevelID)result.level=snapshot.ProgramLevels.find(r=>r.LevelID===record.LevelID);
         const records=[
-          {table:'ProgramManagementState',record:{Revision:revision,CourseID:program.id,Sequence:current.sequence+1,SnapshotJSON:snapshotJSON,ModifiedDate:timestamp,ModifiedByAccountID:user.accountid}},
+          separate?{table:spec.table,record}:{table:'ProgramManagementState',record:{Revision:revision,CourseID:program.id,Sequence:current.sequence+1,SnapshotJSON:snapshotJSON,ModifiedDate:timestamp,ModifiedByAccountID:user.accountid}},
           {table:'ProgramTimetableOperations',record:{OperationID:input.operationId,PayloadHash:hash,ResultJSON:boundedJSON(result),DateStamp:timestamp,AccountID:user.accountid,Action:`manage-${input.kind}`}}
         ];
         return {plan:repository.plan(data,records),result};
@@ -94,6 +137,7 @@ export function timetableService(repository,program,now=()=>new Date()) {
       if (action==='publish') {
         effectiveFrom=input.effectiveFrom||current.today;
         if(!validDate(effectiveFrom)||effectiveFrom<current.today)throw problem('Choose today or a future date for the new timetable. Published history cannot be backdated.',409);
+        if(effectiveFrom===current.today&&await repository.hasAttendanceOn?.(effectiveFrom))throw problem('Attendance has already been submitted today. Publish the revised timetable from tomorrow or a later date.',409);
         validation=validateWeeklyTimetable(draft,await repository.catalog(data),program,effectiveFrom);
         if (!validation.valid) throw problem('Publication blocked: resolve all validation issues and timetable conflicts, then preview again.',409);
       }

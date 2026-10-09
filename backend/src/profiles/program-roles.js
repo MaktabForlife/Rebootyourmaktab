@@ -19,6 +19,10 @@ export function programRoleAccounts(tables,programId,prepared){
   });
 }
 export async function readProgramRoleAccounts(env,programId){
+  return (await readProgramRoleAccountsForPrograms(env,[programId]))[programId];
+}
+export async function readProgramRoleAccountsForPrograms(env,programIds){
+  if(!programIds.length)return {};
   const target={spreadsheetId:getPlatformSpreadsheetId(env)},sheets=await readGoogleSpreadsheetSheetProperties(env,target);
   const matrixNames=['AcademyAccessMatrix','AcademyAccessScopes','AcademyAccessReview'];
   const present=matrixNames.filter(name=>sheets.some(s=>s.title===name));
@@ -32,5 +36,5 @@ export async function readProgramRoleAccounts(env,programId){
     }else tables[name]=ACADEMY_HEADERS[name]?parseTable(raw[i],ACADEMY_HEADERS[name],name):validatePlatformSheetRows(name,raw[i]);
   });
   if(present.length){assertUnique(tables.AcademyAccessScopes,'ScopeKey','Academy scopes');assertUnique(tables.AcademyAccessReview,'ReviewID','Academy review');}
-  return programRoleAccounts(tables,programId,present.length===3);
+  return Object.fromEntries(programIds.map(id=>[id,programRoleAccounts(tables,id,present.length===3)]));
 }

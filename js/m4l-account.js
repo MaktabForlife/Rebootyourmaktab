@@ -14,6 +14,7 @@
   const ACADEMY_INITIAL_DAYS = 7;
   const ACADEMY_PREFETCH_DAYS = 7;
   const uniqueId = getUniqueIdFromPath();
+  const returnToAcademy = new URLSearchParams(window.location.search).get("academy") === "1";
   const switcherMode = new URLSearchParams(window.location.search).get("switch") === "1";
   const state = {
     token: localStorage.getItem(TOKEN_KEY) || "",
@@ -30,6 +31,18 @@
   };
 
   document.addEventListener("DOMContentLoaded", init);
+  window.addEventListener("storage", event => {
+    if (event.key === TOKEN_KEY && !event.newValue && state.token) {
+      state.token = "";
+      window.location.reload();
+    }
+  });
+  window.addEventListener("pageshow", () => {
+    if (state.token && !localStorage.getItem(TOKEN_KEY)) {
+      state.token = "";
+      window.location.reload();
+    }
+  });
 
   async function init() {
     bindEvents();
@@ -116,6 +129,10 @@
     try {
       const result = await api("/api/account/login", { uniqueid: uniqueId, pin });
       await acceptSession(result, true, { autoOpen: false });
+      if (returnToAcademy) {
+        sessionStorage.setItem("m4l_academy_signed_in", uniqueId);
+        window.location.assign("/academy/#overview");
+      }
     } catch (error) {
       showFormError("login-error", error.message);
       byId("login-pin").value = "";
@@ -152,6 +169,10 @@
         pinConfirmation
       });
       await acceptSession(result, true, { autoOpen: false });
+      if (returnToAcademy) {
+        sessionStorage.setItem("m4l_academy_signed_in", uniqueId);
+        window.location.assign("/academy/#overview");
+      }
     } catch (error) {
       showFormError("setup-error", error.message);
     } finally {
@@ -174,13 +195,18 @@
       clearCourseDataCaches();
     }
     renderContextView();
-    await loadAcademyTimetable({ resetWeek: true });
+    void loadAvailableProgramLibraries();
+    if(!/^PRG-[0-9a-f-]{36}$/i.test(String(state.context?.courseId||'')))await loadAcademyTimetable({ resetWeek: true });
     if (options.autoOpen === true && ["COURSE", "GLOBAL"].includes(state.context?.scope)) {
       await openCurrentWorkspace();
     }
   }
 
   function renderContextView() {
+    const isProgram=/^PRG-[0-9a-f-]{36}$/i.test(String(state.context?.courseId||''));
+    byId('academy-home-title').textContent=isProgram?'Library':'Timetable';
+    byId('academy-timetable-card')?.classList.toggle('hidden',isProgram);
+    byId('academy-refresh')?.classList.toggle('hidden',isProgram);
     byId("program-builder-link")?.classList.toggle("hidden", state.context?.role !== "GLOBAL_ADMIN");
     byId("user-profiles-link")?.classList.toggle("hidden", state.context?.role !== "GLOBAL_ADMIN");
     byId("context-account-name").textContent = state.account?.displayName || "Account";
@@ -195,9 +221,40 @@
     );
     openWorkspaceButton.textContent = state.context?.scope === "GLOBAL"
       ? "Open Global Library"
-      : `Open ${state.context?.courseName || "selected Program"}`;
+      : isProgram
+        ? "Open Program Library"
+        : `Open ${state.context?.courseName || "selected Program"}`;
     renderContextList();
     showView("context-view");
+  }
+
+  async function loadAvailableProgramLibraries(){
+    const holder=byId('program-library-links');
+    if(!holder||!state.token)return;
+    holder.classList.add('hidden');holder.replaceChildren();
+    try{
+      const result=await api('/api/program-library/available',{},state.token);
+      if(!Array.isArray(result.programs))return;
+      if(result.programs.some(program=>program.role!=='STUDENT')){
+        const attendance=document.createElement('a');
+        attendance.href='/programs/attendance.html';
+        attendance.textContent='Take attendance →';
+        const attendanceRow=document.createElement('p');attendanceRow.appendChild(attendance);holder.appendChild(attendanceRow);
+      }
+      for(const program of result.programs){
+        const link=document.createElement('a');
+        link.href=`/programs/library-view.html?program=${encodeURIComponent(program.id)}`;
+        link.textContent=`Open ${program.name} Library →`;
+        const row=document.createElement('p');row.appendChild(link);holder.appendChild(row);
+        if(program.role!=='STUDENT'){
+          const manage=document.createElement('a');
+          manage.href=`/programs/library.html?program=${encodeURIComponent(program.id)}`;
+          manage.textContent='Manage resources →';
+          const manageRow=document.createElement('p');manageRow.appendChild(manage);holder.appendChild(manageRow);
+        }
+      }
+      holder.classList.toggle('hidden',!result.programs.length);
+    }catch{holder.classList.add('hidden');}
   }
 
   function renderContextList() {
@@ -259,6 +316,10 @@
 
   async function openCurrentWorkspace() {
     if (state.workspaceOpening || !["COURSE", "GLOBAL"].includes(state.context?.scope) || !state.token) return false;
+    if(/^PRG-[0-9a-f-]{36}$/i.test(String(state.context?.courseId||''))){
+      window.location.assign(`/programs/library-view.html?program=${encodeURIComponent(state.context.courseId)}`);
+      return true;
+    }
     state.workspaceOpening = true;
     const openButton = byId("open-workspace-button");
     openButton.disabled = true;

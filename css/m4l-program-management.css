@@ -28,3 +28,4 @@
 .pm-profile-link{display:block;margin:4px 0 8px;font-size:12px}
 
 .pm-grid td a{overflow-wrap:anywhere}
+.pm-group-conflict{margin-top:8px;padding:8px;background:#fff5e6;border:1px solid #d4a252;border-radius:6px;font-size:12px;white-space:normal}.pm-group-conflict button{margin:8px 6px 0 0}.pm-grid td[data-label="Class"] small{display:block;margin-top:6px}.pm-grid td[data-label="Changes"] small{display:block;margin-top:6px}

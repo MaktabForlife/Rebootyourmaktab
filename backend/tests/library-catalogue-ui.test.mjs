@@ -9,10 +9,10 @@ const student = read("../../student/index.html");
 
 for (const html of [admin, student]) {
   assert.match(html, /id="library-source-selector"/);
-  assert.match(html, /m4l-resources\.js\?v=102\.10/);
+  assert.match(html, /m4l-resources\.js\?v=105\.4\.2\.25/);
 }
-assert.match(admin, /styles\.css\?v=104\.5/);
-assert.match(student, /styles\.css\?v=103\.1\.0\.5/);
+assert.match(admin, /styles\.css\?v=105\.4\.2\.25/);
+assert.match(student, /styles\.css\?v=105\.4\.2\.25/);
 
 assert.match(resources, /\/api\/library\/catalogue/);
 assert.match(resources, /\/api\/library\/course-resource\/access/);
@@ -22,6 +22,14 @@ assert.match(resources, /function buildSelectedLibraryCatalogue/);
 assert.match(resources, /selectedLibrarySourceId = "ALL"/);
 assert.match(resources, /data-library-source-id/);
 assert.match(resources, /library-global-badge/);
+assert.match(resources, /data-library-category/);
+assert.match(resources, /selectedLibraryCategory === "PDF"/);
+assert.match(resources, /selectedLibraryCategory === "AUDIO_VISUAL"/);
+assert.match(styles, /\.library-category-pills button\[aria-pressed="true"\]/);
+const cardRenderer = resources.slice(resources.indexOf('function renderLibraryResourceCard'),
+  resources.indexOf('function getLibraryResourceCardClassName'));
+assert.match(cardRenderer, /class="library-resource-icon"/);
+assert.doesNotMatch(cardRenderer, /library-resource-type-label/);
 assert.doesNotMatch(
   resources.slice(resources.indexOf("function selectLibrarySource"), resources.indexOf("function buildSelectedLibraryCatalogue")),
   /switch-context|switchUnifiedAccountContext/,

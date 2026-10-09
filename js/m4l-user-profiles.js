@@ -14,18 +14,23 @@
   const changed=e=>!['profile','matrix-roles'].includes(e.mode)||e.creating||e.needsConfirmation||e.originalValue===undefined||editValue(e)!==e.originalValue;
   const changedEntries=()=>entries().filter(changed);
   function updateSaveControls(){
-    const locked=state.busy||state.waiting||Boolean(state.pending)||Boolean(state.conflict);
-    $('up-save-all').disabled=locked||!changedEntries().some(e=>['profile','matrix-roles'].includes(e.mode));
-    $('up-save').disabled=locked||!state.edit||!changed(state.edit);
+    const locked=state.busy||state.waiting||Boolean(state.pending),reviewing=Boolean(state.conflict);
+    $('up-save-all').disabled=locked||(reviewing&&!state.conflict.currentRecord)||!changedEntries().some(e=>['profile','matrix-roles'].includes(e.mode));
+    $('up-save').disabled=locked||(reviewing&&!state.conflict.currentRecord)||!state.edit||!changed(state.edit);
     $('up-save').textContent='Save access setting';
     $('up-save').hidden=state.edit?.mode!=='matrix-policy';
     const count=new Set(changedEntries().filter(e=>e.accountId).map(e=>e.accountId)).size;
     $('up-unsaved').textContent=count?`${count} users with unsaved entries`:'Choose cells to edit. Ctrl/⌘ + Enter saves all changed users.';
-    $('up-users').querySelectorAll?.('[data-user]').forEach(row=>{const id=row.dataset.user;if(changedEntries().some(e=>e.accountId===id)&&!row.querySelector('[data-save]'))row.querySelector('.up-actions')?.insertAdjacentHTML('beforeend',actionIcon('save',id,'Save this user',locked));});
-    $('up-users').querySelectorAll?.('[data-save]').forEach(button=>{button.disabled=locked||!changedEntries().some(e=>e.accountId===button.dataset.save);});
+    $('up-users').querySelectorAll?.('[data-user]').forEach(row=>{const id=row.dataset.user;if(changedEntries().some(e=>e.accountId===id)&&!row.querySelector('[data-save]'))row.querySelector('.up-actions')?.insertAdjacentHTML('beforeend',actionIcon('save',id,'Save this user',locked||reviewing));});
+    $('up-users').querySelectorAll?.('[data-save]').forEach(button=>{button.disabled=locked||reviewing||!changedEntries().some(e=>e.accountId===button.dataset.save);});
   }
   const findEdit=(mode,accountId,scope)=>entries().find(e=>e.mode===mode&&e.accountId===accountId&&(!scope||e.scopeType===scope.type&&e.scopeId===scope.id));
   function removeEdits(keys){state.edits=state.edits.filter(e=>!keys.includes(editKey(e)));if(state.edit&&keys.includes(editKey(state.edit)))state.edit=null;}
+  function closeCleanEditors(accountIds=null){
+    const clean=e=>['profile','matrix-roles'].includes(e.mode)&&!changed(e)&&(!accountIds||accountIds.has(e.accountId));
+    state.edits=state.edits.filter(e=>!clean(e));
+    if(state.edit&&clean(state.edit))state.edit=null;
+  }
   const icons={view:'<svg viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>',share:'<svg viewBox="0 0 24 24"><path d="M12 16V3m-4 4 4-4 4 4M5 12v8h14v-8"/></svg>',copy:'<svg viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="13" rx="2"/><path d="M16 8V3H3v13h5"/></svg>',save:'<svg viewBox="0 0 24 24"><path d="M4 3h13l4 4v14H3V3Zm3 0v7h10V3M7 21v-7h10v7"/></svg>'};
   const actionIcon=(action,id,label,disabled=false)=>`<button type="button" class="pb-secondary up-icon" data-${action}="${esc(id)}" title="${esc(label)}" aria-label="${esc(label)}" ${disabled?'disabled':''}>${icons[action]}</button>`;
   function remember(){for(const key of ['edit','edits','pinned','pending']){if(state[key])sessionStorage.setItem(`${storageKey}:${key}`,JSON.stringify(state[key]));else sessionStorage.removeItem(`${storageKey}:${key}`);}}
@@ -44,7 +49,7 @@
     $('up-conflict').hidden=!state.conflict||!edit;
     const describe=record=>edit?.mode==='profile'?`${record?.displayName||'Removed'} · ${record?.active?'Active':'Inactive'}`:edit?.mode==='matrix-policy'?record?.accessModel||'Unknown':roleNames(record?.roles||[])+(record?.accessModel?` · ${record.accessModel==='FREE'?'Free':'Paid'} setting`:'');
     if(state.conflict&&edit)$('up-comparison').innerHTML=`<table class="pm-grid"><thead><tr><th>Saved version</th><th>Your entry</th></tr></thead><tbody><tr><td>${esc(describe(state.conflict.currentRecord))}</td><td>${esc(describe(edit))}</td></tr></tbody></table>`;
-    $('up-keep-mine').disabled=!editable||!state.conflict?.currentRecord;$('up-use-saved').disabled=state.busy;
+    $('up-use-saved').disabled=state.busy;
     updateSaveControls();
     if(!state.data)return;
     const blocked=!editable,scopes=state.data.scopes;
@@ -96,6 +101,16 @@
     state.data.reviewCount=state.data.accounts.flatMap(a=>a.assignments).filter(g=>g.reviewStatus==='REQUIRED').length;
     if(result.loginPath)showLink(result.loginPath);
   }
+  function acceptReviewedChange(){
+    if(!state.conflict?.currentRecord||!state.edit)return false;
+    const edit=state.edit,conflict=state.conflict;
+    edit.baseRevision=conflict.rowRevision;
+    if(edit.mode==='matrix-roles'&&conflict.scopeRevision){
+      // A changed Free/Paid setting invalidates every draft in this column.
+      for(const draft of entries().filter(e=>e.mode==='matrix-roles'&&e.scopeType===edit.scopeType&&e.scopeId===edit.scopeId))draft.scopeRevision=conflict.scopeRevision;
+    }
+    state.conflict=null;remember();return true;
+  }
   async function save(attempt=0,selection=null){
     if(state.busy||state.waiting||(!entries().length&&!state.pending))return;
     if(state.conflict){message('Review the changed record before saving.',true);return;}
@@ -107,7 +122,8 @@
     let confirmed=false;
     try{
       const {needsRecovery,...body}=state.pending;if(needsRecovery)await api('recover');
-      const result=await api('save',body);const savedKeys=(body.entries||[body]).map(editKey);state.pending=null;removeEdits(savedKeys);remember();confirmed=true;
+      const result=await api('save',body),savedEntries=body.entries||[body];const savedKeys=savedEntries.map(editKey);state.pending=null;removeEdits(savedKeys);
+      closeCleanEditors(new Set(savedEntries.map(e=>e.accountId).filter(Boolean)));remember();confirmed=true;
       applyAcknowledgement(result);message('Saved.');
     }catch(error){
       if(!state.pending){message('Saved. The display could not refresh; your save is confirmed.',true);}
@@ -152,18 +168,19 @@
     if(Object.hasOwn(e.target.dataset,'accessModel')){state.edit.accessModel=e.target.value;state.edit.policyConfirmed=false;}
     if(Object.hasOwn(e.target.dataset,'policyConfirm'))state.edit.policyConfirmed=e.target.checked;render();
   };
-  $('up-save').onclick=()=>void save();$('up-cancel').onclick=cancel;
+  $('up-save').onclick=()=>{if(state.conflict&&!acceptReviewedChange())return;void save();};$('up-cancel').onclick=cancel;
   $('up-users').onkeydown=e=>{if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)){e.preventDefault();void saveAll();}};
   $('up-refresh').onclick=()=>void refresh();
   $('up-retry').onclick=async()=>{if(state.busy||state.waiting)return;if(state.pending?.needsRecovery){state.busy=true;render();try{await api('recover');delete state.pending.needsRecovery;}catch(error){message(error.message,true);state.busy=false;render();return;}state.busy=false;}void save();};
-  $('up-keep-mine').onclick=()=>{if(!state.conflict?.currentRecord||!state.edit||state.busy)return;state.edit.baseRevision=state.conflict.rowRevision;if(state.conflict.scopeRevision)state.edit.scopeRevision=state.conflict.scopeRevision;state.conflict=null;remember();void save();};
   $('up-use-saved').onclick=()=>{cancel();void refresh();};
   async function saveAll(){
-    if(state.busy||state.waiting||state.pending||state.conflict)return;
+    if(state.busy||state.waiting||state.pending)return;
+    if(state.conflict&&!acceptReviewedChange())return;
     // Bounded atomic batches keep Sheets receipt cells within their storage limit.
     // A failed batch and all later entries remain editable/retryable.
     let selected=changedEntries().filter(e=>['profile','matrix-roles'].includes(e.mode));
     while(selected.length){if(!await save(0,selected.slice(0,20)))return;selected=changedEntries().filter(e=>['profile','matrix-roles'].includes(e.mode));}
+    closeCleanEditors();render();
   }
   $('up-save-all').onclick=()=>void saveAll();
   $('up-profile-close').onclick=()=>$('up-profile-dialog').close();

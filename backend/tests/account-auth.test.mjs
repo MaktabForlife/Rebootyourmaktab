@@ -5,6 +5,8 @@ import {
   verifySessionToken
 } from "../src/lib/auth.js";
 import { PLATFORM_SHEET_HEADERS } from "../src/lib/platform-schema.js";
+import { DEFINITION_HEADERS } from "../src/programs/model.js";
+import { ACADEMY_HEADERS, MATRIX_BASE } from "../src/profiles/academy-access.js";
 import { buildAvailableContexts } from "../src/routes/account-auth.js";
 import worker from "../src/worker.js";
 
@@ -147,6 +149,7 @@ const env = {
 
 const reads = [];
 const writes = [];
+let failNextLoginRecord = false;
 const originalFetch = globalThis.fetch;
 globalThis.fetch = async (input, init = {}) => {
   const url = new URL(String(input));
@@ -158,8 +161,13 @@ globalThis.fetch = async (input, init = {}) => {
   }
   assert.equal(init.headers.Authorization, "Bearer mock-account-token");
   assert.match(url.pathname, /spreadsheets\/platform-sheet-test/);
+  if(url.pathname==='/v4/spreadsheets/platform-sheet-test')return response({sheets:Object.keys(tables).map((title,sheetId)=>({properties:{title,sheetId}}))});
 
   if (url.pathname.endsWith("/values:batchUpdate")) {
+    if (failNextLoginRecord) {
+      failNextLoginRecord = false;
+      return response({ error: { message: "Temporary write outage" } }, 503);
+    }
     const payload = JSON.parse(init.body);
     writes.push(...payload.data);
     payload.data.forEach(applyUpdate);
@@ -209,6 +217,10 @@ try {
 
   const login = await post("/api/account/login", { uniqueid: "ADMIN-LINK", pin: "4321" });
   assert.equal(login.response.status, 200);
+  failNextLoginRecord = true;
+  const loginWithUnavailableTimestamp = await post("/api/account/login", { uniqueid: "ADMIN-LINK", pin: "4321" });
+  assert.equal(loginWithUnavailableTimestamp.response.status, 200,
+    "A temporary last-login timestamp write failure must not reject a verified account");
   assert.equal(login.data.success, true);
   assert.deepEqual(login.data.account, { displayName: "Admin One", uniqueid: "ADMIN-LINK" });
   assert.deepEqual(login.data.context, {
@@ -418,6 +430,51 @@ try {
   tables.PlatformConfig[2][1] = "102.0.12";
   const v10453SchemaCheck = await post("/api/account/check", { uniqueid: "ADMIN-LINK" });
   assert.equal(v10453SchemaCheck.response.status, 200, "Central account login/revalidation must accept current Platform schema 102.0.12");
+
+  const programId='PRG-11111111-1111-4111-8111-111111111111';
+  const programHash=await createSaltedPinHash('1357',pinSecret);
+  tables.CourseRegistry.push([programId,'Program Library','program-sheet-test',false,'105.1-program']);
+  tables.UserAccounts.push(['ACCOUNT7','Program Teacher','PROGRAM-TEACHER-LINK',true,programHash,true,'','','','','','','','']);
+  tables.UserCourseAccess.push(['ACCESS5','ACCOUNT7',programId,'TEACHER',true,true,'','','','','','','','TEACHER-REC']);
+  const programLogin=await post('/api/account/login',{uniqueid:'PROGRAM-TEACHER-LINK',pin:'1357'});
+  assert.equal(programLogin.response.status,200,JSON.stringify(programLogin.data));
+  assert.equal(programLogin.data.context.courseId,programId);
+  assert.equal(programLogin.data.context.role,'TEACHER');
+  const programSession=await post('/api/account/session',{},programLogin.data.token);
+  assert.equal(programSession.response.status,200,'A teacher with only Program Library access can restore their account session');
+  const programSwitched=await post('/api/account/switch-context',{scope:'COURSE',courseId:programId,role:'TEACHER'},programLogin.data.token);
+  assert.equal(programSwitched.response.status,200,'A teacher can select their Program Library context');
+  const programRequest=new Request('https://worker.test/api/account/session',{headers:{Authorization:`Bearer ${programLogin.data.token}`}});
+  assert.equal(await getAuthUser(programRequest,env),null,'Program Library tokens cannot open unfinished teaching routes');
+  assert.equal((await getAuthUser(programRequest,env,{allowProgram:true})).role,'TEACHER');
+
+  tables.ProgramDefinitions=[DEFINITION_HEADERS,[programId,4,'Africa/Johannesburg','DRAFT','REV-1','','ACCOUNT2']];
+  const studentHash=await createSaltedPinHash('1234',pinSecret);
+  tables.UserAccounts.push(['ACCOUNT8','Program Student','PROGRAM-STUDENT-LINK',true,studentHash,true,'','','','','','','','']);
+  tables.UserCourseAccess.push(['ACCESS6','ACCOUNT8',programId,'STUDENT',true,false,'','','','','','','','STUDENT-REC']);
+  const studentLogin=await post('/api/account/login',{uniqueid:'PROGRAM-STUDENT-LINK',pin:'1234'});
+  assert.equal(studentLogin.response.status,200,JSON.stringify(studentLogin.data));
+  assert.equal(studentLogin.data.contexts.some(context=>context.courseId===programId&&context.role==='STUDENT'),true,
+    'A registered Program student sees the Library without a class enrollment');
+  const studentSwitched=await post('/api/account/switch-context',{scope:'COURSE',courseId:programId,role:'STUDENT'},studentLogin.data.token);
+  assert.equal(studentSwitched.response.status,200,JSON.stringify(studentSwitched.data));
+  const studentSession=await post('/api/account/session',{},studentSwitched.data.token);
+  assert.equal(studentSession.response.status,200,'The Program Student Library session remains valid without enrollment');
+  const studentAvailable=await post('/api/program-library/available',{},studentSwitched.data.token);
+  assert.equal(studentAvailable.response.status,200,JSON.stringify(studentAvailable.data));
+  assert.equal(studentAvailable.data.programs.some(program=>program.id===programId&&program.role==='STUDENT'),true);
+  tables.UserCourseAccess.at(-1)[4]=false;
+  const studentRevoked=await post('/api/account/session',{},studentSwitched.data.token);
+  assert.equal(studentRevoked.response.status,401,'Removing the Program role revokes an existing Student Library session');
+  const scopeKey=`PROGRAM:${programId}`;
+  tables.AcademyAccessScopes=[ACADEMY_HEADERS.AcademyAccessScopes,[scopeKey,'PROGRAM',programId,'Program Library','PAID','CONFIRMED','SETUP','','','','']];
+  tables.AcademyAccessMatrix=[[...MATRIX_BASE,scopeKey],['ACCOUNT8','Program Student','ACTIVE','STUDENT']];
+  tables.AcademyAccessReview=[ACADEMY_HEADERS.AcademyAccessReview,[`ACCOUNT8|${scopeKey}`,'ACCOUNT8',scopeKey,'CONFIRMED','','','','']];
+  const matrixSession=await post('/api/account/session',{},studentSwitched.data.token);
+  assert.equal(matrixSession.response.status,200,'A confirmed Student role in User profiles grants Program Library access');
+  tables.AcademyAccessReview[1][3]='REQUIRED';
+  const unreviewedSession=await post('/api/account/session',{},studentSwitched.data.token);
+  assert.equal(unreviewedSession.response.status,401,'An unreviewed imported Student role does not grant access');
 } finally {
   globalThis.fetch = originalFetch;
 }

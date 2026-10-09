@@ -18,6 +18,7 @@ let d=clone(draft);d.rules[0].teacherId='';assert(check(d).valid);assert.equal(c
 // Two unassigned teachers are not a teacher conflict; other overlaps remain enforced.
 d.rules[0].classIds=['CLASS-1'];d.rules.push({...clone(d.rules[0]),id:'RULE-TWO',classIds:['CLASS-2']});
 assert.deepEqual(check(d).conflicts[0].reasons,['Known learner membership overlap']);
+f.catalog.enrollments[1].startDate='';assert.deepEqual(check(d).conflicts[0].reasons,['Known learner membership overlap']);
 f.catalog.enrollments[1].endDate='2026-09-28';assert(check(d).valid);
 f.catalog.enrollments[1].endDate='2026-09-29';assert(check(d).valid,'Tuesday-only membership does not overlap the Mon/Wed pattern');
 f.catalog.enrollments[1].endDate='2026-09-30';assert(!check(d).valid);f.catalog.enrollments[1].endDate='';

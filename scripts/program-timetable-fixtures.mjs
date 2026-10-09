@@ -17,11 +17,12 @@ export function timetableFixture(){
     ProgramEnrollments:catalog.enrollments.map(r=>({EnrollmentID:r.id,CourseID:program.id,ClassID:r.classId,AccountID:r.accountId,StartDate:r.startDate,EndDate:r.endDate,Active:r.active}))
   });
   const shared={subjects:[{SubjectID:'TAFSEER',SubjectName:'Tafseer',Active:true},{SubjectID:'ARABIC',SubjectName:'Arabic',Active:true}],accounts:[...catalog.teachers.map(r=>({AccountID:r.id,DisplayName:r.name,Active:true,Roles:['TEACHER']})),{AccountID:'LEARNER-DEMO',DisplayName:'Demo learner',Active:true,Roles:['STUDENT']}],grantedTeachers:catalog.teachers.map(r=>({AccountID:r.id}))};
-  let prepared=true,failMode='',pending=null;
+  let prepared=true,libraryPrepared=true,failMode='',pending=null;
   const plans=[];
   const repository={
     prepare:async()=>{prepared=true;},
-    load:async()=>({prepared,tables:structuredClone(tables)}),
+    prepareLibrary:async()=>{libraryPrepared=true;},
+    load:async()=>({prepared,libraryPrepared,tables:structuredClone(tables)}),
     managementReferences:async data=>({...structuredClone(shared),subjects:structuredClone(shared.subjects.filter(r=>!r.Legacy||managementState(data||{tables},program).snapshot.ProgramSubjects.some(s=>s.SubjectID===r.SubjectID)))}),
     catalog:async()=>{
       if(!tables.ProgramManagementState.length)return structuredClone(catalog);
@@ -30,14 +31,18 @@ export function timetableFixture(){
         subjects:t.ProgramSubjects.map(r=>({id:r.ProgramSubjectID,courseId:r.CourseID,subjectId:r.SubjectID,name:shared.subjects.find(s=>s.SubjectID===r.SubjectID)?.SubjectName,active:r.Active})),
         levels:t.ProgramLevels.map(r=>({id:r.LevelID,programSubjectId:r.ProgramSubjectID,name:r.Name,active:r.Active})),
         modules:t.ProgramModules.map(r=>({id:r.ProgramModuleID,programSubjectId:r.ProgramSubjectID,levelId:r.LevelID,name:r.Name,active:r.Active})),
-        classes:t.ProgramClasses.map(r=>({id:r.ClassID,courseId:r.CourseID,name:r.Name,academicYear:r.AcademicYear,zoomLink:r.ZoomLink||'',active:r.Active})),
+        classes:t.ProgramClasses.map(r=>({id:r.ClassID,courseId:r.CourseID,name:r.Name,academicYear:r.AcademicYear,zoomLink:r.ZoomLink||'',classTeacherId:r.TeacherAccountID||'',active:r.Active})),
         teachers:shared.accounts.filter(a=>a.Active&&shared.grantedTeachers.some(r=>r.AccountID===a.AccountID)).map(r=>({id:r.AccountID,name:r.DisplayName,active:true})),
         enrollments:t.ProgramEnrollments.map(r=>({id:r.EnrollmentID,courseId:r.CourseID,classId:r.ClassID,accountId:r.AccountID,startDate:r.StartDate,endDate:r.EndDate,active:r.Active}))
       };
     },
-    plan(data,records){return {records:records.map(({table,record})=>({table,index:Math.max(0,...data.tables[table].map(row=>row._rowNumber-1)),record}))};},
+    plan(data,records){return {records:records.map(({table,record})=>{
+      const key=TIMETABLE_HEADERS[table][0];
+      const existing=['ProgramTasks','ProgramResources'].includes(table)?data.tables[table].find(row=>row[key]===record[key]):null;
+      return {table,index:existing?existing._rowNumber-2:Math.max(0,...data.tables[table].map(row=>row._rowNumber-1)),record};
+    })};},
     async apply(plan){plans.push(structuredClone(plan));const mode=failMode;failMode='';if(mode==='before')throw new Error('Injected failure before commit');for(const item of plan.records)tables[item.table][item.index]={...structuredClone(item.record),_rowNumber:item.index+2};if(mode==='after')throw new Error('Injected lost response after commit');},
   };
   const journal={get:async()=>structuredClone(pending),set:async value=>{pending=structuredClone(value);},clear:async()=>{pending=null;}};
-  return {program,catalog,draft,tables,shared,repository,journal,plans,setPrepared:value=>{prepared=value;},failNext:mode=>{failMode=mode;}};
+  return {program,catalog,draft,tables,shared,repository,journal,plans,setPrepared:value=>{prepared=value;},setLibraryPrepared:value=>{libraryPrepared=value;},failNext:mode=>{failMode=mode;}};
 }

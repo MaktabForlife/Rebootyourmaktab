@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- M4L V105.3.4.13 - Timetable draft recovery release. -->
+<!-- M4L V105.4 - Program curriculum and Library management. -->
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -29,7 +29,7 @@
 
     <section class="account-panel" aria-labelledby="account-panel-title">
       <div class="account-panel-topline">
-        <span class="account-version">V105.3.4.13</span>
+        <span class="account-version">V105.4.3.3</span>
         <button id="logout-button" class="account-text-button hidden" type="button">Log out</button>
       </div>
 
@@ -88,13 +88,13 @@
         <header class="academy-home-heading">
           <div>
             <p class="account-kicker">﷽ &nbsp; Academy Home</p>
-            <h2>Timetable</h2>
+            <h2 id="academy-home-title">Timetable</h2>
             <p class="academy-home-welcome">Welcome, <strong id="context-account-name">Account</strong></p>
           </div>
           <button id="academy-refresh" class="academy-icon-button academy-home-refresh" type="button" aria-label="Refresh timetable" title="Refresh timetable">↻</button>
         </header>
 
-        <section class="academy-timetable-card" aria-label="Timetable">
+        <section id="academy-timetable-card" class="academy-timetable-card" aria-label="Timetable">
           <p id="academy-timetable-message" class="academy-timetable-message" role="status" aria-live="polite"></p>
           <div id="academy-week-context" class="academy-week-context hidden" aria-label="Academic calendar context"></div>
           <div id="academy-timetable" class="academy-timetable" aria-live="polite" aria-label="Swipe between timetable days">
@@ -128,6 +128,8 @@
           </div>
           <p><a id="user-profiles-link" class="hidden" href="/users/">User profiles →</a></p>
           <p><a id="program-builder-link" class="hidden" href="/programs/">Manage Programs →</a></p>
+          <p><a id="academy-library-link" href="/academy/library/">Open Academy Library →</a></p>
+          <div id="program-library-links" class="hidden" aria-label="Program links"></div>
           <div id="context-list" class="account-context-list" aria-live="polite"></div>
           <p id="context-error" class="account-error" aria-live="polite"></p>
         </section>
@@ -138,6 +140,6 @@
   </main>
 
   <script src="/js/m4l-config.js?v=102.4"></script>
-  <script src="/js/m4l-account.js?v=105.3.3.4"></script>
+  <script src="/js/m4l-account.js?v=105.4.3.3"></script>
 </body>
 </html>

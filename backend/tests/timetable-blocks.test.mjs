@@ -8,7 +8,7 @@ const item=(name,day,start,end,extra={})=>({ruleId:name+day,moduleId:name,module
 const source=occurrences=>({pattern:'WEEKLY',snapshot:{programName:'Test program',timezone:'Asia/Riyadh'},occurrences});
 // Canvas substitute records geometry without an optional native dependency.
 function canvas(width,height){
- const rectangles=[],text=[],context={font:'16px Arial',measureText(value){return {width:String(value).length*Number(this.font.match(/(\d+)px/)[1])*.55};},beginPath(){},roundRect(x,y,w,h){rectangles.push({x,y,w,h});},fill(){},stroke(){},fillRect(){},moveTo(){},lineTo(){},drawImage(){},fillText(value,x,y){text.push({value,x,y});}};
+ const rectangles=[],text=[],context={font:'16px Arial',measureText(value){return {width:String(value).length*Number(this.font.match(/(\d+)px/)[1])*.55};},beginPath(){},roundRect(x,y,w,h){rectangles.push({x,y,w,h});},fill(){},stroke(){},strokeRect(){},fillRect(){},moveTo(){},lineTo(){},drawImage(){},fillText(value,x,y){text.push({value,x,y});}};
  return {width,height,rectangles,text,getContext:()=>context};
 }
 const input=source([item('Long',2,'07:45','09:15'),item('Short',3,'08:10','08:40'),item('Later',2,'09:30','10:00')]),original=JSON.stringify(input),m=blocks.model(input),s=blocks.scene(m,canvas);
@@ -27,6 +27,14 @@ assert(!filtered.events.some(b=>b.title==='Other class'));assert(filtered.events
 assert.equal(filtered.timetableType,'class');assert.equal(filtered.timetableName,'Year 1');assert(filtered.events.filter(b=>b.kind!=='BREAK').every(b=>b.classes===''));assert(filtered.events.some(b=>b.teacher==='Teacher A'));
 const teacher=blocks.model(source([item('Mine',2,'08:00','09:00',{classIds:['B'],classNames:['Year 2']}),item('Not mine',3,'09:00','10:00',{teacherId:'T2',teacherName:'Teacher B'}),item('Relevant break',2,'09:00','09:15',{kind:'BREAK',classIds:[],classNames:[]}),item('Other-day break',4,'09:00','09:15',{kind:'BREAK',classIds:[],classNames:[]})]),{teacherId:'T1'});
 assert.equal(teacher.timetableType,'teacher');assert.equal(teacher.timetableName,'Teacher A');assert.deepEqual(teacher.events.map(b=>b.title),['Mine','Relevant break']);assert.equal(teacher.events[0].teacher,'');assert.equal(teacher.events[0].classes,'Year 2');assert.equal(teacher.events[1].classes,'');
+const coTaught=item('Co-taught',2,'10:00','10:30',{assignmentMode:'EXPLICIT',teacherIds:['T1','T2'],teacherNames:['Teacher A','Teacher B']});
+const coSource=source([coTaught]),coClass=blocks.model(coSource,{classId:'A'}),coProgram=blocks.model(coSource,{program:true}),coSecond=blocks.model(coSource,{teacherId:'T2'});
+assert.equal(coClass.events[0].teacher,'','class timetable omits names when teachers share a lesson');
+assert.equal(coProgram.events[0].teacher,'','Program timetable omits names when teachers share a lesson');
+assert.equal(coSecond.timetableName,'Teacher B','the second teacher gets their own named timetable');
+assert.deepEqual(coSecond.events.map(row=>row.title),['Co-taught']);
+assert(!blocks.canvases(coClass,canvas)[0].canvas.text.some(row=>/Teacher A|Teacher B/.test(row.value)),'the class image omits the teacher names');
+assert(!blocks.canvases(coProgram,canvas)[0].canvas.text.some(row=>/Teacher A|Teacher B/.test(row.value)),'the Program image omits the teacher names');
 const unsafe=blocks.html(blocks.model(source([item('<script>evil</script>',2,'08:00','09:00',{teacherName:'<b>x</b>',zoomLink:'javascript:alert(1)'})])),canvas);
 assert(!unsafe.includes('<script>'));assert(!unsafe.includes('href='));assert(unsafe.includes('&lt;script&gt;'));
 const cancelled=blocks.html(blocks.model(source([item('Cancelled',2,'08:00','09:00',{status:'CANCELLED'})])),canvas);assert(!cancelled.includes('href='));assert(cancelled.includes('line-through'));
@@ -66,5 +74,49 @@ assert.equal(compactPages.length,1);assert(compactScene.height<600,'Compact morn
 const tickLabels=Array.from(blocks.html(compactModel,canvas).matchAll(/<text x="112"[^>]*>([^<]+)<\/text>/g),m=>m[1]);
 assert.deepEqual(tickLabels,['07h30','08h00','08h30','09h00','09h30','10h00']);
 for(const b of compactScene.blocks)for(const line of b.lines){assert(line.dx>=0&&line.dx+line.width<=b.width,'Text stays inside block width');assert(line.dy>=0&&line.dy+line.size<=b.needed-10,'Text stays inside content height');}
-assert.equal(compactScene.blocks.find(b=>b.title==='Assembly').lines.length,2,'Class name is omitted from the class timetable block');
+assert.equal(compactScene.blocks.find(b=>b.title==='Assembly').lines.length,3,'A lesson without a teacher says No teacher on the class timetable');
 console.log('Compact blocks: 30-minute ticks, smaller spacing, audience-specific text bounds and one-page morning timetable passed.');
+
+const separate=['A','B','C','D'].map((classId,index)=>item('Quran',1,'08:00','08:45',{ruleId:'Quran-'+classId,classIds:[classId],classNames:['Group '+classId],teacherId:'T'+index,teacherName:'Teacher '+classId}));
+const combined=item('Assembly',1,'08:45','09:00',{classIds:['A','B','C','D'],classNames:['Group A','Group B','Group C','Group D'],teacherId:'T0',teacherName:'Teacher A'});
+const program=blocks.model(source([...separate,combined]),{program:true,allClassIds:['A','B','C','D'],allClassNames:['Group A','Group B','Group C','Group D']});
+assert.equal(program.timetableType,'program');
+assert.equal(program.events.length,5,'The whole Program includes every separate and combined lesson');
+assert.equal(program.events.filter(event=>event.title==='Quran').length,4);
+assert.equal(program.events.find(event=>event.title==='Assembly').classes,'All classes');
+const programLayout=blocks.programScene(program,canvas);
+assert.equal(programLayout.rows.length,2);
+assert.equal(programLayout.rows[0].cells[0].length,4,'Parallel class lessons stay separate in one time band');
+assert.equal(programLayout.rows[1].cells[0].length,1,'The combined lesson appears once');
+const programMarkup=blocks.html(program,canvas);
+assert.match(programMarkup,/All classes: Group A · Group B · Group C · Group D/);
+assert.equal((programMarkup.match(/<b>Quran<\/b>/g)||[]).length,0,'Linked lessons use links');
+assert.equal((programMarkup.match(/>Quran<\/a>/g)||[]).length,4);
+assert.equal((programMarkup.match(/>Assembly<\/a>/g)||[]).length,1);
+const programPages=blocks.canvases(program,canvas);
+assert.equal(programPages.length,1,'The Program creates one image');
+assert.equal(programPages[0].canvas.rectangles.length,5,'Every lesson has one card on the image');
+assert.equal(programPages[0].links.length,5,'Every linked lesson has a PDF annotation');
+for(const rectangle of programPages[0].canvas.rectangles)assert(rectangle.x>=0&&rectangle.y>=0&&rectangle.x+rectangle.w<=programPages[0].canvas.width&&rectangle.y+rectangle.h<=programPages[0].canvas.height,'Every Program card fits the image');
+programPages[0].canvas.toDataURL=()=>'';
+pdfSizes.length=0;pdfLinks.length=0;
+await ctx.window.M4L_TIMETABLE_PRESENTATION.pdf(programPages,pdfLib,{size:'program'});
+assert.equal(pdfSizes.length,1,'The whole Program creates one PDF page');
+assert.equal(pdfLinks.length,5,'All Program lesson links remain clickable in the PDF');
+const inherited=['A','B'].map((classId,index)=>item('Together',1,'09:00','09:15',{ruleId:'RULE-ALL-'+index,sourceRuleId:'RULE-ALL',assignmentMode:'CLASS',classIds:[classId],classNames:['Group '+classId],teacherId:'T'+index,teacherName:'Teacher '+classId,zoomLink:'https://zoom.us/j/'+index}));
+const named=item('Named',1,'09:15','09:30',{ruleId:'RULE-NAMED',assignmentMode:'EXPLICIT',classIds:['A','B'],classNames:['Group A','Group B'],teacherId:'T1',teacherName:'Named Teacher'});
+const unassigned=item('Unassigned',1,'09:30','09:45',{ruleId:'RULE-NONE',assignmentMode:'NONE',classIds:['A','B'],classNames:['Group A','Group B'],teacherId:'',teacherName:''});
+const modes=blocks.model(source([...inherited,named,unassigned]),{program:true,allClassIds:['A','B'],allClassNames:['Group A','Group B']});
+assert.equal(modes.events.length,3,'one inherited all-class lesson appears once in the Program publication');
+assert.equal(modes.events[0].classes,'All classes');assert.equal(modes.events[0].teacher,'','class teacher names are omitted');
+assert.equal(modes.events[0].url,'','different class links do not become a misleading shared link');
+assert.equal(modes.events[1].teacher,'Named Teacher');assert.equal(modes.events[2].teacher,'No teacher');
+assert.equal(blocks.model(source([...inherited,named,unassigned]),{classId:'A'}).events[0].teacher,'','the class timetable also omits inherited teacher details');
+assert.equal(blocks.model(source([...inherited,named,unassigned]),{classId:'A'}).events[2].teacher,'No teacher');
+const modeMarkup=blocks.html(modes,canvas);assert.equal((modeMarkup.match(/>Together<\/b>/g)||[]).length,1);assert.doesNotMatch(modeMarkup,/Teacher A|Teacher B/);assert.match(modeMarkup,/Named Teacher/);assert.match(modeMarkup,/No teacher/);
+const modeCanvas=blocks.canvases(modes,canvas)[0].canvas;assert(modeCanvas.text.some(row=>row.value==='All classes'));assert(!modeCanvas.text.some(row=>/Teacher A|Teacher B/.test(row.value)));assert(modeCanvas.text.some(row=>row.value==='Named Teacher'));assert(modeCanvas.text.some(row=>row.value==='No teacher'));
+assert([[1683.78,1190.55],[1190.55,1683.78]].some(size=>size.every((value,i)=>value===pdfSizes[0][i])),'A compact Program timetable uses A2 paper');
+const busyProgram=blocks.model(source(Array.from({length:10},(_,period)=>['A','B','C','D'].map((classId,index)=>item('Subject '+period,1,`${String(8+period).padStart(2,'0')}:00`,`${String(9+period).padStart(2,'0')}:00`,{classIds:[classId],classNames:['Group '+classId],teacherId:'T'+index,teacherName:'Teacher '+classId}))).flat()),{program:true,allClassIds:['A','B','C','D']});
+const busyPage=blocks.canvases(busyProgram,canvas)[0];busyPage.canvas.toDataURL=()=>'';pdfSizes.length=0;
+await ctx.window.M4L_TIMETABLE_PRESENTATION.pdf([busyPage],pdfLib,{size:'program'});
+assert.equal(pdfSizes.length,1);assert(pdfSizes[0][1]>1683.78,'A dense Program timetable grows vertically instead of shrinking the text');

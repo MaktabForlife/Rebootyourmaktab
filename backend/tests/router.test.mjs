@@ -5,9 +5,15 @@ import { ROUTE_PATHS } from "../src/router.js";
 import worker from "../src/worker.js";
 
 const expectedPaths = [
+  ...['public', 'cover', 'list', 'save', 'options'].map(action => `/api/academy/open-library/metadata/${action}`),
+  ...['catalogue', 'access', 'cover'].map(action => `/api/academy/library/${action}`),
+  '/api/academy/library/media',
+  ...["available", "catalogue", "access", "cover", "covers"].map(action => `/api/program-library/${action}`),
+  ...["available", "manage", "save", "recover", "prepare-library", "folder-set", "browse", "access", "cover", "upload-start", "upload-chunk"].map(action => `/api/admin/platform/program-library/${action}`),
   ...["get", "link", "save", "recover"].map(action => `/api/admin/platform/user-profiles/${action}`),
   ...["get", "import-preview", "save", "recover"].map(action => `/api/admin/platform/academy-subjects/${action}`),
-  ...["get", "prepare", "save", "validate", "preview", "publish", "published", "history", "recover", "manage-get", "manage-save"].map(action => `/api/admin/platform/program-timetable/${action}`),
+  ...["get", "prepare", "prepare-library", "save", "validate", "preview", "publish", "published", "history", "recover", "manage-get", "manage-save"].map(action => `/api/admin/platform/program-timetable/${action}`),
+  ...['get','prepare','submit','recover'].map(action => `/api/program-attendance/${action}`),
   ...["list", "create", "save", "readiness", "prepare"].map(action => `/api/admin/platform/programs/${action}`),
   "/api/account/check",
   "/api/account/setup-pin",
@@ -132,7 +138,7 @@ assert.equal(root.status, 200);
 assert.deepEqual(await root.json(), {
   success: true,
   service: "rebootworker",
-  version: "105.3.4.13"
+  version: "105.4.3.3"
 });
 
 const preflight = await worker.fetch(new Request("https://worker.test/api/login", {
@@ -140,6 +146,7 @@ const preflight = await worker.fetch(new Request("https://worker.test/api/login"
 }), {});
 assert.equal(preflight.status, 200);
 assert.equal(preflight.headers.get("Access-Control-Allow-Origin"), "*");
+assert.match(preflight.headers.get("Access-Control-Allow-Headers"),/X-Library-Upload-Ticket/);
 
 const notFound = await worker.fetch(new Request("https://worker.test/not-a-route"), {});
 assert.equal(notFound.status, 404);
@@ -429,9 +436,11 @@ console.log("Worker router tests passed.");
 const release=JSON.parse(await readFile(new URL('../../version.json',import.meta.url),'utf8')).version;
 assert.equal(JSON.parse(await readFile(new URL('../../js/version.json',import.meta.url),'utf8')).version,release);
 assert.equal((await (await worker.fetch(new Request('https://worker.test/'),{})).json()).version,release);
-for(const path of ['account/index.html','programs/index.html','programs/manage.html','programs/timetable.html']){
+for(const path of ['account/index.html','programs/index.html','programs/manage.html','programs/timetable.html','programs/library.html']){
  const html=await readFile(new URL('../../'+path,import.meta.url),'utf8');
  const badge=html.match(/class="(?:account-version|pb-version)">V([^ <]+)/);
  assert.equal(badge?.[1],release,path+' version badge');
 }
+const academy=await readFile(new URL('../../academy/index.html',import.meta.url),'utf8');
+assert.equal(academy.match(/class="site-version"[^>]*>Website V([^<]+)/)?.[1],release,'Academy website version badge');
 console.log('Frontend badges and Worker release versions match.');

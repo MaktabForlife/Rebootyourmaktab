@@ -124,7 +124,7 @@ try {
   const created = (await call("create", input)).program;
   assert.equal(created.durationYears, 4);
   assert.equal(created.active, false);
-  assert.equal(created.capabilities.attendance, false);
+  assert.equal(created.capabilities.attendance, true);
   assert.equal(table(platformId, "CourseRegistry").length, 3);
   assert.equal(table(platformId, "PlatformAuditLog").length, 2);
   const beforeListReads = reads;

@@ -1,0 +1,28 @@
+.pa-programs{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0}
+.pa-programs button{border:1px solid var(--pb-line);border-radius:999px;background:#fff;color:var(--pb-purple);padding:9px 16px;cursor:pointer}
+.pa-programs button[aria-pressed="true"]{background:var(--pb-purple);border-color:var(--pb-purple);color:#fff}
+.pa-toolbar{display:flex;align-items:end;flex-wrap:wrap;gap:10px;margin:18px 0}
+.pa-toolbar label,.pa-lesson-label{display:grid;gap:6px;color:var(--pb-muted);font-size:13px}
+.pa-toolbar input,.pa-lesson-label select{min-height:40px;padding:7px;border:1px solid var(--pb-line);border-radius:6px;background:#fff}
+.pa-completion{font-weight:650;color:var(--pb-purple)}
+.pa-classes{display:flex;align-items:stretch;gap:16px;overflow-x:auto;scroll-snap-type:x proximity;padding:2px 2px 14px}
+.pa-class{flex:0 0 clamp(290px,30vw,390px);min-width:0;scroll-snap-align:start;background:#fff;border:1px solid var(--pb-line);border-radius:10px;padding:18px}
+.pa-class h2,.pa-summary h2{font-size:19px;margin:0 0 16px}
+.pa-class .pa-lesson-label{margin-bottom:12px}
+.pa-submit{width:100%;margin:0 0 14px}
+.pa-register-state{font-size:12px;color:var(--pb-muted);margin:0 0 12px}
+.pa-register-state span{display:block;margin:3px 0}
+.pa-submitted{color:#27614c}.pa-unknown{color:#745018}
+.pa-learners{list-style:none;margin:0;padding:0}
+.pa-learners li{display:flex;align-items:center;justify-content:space-between;gap:10px;border-top:1px solid var(--pb-line);padding:9px 0}
+.pa-learners select{min-width:115px;border:1px solid var(--pb-line);border-radius:5px;background:#fff;padding:7px}
+.pa-learners strong{font-weight:500;overflow-wrap:anywhere}
+.pa-empty{padding:14px;color:var(--pb-muted)}
+.pa-summary{background:#fff;border:1px solid var(--pb-line);border-radius:10px;padding:18px;margin-top:20px}
+.pa-summary p{color:var(--pb-muted)}
+.pa-summary ul{list-style:none;padding:0;margin:8px 0}
+.pa-summary li{display:flex;justify-content:space-between;border-bottom:1px solid var(--pb-line);padding:6px 0;gap:12px}
+@media(max-width:700px){.pa-class{flex-basis:min(86vw,390px)}.pa-summary{padding:14px}}
+.pa-navigation{display:flex;flex-wrap:wrap;gap:18px;align-items:center;margin:8px 0 12px}
+.pa-navigation a{color:var(--pb-purple);font-weight:650;text-decoration:none}
+.pa-navigation a:hover{text-decoration:underline}

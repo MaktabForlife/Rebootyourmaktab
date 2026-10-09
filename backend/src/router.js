@@ -1,6 +1,12 @@
 import { userProfilesEndpoint } from './routes/user-profiles.js';
 import { academySubjectsEndpoint } from './routes/academy-subjects.js';
 import { programTimetableEndpoint } from './routes/program-timetable.js';
+import { programAttendanceEndpoint } from './routes/program-attendance.js';
+import { programLibraryEndpoint } from './routes/program-library.js';
+import { programLibraryViewerEndpoint } from './routes/program-library-viewer.js';
+import { academyLibraryEndpoint } from './routes/academy-library.js';
+import { openLibraryMetadataEndpoint } from './routes/open-library-metadata.js';
+import { streamR2MediaEndpoint } from './lib/academy-r2-media.js';
 /* M4L V105.2 - Add platform Program setup routes. */
 import { programEndpoint } from "./routes/program-builder.js";
 import {
@@ -162,14 +168,32 @@ import { json } from "./lib/http.js";
 import { createRequestEnvironment } from "./lib/request-context.js";
 
 const ROUTES = new Map([
+  ...['public', 'cover', 'list', 'save', 'options'].map(action => [
+    `/api/academy/open-library/metadata/${action}`,
+    workerRoute('program-library-viewer', openLibraryMetadataEndpoint(action))
+  ]),
+  ...['catalogue', 'access', 'cover'].map(action => [
+    `/api/academy/library/${action}`,
+    workerRoute('program-library-viewer', (request, env) => academyLibraryEndpoint(action, request, env))
+  ]),
+  ['/api/academy/library/media', workerRoute('program-library-viewer', streamR2MediaEndpoint)],
+  ...["available", "catalogue", "access", "cover", "covers"].map(action => [
+    `/api/program-library/${action}`, workerRoute("program-library-viewer", programLibraryViewerEndpoint(action))
+  ]),
+  ...["available", "manage", "save", "recover", "prepare-library", "folder-set", "browse", "access", "cover", "upload-start", "upload-chunk"].map(action => [
+    `/api/admin/platform/program-library/${action}`, workerRoute("program-timetable", programLibraryEndpoint(action))
+  ]),
   ...["get", "link", "save", "recover"].map(action => [
     `/api/admin/platform/user-profiles/${action}`, workerRoute("program-timetable", userProfilesEndpoint(action))
   ]),
   ...["get", "import-preview", "save", "recover"].map(action => [
     `/api/admin/platform/academy-subjects/${action}`, workerRoute("program-timetable", academySubjectsEndpoint(action))
   ]),
-  ...["get", "prepare", "save", "validate", "preview", "publish", "published", "history", "recover", "manage-get", "manage-save"].map(action => [
+  ...["get", "prepare", "prepare-library", "save", "validate", "preview", "publish", "published", "history", "recover", "manage-get", "manage-save"].map(action => [
     `/api/admin/platform/program-timetable/${action}`, workerRoute("program-timetable", programTimetableEndpoint(action))
+  ]),
+  ...['get','prepare','submit','recover'].map(action => [
+    `/api/program-attendance/${action}`, workerRoute('program-attendance',programAttendanceEndpoint(action))
   ]),
   ...["list", "create", "save", "readiness", "prepare"].map(action => [
     `/api/admin/platform/programs/${action}`, workerRoute("program-builder", programEndpoint(action))

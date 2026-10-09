@@ -50,6 +50,7 @@ as `google-sheets` in both top-level `vars` and `env.development.vars` in
 | Timetable | `getTimetable`, `updateTimetableZoomLink` | DIRECT ONLY | REMOVED IN V98.14 |
 | Weekly Planner | records and archives | DIRECT ONLY | Not present |
 | Weekly Planner | `saveWeeklyPlannerPreviewToDrive` | APPS SCRIPT | ACTIVE |
+| Program Library | `startProgramLibraryUpload` | Signed Worker request; Apps Script owns Drive authorization | ACTIVE IN V105.4.1 |
 | System configuration | UI read/write of approved keys | DIRECT ONLY | Read-only helper retained for Drive config |
 | Attendance | all routed reads/writes | DIRECT ONLY | REMOVED IN V98.14 |
 | Authentication | routed Student/Admin lookup, login and PIN operations | DIRECT ONLY | REMOVED IN V98.14 |
@@ -411,6 +412,37 @@ Complete and verify this sequence in Development before repeating it in
 Production.
 
 ## Change history
+
+### 2026-10-02 — V105.4.1.3 review
+
+- Removed the shared-link copy action. Library files now enter through device upload or selection from the existing Resources folder.
+
+### 2026-10-02 — V105.4.1.3
+
+- Added signed `copyProgramLibraryFile` for files shared with the Library Google account.
+- Device uploads and copies now use `ProgramLibraryDriveFolderId` from SystemConfig as their fixed destination.
+- The Worker restricts destination changes to global administrators and preserves previous folder IDs for existing resources.
+
+### 2026-10-02 — V105.4.1.2
+
+- Aligned the bridge milestone with the Library upload form fix. Apps Script
+  upload behavior is unchanged in this patch.
+
+### 2026-10-02 — V105.4.1.1
+
+- Aligned the Apps Script milestone with the Library, Pages and Worker release
+  version. The upload action and authorization flow are unchanged in this patch.
+
+### 2026-10-01 — V105.4.1
+
+- Added the signed `startProgramLibraryUpload` Drive action for device uploads
+  to the deploying account's My Drive folder. Apps Script starts a resumable
+  session; the Worker validates and relays file chunks. The OAuth token remains
+  in Apps Script.
+- Added `script.external_request` to the manifest. Development requires a
+  matching `M4L_LIBRARY_BRIDGE_SECRET` in Worker secrets and Apps Script Script
+  properties. The historical V98.14 one-action audit below remains the record
+  of that earlier release.
 
 ### 2026-08-05 — V98.14
 

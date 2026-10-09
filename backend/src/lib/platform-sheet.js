@@ -62,7 +62,7 @@ export async function readPlatformSheets(env, sheetNames) {
   return tables;
 }
 
-export async function resolveActiveCourseRegistration(env, courseId) {
+export async function resolveActiveCourseRegistration(env, courseId, {allowProgram=false}={}) {
   const requestedCourseID = normalizePlatformIdentifier(courseId);
   if (!requestedCourseID) {
     throw new Error("CourseID is required");
@@ -77,10 +77,11 @@ export async function resolveActiveCourseRegistration(env, courseId) {
   }
 
   const course = matches[0];
-  if (String(course.SchemaVersion || "").includes("-program")) {
+  const isProgram=String(course.SchemaVersion || "").includes("-program");
+  if (!allowProgram && isProgram) {
     throw new Error("Program teaching is not enabled in this release");
   }
-  if (!isActivePlatformValue(course.Active)) {
+  if (!isActivePlatformValue(course.Active) && !(allowProgram&&isProgram)) {
     throw new Error("Course is inactive");
   }
 

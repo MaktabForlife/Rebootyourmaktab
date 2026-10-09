@@ -1,3 +1,83 @@
+# V105.4.3.3 — One main-page attendance link
+
+Replace the attendance link repeated under each Program on the main account page with one Take attendance entry. It opens the attendance page's Program selector and appears for accounts with at least one Teacher, Senior or Admin Program role.
+
+# V105.4.3.2 — Class-column attendance
+
+Teaching Programs appear as pills. The selected Program shows classes side by side, each with one lesson or All lessons, its own submit button and learner statuses. Teachers see classes where they teach a lesson or are class teacher; Seniors and Admins see all active classes. Breaks remain excluded. Submitted marks can be edited, including on earlier dates, with the saved roster retained and revisions appended for audit. Earlier combined multi-class registers remain together in a labelled column. Account navigation uses the signed-in person's personal link, and a Program Library link is available.
+
+# V105.4.3.1 — Batch class assignments and lesson-only attendance
+
+Program Management’s Save all submits changed student classes as one coordinated spreadsheet write instead of one request per student. Interrupted saves retain their retry identifier, including an individual save already pending in a browser session. A Google Sheets rate limit leaves the pending change available for retry after the cooldown. Program attendance omits timetable breaks from register cards and lesson totals; existing submitted lesson rosters remain unchanged.
+
+# V105.4.3.0 — Program attendance
+
+Published Program lessons now have Present, Absent and Excused registers. Teachers submit one lesson or all assigned lessons for the current day, including co-taught lessons; unfinished registers remain unknown. Program and account screens link to attendance. Reboot history remains day-level, with no invented past lesson results. [Program attendance](docs/PROGRAM-ATTENDANCE.md) describes the storage, day summary and reporting limits. This release is for the feature branch; live comparison and Excused percentage policy remain open.
+
+# V105.4.2.26 — Co-taught Program lessons
+
+The Program timetable editor can assign up to eight additional named teachers to a single-class lesson. Validation checks every assigned teacher for Program access, clashes, availability and weekly teaching limits. Publication history retains all assignments, and each teacher sees the lesson on their own timetable. Class and whole Program previews, published views, images and PDFs omit teacher names when more than one teacher is assigned to the lesson. Single-teacher and unassigned lesson displays remain as before. Prepared locally; not pushed or deployed.
+
+# V105.4.2.25 — Search and grouped categories
+
+The Academy resource editor filters its existing resources by title, subject, source and saved details, and disables saving when no selection matches. Public, signed-in Academy, Program and Reboot/Global Libraries show four category pills: All, PDF (eBooks and Printables), Audio Visual (Audio and Video), and Other. Archive.org audio/video cards identify multi-file recordings by count while retaining their in-app player and file selector. The public Open Library introduction now contains just its eyebrow and heading. This release is prepared locally; the feature branch and Development deployments are unchanged.
+
+# V105.4.2.24 — Clearer Library cards
+
+Show a media type icon on every Library card and remove the visible media type text. Public and signed-in Academy cards omit Program and course names while retaining subject and title. Their pale lavender cover panels change to light sage. Learning area assignments and access rules are unchanged. This version targets the Development feature branch; production remains unchanged.
+
+# V105.4.2.23 — Full Archive audio track list
+
+Raise the per-item media limit to include every track in the live Surahs Teacher and Students Archive.org item (104 MP3 files). A catalogue regression now checks that more than 100 tracks remain available. The Development frontend and Worker are updated together; production is unchanged.
+
+# V105.4.2.22 — Public Other links and Archive media
+
+The Academy Library editor can add and edit public HTTPS links in the **Other** category. Each new link receives a stable Academy ID and may be assigned to multiple Programs or courses. Its public card opens the source in a new tab; eligible learners also see it in their assigned Libraries. Editors can hide a link without losing its details. Title, category, URL and subject are checked on the server, and only active Academy administrators and teachers can save changes.
+
+The curated Archive.org list now includes public audio and video items with browser-playable files as well as PDFs. The public Library has a category filter; signed-in Academy, Program and Reboot/Global views place listed media in Audio and Video. Public, Academy and Program previews play the files in-page, with a track/file selector for multi-file items. Archive PDFs remain in PDF.js and can be classified as eBooks or Printables. Archive.org remains the source, and no audio or video is copied into Academy storage. Prepared for feature-branch review; production is unchanged.
+
+# V105.4.2.21 — Public Library subject columns
+
+The public Library shows one column per subject, with book cards stacked as rows in that column. The portrait cover remains prominent. Book cards no longer say “Open Library,” and the public catalogue and book dialog omit module names. Module metadata remains available for editing and search. This version targets the Development feature branch; production is unchanged.
+
+# V105.4.2.20 — Open Library learning areas
+
+An Archive.org book may be linked to multiple active Programs and Global Subject courses. Subject and module remain independent catalogue fields. The book stays in the public Open Library, while eligible learners see it in Academy **For you** and in the matching Program or Reboot/Global Library. Program books open in the Program PDF.js dialog with a volume selector; Reboot/Global cards open the public Academy reader. Public cards now use subject and module ribbons, without the Internet Archive or Choose volume card text. The feature branch targets the Development frontend and Worker; production remains unchanged.
+
+# V105.4.2.19 — Linked Library classification and pasted covers
+
+The Archive.org book editor now offers active subject and module dropdowns from the Academy shared catalogue, Global Subjects, Reboot courses and draft Programs. Modules are filtered to the selected subject. Saves resolve the chosen IDs against the current records, so an altered ID or archived subject or module cannot create an unlinked classification. Editors may paste a JPG/PNG cover from the clipboard as well as upload or link one; the existing server-side image checks still apply. The PDFs remain at Archive.org.
+
+# V105.4.2.18 — Academy Open Library details
+
+An editor for active Academy global administrators and teachers adds Academy title, subject, module, level, author, description and JPG/PNG cover details to each Archive.org book or volume set. The public and signed-in catalogues apply these details over the automatically synced Archive list. Covers may use a public HTTPS JPG/PNG URL or a device upload to Academy media storage. PDFs remain at Archive.org. [Details](docs/ACADEMY-OPEN-LIBRARY.md).
+
+# V105.4.2.17 — Open Library book cards
+
+Public book cards now use a taller portrait image panel and a narrower grid. Archive.org covers stay inside that panel, and long metadata titles wrap instead of overflowing into adjacent cards. The layout also keeps two portrait cards per row on phone widths. Public original PDFs within one Archive.org item become selectable volumes, and distinct listed items with matching numbered series titles combine into one card. This groups the current Tafseer Jalalain volumes and shows all public PDFs for Maariful Quran, Tasheelul Fiqh and Aqaaid, Yassarnal Quraan, and Riyaadus Saliheen. Original PDFs take precedence over Archive.org derivative copies; the proxy rechecks each selected file against the public list and current metadata.
+
+# V105.4.2.16 — Archive catalogue loading
+
+The public Archive.org list request no longer uses a redirect setting unsupported by Cloudflare Workers. Unexpected redirects still fail closed. A local Pages preview loaded six Archive books, including Ihya Ulum ad-Din as four volumes, and returned PDF bytes through the existing proxy. The fix was pushed to the feature branch and deployed by the Git-connected Development Pages project.
+
+# V105.4.2.15 — Academy version and Library menu
+
+The public Academy welcome page now shows **Website V105.4.2.15** in its header. The existing left-hand Library item opens `/academy/open-library/` before sign-in and `/academy/library/` after the Academy session is verified. Signing out returns the item to the public destination. This version is visible on the Development Pages site.
+
+# V105.4.2.14 — Archive books in Academy Explore
+
+The signed-in Academy Library now shows public Archive.org books in Explore and opens them in its in-page PDF.js reader. The Ihya card has a four-volume selector. The public Open Library continues to work without an account, while protected resources retain their separate server access checks. [Open Library details](docs/ACADEMY-OPEN-LIBRARY.md). Hosted Development and device reading checks remain open.
+
+# V105.4.2.13 — Public Open Library volumes
+
+Ihya Ulum ad-Din appears as one public book with a selector for four Archive.org volumes. The Archive list continues to sync other public PDFs. [Open Library details](docs/ACADEMY-OPEN-LIBRARY.md). Live PDF delivery and device checks remain open.
+
+# V105.4 — Program curriculum and Library management
+
+Program curriculum now includes subject-level and module-level task definitions. Program administrators can organise protected Drive resources into eBooks, Printables, Audio, Video and Other by subject, optional level, module and task. Existing Program spreadsheets can add two task/resource tables without rewriting earlier curriculum or timetable records. [Workflow and acceptance](docs/V105.4-PROGRAM-LIBRARY.md).
+
+The Library management screen supports file selection, edits, archive/reactivation and protected administrator preview. Program student delivery and task assignment remain in V105.5. This branch has automated verification; Development acceptance with actual records is pending.
+
 # V105.3.3.4 — Class and teacher timetables
 
 Blocks is now the only timetable preview. Select one class or one assigned teacher for the preview and its PNG/PDF export. The Academy and selected name form the heading; version, effective date and timezone appear in the footnote. Lesson blocks omit the name already stated in the heading. [Scope and verification](docs/V105.3.3.4-CLASS-TEACHER-TIMETABLES.md).

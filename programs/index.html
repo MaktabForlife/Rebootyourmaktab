@@ -8,12 +8,12 @@
   <meta name="theme-color" content="#72477b" />
   <title>Programs · Maktabhelper</title>
   <link rel="icon" href="/admin-favicon-32x32.png" />
-  <link rel="stylesheet" href="/css/m4l-program-builder.css?v=105.2" />
+  <link rel="stylesheet" href="/css/m4l-program-builder.css?v=105.4.2.9" />
 </head>
 <body>
   <header class="pb-header">
     <a id="academy-link" href="/account/" class="pb-brand"><img src="/logo.png" alt="" />Maktabhelper <span>/ Academy</span></a>
-    <span class="pb-version">V105.3.4.13 · Program setup</span>
+    <span class="pb-version">V105.4.3.3 · Program setup</span>
   </header>
   <main id="program-builder">
     <div class="pb-heading"><div><p class="pb-eyebrow">﷽ &nbsp; Academy administration</p><h1>Programs</h1><a href="/users/">User profiles →</a>
@@ -33,19 +33,19 @@
         <button id="program-refresh" type="button" class="pb-secondary">↻ Refresh</button>
         <button id="program-add" type="button">＋ New Program</button>
       </div>
-      <p class="pb-grid-help" id="program-grid-help">Edit a cell, then save its row. Tab moves between fields. Ctrl/⌘ + Enter saves the current row.</p>
+      <p class="pb-grid-help" id="program-grid-help">Select a Program by clicking its number. Edit a cell, then save its row. Tab moves between fields. Ctrl/⌘ + Enter saves the current row.</p>
       <div class="pb-grid-scroll" tabindex="0" aria-label="Program table; scroll horizontally for more columns">
         <table class="pb-grid" aria-describedby="program-grid-help"><caption class="pb-sr-only">Program configuration</caption>
-          <thead><tr><th scope="col">#</th><th scope="col">Program</th><th scope="col">Years</th><th scope="col">Timezone</th><th scope="col">Status</th><th scope="col">Spreadsheet</th><th scope="col">Changes</th></tr></thead>
+          <thead><tr><th scope="col">Select</th><th scope="col">Program</th><th scope="col">Years</th><th scope="col">Timezone</th><th scope="col">Status</th><th scope="col">Spreadsheet</th><th scope="col">Changes</th></tr></thead>
           <tbody id="program-rows"></tbody>
         </table>
       </div>
-      <div class="pb-footer"><span>Levels are optional and independent of years.</span><span>Drafts are never visible to learners.</span></div>
+    <div class="pb-footer"><span>Levels are optional and independent of years.</span><span>Enrolled students can view active Library resources; teaching remains in preparation.</span></div>
       <section id="program-detail" class="pb-detail" aria-label="Selected Program details" hidden></section>
       <aside class="pb-note"><strong>Teaching opens in later V105 stages.</strong> New Programs stay inactive while teaching and student access are being built. Existing Programs continue in their current workspaces.</aside>
     </section>
   </main>
   <script src="/js/m4l-config.js?v=102.4"></script>
-  <script src="/js/m4l-program-builder.js?v=105.3.4.12"></script>
+  <script src="/js/m4l-program-builder.js?v=105.4.3.0"></script>
 </body>
 </html>

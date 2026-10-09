@@ -19,7 +19,7 @@ const context={console,URLSearchParams,structuredClone,crypto,location:{search:'
   const result=['save','recover'].includes(action)?await coordinator.run(action,body,'token'):await service.read(action,body);
   if(action==='save'&&afterSaveReadFailure){afterSaveReadFailure=false;readFailure={code:'SHEETS_RATE_LIMITED',retryable:true,retryAfterMs:60000};}
   return {ok:true,status:200,json:async()=>({success:true,...result})};
- }catch(error){return {ok:false,status:error.status||503,json:async()=>({success:false,error:error.message,code:error.code,currentRecord:error.currentRecord,rowRevision:error.rowRevision})};}
+ }catch(error){return {ok:false,status:error.status||503,json:async()=>({success:false,error:error.message,code:error.code,currentRecord:error.currentRecord,rowRevision:error.rowRevision,entryKey:error.entryKey})};}
 }};
 const settled=async()=>{for(let i=0;i<8;i++)await new Promise(resolve=>setTimeout(resolve,2));};
 const click=async id=>{element(id).onclick();await settled();};
@@ -42,7 +42,10 @@ await submit();assert.equal(f.tables.UserAccounts[1].DisplayName,'Kept across na
 await scopeClick({editScope:'PROGRAM:PRG-DEMO'});choose({role:'TEACHER'});choose({role:'STUDENT'});
 assert.match(element('up-users').innerHTML,/data-role="STUDENT" checked/);
 assert(!element('up-users').innerHTML.includes('paid subscription'));
+await scopeClick({editScope:'SUBJECT:PAID'}); // A clean cell in the saved user's row also closes.
 await scopeClick({'data-save-roles':true});
+assert(!element('up-users').innerHTML.includes('up-role-choices'));
+assert.match(element('up-users').innerHTML,/Student · Teacher ▾/);
 let directory=await service.read('get');
 assert.deepEqual(directory.accounts[1].assignments.find(g=>g.scopeId==='PRG-DEMO').roles,['STUDENT','TEACHER']);
 element('up-head').onclick({target:{closest:()=>({dataset:{policy:'PROGRAM:PRG-DEMO'}})}});
@@ -71,7 +74,8 @@ assert.equal(f.tables.AcademyProfileOperations.filter(r=>r.OperationID===retryRe
 // An independently changed record needs an explicit choice and never silently overwrites.
 await editProfile();name('My proposed name');f.tables.UserAccounts[1].DisplayName='Other administrator name';
 await submit();assert.equal(element('up-conflict').hidden,false);assert.match(element('up-comparison').innerHTML,/My proposed name/);assert.match(element('up-comparison').innerHTML,/Other administrator name/);
-await click('up-keep-mine');assert.equal(f.tables.UserAccounts[1].DisplayName,'My proposed name');
+assert(!ids.has('up-keep-mine'));assert.equal(element('up-save-all').disabled,false);
+await click('up-save-all');assert.equal(f.tables.UserAccounts[1].DisplayName,'My proposed name');
 // Separate status preserves all subject/program roles and subscriptions.
 const grants=structuredClone([f.tables.UserCourseAccess,f.tables.AcademySubjectRoles,f.tables.GlobalSubjectAccessMatrix]);
 await editProfile();element('up-users').onchange({target:{dataset:{active:''},value:'false'}});await submit();
@@ -91,6 +95,7 @@ console.log('Shared profiles UI: matrix rows, combined roles, independent inacti
 await editProfile();name('Batch person');element('up-users').onchange({target:{dataset:{active:''},value:'true'}});
 await rowClick({profile:'OWNER'});name('Batch owner');
 await scopeClick({editScope:'PROGRAM:PRG-DEMO'});choose({role:'ADMIN'});
+await scopeClick({editScope:'SUBJECT:PAID'}); // Opened but unchanged; Save all should close it too.
 assert.match(element('up-users').innerHTML,/Batch person/);assert.match(element('up-users').innerHTML,/Batch owner/);
 assert.match(element('up-users').innerHTML,/data-save="PERSON"/);
 const writesBefore=requests.filter(r=>r.action==='save').length;await click('up-save-all');
@@ -98,6 +103,8 @@ assert.equal(requests.filter(r=>r.action==='save').length,writesBefore+1);
 assert.equal(requests.filter(r=>r.action==='save').at(-1).body.mode,'batch');
 assert.equal(f.tables.UserAccounts[0].DisplayName,'Batch owner');assert.equal(f.tables.UserAccounts[1].DisplayName,'Batch person');
 assert.match(f.tables.AcademyAccessMatrix[1]['PROGRAM:PRG-DEMO'],/ADMIN/);
+assert(!element('up-users').innerHTML.includes('up-role-choices'));
+assert.match(element('up-users').innerHTML,/Student · Teacher · Senior · Admin ▾/);
 assert.match(element('up-users').innerHTML,/data-view="PERSON"/);assert.match(element('up-users').innerHTML,/data-share="PERSON"/);assert.match(element('up-users').innerHTML,/data-copy="PERSON"/);
 assert(!element('up-head').innerHTML.includes('>Global subject<'));
 await click('up-add');name('Zebra new user');await submit();
@@ -114,3 +121,17 @@ await click('up-profile-close');assert.equal(element('up-profile-dialog').open,f
 await editProfile();assert.equal(element('up-save').hidden,true);
 assert(!markup.includes('>Save row<'));
 console.log('Profile actions: login link dialog and individual saves through row icons passed.');
+
+// One Free/Paid policy update makes several open role drafts stale together.
+await rowClick({editScope:'PROGRAM:PRG-DEMO',account:'PERSON'});choose({role:'TEACHER'},false);
+await rowClick({editScope:'PROGRAM:PRG-DEMO',account:'OWNER'});choose({role:'STUDENT'});
+directory=await service.read('get');const scope=directory.scopes.find(s=>s.id==='PRG-DEMO');
+await coordinator.run('save',{mode:'matrix-policy',scopeType:'PROGRAM',scopeId:'PRG-DEMO',accessModel:'PAID',policyConfirmed:true,baseRevision:scope.revision,operationId:crypto.randomUUID()},'token');
+await click('up-save-all');assert.equal(element('up-conflict').hidden,false);assert.equal(element('up-save-all').disabled,false);
+const conflictWrites=requests.filter(r=>r.action==='save').length;
+await click('up-save-all');assert.equal(requests.filter(r=>r.action==='save').length,conflictWrites+1);
+assert.equal(element('up-conflict').hidden,true);
+directory=await service.read('get');
+assert(!directory.accounts[1].assignments.find(g=>g.scopeId==='PRG-DEMO').roles.includes('TEACHER'));
+assert(directory.accounts[0].assignments.find(g=>g.scopeId==='PRG-DEMO').roles.includes('STUDENT'));
+console.log('Profiles UI: one Save all resolves a shared policy revision for multiple role drafts.');

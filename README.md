@@ -1,3 +1,115 @@
+# V105.4.3.3 — One attendance entry
+
+The main account page has one Take attendance link for teaching accounts. Programs are selected using the pills on the attendance page. [Release notes](RELEASE-NOTES.md).
+
+# V105.4.3.2 — Attendance by Program and class
+
+Attendance now shows teaching Programs as pills and classes in adjacent columns. Each class has a lesson selector, Submit attendance button and learner list; Teachers see their classes, while Seniors and Admins see all classes. Submitted marks can be edited with their original roster preserved. The Account link now returns to the signed-in person's personal page. [Attendance details](docs/PROGRAM-ATTENDANCE.md).
+
+# V105.4.3.1 — Class saves and attendance breaks
+
+Program Management now saves all selected student class assignments in one coordinated change, with a single retry identifier if Google Sheets is temporarily busy. Attendance excludes timetable breaks from its registers and lesson totals. [Release notes](RELEASE-NOTES.md).
+
+# V105.4.3.0 — Program attendance
+
+Teachers can submit attendance for one published Program lesson or all their assigned lessons today, including lessons they co-teach. Learners start Present; teachers mark Absent or Excused exceptions. Unsubmitted registers remain unknown, and complete days show Present, Partial or Absent according to lesson attendance. Reboot's historical day records are preserved. [Attendance workflow and reporting limits](docs/PROGRAM-ATTENDANCE.md).
+
+Feature branch only; Development verification and the Excused percentage policy remain open.
+
+# V105.4.2.26 — Co-taught Program lessons
+
+A lesson for one class can name a lead teacher and additional teachers. Each teacher receives the lesson in their own timetable and is checked for clashes, availability and teaching hours. The class and whole Program publication omit teacher names for a co-taught lesson; lessons with one named teacher keep showing that name. This update is prepared locally for feature-branch review and has not been pushed or deployed.
+
+# V105.4.2.25 — Library category pills and resource search
+
+Public, signed-in Academy, Program and Reboot/Global Libraries now have All, PDF, Audio Visual and Other category pills. The Academy resource editor can search titles, subjects and sources before selecting a resource. Public Library cards show the number of recordings in a multi-file Archive.org item, and its two explanatory paragraphs have been removed. This update is prepared locally for feature-branch testing; it has not been pushed or deployed.
+
+# V105.4.2.24 — Media icons on Library cards
+
+Public, signed-in Academy, Program and Reboot Library cards show the media type icon with the resource title instead of a media type label. Public and signed-in Academy cards no longer show assigned Program or course names, and their cover panels use light sage; assignments still decide where learners find the resource. This update targets the Development feature branch; production is unchanged.
+
+# V105.4.2.23 — Complete Archive audio track lists
+
+The Open Library now keeps up to 250 playable files per listed Archive.org audio or video item. The live Surahs Teacher and Students item has 104 public MP3 tracks, and all 104 are available in its in-app selector. [Open Library details](docs/ACADEMY-OPEN-LIBRARY.md).
+
+# V105.4.2.22 — Public Library website links and Archive media
+
+Academy administrators and teachers can use **Add a resource** to create a public **Other** card with an HTTPS website link, subject, optional cover and Learning areas. The card opens the source in a new tab and appears in assigned Academy, Program and Reboot/Global Libraries. Items in the curated Archive.org list sync as eBooks, Audio or Video; editors can classify a PDF as Printable. Public and signed-in users can play listed audio and video in the Library, and PDF books keep their in-app reader. [Open Library details](docs/ACADEMY-OPEN-LIBRARY.md).
+
+# V105.4.2.21 — Subject columns in the public Library
+
+The public Open Library now places subjects side by side, with each subject's books stacked vertically. Cards keep their portrait covers and omit the “Open Library” caption; module names are hidden from the public display while remaining available to editors and search. [Open Library details](docs/ACADEMY-OPEN-LIBRARY.md).
+
+# V105.4.2.20 — Public books in Academy learning areas
+
+Open Library books can be assigned to several Programs and Global Subject courses while staying public. The editor's Learning areas selector is independent of subject and module. Assigned books appear in the relevant learner's **For you** view and in each matching Program or Reboot/Global Library; public books still open in the Academy PDF reader. Public book cards are arranged by subject and module. [Open Library details](docs/ACADEMY-OPEN-LIBRARY.md).
+
+# V105.4.2.19 — Linked subjects, modules and pasted covers
+
+The Open Library book editor now lists active Academy, Global Subject, Reboot and Program subjects and modules. Choosing a subject filters the module list, and the server saves their stable source-aware IDs with their current names. Editors can also paste a JPG/PNG cover directly from the clipboard, preview it, and save it through the existing cover upload path. [Open Library details](docs/ACADEMY-OPEN-LIBRARY.md).
+
+# V105.4.2.18 — Academy Open Library details
+
+Academy administrators and signed-in teachers can edit the title, subject, module, level, author, description and JPG/PNG cover for Archive.org books and grouped sets. Covers can be linked from a public site or uploaded from a device. Public and signed-in Libraries display these Academy details while PDFs stay at Archive.org. [Open Library details](docs/ACADEMY-OPEN-LIBRARY.md).
+
+# V105.4.2.17 — Open Library book cards
+
+The public Open Library uses narrower portrait cards so Archive.org book covers fit inside their image panels without overlapping the source or title. Long titles wrap within the card. Multiple public PDFs in one Archive.org item appear as selectable volumes, and clearly numbered items in the same series share one card. [Open Library details](docs/ACADEMY-OPEN-LIBRARY.md).
+
+# V105.4.2.16 — Archive catalogue loading
+
+Fix the public Open Library's Archive.org catalogue request in the Cloudflare Pages runtime. Unexpected redirects remain rejected. A local Pages preview loaded six Archive books, including the four-volume Ihya set, and streamed a PDF byte range. [Open Library details](docs/ACADEMY-OPEN-LIBRARY.md).
+
+This fix was pushed to the feature branch and deployed by the Git-connected Development Pages project.
+
+# V105.4.2.15 — Academy version and Library menu
+
+The Academy welcome page shows its website version in the header. Its existing left-hand **Library** menu opens the public Open Library for signed-out visitors and the personal Academy Library after a verified sign-in. [Release notes](RELEASE-NOTES.md).
+
+The Development Pages site is showing this version.
+
+# V105.4.2.14 — Archive books in Academy Explore
+
+Signed-in learners can browse the public Archive.org list in **Explore** and read its PDFs inside the Academy Library, including the four-volume Ihya item. The public Open Library remains available without sign-in. Both views use the same public catalogue and PDF proxy; protected Academy resources keep their own access checks. [Open Library details](docs/ACADEMY-OPEN-LIBRARY.md).
+
+Feature branch only; hosted Development and device reading checks remain open.
+
+# V105.4.2.13 — Public Open Library volumes
+
+The public Academy Open Library groups **Ihya Ulum ad-Din** into one book with four selectable volumes. Each PDF opens in the existing reader; the source files remain on Archive.org. Other public list items continue to sync automatically. [Source mapping and access checks](docs/ACADEMY-OPEN-LIBRARY.md).
+
+Feature branch only; Development reading checks remain open.
+
+# V105.4.2.12 — All-class publication display
+
+Program timetable previews, published history and image/PDF exports show one entry for an all-class lesson using class teachers. The entry says **All classes** and omits individual class teacher names. A named lesson teacher is shown by name; a lesson without any teacher says **No teacher**. Class and teacher views retain their own lesson links. [Details](docs/V105.4-PROGRAM-LIBRARY.md).
+
+Development only; publication and Academy acceptance remain open.
+
+# V105.4.2.11 — Class teachers across all classes
+
+A lesson can use each selected class's assigned teacher, have no assigned teacher, or name one lesson teacher. The all-class choice also appears in the board-tab class selector. Publication checks identify the lesson by weekday, time, subject and classes, and open it from the issue list. On the Program board, a small plus button on an occupied lesson card replaces the large add-another-class block. [Details](docs/V105.4-PROGRAM-LIBRARY.md).
+
+Development only; publication and Academy acceptance remain open.
+
+# V105.4.2.10 — Student classes, class teachers and Program timetables
+
+Program Management’s User profiles table lists active students enrolled through the shared Academy access matrix. Edit each student’s single class inline, then use the row Save button or Save all for several changes. Earlier class records remain archived when a student moves. Every Program may optionally assign a class teacher in Classes; lessons without an explicit teacher use that class teacher. The timetable planner has an editable **Program** board for all classes: schedule separate class lessons at the same time or one combined lesson for all active classes. The publication preview exports the whole Program as one image and one-page PDF. [Details and verification](docs/V105.4-PROGRAM-LIBRARY.md).
+
+Development only; publication and Academy acceptance remain open.
+
+# V105.4.2.9 — Program selection
+
+Choose a Program in the setup table by clicking its numbered button in the left column. The selected number is highlighted, and its details open below the table. The separate Details button in the right column has been removed. [Program setup](programs/index.html).
+
+Development only; publication and Academy acceptance remain open.
+
+# V105.4.2.8 — User profiles saving
+
+The changed-record review no longer shows **Save my version**. After reviewing a conflict, **Save all** retries pending role entries for the same Program or subject together. Confirmed saves close edited cells and show their saved values. The feature branch now requires a version update with every push. [Details and verification](docs/V105.4-PROGRAM-LIBRARY.md).
+
+Development only; publication and Academy acceptance remain open.
+
 # V105.3.4.12 — Visual timetable planning
 
 Plan lessons and breaks on class and teacher boards, and enter teacher availability on its own weekly board. Open several boards as in-page tabs. Use the Program button to choose which program's timetable is open, and the Teacher and Class buttons to choose the board view. Edit and move lessons on the board, including split and merged periods. Quick edit opens again, and each teacher's availability board shows that teacher's assigned hours for the week. Board actions now sit in the board header. Save, validate and preview from the top of the timetable page; publish after reviewing the preview and effective date. [Earlier board-tab scope and verification](docs/V105.3.4.4-IN-APP-BOARD-TABS.md).

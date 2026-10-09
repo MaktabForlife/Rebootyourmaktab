@@ -6,6 +6,8 @@ export const TIMETABLE_HEADERS = Object.freeze({
   ProgramSubjects: ["ProgramSubjectID", "CourseID", "SubjectID", "Active"],
   ProgramLevels: ["LevelID", "ProgramSubjectID", "Name", "SortOrder", "Active"],
   ProgramModules: ["ProgramModuleID", "ProgramSubjectID", "LevelID", "Name", "SortOrder", "Active"],
+  ProgramTasks: ["TaskID", "CourseID", "ProgramSubjectID", "ProgramModuleID", "Name", "SortOrder", "Active"],
+  ProgramResources: ["ResourceID", "CourseID", "ProgramSubjectID", "LevelID", "ProgramModuleID", "TaskID", "ResourceType", "Name", "Description", "DriveFileID", "Active", "Author", "Publisher", "ISBN", "PublicationYear", "CoverDriveFileID"],
   ProgramClasses: ["ClassID", "CourseID", "Name", "AcademicYear", "Active"],
   ProgramEnrollments: ["EnrollmentID", "CourseID", "ClassID", "AccountID", "StartDate", "EndDate", "Active"],
   ProgramTimetableState: ["Revision", "CourseID", "SchemaVersion", "Sequence", "DraftJSON", "CurrentPublicationID", "ModifiedDate", "ModifiedByAccountID"],
@@ -141,15 +143,16 @@ export function validateTimetable(input, catalog, program) {
   const enrollments = catalog.enrollments || [];
   for (const enrollment of enrollments) {
     if (!enrollment.active) continue;
-    if (enrollment.courseId !== program.id || !classes.has(enrollment.classId) || !enrollment.accountId || !validDate(enrollment.startDate)
-      || (enrollment.endDate && (!validDate(enrollment.endDate)||enrollment.endDate<enrollment.startDate))) issue("","enrollments","A class membership reference is invalid; repair membership data before publishing.");
+    if (enrollment.courseId !== program.id || !classes.has(enrollment.classId) || !enrollment.accountId ||
+      (enrollment.startDate && !validDate(enrollment.startDate)) ||
+      (enrollment.endDate && (!validDate(enrollment.endDate) || enrollment.startDate && enrollment.endDate < enrollment.startDate))) issue("","enrollments","A class membership reference is invalid; repair membership data before publishing.");
   }
   const scheduled = occurrences.filter(row=>row.status !== "CANCELLED");
   for (const row of scheduled) {
     row.startInstant = instant(row.date,row.startTime,formatter); row.endInstant = instant(row.date,row.endTime,formatter);
     if (row.startInstant === null || row.endInstant === null || row.endInstant <= row.startInstant) issue(row.ruleId,"time",`${row.date}: a local time is skipped or ambiguous at a clock change. Add an exception using an unambiguous time.`);
   }
-  const roster = row => new Set(enrollments.filter(e=>e.active && row.classIds.includes(e.classId) && e.startDate<=row.date && (!e.endDate||e.endDate>=row.date)).map(e=>e.accountId));
+  const roster = row => new Set(enrollments.filter(e=>e.active && row.classIds.includes(e.classId) && (!e.startDate||e.startDate<=row.date) && (!e.endDate||e.endDate>=row.date)).map(e=>e.accountId));
   const conflicts = [];
   for (let i=0;i<scheduled.length;i++) for (let j=i+1;j<scheduled.length;j++) {
     const left=scheduled[i],right=scheduled[j];
