@@ -4,10 +4,11 @@
   const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
   const token = () => localStorage.getItem('m4l_account_token') || '';
   const state = { home: null, activity: null, generation: 0, scheduleGeneration: 0, activityGeneration: 0, information: {}, startDate: '' };
-  const titles = { overview: 'Academy home', timetable: 'Academy timetable', learning: 'Programs and Courses', activity: 'Activity',
+  const titles = { overview: 'Academy home', timetable: 'Academy timetable', learning: 'Programs and Courses', workshops: 'Workshops', activity: 'Activity',
     prospectus: '2026 Prospectus', about: 'About', contact: 'Contact', progress: 'Dua and Surah Progress', recorder: 'Voice Recorder', administration: 'Academy administration' };
   const activityHref = row => `#activity/${row.kind}/${encodeURIComponent(row.id)}`;
   const roleName = roles => roles.map(role => ({ GLOBAL_ADMIN: 'Global Admin', ADMIN: 'Program Admin', SENIOR: 'Senior', TEACHER: 'Teacher', STUDENT: 'Student' })[role]).filter(Boolean).join(' · ') || 'Visitor';
+  const activityPill = (href, name, roles) => `<a href="${href}"><span>${esc(name)}</span><small>${esc(roleName(roles))}</small></a>`;
   const coming = (name, purpose) => `<article class="card card-pad coming-card"><h3>${esc(name)}</h3><span class="tag neutral">Coming soon</span><p>${esc(purpose)}</p></article>`;
   const safeLink = url => typeof url === 'string' && (/^https:\/\//.test(url) || /^\/(?!\/)/.test(url));
   const originalActivities = [
@@ -84,16 +85,28 @@
   function renderHome() {
     const data = state.home;
     $('personal-activities').hidden = !data.signedIn;
-    $('personal-empty').hidden = Boolean(data.personalActivities.length);
-    $('personal-pills').innerHTML = data.personalActivities.map(row => `<a href="${activityHref(row)}">${esc(row.name)}<small>${esc(roleName(row.roles))}</small></a>`).join('') +
-      (data.student ? '<a href="#progress">Dua and Surah Progress</a><a href="#recorder">Voice Recorder</a>' : '') +
-      (data.globalAdmin ? '<a href="#administration">Academy administration</a>' : '');
+    const activities = data.signedIn ? data.personalActivities : [];
+    const courses = activities.filter(row => row.kind === 'COURSE');
+    $('personal-empty').hidden = Boolean(activities.length || data.globalAdmin || data.student);
+    $('personal-pills').innerHTML = activities.filter(row => row.kind === 'PROGRAM')
+      .map(row => activityPill(activityHref(row), row.name, row.roles)).join('') +
+      (courses.length ? activityPill('#workshops', 'Workshops', [...new Set(courses.flatMap(row => row.roles))]) : '') +
+      (data.student ? activityPill('#progress', 'Dua and Surah Progress', ['STUDENT']) + activityPill('#recorder', 'Voice Recorder', ['STUDENT']) : '') +
+      (data.globalAdmin ? activityPill('#administration', 'Academy administration', ['GLOBAL_ADMIN']) : '');
+    renderWorkshops();
     const preview = upcomingItems(data.timetable);
     renderSchedule('academy-preview-sessions', preview, false, true);
     if (!preview.length) $('academy-preview-sessions').textContent = 'No upcoming published lessons in the next seven days.';
     $('preview-timetable-link').hidden = !data.signedIn;
     $('schedule-message').textContent = '';
     renderSchedule('academy-sessions', data.timetable);
+  }
+
+  function renderWorkshops() {
+    const courses = state.home?.signedIn ? state.home.personalActivities.filter(row => row.kind === 'COURSE') : [];
+    $('workshop-pills').innerHTML = courses.map(row => activityPill(activityHref(row), row.name, row.roles)).join('');
+    $('workshops-message').textContent = courses.length ? '' : state.home?.signedIn
+      ? 'No workshops are currently assigned to your account.' : 'Sign in to open your workshops.';
   }
 
   function upcomingItems(rows, now = new Date()) {
@@ -135,7 +148,7 @@
         const label = esc(row.activityName || row.title);
         const title = state.home?.signedIn ? `<a href="${activityHref({ kind: row.kind, id: row.activityId })}">${label}</a>` : label;
         const info = state.home?.signedIn && row.information?.length ? `<button type="button" class="information-button" data-information="${id}:${index}" aria-label="More information about ${label}">i</button>` : '';
-        return `<li class="upcoming-item ${row.involvement === 'teacher' ? 'teacher' : row.involvement === 'student' ? 'student' : ''}"><div class="upcoming-name">${title}${info}</div><span class="upcoming-time">${esc(row.startTime)}–${esc(row.endTime)}</span><small>${esc(row.timezone)}</small></li>`;
+        return `<li class="upcoming-item ${row.involvement === 'teacher' ? 'teacher' : row.involvement === 'student' ? 'student' : ''}"><div class="upcoming-name">${title}${info}</div><span class="upcoming-time">${esc(row.startTime)}–${esc(row.endTime)}</span></li>`;
       }).join('')}</ul></li>`).join('')}</ol>`;
       return;
     }
@@ -159,6 +172,8 @@
       const result = await request({ id, startDate: state.startDate });
       if (generation !== state.activityGeneration) return;
       const row = state.activity = result.activity;
+      $('activity-back-link').href = row.kind === 'COURSE' ? '#workshops' : '#overview';
+      $('activity-back-link').textContent = row.kind === 'COURSE' ? '← Workshops' : '← My Academy';
       $('activity-title').textContent = row.name;
       $('activity-kind').textContent = row.kind === 'PROGRAM' ? 'Program' : 'Course';
       $('activity-role').textContent = roleName(row.roles);
@@ -198,6 +213,7 @@
     });
     $('current-view').textContent = titles[name];
     if (requested === 'learning') $('learning').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+    if (name === 'workshops') renderWorkshops();
     if (name === 'activity' && encodedId) { try { void loadActivity(decodeURIComponent(encodedId)); } catch { $('activity-status').textContent = 'This activity link is invalid.'; } }
     if (name === 'recorder') $('recorder-card').innerHTML = state.home?.student ? '<p>Select an existing lesson image, record your voice, then preview and share your video.</p><a class="button" href="/recorder/?academy=1">Open Voice Recorder →</a>' : '<p>Voice Recorder is available to signed-in Academy students.</p>';
     if (name === 'administration') renderAdministration();
@@ -218,7 +234,10 @@
     state.activity = null;
     state.information = {};
     $('personal-activities').hidden = true;
-    for (const id of ['personal-pills', 'academy-preview-sessions', 'academy-sessions', 'activity-menu', 'activity-sessions', 'activity-coming', 'activity-classes', 'activity-curriculum', 'recorder-card']) $(id).replaceChildren();
+    for (const id of ['personal-pills', 'workshop-pills', 'academy-preview-sessions', 'academy-sessions', 'activity-menu', 'activity-sessions', 'activity-coming', 'activity-classes', 'activity-curriculum', 'recorder-card']) $(id).replaceChildren();
+    $('workshops-message').textContent = '';
+    $('activity-back-link').href = '#overview';
+    $('activity-back-link').textContent = '← My Academy';
     $('preview-timetable-link').hidden = true;
     $('schedule-message').textContent = '';
     $('activity-title').textContent = '';

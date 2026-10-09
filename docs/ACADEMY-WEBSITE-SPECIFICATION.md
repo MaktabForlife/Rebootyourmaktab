@@ -68,7 +68,7 @@ Remove obsolete demo instructions, connection-plan content and sample completion
 
 ### Academy timetable
 
-On the main page, display the shortened Academy timetable as **Coming up**, beneath the enlarged announcements area. Group entries into horizontally swipeable date columns, with Program or Course names as compact cards and their published time and timezone visible. Provide arrow buttons and keyboard access as well as touch scrolling. Include only the next published item per Program or Course within the next seven days. Exclude ended and cancelled items, and combine Course offerings under their Course for this summary.
+On the main page, display the shortened Academy timetable as **Coming up**, beneath the enlarged announcements area. Group entries into horizontally swipeable date columns, with Program or Course names as compact cards and their published time visible. Omit the timezone from these Coming up cards; keep it in the full timetable. Provide arrow buttons and keyboard access as well as touch scrolling. Include only the next published item per Program or Course within the next seven days. Exclude ended and cancelled items, and combine Course offerings under their Course for this summary.
 
 Signed-in users can open the full Academy timetable from this summary. Do not include Timetable in the main menu. Highlight the signed-in person’s involvement using **colour**, supported by a simple colour key in the full timetable.
 
@@ -114,13 +114,13 @@ Returning from a tool should provide a clear route back to the Academy home or r
 
 ## 3. Personal activity pills
 
-Pills are links to the person’s activities.
+In the signed-in **My Academy** panel, beneath personal Library access, show **Your activities** as pills. Display the role beneath each activity name. Visitors must not see this personal section.
 
-Populate Program and Course pills from actual account access, including authorised access to the existing shared curriculum displayed as Courses. Bind each Course to its actual underlying curriculum ID and any required offering context. Do not use the demo’s fixed list as personal membership data.
+Populate activity pills from actual account access, including authorised access to the existing shared curriculum displayed as Courses. Show each Program separately. Group all Courses, including Barakah and Salaah, into one **Workshops** home pill. This opens a chooser containing only the person’s authorised Courses, with the individual role beneath each Course name. Bind each chooser entry to its actual underlying curriculum ID and any required offering context. Hide the Workshops pill when no Course access is assigned; clear the chooser on sign-out. Do not use the demo’s fixed list as personal membership data.
 
 Display the new Reboot Pilot Program pill as **Reboot** and bind it to the Pilot’s verified Program ID. Determine membership and roles from that Program’s current access records. Legacy Reboot membership must not be used to infer access to the new Program.
 
-A person can hold different roles in different Programs and Courses. Preserve the existing scope of each role and entitlement.
+A person can hold different roles in different Programs and Courses. Preserve the existing scope of each role and entitlement. **Workshops** is a home navigation grouping only; it does not merge memberships, permissions or underlying Course records.
 
 Include universal student activities, such as Dua and Surah Progress and Voice Recorder, alongside relevant Program and Course activities. Show **Coming soon** when their required integration is unavailable.
 

@@ -29,12 +29,17 @@ const activity = { id:'PRG-46c8576d-9fcf-4000-96b9-856b00a0218a', name:'Reboot',
   tools:{ library:'/academy/library/', attendance:'' }, curriculum:[{name:'Tafseer',modules:[{name:'Module one'}]}], classes:[{name:'Class one'}],
   timetable:[{kind:'PROGRAM',activityId:'PRG-46c8576d-9fcf-4000-96b9-856b00a0218a',activityName:'Reboot',title:'Lesson <one>',date:'2026-10-05',startTime:'13:00',endTime:'14:00',timezone:'Africa/Johannesburg',involvement:'student',information:['Class one','Teacher A','Teacher B'],joinUrl:'https://zoom.test/lesson'}] };
 const requests = [];
-let deferNext=false, release;
+let deferNext=false, release, hasWorkshops=true, globalAdmin=false;
 const fetch = async (_url, options) => {
   const signedIn = Boolean(options.headers.Authorization), body = JSON.parse(options.body);
   requests.push(body);
   const row = structuredClone(activity);
+  if (globalAdmin && signedIn) row.roles=['GLOBAL_ADMIN'];
   if (!signedIn) { row.roles=[]; row.classes=[]; row.curriculum=[]; row.timetable.forEach(event=>{delete event.information;delete event.joinUrl;event.involvement='';}); }
+  const workshops = [{id:'COURSE-BARAKAH',name:'Barakah',roles:['TEACHER']}, {id:'COURSE-SALAAH',name:'Salaah',roles:['STUDENT']}]
+    .map(course=>({...row,...course,kind:'COURSE',roles:!signedIn||!hasWorkshops?[]:globalAdmin?['GLOBAL_ADMIN']:course.roles,
+      timetable:row.timetable.map(event=>({...event,kind:'COURSE',activityId:course.id,activityName:course.name}))}));
+  const activities=[row,...workshops,{id:'COURSE-TAFSEER',name:'Tafseer & Tadabbur',kind:'COURSE',roles:[]}];
   const base = row.timetable[0];
   const homeTimetable = [base, {...base,title:'Earlier item',date:'2026-10-04'},
     {...base,title:'Ended item',startTime:'10:00',endTime:'11:00'},
@@ -42,8 +47,8 @@ const fetch = async (_url, options) => {
     {...base,kind:'COURSE',activityId:'COURSE-TEST',activityName:'Course item',title:'Course item',date:'2026-10-06'},
     {...base,kind:'COURSE',activityId:'COURSE-TEST',title:'Later Course offering',date:'2026-10-07'},
     {...base,activityId:'CANCELLED',title:'Cancelled item',status:'CANCELLED'}];
-  const result = { success:true,signedIn,globalAdmin:false,student:signedIn,startDate:body.startDate||'2026-10-05',endDate:'2026-10-11',warnings:[],
-    activities:[row,{id:'COURSE-TAFSEER',name:'Tafseer & Tadabbur',kind:'COURSE',roles:[]}],personalActivities:signedIn?[row]:[],timetable:homeTimetable.map(event=>{const publicEvent={...event};delete publicEvent.joinUrl;return publicEvent;}),activity:body.id?row:null };
+  const result = { success:true,signedIn,globalAdmin:signedIn&&globalAdmin,student:signedIn&&!globalAdmin,startDate:body.startDate||'2026-10-05',endDate:'2026-10-11',warnings:[],
+    activities,personalActivities:signedIn?activities.filter(item=>item.roles.length):[],timetable:homeTimetable.map(event=>{const publicEvent={...event};delete publicEvent.joinUrl;return publicEvent;}),activity:body.id?activities.find(item=>item.id===body.id):null };
   if (deferNext) { deferNext=false; await new Promise(resolve=>{release=resolve;}); }
   return {ok:true,status:200,json:async()=>result};
 };
@@ -53,9 +58,17 @@ vm.runInNewContext(script, { window, document, location, localStorage:{getItem:k
   Intl, Date:FixtureDate, setInterval() {}, matchMedia:()=>({matches:false}) });
 await flush();
 assert.equal($('personal-activities').hidden,true);
+assert.equal($('workshop-pills').innerHTML,'');
+assert.ok(html.indexOf('id="personal-activities"')>html.indexOf('id="academy-home-card"'));
+assert.ok(html.indexOf('id="personal-activities"')<html.indexOf('class="intro-actions"'));
+location.hash='#workshops';handlers.get('hashchange')();
+assert.equal($('workshops').classList.contains('active'),true);
+assert.match($('workshops-message').textContent,/Sign in/);
 assert.doesNotMatch($('academy-sessions').innerHTML,/data-information|Join lesson|<a /);
 assert.doesNotMatch($('academy-preview-sessions').innerHTML, /<a |Earlier item|Ended item|Later Program item|Later Course offering|Cancelled item/);
 assert.match($('academy-preview-sessions').innerHTML,/Course item/);
+assert.doesNotMatch($('academy-preview-sessions').innerHTML,/Africa\/Johannesburg/);
+assert.match($('academy-sessions').innerHTML,/Africa\/Johannesburg/);
 assert.equal(($('academy-preview-sessions').innerHTML.match(/<li class="upcoming-item /g)||[]).length,2);
 assert.equal($('preview-timetable-link').hidden,true);
 assert.match(html,/id="academy-library-nav" href="\/academy\/open-library\/"/);
@@ -86,6 +99,16 @@ assert.equal($('overview').classList.contains('active'),true,'Programs and Cours
 storage.set('m4l_account_token','QA');window.dispatchEvent(new Event('m4l-academy-session'));await flush();
 assert.equal($('personal-activities').hidden,false);
 assert.match($('personal-pills').innerHTML,/Voice Recorder/);
+assert.match($('personal-pills').innerHTML,/<span>Reboot<\/span><small>Student<\/small>/);
+assert.equal(($('personal-pills').innerHTML.match(/href="#workshops"/g)||[]).length,1);
+assert.doesNotMatch($('personal-pills').innerHTML,/Barakah|Salaah|COURSE-BARAKAH|COURSE-SALAAH/);
+location.hash='#workshops';handlers.get('hashchange')();
+assert.match($('workshop-pills').innerHTML,/href="#activity\/COURSE\/COURSE-BARAKAH"><span>Barakah<\/span><small>Teacher<\/small>/);
+assert.match($('workshop-pills').innerHTML,/href="#activity\/COURSE\/COURSE-SALAAH"><span>Salaah<\/span><small>Student<\/small>/);
+assert.doesNotMatch($('workshop-pills').innerHTML,/COURSE-TAFSEER/,'The chooser must not expose a Course without account access');
+location.hash='#activity/COURSE/COURSE-BARAKAH';handlers.get('hashchange')();await flush();
+assert.equal($('activity-title').textContent,'Barakah');
+assert.equal($('activity-back-link').href,'#workshops');
 assert.match($('academy-sessions').innerHTML,/class="student"/);
 assert.equal($('preview-timetable-link').hidden,false);
 assert.match($('academy-preview-sessions').innerHTML,/href="#activity\/PROGRAM\/PRG-46c8576d-9fcf-4000-96b9-856b00a0218a"/);
@@ -106,7 +129,17 @@ assert.match($('activity-sessions').innerHTML,/Join lesson/);
 assert.match($('activity-sessions').innerHTML,/Lesson &lt;one&gt;/);
 assert.match($('activity-curriculum').innerHTML,/Module one/);
 assert.match($('activity-coming').innerHTML,/Coming soon/);
+assert.equal($('activity-back-link').href,'#overview');
 location.hash='#recorder';handlers.get('hashchange')();assert.match($('recorder-card').innerHTML,/\/recorder\/\?academy=1/);
+hasWorkshops=false;window.dispatchEvent(new Event('m4l-academy-session'));await flush();
+assert.doesNotMatch($('personal-pills').innerHTML,/href="#workshops"/);
+location.hash='#workshops';handlers.get('hashchange')();
+assert.equal($('workshop-pills').innerHTML,'');
+assert.match($('workshops-message').textContent,/No workshops/);
+hasWorkshops=true;globalAdmin=true;window.dispatchEvent(new Event('m4l-academy-session'));await flush();
+assert.match($('personal-pills').innerHTML,/<span>Workshops<\/span><small>Global Admin<\/small>/);
+assert.match($('personal-pills').innerHTML,/<span>Academy administration<\/span><small>Global Admin<\/small>/);
+globalAdmin=false;window.dispatchEvent(new Event('m4l-academy-session'));await flush();
 // A personal response that finishes after sign-out cannot restore protected content.
 deferNext=true;location.hash='#activity/PROGRAM/PRG-46c8576d-9fcf-4000-96b9-856b00a0218a';handlers.get('hashchange')();await flush();
 storage.clear();window.dispatchEvent(new Event('m4l-academy-session'));release();await flush();
@@ -117,6 +150,9 @@ assert.equal($('lesson-information').open,false);
 assert.doesNotMatch($('activity-sessions').innerHTML,/Join lesson/);
 assert.equal($('activity-curriculum').innerHTML,'');
 assert.equal($('recorder-card').innerHTML,'');
+assert.equal($('workshop-pills').innerHTML,'');
+location.hash='#workshops';handlers.get('hashchange')();
+assert.match($('workshops-message').textContent,/Sign in/);
 location.hash='#administration';handlers.get('hashchange')();assert.doesNotMatch($('administration').innerHTML,/href="\/users\//);
 assert.doesNotMatch(html, /data-information="\d+"/);
 console.log('Academy entrance UI: one upcoming item per activity, public timetable without links, independent full schedule, visitor/personal views, escaped labels, combined-lesson popup, contextual tools, student recorder and delayed-response sign-out passed.');

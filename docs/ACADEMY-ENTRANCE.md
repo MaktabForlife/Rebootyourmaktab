@@ -1,3 +1,17 @@
+# Academy home · V105.4.3.8
+
+**Your activities** now sits inside the signed-in **My Academy** panel, beneath personal Library access. Each pill places its role below its name. The former full-width personal section is removed.
+
+Programs retain separate pills. All authorised Courses, including Barakah and Salaah, share one **Workshops** home pill. It opens a chooser containing only Courses returned in the account's personal access, with each Course's own name, role and underlying ID. The grouping does not merge memberships or permissions. Accounts without Course access have no Workshops pill, visitors receive a sign-in message, and sign-out clears the chooser and pending protected responses. Course pages return to Workshops; Program pages return to My Academy.
+
+**Coming up** cards display the published time without a timezone. The separate full Academy timetable and activity timetables retain their timezone labels and timezone-aware scheduling calculations.
+
+**104/104 backend test files passed.** The entrance regression covers students, Global Admins, mixed Course roles, the authorised chooser, accounts without Courses, sign-out, hidden preview timezones and retained full-timetable timezones. JavaScript syntax, HTML section nesting, unique IDs, script targets, assets, release markers and all 46 original Academy-site URLs pass static checks. The specification Page and checked-in specification are synchronized.
+
+Push target: `feature/105.3.4.13`. Browser visual and physical iPhone checks remain pending under the previously recorded preview-tool limitation.
+
+---
+
 # Academy home · V105.4.3.7
 
 The current-offerings artwork row is headed **Explore our programs and courses**. Its six cards remain in one swipeable row and contain no image, title or action links, following the latest request. This supersedes the V105.4.3.6 public card destinations. Personal activity pills retain the existing authenticated framework integration.

@@ -1,3 +1,7 @@
+# V105.4.3.8 — Personal activities and Workshops
+
+Move Your activities into the signed-in My Academy panel beneath Library access, with each role below its activity name. Group the person's Courses under one Workshops pill, opening a chooser of authorised Courses while preserving their individual access and IDs. Coming up cards show the published time without a timezone; the full timetable retains timezones. [Implementation and verification](docs/ACADEMY-ENTRANCE.md).
+
 # V105.4.3.7 — Public showcase headings and links
 
 Remove all links from the swipeable current-offerings cards for now. Use **Explore our programs and courses** above that row and **Immerse yourself in these free workshops and courses** above the existing public catalogue. The enlarged announcements area and swipeable Coming up timetable remain. [Implementation and verification](docs/ACADEMY-ENTRANCE.md).
