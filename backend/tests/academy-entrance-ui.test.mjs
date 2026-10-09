@@ -25,34 +25,69 @@ const location = { hash: '#overview' };
 const window = { M4L_CONFIG: { API_BASE: 'https://test' }, location,
   addEventListener(type, fn) { handlers.set(type, fn); }, dispatchEvent(event) { handlers.get(event.type)?.(event); } };
 const $ = id => elements.get(id), flush = async () => { for (let i=0;i<4;i++) await new Promise(resolve=>setImmediate(resolve)); };
-const activity = { id:'PRG-TEST', name:'Reboot', kind:'PROGRAM', roles:['STUDENT'],
+const activity = { id:'PRG-46c8576d-9fcf-4000-96b9-856b00a0218a', name:'Reboot', kind:'PROGRAM', roles:['STUDENT'],
   tools:{ library:'/academy/library/', attendance:'' }, curriculum:[{name:'Tafseer',modules:[{name:'Module one'}]}], classes:[{name:'Class one'}],
-  timetable:[{kind:'PROGRAM',activityId:'PRG-TEST',activityName:'Reboot',title:'Lesson <one>',date:'2026-10-05',startTime:'13:00',endTime:'14:00',timezone:'Africa/Johannesburg',involvement:'student',information:['Class one','Teacher A','Teacher B'],joinUrl:'https://zoom.test/lesson'}] };
+  timetable:[{kind:'PROGRAM',activityId:'PRG-46c8576d-9fcf-4000-96b9-856b00a0218a',activityName:'Reboot',title:'Lesson <one>',date:'2026-10-05',startTime:'13:00',endTime:'14:00',timezone:'Africa/Johannesburg',involvement:'student',information:['Class one','Teacher A','Teacher B'],joinUrl:'https://zoom.test/lesson'}] };
+const requests = [];
 let deferNext=false, release;
 const fetch = async (_url, options) => {
   const signedIn = Boolean(options.headers.Authorization), body = JSON.parse(options.body);
+  requests.push(body);
   const row = structuredClone(activity);
   if (!signedIn) { row.roles=[]; row.classes=[]; row.curriculum=[]; row.timetable.forEach(event=>{delete event.information;delete event.joinUrl;event.involvement='';}); }
-  const result = { success:true,signedIn,globalAdmin:false,student:signedIn,startDate:'2026-10-05',endDate:'2026-10-11',warnings:[],
-    activities:[row],personalActivities:signedIn?[row]:[],timetable:row.timetable.map(event=>{const publicEvent={...event};delete publicEvent.joinUrl;return publicEvent;}),activity:body.id?row:null };
+  const base = row.timetable[0];
+  const homeTimetable = [base, {...base,title:'Earlier item',date:'2026-10-04'},
+    {...base,title:'Ended item',startTime:'10:00',endTime:'11:00'},
+    {...base,title:'Later Program item',date:'2026-10-06'},
+    {...base,kind:'COURSE',activityId:'COURSE-TEST',title:'Course item'},
+    {...base,kind:'COURSE',activityId:'COURSE-TEST',title:'Later Course offering',date:'2026-10-06'},
+    {...base,activityId:'CANCELLED',title:'Cancelled item',status:'CANCELLED'}];
+  const result = { success:true,signedIn,globalAdmin:false,student:signedIn,startDate:body.startDate||'2026-10-05',endDate:'2026-10-11',warnings:[],
+    activities:[row,{id:'COURSE-TAFSEER',name:'Tafseer & Tadabbur',kind:'COURSE',roles:[]}],personalActivities:signedIn?[row]:[],timetable:homeTimetable.map(event=>{const publicEvent={...event};delete publicEvent.joinUrl;return publicEvent;}),activity:body.id?row:null };
   if (deferNext) { deferNext=false; await new Promise(resolve=>{release=resolve;}); }
   return {ok:true,status:200,json:async()=>result};
 };
+const RealDate = Date;
+class FixtureDate extends RealDate { constructor(...args) { super(...(args.length?args:['2026-10-05T10:00:00Z'])); } }
 vm.runInNewContext(script, { window, document, location, localStorage:{getItem:key=>storage.get(key)||null}, fetch, Event,
-  Intl, Date, setInterval() {}, matchMedia:()=>({matches:false}) });
+  Intl, Date:FixtureDate, setInterval() {}, matchMedia:()=>({matches:false}) });
 await flush();
 assert.equal($('personal-activities').hidden,true);
-assert.doesNotMatch($('academy-sessions').innerHTML,/data-information|Join lesson/);
+assert.doesNotMatch($('academy-sessions').innerHTML,/data-information|Join lesson|<a /);
+assert.doesNotMatch($('academy-preview-sessions').innerHTML, /<a |Earlier item|Ended item|Later Program item|Later Course offering|Cancelled item/);
+assert.match($('academy-preview-sessions').innerHTML,/Course item/);
+assert.equal(($('academy-preview-sessions').innerHTML.match(/<li class=/g)||[]).length,2);
+assert.equal($('preview-timetable-link').hidden,true);
+assert.match(html,/href="\/academy\/open-library\/">Browse Open Library/);
 assert.match($('program-catalogue').innerHTML,/Reboot/);
+assert.match($('program-catalogue').innerHTML,/learning-images\/reboot.jpeg/);
+assert.match($('course-catalogue').innerHTML,/learning-images\/tafseer.jpeg/);
+assert.match($('course-catalogue').innerHTML,/href="#activity\/COURSE\/COURSE-TAFSEER"/);
+assert.match($('course-catalogue').innerHTML,/learning-images\/arabic.png/);
+assert.match($('course-catalogue').innerHTML,/learning-images\/mothers.jpg/);
+assert.match(html,/<section id="learning" aria-labelledby="learning-title">/);
+assert.ok(html.indexOf('id="learning"') < html.indexOf('<section id="timetable"'));
+assert.doesNotMatch(html,/data-nav="timetable"|Original Umm Abbad Academy artwork|Browse original Academy course and workshop information|Some posters show past dates/);
+location.hash='#learning';handlers.get('hashchange')();
+assert.equal($('overview').classList.contains('active'),true,'Programs and Courses must remain on the main page');
 storage.set('m4l_account_token','QA');window.dispatchEvent(new Event('m4l-academy-session'));await flush();
 assert.equal($('personal-activities').hidden,false);
 assert.match($('personal-pills').innerHTML,/Voice Recorder/);
 assert.match($('academy-sessions').innerHTML,/class="student"/);
+assert.equal($('preview-timetable-link').hidden,false);
+assert.match($('academy-preview-sessions').innerHTML,/href="#activity\/PROGRAM\/PRG-46c8576d-9fcf-4000-96b9-856b00a0218a"/);
 assert.doesNotMatch($('academy-sessions').innerHTML,/Join lesson/);
-documentHandlers.get('click')({target:{closest:selector=>selector==='[data-information]'?{dataset:{information:'academy-sessions:0'}}:null}});
+documentHandlers.get('click')({target:{closest:selector=>selector==='[data-information]'?{dataset:{information:'academy-preview-sessions:0'}}:null}});
 assert.equal($('lesson-information').open,true);
 assert.match($('lesson-information-body').innerHTML,/Teacher A.*Teacher B/);
-location.hash='#activity/PROGRAM/PRG-TEST';handlers.get('hashchange')();await flush();
+const previewBefore=$('academy-preview-sessions').innerHTML;
+location.hash='#timetable';handlers.get('hashchange')();
+assert.equal($('timetable').classList.contains('active'),true);
+$('schedule-date').value='2026-09-28';$('schedule-date').listeners.get('change')();await flush();
+assert.equal(requests.at(-1).startDate,'2026-09-28');
+assert.equal($('academy-preview-sessions').innerHTML,previewBefore,'Browsing the full timetable must not replace the current home preview');
+assert.match($('academy-sessions').innerHTML,/Later Program item/);
+location.hash='#activity/PROGRAM/PRG-46c8576d-9fcf-4000-96b9-856b00a0218a';handlers.get('hashchange')();await flush();
 assert.match($('activity-menu').innerHTML,/\/academy\/library\//);
 assert.match($('activity-sessions').innerHTML,/Join lesson/);
 assert.match($('activity-sessions').innerHTML,/Lesson &lt;one&gt;/);
@@ -60,13 +95,15 @@ assert.match($('activity-curriculum').innerHTML,/Module one/);
 assert.match($('activity-coming').innerHTML,/Coming soon/);
 location.hash='#recorder';handlers.get('hashchange')();assert.match($('recorder-card').innerHTML,/\/recorder\/\?academy=1/);
 // A personal response that finishes after sign-out cannot restore protected content.
-deferNext=true;location.hash='#activity/PROGRAM/PRG-TEST';handlers.get('hashchange')();await flush();
+deferNext=true;location.hash='#activity/PROGRAM/PRG-46c8576d-9fcf-4000-96b9-856b00a0218a';handlers.get('hashchange')();await flush();
 storage.clear();window.dispatchEvent(new Event('m4l-academy-session'));release();await flush();
 assert.equal($('personal-activities').hidden,true);
+assert.equal($('preview-timetable-link').hidden,true);
+assert.doesNotMatch($('academy-preview-sessions').innerHTML, /<a |data-information/);
 assert.equal($('lesson-information').open,false);
 assert.doesNotMatch($('activity-sessions').innerHTML,/Join lesson/);
 assert.equal($('activity-curriculum').innerHTML,'');
 assert.equal($('recorder-card').innerHTML,'');
 location.hash='#administration';handlers.get('hashchange')();assert.doesNotMatch($('administration').innerHTML,/href="\/users\//);
 assert.doesNotMatch(html, /data-information="\d+"/);
-console.log('Academy entrance UI: visitor/personal views, escaped labels, combined-lesson popup, contextual tools, student recorder and delayed-response sign-out passed.');
+console.log('Academy entrance UI: one upcoming item per activity, public timetable without links, independent full schedule, visitor/personal views, escaped labels, combined-lesson popup, contextual tools, student recorder and delayed-response sign-out passed.');

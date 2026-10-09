@@ -1,3 +1,7 @@
+# V105.4.3.5 — Academy home content
+
+Rebuild the home with public announcements and inspiration, a top timetable showing one upcoming item per Program or Course, and the original artwork cards on the main page. Visitors see plain timetable entries and retain free material and Public Library access. The main Library menu always opens the Public Library; Timetable is removed from the menu. Use the Academy logo in navigation and behind the announcement/timetable cards, remove the marked catalogue prose, and preserve every original Academy-site URL. [Implementation and verification](docs/ACADEMY-ENTRANCE.md).
+
 # V105.4.3.4 — Academy entrance
 
 The Academy home now uses published new Program timetables and the shared Course curriculum, with account-based activity pills and protected lesson links. Reboot maps to the verified Pilot Program ID. Personal Library excludes legacy Reboot, Explore opens the public Library, and the original ummabbadacademy.com links remain. Unsupported features show Coming soon. Feature release for `feature/105.3.4.13`; deployment remains separate. [Implementation and verification](docs/ACADEMY-ENTRANCE.md).

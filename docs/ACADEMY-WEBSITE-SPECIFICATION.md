@@ -1,10 +1,8 @@
-# Umm Abbad Academy website update specification
-
 ## Objective
 
 Update the existing Academy demo into a usable Academy entrance. Connect existing functionality where it supports the agreed behaviour. Show **Coming soon** for unavailable features or integrations.
 
-Preserve the Academy branding, soft lavender and plum design. Make the website work comfortably on phones and computers.
+Preserve the Academy branding, soft lavender and plum design. Use the Academy logo in the navigation and as a subtle background behind the public announcements and upcoming timetable. Make the website work comfortably on phones and computers.
 
 ### Program framework and Reboot
 
@@ -48,11 +46,11 @@ Include:
 
 - Academy introduction and general information.
 
-- Public announcements.
+- Public general announcements, motivational posts and Academy updates. This open area must not show personal information or private messaging.
 
 - Academy timetable.
 
-- Program and Course information, including the existing shared curriculum displayed as Courses.
+- Programs and Courses directly on the main page, using their original Academy artwork and including the existing shared curriculum displayed as Courses.
 
 - Prospectus, About and Contact information.
 
@@ -60,17 +58,21 @@ Include:
 
 - Personal activity pills and Sign out when signed in.
 
-Program and Course details are accessed through activity pills.
+Program and Course details are accessed through the main-page artwork cards and personal activity pills. Connect available activities to their actual new Program or Course records; show **Coming soon** for artwork cards whose new framework activity is unavailable. Preserve their original Academy-site links.
 
 Remove obsolete demo instructions, connection-plan content and sample completion controls from the ordinary user experience.
 
 ### Academy timetable
 
-Show the Academy schedule, with the signed-in person’s involvement highlighted using **colour**, supported by a simple colour key.
+On the main page, show a shortened Academy timetable containing only the next published item per Program or Course within the next seven days. Exclude ended and cancelled items, and combine Course offerings under their Course for this summary.
+
+Signed-in users can open the full Academy timetable from this summary. Do not include Timetable in the main menu. Highlight the signed-in person’s involvement using **colour**, supported by a simple colour key in the full timetable.
 
 Do not add “My class” or “Teaching” labels to highlight involvement.
 
-Essential information remains visible. An **i** icon opens supplementary information, such as multiple teachers or the classes included in a combined lesson. It must work on tap and click.
+Visitors see public timetable entries as plain text, with no timetable, activity, information or joining links. Visitors retain access to free material, the Public Library and original Academy-site links.
+
+For signed-in authorised users, an **i** icon opens supplementary information, such as multiple teachers or the classes included in a combined lesson. It must work on tap and click.
 
 Joining links and protected lesson details are accessed through the relevant activity page.
 
@@ -183,7 +185,9 @@ The intended HOD remit includes Program management, timetable publication and ov
 
 ## 6. Library
 
-**Library** is a menu item on each Program and Course page.
+The main Academy menu’s **Library** link always opens the **Public Library** at `/academy/open-library/`, before and after sign-in. Keep personal Library access separately labelled.
+
+**Library** is also a menu item on each Program and Course page.
 
 It opens **For You** by default, without automatically filtering to the current Program or Course.
 
@@ -295,6 +299,8 @@ For unavailable features:
 
 Keep the existing links to [ummabbadacademy.com](https://ummabbadacademy.com), including the original-site and public course catalogue links. Historical catalogue entries must remain clearly identified as catalogue information and must not appear as current upcoming events.
 
+Remove the marked catalogue artwork caption, the descriptive paragraph beneath its heading, and the explanatory source sentence beneath its cards. Preserve the heading, artwork cards, controls and original-site links.
+
 ## 10. Acceptance criteria
 
 Verify:
@@ -317,13 +323,13 @@ Verify:
 
 - The display rename preserves curriculum and offering relationships, backend IDs and permissions, without data duplication or migration.
 
-- Public Library access without signing in.
+- Public Library and free-material access without signing in; the main menu Library link remains public after sign-in.
 
 - For You showing authorised resources across the Academy within the agreed integration scope.
 
 - Protected content remaining protected when opened directly.
 
-- Timetable colour highlighting and supplementary information popups.
+- One upcoming timetable item per Program or Course on the main page; visitor entries have no links; Timetable is absent from the menu; authorised colour highlighting and supplementary information popups still work.
 
 - Correct Program context for attendance and management links.
 

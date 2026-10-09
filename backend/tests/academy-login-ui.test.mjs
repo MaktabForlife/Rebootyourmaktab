@@ -9,7 +9,7 @@ assert.match(html, /placeholder="Enter your account ID"/);
 assert.match(html, /id="academy-home-card" hidden/);
 assert.match(html, /id="academy-sign-out" type="button" hidden/);
 assert.match(html, /id="academy-library-nav" href="\/academy\/open-library\/"/);
-assert.match(html, /Website V105\.4\.3\.4/);
+assert.match(html, /Website V105\.4\.3\.5/);
 assert.doesNotMatch(html, /ABCDEFG/);
 assert.match(redirects, /^\/academy\/:uniqueid \/academy\/#overview 302$/m);
 
@@ -106,7 +106,7 @@ assert.equal(validLogin.elements.get('demo-pin').value, '');
 assert.equal(validLogin.elements.get('login-preview').hidden, true);
 assert.equal(validLogin.elements.get('academy-home-card').hidden, false);
 assert.equal(validLogin.elements.get('academy-sign-out').hidden, false);
-assert.equal(validLogin.elements.get('academy-library-nav').href, '/academy/library/');
+assert.equal(validLogin.elements.get('academy-library-nav').href, '/academy/open-library/');
 
 const signedIn = await loadPage({ academyId: 'TEST-USER', storedToken: 'NEW_SESSION', replies: {
   '/api/account/session': { body: { success: true, account: { uniqueid: 'TEST-USER', displayName: 'Test Learner' } } }
@@ -115,7 +115,7 @@ assert.equal(signedIn.elements.get('login-preview').hidden, true, 'Signed-in use
 assert.equal(signedIn.elements.get('academy-home-card').hidden, false);
 assert.equal(signedIn.elements.get('academy-sign-out').hidden, false);
 assert.doesNotMatch(html, /id="academy-maktab-link"/, 'The home must not link to a legacy account screen');
-assert.equal(signedIn.elements.get('academy-library-nav').href, '/academy/library/');
+assert.equal(signedIn.elements.get('academy-library-nav').href, '/academy/open-library/');
 signedIn.signOut();
 assert.equal(signedIn.storage.get('m4l_account_token'), undefined);
 assert.equal(signedIn.session.get('m4l_academy_signed_in'), undefined);

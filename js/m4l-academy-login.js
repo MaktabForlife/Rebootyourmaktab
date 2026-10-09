@@ -129,7 +129,7 @@
     homeCard.hidden = false;
     signOutButton.hidden = false;
     document.body.classList.add("academy-signed-in");
-    libraryNav.href = "/academy/library/";
+    libraryNav.href = "/academy/open-library/";
     window.dispatchEvent(new Event("m4l-academy-session"));
   }
 

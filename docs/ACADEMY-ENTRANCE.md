@@ -1,3 +1,25 @@
+# Academy home · V105.4.3.5
+
+Follow-up to V105.4.3.4 on `feature/academy-entrance`. Push target: `feature/105.3.4.13`. No deployment, production change, migration or spreadsheet write is part of this update.
+
+## Home content and navigation
+
+- The top area pairs public announcements/inspiration and the shortened Academy timetable with Academy identity and sign-in. Announcements remain **Coming soon** until a public publishing source exists; no private messages or personal details appear in this public area.
+- The timetable shows only the next scheduled item per Program or Course within the next seven days, excluding ended/cancelled items and repeated Course offerings. Visitors see plain text without timetable/activity/info/join links. Signed-in users can open the separate full timetable and its date controls from the summary; browsing those dates does not replace the current home summary.
+- Programs and Courses are on the main page with the original artwork. Matching current framework records supply activity URLs and actual IDs. Unavailable or ambiguous matches show **Coming soon** with the original-site link; no demo membership or legacy fallback is used.
+- The main menu Library link always opens `/academy/open-library/`, including after sign-in. Personal Library remains separately accessible. Free material and public lessons remain accessible to visitors. Timetable is absent from the menu.
+- The Academy logo uses an absolute asset path in navigation and the identity panel, and appears behind the public announcement/timetable cards. Existing lavender/plum styling remains.
+- The marked catalogue eyebrow, introductory paragraph and explanatory source sentence are removed. The heading, artwork, controls, catalogue-page links and all **46** distinct original Academy-site URLs are preserved.
+
+## Follow-up verification
+
+- **104/104 backend test files passed** for V105.4.3.5. Release manifests and health/page markers agree; JavaScript syntax and `git diff --check` pass. All static asset references exist, HTML IDs are unique, and all 46 original Academy-site URLs remain.
+- Automated entrance and login checks cover the one-per-activity summary, past/cancelled exclusion, plain visitor entries, home artwork cards, home section navigation, the independent full timetable, public Library navigation before/after sign-in and delayed-response sign-out.
+- Browser visual/mobile verification remains pending: the desktop browser tool previously refused the preview because its administrator-enforced policy could not be verified. No alternative browser control was used. Real Development-account journeys and physical iPhone Safari microphone/video/sharing checks remain pending.
+- The updated scope is saved in [ACADEMY-WEBSITE-SPECIFICATION.md](ACADEMY-WEBSITE-SPECIFICATION.md) and the existing specification Page.
+
+---
+
 # Academy entrance · V105.4.3.4
 
 Prepared locally on `feature/academy-entrance` from `origin/feature/105.3.4.13` at `11ab81d` (V105.4.3.3). Push target: `feature/105.3.4.13`. No deployment, production change, migration or spreadsheet write was performed. The older Library worktree and its attendance changes were left alone.
