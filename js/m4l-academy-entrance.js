@@ -11,16 +11,16 @@
   const coming = (name, purpose) => `<article class="card card-pad coming-card"><h3>${esc(name)}</h3><span class="tag neutral">Coming soon</span><p>${esc(purpose)}</p></article>`;
   const safeLink = url => typeof url === 'string' && (/^https:\/\//.test(url) || /^\/(?!\/)/.test(url));
   const originalActivities = [
-    { kind: 'PROGRAM', name: 'Reboot', image: 'learning-images/reboot.jpeg', href: 'https://ummabbadacademy.com/' },
-    { kind: 'PROGRAM', name: 'Aalimiya', image: 'academy-logo.png', href: 'https://ummabbadacademy.com/' },
-    { kind: 'PROGRAM', name: 'Ma’had Arwa · Hifz', image: 'course-images/HIFZ-CHALLENGES-MEMORIZING-WITH-LOVE.webp', href: 'https://ummabbadacademy.com/' },
-    { kind: 'COURSE', name: 'Tafseer & Tadabbur', image: 'learning-images/tafseer.jpeg', href: 'https://ummabbadacademy.com/' },
-    { kind: 'COURSE', name: 'Classical & Conversational Arabic', image: 'learning-images/arabic.png', href: 'https://ummabbadacademy.com/' },
-    { kind: 'COURSE', name: 'Mothers of the Ummah', image: 'learning-images/mothers.jpg', href: 'https://ummabbadacademy.com/#mu' }
+    { kind: 'PROGRAM', name: 'Reboot', image: '/academy/learning-images/reboot.jpeg' },
+    { kind: 'PROGRAM', name: 'Aalimiya', image: '/ummabbadacademy.png' },
+    { kind: 'PROGRAM', name: 'Ma’had Arwa · Hifz', image: '/academy/course-images/HIFZ-CHALLENGES-MEMORIZING-WITH-LOVE.webp' },
+    { kind: 'COURSE', name: 'Tafseer & Tadabbur', image: '/academy/learning-images/tafseer.jpeg' },
+    { kind: 'COURSE', name: 'Classical & Conversational Arabic', image: '/academy/learning-images/arabic.png' },
+    { kind: 'COURSE', name: 'Mothers of the Ummah', image: '/academy/learning-images/mothers.jpg' }
   ];
 
   function renderCatalogue() {
-    $('learning-catalogue').innerHTML = `<ul class="learning-cards">${originalActivities.map(row => `<li class="card activity-card"><a class="activity-art" href="${esc(row.href)}" target="_blank" rel="noopener noreferrer" aria-label="Read about ${esc(row.name)} on the original Academy site"><img src="/academy/${esc(row.image)}" alt="Academy artwork for ${esc(row.name)}" loading="lazy"></a><div class="card-pad"><span class="eyebrow">${row.kind === 'PROGRAM' ? 'Program' : 'Course'}</span><h3>${esc(row.name)}</h3><a class="text-link" href="${esc(row.href)}" target="_blank" rel="noopener noreferrer">Learn more on the Academy site ↗</a></div></li>`).join('')}</ul>`;
+    $('learning-catalogue').innerHTML = `<ul class="learning-cards">${originalActivities.map(row => `<li class="card activity-card"><div class="activity-art"><img src="${esc(row.image)}" alt="Academy artwork for ${esc(row.name)}" loading="lazy"></div><div class="card-pad"><span class="eyebrow">${row.kind === 'PROGRAM' ? 'Program' : 'Course'}</span><h3>${esc(row.name)}</h3></div></li>`).join('')}</ul>`;
   }
 
   async function request(body) {

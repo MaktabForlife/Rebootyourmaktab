@@ -1,3 +1,17 @@
+# Academy home · V105.4.3.7
+
+The current-offerings artwork row is headed **Explore our programs and courses**. Its six cards remain in one swipeable row and contain no image, title or action links, following the latest request. This supersedes the V105.4.3.6 public card destinations. Personal activity pills retain the existing authenticated framework integration.
+
+The existing public catalogue is now headed **Immerse yourself in these free workshops and courses**. All 46 original Academy-site URLs in the existing page are preserved. The enlarged public announcements area and swipeable Coming up timetable remain.
+
+The navigation and background logo use `/ummabbadacademy.png`, which is byte-identical to the Academy logo copy and avoids the `/academy/:uniqueid` account-link redirect pattern.
+
+**104/104 backend test files passed** for this release; affected entrance checks also pass after the logo-path correction.
+
+Push target: `feature/105.3.4.13`. The entrance regression asserts that public artwork cards have no anchors or hrefs, while both swipe controls and personal activity tools still work. Browser visual/iPhone checks remain pending under the previously recorded preview-tool limitation.
+
+---
+
 # Academy home · V105.4.3.6
 
 Follow-up to V105.4.3.5. Push target: `feature/105.3.4.13`.

@@ -50,7 +50,7 @@ Include:
 
 - Academy timetable.
 
-- Programs and Courses together in one horizontally swipeable row on the main page, using their original Academy artwork. Public cards open the corresponding information on ummabbadacademy.com, rather than the signed-in Academy activity page.
+- Current offerings appear under **Explore our programs and courses**, together in one horizontally swipeable row on the main page, using their original Academy artwork. These public cards have no links for now.
 
 - Prospectus, About and Contact information.
 
@@ -58,7 +58,9 @@ Include:
 
 - Personal activity pills and Sign out when signed in.
 
-The public artwork row is an information showcase: its images and Learn more links open ummabbadacademy.com. Use verified specific information URLs where available, and the existing Academy website information page where no dedicated URL is available. Do not link these public cards to internal Academy activity pages.
+The public artwork row is display-only for now. Do not put links on its images, names or actions, either to ummabbadacademy.com or to internal Academy activity pages. Keep the row swipeable and retain its original artwork.
+
+The free workshop and course catalogue is headed **Immerse yourself in these free workshops and courses**.
 
 Personal activity pills separately open the signed-in person’s actual new Program and Course records, with their existing permissions and tools. The public showcase must not depend on personal membership or availability of the account/timetable service.
 

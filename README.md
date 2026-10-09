@@ -1,3 +1,7 @@
+# V105.4.3.7 — Public showcase headings and links
+
+Remove all links from the swipeable current-offerings cards for now. Use **Explore our programs and courses** above that row and **Immerse yourself in these free workshops and courses** above the existing public catalogue. The enlarged announcements area and swipeable Coming up timetable remain. [Implementation and verification](docs/ACADEMY-ENTRANCE.md).
+
 # V105.4.3.6 — Swipeable Academy home
 
 Enlarge the public announcements area above Coming up, group upcoming lessons into swipeable date columns, and show Programs and Courses together in one swipeable artwork row. Public artwork cards open information on ummabbadacademy.com; personal activity pills retain authenticated tools. Remove the marked logo, sign-in badge, help paragraph and shortcut buttons while preserving Public Library navigation and the original-site link. [Implementation and verification](docs/ACADEMY-ENTRANCE.md).
