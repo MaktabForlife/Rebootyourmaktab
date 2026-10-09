@@ -2,7 +2,7 @@
 
 Update the existing Academy demo into a usable Academy entrance. Connect existing functionality where it supports the agreed behaviour. Show **Coming soon** for unavailable features or integrations.
 
-Preserve the Academy branding, soft lavender and plum design. Use the Academy logo in the navigation and as a subtle background behind the public announcements and upcoming timetable. Make the website work comfortably on phones and computers.
+Preserve the Academy branding, soft lavender and plum design. Use the Academy logo in the navigation and as a subtle background behind the public announcements and upcoming timetable. Do not repeat the small logo above the Academy title beside sign-in. Make the website work comfortably on phones and computers.
 
 ### Program framework and Reboot
 
@@ -46,25 +46,27 @@ Include:
 
 - Academy introduction and general information.
 
-- Public general announcements, motivational posts and Academy updates. This open area must not show personal information or private messaging.
+- A larger public announcements area above Coming up, for general announcements, motivational posts and Academy updates. This open area must not show personal information or private messaging.
 
 - Academy timetable.
 
-- Programs and Courses directly on the main page, using their original Academy artwork and including the existing shared curriculum displayed as Courses.
+- Programs and Courses together in one horizontally swipeable row on the main page, using their original Academy artwork. Public cards open the corresponding information on ummabbadacademy.com, rather than the signed-in Academy activity page.
 
 - Prospectus, About and Contact information.
 
-- Sign-in controls when signed out.
+- Sign-in controls when signed out, with Account ID and PIN labels. Omit the Academy account badge and the explanatory paragraph below the submit button. Remove the three shortcut buttons beneath sign-in while keeping the original Academy-site link; Public Library and Programs and Courses remain available through the main navigation.
 
 - Personal activity pills and Sign out when signed in.
 
-Program and Course details are accessed through the main-page artwork cards and personal activity pills. Connect available activities to their actual new Program or Course records; show **Coming soon** for artwork cards whose new framework activity is unavailable. Preserve their original Academy-site links.
+The public artwork row is an information showcase: its images and Learn more links open ummabbadacademy.com. Use verified specific information URLs where available, and the existing Academy website information page where no dedicated URL is available. Do not link these public cards to internal Academy activity pages.
+
+Personal activity pills separately open the signed-in person’s actual new Program and Course records, with their existing permissions and tools. The public showcase must not depend on personal membership or availability of the account/timetable service.
 
 Remove obsolete demo instructions, connection-plan content and sample completion controls from the ordinary user experience.
 
 ### Academy timetable
 
-On the main page, show a shortened Academy timetable containing only the next published item per Program or Course within the next seven days. Exclude ended and cancelled items, and combine Course offerings under their Course for this summary.
+On the main page, display the shortened Academy timetable as **Coming up**, beneath the enlarged announcements area. Group entries into horizontally swipeable date columns, with Program or Course names as compact cards and their published time and timezone visible. Provide arrow buttons and keyboard access as well as touch scrolling. Include only the next published item per Program or Course within the next seven days. Exclude ended and cancelled items, and combine Course offerings under their Course for this summary.
 
 Signed-in users can open the full Academy timetable from this summary. Do not include Timetable in the main menu. Highlight the signed-in person’s involvement using **colour**, supported by a simple colour key in the full timetable.
 

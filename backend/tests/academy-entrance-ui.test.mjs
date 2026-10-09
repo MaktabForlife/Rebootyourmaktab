@@ -12,7 +12,7 @@ function element(id = '') {
     addEventListener: (type, fn) => listeners.set(type, fn), setAttribute() {}, removeAttribute() {},
     replaceChildren() { this.innerHTML = ''; this.textContent = ''; },
     appendChild(child) { elements.set(child.id, child); }, querySelectorAll: () => [], contains: () => false,
-    scrollTo() {}, scrollIntoView() {}, showModal() { this.open = true; }, close() { this.open = false; } };
+    clientWidth:400, scrollBy(options) { this.lastScroll=options; }, scrollTo() {}, scrollIntoView() {}, showModal() { this.open = true; }, close() { this.open = false; } };
 }
 for (const match of html.matchAll(/id="([^"]+)"/g)) elements.set(match[1], element(match[1]));
 elements.get('film-track').querySelectorAll = () => [{offsetLeft:0}, {offsetLeft:100}];
@@ -39,8 +39,8 @@ const fetch = async (_url, options) => {
   const homeTimetable = [base, {...base,title:'Earlier item',date:'2026-10-04'},
     {...base,title:'Ended item',startTime:'10:00',endTime:'11:00'},
     {...base,title:'Later Program item',date:'2026-10-06'},
-    {...base,kind:'COURSE',activityId:'COURSE-TEST',title:'Course item'},
-    {...base,kind:'COURSE',activityId:'COURSE-TEST',title:'Later Course offering',date:'2026-10-06'},
+    {...base,kind:'COURSE',activityId:'COURSE-TEST',activityName:'Course item',title:'Course item',date:'2026-10-06'},
+    {...base,kind:'COURSE',activityId:'COURSE-TEST',title:'Later Course offering',date:'2026-10-07'},
     {...base,activityId:'CANCELLED',title:'Cancelled item',status:'CANCELLED'}];
   const result = { success:true,signedIn,globalAdmin:false,student:signedIn,startDate:body.startDate||'2026-10-05',endDate:'2026-10-11',warnings:[],
     activities:[row,{id:'COURSE-TAFSEER',name:'Tafseer & Tadabbur',kind:'COURSE',roles:[]}],personalActivities:signedIn?[row]:[],timetable:homeTimetable.map(event=>{const publicEvent={...event};delete publicEvent.joinUrl;return publicEvent;}),activity:body.id?row:null };
@@ -56,15 +56,29 @@ assert.equal($('personal-activities').hidden,true);
 assert.doesNotMatch($('academy-sessions').innerHTML,/data-information|Join lesson|<a /);
 assert.doesNotMatch($('academy-preview-sessions').innerHTML, /<a |Earlier item|Ended item|Later Program item|Later Course offering|Cancelled item/);
 assert.match($('academy-preview-sessions').innerHTML,/Course item/);
-assert.equal(($('academy-preview-sessions').innerHTML.match(/<li class=/g)||[]).length,2);
+assert.equal(($('academy-preview-sessions').innerHTML.match(/<li class="upcoming-item /g)||[]).length,2);
 assert.equal($('preview-timetable-link').hidden,true);
-assert.match(html,/href="\/academy\/open-library\/">Browse Open Library/);
-assert.match($('program-catalogue').innerHTML,/Reboot/);
-assert.match($('program-catalogue').innerHTML,/learning-images\/reboot.jpeg/);
-assert.match($('course-catalogue').innerHTML,/learning-images\/tafseer.jpeg/);
-assert.match($('course-catalogue').innerHTML,/href="#activity\/COURSE\/COURSE-TAFSEER"/);
-assert.match($('course-catalogue').innerHTML,/learning-images\/arabic.png/);
-assert.match($('course-catalogue').innerHTML,/learning-images\/mothers.jpg/);
+assert.match(html,/id="academy-library-nav" href="\/academy\/open-library\/"/);
+assert.doesNotMatch(html,/Browse Open Library|Open my Library|class="intro-logo"|Sign in <span>Academy account|class="login-note"/);
+assert.match(html,/<label for="demo-pin">PIN<\/label>/);
+assert.match($('academy-preview-sessions').innerHTML,/datetime="2026-10-05"/);
+assert.match($('academy-preview-sessions').innerHTML,/datetime="2026-10-06"/);
+$('upcoming-next').listeners.get('click')();
+assert.equal($('academy-preview-sessions').lastScroll.left,400);
+$('upcoming-previous').listeners.get('click')();
+assert.equal($('academy-preview-sessions').lastScroll.left,-400);
+assert.match($('learning-catalogue').innerHTML,/Reboot/);
+assert.match($('learning-catalogue').innerHTML,/learning-images\/reboot.jpeg/);
+assert.match($('learning-catalogue').innerHTML,/learning-images\/tafseer.jpeg/);
+assert.doesNotMatch($('learning-catalogue').innerHTML, /href="#activity|href="\/academy\//);
+assert.match($('learning-catalogue').innerHTML, /href="https:\/\/ummabbadacademy.com\/#mu"/);
+assert.equal(($('learning-catalogue').innerHTML.match(/<li class="card activity-card"/g)||[]).length,6);
+$('learning-next').listeners.get('click')();
+assert.equal($('learning-catalogue').lastScroll.left,400);
+$('learning-previous').listeners.get('click')();
+assert.equal($('learning-catalogue').lastScroll.left,-400);
+assert.match($('learning-catalogue').innerHTML,/learning-images\/arabic.png/);
+assert.match($('learning-catalogue').innerHTML,/learning-images\/mothers.jpg/);
 assert.match(html,/<section id="learning" aria-labelledby="learning-title">/);
 assert.ok(html.indexOf('id="learning"') < html.indexOf('<section id="timetable"'));
 assert.doesNotMatch(html,/data-nav="timetable"|Original Umm Abbad Academy artwork|Browse original Academy course and workshop information|Some posters show past dates/);

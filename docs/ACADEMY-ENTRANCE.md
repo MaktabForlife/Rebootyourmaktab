@@ -1,3 +1,24 @@
+# Academy home · V105.4.3.6
+
+Follow-up to V105.4.3.5. Push target: `feature/105.3.4.13`.
+
+## Layout and navigation
+
+- Enlarge the public announcements area above **Coming up**. Its Academy-logo background and public-only content scope remain. Publishing stays **Coming soon** until a public source is connected.
+- **Coming up** groups the next published item per Program or Course into horizontally swipeable date columns, with compact activity cards, published times and timezones. Touch scrolling, keyboard focus and previous/next buttons are available. Visitor entries remain plain text; authenticated information and activity access keep their existing checks.
+- Programs and Courses share one swipeable artwork row. Its cards link only to information on the original Academy website. These public cards remain available independently of account/timetable responses and contain no personal roles. Signed-in activity pills separately retain current framework IDs and tools, including the verified Reboot Pilot.
+- The original site's public page list and homepage content were checked read-only. Mothers of the Ummah uses its existing `#mu` section. The other featured cards use the existing Academy information homepage because no dedicated Program information URLs are listed. No slugs were invented or unrelated course pages substituted.
+- Remove the small duplicate logo above the Academy title, the Academy account badge, the explanatory sign-in paragraph and the three shortcut buttons below sign-in. Label the existing four-digit field **PIN**; authentication and PIN setup behaviour are unchanged. Keep the original-site link, Public Library menu and signed-in personal Library access.
+
+## Verification
+
+- **104/104 backend test files passed** for V105.4.3.6. Static checks confirm all 46 existing Academy-site URLs, original artwork files, unique HTML IDs, script targets and release markers; `git diff --check` and JavaScript syntax checks pass.
+- Entrance fixtures cover grouping by date, one next item per activity, both strips' previous/next buttons, public external-only artwork links, plain visitor timetable entries, protected activity tools and delayed-response sign-out.
+- Browser visual/iPhone checks remain pending because the desktop browser preview could not verify its administrator-enforced policy. No alternative browser control was used.
+- The current specification is saved in [ACADEMY-WEBSITE-SPECIFICATION.md](ACADEMY-WEBSITE-SPECIFICATION.md) and the existing specification Page.
+
+---
+
 # Academy home · V105.4.3.5
 
 Follow-up to V105.4.3.4 on `feature/academy-entrance`. Push target: `feature/105.3.4.13`. No deployment, production change, migration or spreadsheet write is part of this update.

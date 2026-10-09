@@ -1,3 +1,7 @@
+# V105.4.3.6 — Swipeable Academy home
+
+Enlarge the public announcements area above Coming up, group upcoming lessons into swipeable date columns, and show Programs and Courses together in one swipeable artwork row. Public artwork cards open information on ummabbadacademy.com; personal activity pills retain authenticated tools. Remove the marked logo, sign-in badge, help paragraph and shortcut buttons while preserving Public Library navigation and the original-site link. [Implementation and verification](docs/ACADEMY-ENTRANCE.md).
+
 # V105.4.3.5 — Academy home content
 
 Rebuild the home with public announcements and inspiration, a top timetable showing one upcoming item per Program or Course, and the original artwork cards on the main page. Visitors see plain timetable entries and retain free material and Public Library access. The main Library menu always opens the Public Library; Timetable is removed from the menu. Use the Academy logo in navigation and behind the announcement/timetable cards, remove the marked catalogue prose, and preserve every original Academy-site URL. [Implementation and verification](docs/ACADEMY-ENTRANCE.md).
