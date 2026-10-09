@@ -1,3 +1,7 @@
+# Unreleased — Active Academy import rehearsal
+
+Add the operational schema and active-data converter. The real development baseline imports and verifies locally and in the D1 emulator: 73 active accounts, five intended active Programs and two active Global Courses. Preserve credentials, exclude inactive/archive records and keep 20 legacy privileged assignments pending review. Sheets remains authoritative; application integration and load testing remain pending. [Rehearsal report and tooling](docs/ACADEMY-ACTIVE-IMPORT.md).
+
 # Unreleased — Academy migration preflight
 
 Prepare a repeatable development snapshot, local staging archive and active-data inclusion manifest with validation. Preserve exact source values for comparison; keep inactive accounts, inactive management records and the excluded old Reboot workspace out of the migration selection. Record the five intended active Programs separately from publication eligibility. No application storage switch or cloud database provisioning. [Data report](docs/ACADEMY-MIGRATION-REPORT-2026-10-09.md).

@@ -6,6 +6,7 @@ import { validateSnapshot, SnapshotError, requireCondition } from './academy-mig
 import { importSnapshot, verifyArchive } from './academy-migration/archive.mjs';
 import { captureSnapshot } from './academy-migration/export.mjs';
 import { planMigration } from './academy-migration/plan.mjs';
+import { buildOperationalImport, importOperationalPlan, verifyOperationalPlan, operationalSQL } from './academy-migration/operational.mjs';
 
 const help = `Academy migration rehearsal (Node 24+). Local/development only.
   export   --platform-id ID --credential-file FILE --output FILE [--environment development|local]
@@ -13,6 +14,9 @@ const help = `Academy migration rehearsal (Node 24+). Local/development only.
   plan     --snapshot FILE --policy FILE --output FILE
   archive-source --snapshot FILE --database FILE
   verify-archive --snapshot FILE --database FILE
+  import-active --snapshot FILE --policy FILE --database FILE
+  verify-active --snapshot FILE --policy FILE --database FILE
+  active-sql --snapshot FILE --policy FILE --output FILE
 Reports contain counts and diagnostic coordinates, never account names, IDs or PIN hashes.
 Export is a values snapshot; live online capture is not an atomic cutover backup.`;
 function argumentsFor(argv) {
@@ -20,7 +24,8 @@ function argumentsFor(argv) {
   if (!command || command === '--help' || command === 'help') return { command: 'help', options: {} };
   const allowed = {
     export: ['platform-id', 'credential-file', 'output', 'environment'],
-    validate: ['snapshot'], plan: ['snapshot', 'policy', 'output'], 'archive-source': ['snapshot', 'database'], 'verify-archive': ['snapshot', 'database']
+    validate: ['snapshot'], plan: ['snapshot', 'policy', 'output'], 'archive-source': ['snapshot', 'database'], 'verify-archive': ['snapshot', 'database'],
+    'import-active':['snapshot','policy','database'], 'verify-active':['snapshot','policy','database'], 'active-sql':['snapshot','policy','output']
   }[command];
   requireCondition(allowed && args.length % 2 === 0, 'INVALID_ARGUMENTS');
   const options = {};
@@ -56,6 +61,28 @@ async function main() {
   // Preflight runs before opening or creating a destination file.
   const report = await validateSnapshot(snapshot);
   if (command === 'validate') { console.log(JSON.stringify(report, null, 2)); return; }
+  if (['import-active','verify-active','active-sql'].includes(command)) {
+    const policy = JSON.parse(await readFile(options.policy, 'utf8'));
+    const plan = await buildOperationalImport(snapshot, policy);
+    if (command !== 'verify-active') {
+      const check = new DatabaseSync(':memory:');
+      try { importOperationalPlan(check, plan); } finally { check.close(); }
+    }
+    if (command === 'active-sql') {
+      const output = await privateFile(options.output);
+      try { await output.writeFile(operationalSQL(plan)); } finally { await output.close(); }
+      console.log(JSON.stringify({...plan.summary,privateSqlExported:true},null,2));
+      return;
+    }
+    if (command === 'import-active') {
+      try { const handle = await privateFile(options.database); await handle.close(); }
+      catch (error) { if (error.code !== 'EEXIST') throw error; }
+    }
+    const db = new DatabaseSync(options.database,{readOnly:command === 'verify-active'});
+    try { console.log(JSON.stringify(command === 'import-active' ? importOperationalPlan(db,plan) : verifyOperationalPlan(db,plan),null,2)); }
+    finally { db.close(); }
+    return;
+  }
   if (command === 'plan') {
     const policy = JSON.parse(await readFile(options.policy, 'utf8'));
     const manifest = await planMigration(snapshot, policy);

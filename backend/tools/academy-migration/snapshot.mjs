@@ -33,7 +33,7 @@ export class SnapshotError extends Error {
     // Only coordinates and known field names; never source IDs, names or cell values.
     this.location = Object.fromEntries(Object.entries(location).filter(([name, value]) =>
       ['book', 'tab', 'row'].includes(name) ? Number.isSafeInteger(value) && value >= 0
-        : ['table', 'field'].includes(name) && typeof value === 'string' && /^[A-Za-z][A-Za-z0-9]{0,79}$/.test(value)));
+        : ['table', 'field'].includes(name) && typeof value === 'string' && /^[A-Za-z][A-Za-z0-9_]{0,79}$/.test(value)));
   }
 }
 export function requireCondition(condition, code, location) {

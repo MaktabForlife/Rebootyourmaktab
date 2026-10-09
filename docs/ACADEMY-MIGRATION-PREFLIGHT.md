@@ -97,3 +97,7 @@ node --test backend/tests/academy-migration-preflight.test.mjs \
 Tests cover 200 synthetic accounts across every fixture Program, exact value preservation, blank-row coordinates, identity/login collisions, missing source coverage, credential presence, broken account/class/publication references, unsupported roles, pending reviews, private CLI output, transactional rollback, corrupt archive detection, repeatable import and the explicit active/excluded Program policy. No live login burst was run.
 
 [First real development report](ACADEMY-MIGRATION-REPORT-2026-10-09.md)
+
+## Operational candidate completed
+
+The active-data conversion and real local D1 rehearsal are now complete for identity, learning records and current timetables. See the [active import report and tooling](ACADEMY-ACTIVE-IMPORT.md) for results, commands, exclusion rules and the remaining application/cutover gates. The original preflight manifest remains a selection artifact; it does not change live ownership.
