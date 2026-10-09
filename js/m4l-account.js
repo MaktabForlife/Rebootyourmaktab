@@ -235,16 +235,18 @@
     try{
       const result=await api('/api/program-library/available',{},state.token);
       if(!Array.isArray(result.programs))return;
+      if(result.programs.some(program=>program.role!=='STUDENT')){
+        const attendance=document.createElement('a');
+        attendance.href='/programs/attendance.html';
+        attendance.textContent='Take attendance →';
+        const attendanceRow=document.createElement('p');attendanceRow.appendChild(attendance);holder.appendChild(attendanceRow);
+      }
       for(const program of result.programs){
         const link=document.createElement('a');
         link.href=`/programs/library-view.html?program=${encodeURIComponent(program.id)}`;
         link.textContent=`Open ${program.name} Library →`;
         const row=document.createElement('p');row.appendChild(link);holder.appendChild(row);
         if(program.role!=='STUDENT'){
-          const attendance=document.createElement('a');
-          attendance.href=`/programs/attendance.html?program=${encodeURIComponent(program.id)}`;
-          attendance.textContent='Take attendance →';
-          const attendanceRow=document.createElement('p');attendanceRow.appendChild(attendance);holder.appendChild(attendanceRow);
           const manage=document.createElement('a');
           manage.href=`/programs/library.html?program=${encodeURIComponent(program.id)}`;
           manage.textContent='Manage resources →';

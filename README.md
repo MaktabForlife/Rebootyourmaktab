@@ -1,3 +1,7 @@
+# V105.4.3.3 — One attendance entry
+
+The main account page has one Take attendance link for teaching accounts. Programs are selected using the pills on the attendance page. [Release notes](RELEASE-NOTES.md).
+
 # V105.4.3.2 — Attendance by Program and class
 
 Attendance now shows teaching Programs as pills and classes in adjacent columns. Each class has a lesson selector, Submit attendance button and learner list; Teachers see their classes, while Seniors and Admins see all classes. Submitted marks can be edited with their original roster preserved. The Account link now returns to the signed-in person's personal page. [Attendance details](docs/PROGRAM-ATTENDANCE.md).

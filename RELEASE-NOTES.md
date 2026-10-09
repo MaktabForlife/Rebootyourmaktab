@@ -1,3 +1,7 @@
+# V105.4.3.3 — One main-page attendance link
+
+Replace the attendance link repeated under each Program on the main account page with one Take attendance entry. It opens the attendance page's Program selector and appears for accounts with at least one Teacher, Senior or Admin Program role.
+
 # V105.4.3.2 — Class-column attendance
 
 Teaching Programs appear as pills. The selected Program shows classes side by side, each with one lesson or All lessons, its own submit button and learner statuses. Teachers see classes where they teach a lesson or are class teacher; Seniors and Admins see all active classes. Breaks remain excluded. Submitted marks can be edited, including on earlier dates, with the saved roster retained and revisions appended for audit. Earlier combined multi-class registers remain together in a labelled column. Account navigation uses the signed-in person's personal link, and a Program Library link is available.
