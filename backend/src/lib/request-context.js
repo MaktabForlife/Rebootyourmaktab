@@ -6,6 +6,7 @@
 
 const requestAuthUsers = new WeakMap();
 const REQUEST_SHEETS_READ_CONTEXT = Symbol("m4l-request-sheets-read-context");
+const REQUEST_SHEETS_METRICS = Symbol("m4l-request-sheets-metrics");
 
 export function createRequestEnvironment(env) {
   const requestEnv = Object.create(env || null);
@@ -15,7 +16,31 @@ export function createRequestEnvironment(env) {
     writable: false,
     value: new Map()
   });
+  Object.defineProperty(requestEnv, REQUEST_SHEETS_METRICS, {
+    value: { readAttempts: 0, writeAttempts: 0, failedAttempts: 0,
+      rateLimitedAttempts: 0, inFlight: 0, fetchMs: 0 }
+  });
   return requestEnv;
+}
+
+// Count actual HTTP attempts, including retries; never retain URLs, ranges or credentials.
+export function beginSheetsRequest(env, method) {
+  const metrics = env?.[REQUEST_SHEETS_METRICS];
+  if (!metrics) return () => {};
+  metrics[method === 'GET' ? 'readAttempts' : 'writeAttempts']++;
+  metrics.inFlight++;
+  const started = Date.now();
+  return status => {
+    metrics.inFlight--;
+    metrics.fetchMs += Math.max(0, Date.now() - started);
+    if (!status || status >= 400) metrics.failedAttempts++;
+    if (status === 429) metrics.rateLimitedAttempts++;
+  };
+}
+
+export function sheetsRequestMetrics(env) {
+  const metrics = env?.[REQUEST_SHEETS_METRICS];
+  return metrics ? { ...metrics } : null;
 }
 
 export function getRequestSheetsReadContext(env) {

@@ -6,6 +6,7 @@ import { sheetsProgramRepository } from '../programs/sheets-repository.js';
 import { timetableRepository } from '../programs/timetable-repository.js';
 import { readProgramRoleAccountsForPrograms } from '../profiles/program-roles.js';
 import { buildEntrance } from '../academy/entrance.js';
+import { GoogleSheetsApiError } from '../lib/google-sheets.js';
 
 const TABLES = ['UserAccounts', 'PlatformConfig', 'GlobalSubjectList', 'GlobalModuleList',
   'GlobalSubjectAccessPolicy', 'GlobalSubjectAccessMatrix', 'GlobalSubjectRuns', 'GlobalTimetableRunState',
@@ -52,9 +53,18 @@ export async function academyEntranceEndpoint(request, env) {
         if (needsCurriculum) data.subjects = await repository.subjectReferences(data);
         return data;
       } });
-    return json({ success: true, ...result }, 200, { 'Cache-Control': 'private, no-store' });
+    const response = json({ success: true, ...result });
+    if (result.retryAfterMs) response.headers.set('Retry-After', String(Math.ceil(result.retryAfterMs / 1000)));
+    return response;
   } catch (error) {
     console.warn('Academy entrance unavailable', { status: error.status || 503 });
+    if (error instanceof GoogleSheetsApiError && error.status === 429) {
+      const response = json({ success: false,
+        error: 'Academy information is temporarily busy. Please wait one minute and try again.',
+        code: 'SHEETS_RATE_LIMITED', retryable: true, retryAfterMs: 60000 }, 429);
+      response.headers.set('Retry-After', '60');
+      return response;
+    }
     return json({ success: false, error: error.publicMessage || 'Academy information is temporarily unavailable. Please try again.',
       retryable: !error.publicMessage }, error.status || 503, { 'Cache-Control': 'private, no-store' });
   }

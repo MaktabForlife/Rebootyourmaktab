@@ -1,3 +1,11 @@
+# Academy request efficiency · V105.4.3.14
+
+The Academy now avoids the extra initial `pageshow` requests and combines identical entrance requests while they are in flight. Sheets throttling receives a one-minute retry pause and a clear service-busy message; temporary account-service failures retain saved sign-ins without granting unverified access. Partial Program timetable failures retain available lessons and carry the same cooldown. Backend Sheets 429 responses return immediately instead of receiving three quick attempts. Login and Academy routes emit request-local counts and timings without account or spreadsheet details. [Implementation and measurement limits](ACADEMY-REQUEST-EFFICIENCY.md).
+
+This release builds on the compact daily Zoom-room timetable below. It is prepared for the feature branch; deployment and live peak-load verification remain separate.
+
+---
+
 # Academy timetable · V105.4.3.13
 
 Signed-in Program/Course timetables and the full integrated timetable now use compact seven-day columns, including dates without lessons. Wide views can show seven columns; smaller screens retain horizontal swiping and arrow controls. Published instants are converted to the Academy timezone, shown once above the week. Cards no longer repeat timezone text, and overnight ends remain clear.

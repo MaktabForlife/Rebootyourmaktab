@@ -166,7 +166,7 @@ import {
   shouldLogBackendRouting
 } from "./lib/backend-routing.js";
 import { json } from "./lib/http.js";
-import { createRequestEnvironment } from "./lib/request-context.js";
+import { createRequestEnvironment, sheetsRequestMetrics } from "./lib/request-context.js";
 
 const ROUTES = new Map([
   ['/api/academy/entrance', workerRoute('academy-timetable', academyEntranceEndpoint)],
@@ -385,15 +385,28 @@ async function executeRoute(route, request, env, pathname) {
   // request. The original Cloudflare env object is never mutated.
   let requestEnv = createRequestEnvironment(env);
   let course = null;
-  if (route.courseScoped) {
-    const routed = await resolveCourseScopedRequest(request, requestEnv);
-    if (!routed.ok) return withBackendHeaders(routed.response, selection, routed.course);
-    requestEnv = routed.env;
-    course = routed.course;
-  }
+  const started = Date.now();
+  let status = 500;
+  try {
+    if (route.courseScoped) {
+      const routed = await resolveCourseScopedRequest(request, requestEnv);
+      if (!routed.ok) {
+        status = routed.response.status;
+        return withBackendHeaders(routed.response, selection, routed.course);
+      }
+      requestEnv = routed.env;
+      course = routed.course;
+    }
 
-  const response = await handler(request, requestEnv);
-  return withBackendHeaders(response, selection, course);
+    const response = await handler(request, requestEnv);
+    status = response.status;
+    return withBackendHeaders(response, selection, course);
+  } finally {
+    if (['/api/account/check', '/api/account/login', '/api/account/session', '/api/academy/entrance'].includes(pathname)) {
+      console.info(JSON.stringify({ event: 'academy_request', route: pathname, status,
+        durationMs: Math.max(0, Date.now() - started), sheets: sheetsRequestMetrics(requestEnv) }));
+    }
+  }
 }
 
 function appsScriptRoute(feature, handler, options = {}) {

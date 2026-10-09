@@ -1,3 +1,7 @@
+# V105.4.3.14 — Fewer Academy requests and clearer service errors
+
+Remove duplicate opening calls and combine identical in-flight Academy requests. Pause retries for one minute after Sheets throttling, including partial timetable responses, and distinguish a busy account service from a wrong PIN while retaining saved sign-ins for retry. Stop immediate Sheets 429 retries and record private request-count and timing measurements for login and Academy data requests. [Behaviour, verification and remaining limits](docs/ACADEMY-REQUEST-EFFICIENCY.md).
+
 # V105.4.3.13 — Compact timetable grouped by daily Zoom room
 
 Show all seven dates in a compact, swipeable signed-in timetable. Combine classes sharing the same Zoom link into one card per day across subjects, times and Programs, retaining every lesson in its information popup. Display the Academy timezone once above the week, with no timezone text on cards. Preserve Global Admin Academy-wide access, other accounts’ personal scope and per-lesson timed joining. [Implementation and verification](docs/ACADEMY-ENTRANCE.md).

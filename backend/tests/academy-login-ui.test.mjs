@@ -11,7 +11,7 @@ assert.match(html, /id="academy-sign-out" type="button" hidden/);
 assert.match(html, /id="academy-library-nav" href="\/academy\/open-library\/"/);
 assert.doesNotMatch(html, /academy-personal-library-nav|>My Library<\/a>/);
 assert.doesNotMatch(html, /Open Academy Library/);
-assert.match(html, /Website V105\.4\.3\.13/);
+assert.match(html, /Website V105\.4\.3\.14/);
 assert.doesNotMatch(html, /ABCDEFG/);
 assert.match(redirects, /^\/academy\/:uniqueid \/academy\/#overview 302$/m);
 
@@ -38,8 +38,10 @@ async function loadPage({ id = '', pin = '', replies = {}, storedToken = '', aca
   const calls = [];
   const windowHandlers = {};
   let destination = '';
+  let now = Date.parse('2026-10-09T12:00:00Z');
+  class FixtureDate extends Date { static now() { return now; } }
   const context = {
-    Event,
+    Event, Date: FixtureDate,
     window: { M4L_CONFIG: { API_BASE: 'https://test.example' }, location: { hash: '', assign(path) { destination = path; } },
       addEventListener(type, handler) { windowHandlers[type] = handler; },
       dispatchEvent(event) { windowHandlers[event.type]?.(event); } },
@@ -71,12 +73,14 @@ async function loadPage({ id = '', pin = '', replies = {}, storedToken = '', aca
   await new Promise(resolve => setImmediate(resolve));
   return {
     elements, storage, session, calls,
+    advance(milliseconds) { now += milliseconds; },
     get destination() { return destination; },
     get hash() { return context.window.location.hash; },
     async submit() { await elements.get('login-preview').handlers.submit({ preventDefault() {} }); },
     async retrySession() { elements.get('academy-session-retry').handlers.click(); await new Promise(resolve => setImmediate(resolve)); },
     signOut() { elements.get('academy-sign-out').handlers.click(); },
-    storageChanged(event) { windowHandlers.storage(event); }
+    storageChanged(event) { windowHandlers.storage(event); },
+    async pageshow(persisted) { windowHandlers.pageshow({ persisted }); await new Promise(resolve => setImmediate(resolve)); }
   };
 }
 
@@ -118,6 +122,10 @@ assert.equal(signedIn.elements.get('academy-home-card').hidden, false);
 assert.equal(signedIn.elements.get('academy-sign-out').hidden, false);
 assert.doesNotMatch(html, /id="academy-maktab-link"/, 'The home must not link to a legacy account screen');
 assert.equal(signedIn.elements.get('academy-library-nav').href, '/academy/library/');
+await signedIn.pageshow(false);
+assert.equal(signedIn.calls.length, 1, 'The initial pageshow does not repeat session validation');
+await signedIn.pageshow(true);
+assert.equal(signedIn.calls.length, 2, 'Returning from the browser cache revalidates the account');
 signedIn.signOut();
 assert.equal(signedIn.storage.get('m4l_account_token'), undefined);
 assert.equal(signedIn.session.get('m4l_academy_signed_in'), undefined);
@@ -170,4 +178,41 @@ assert.equal(newTab.elements.get('academy-home-card').hidden, false, 'A new Acad
 assert.equal(newTab.elements.get('academy-library-nav').href, '/academy/library/');
 assert.equal(newTab.session.get('m4l_academy_signed_in'), 'TEST-USER');
 
-console.log('Academy overview sign-in, session, and sign-out checks passed.');
+const busyLogin = await loadPage({ id: 'TEST-USER', pin: '1234', replies: {
+  '/api/account/login': [
+    { ok: false, status: 503, body: { success: false, code: 'SHEETS_RATE_LIMITED',
+      retryAfterMs: 60000, error: 'The account service is temporarily busy. Please wait one minute and try again.' } },
+    { body: { success: true, token: 'RECOVERED_SESSION', account: { uniqueid: 'TEST-USER' } } }
+  ]
+} });
+await busyLogin.submit();
+assert.match(busyLogin.elements.get('login-status').textContent, /temporarily busy/);
+assert.equal(busyLogin.storage.get('m4l_account_token'), undefined);
+busyLogin.elements.get('demo-pin').value='1234';await busyLogin.submit();
+assert.equal(busyLogin.calls.length,1,'The quota cooldown prevents repeated PIN submissions from reaching Sheets');
+busyLogin.advance(60001);
+busyLogin.elements.get('demo-pin').value='1234';await busyLogin.submit();
+assert.equal(busyLogin.calls.length,2,'Sign-in can retry once the quota cooldown expires');
+assert.equal(busyLogin.storage.get('m4l_account_token'),'RECOVERED_SESSION');
+assert.equal(busyLogin.elements.get('academy-home-card').hidden,false);
+const limitedSession = await loadPage({ academyId: 'TEST-USER', storedToken: 'NEW_SESSION', replies: {
+  '/api/account/session': { ok: false, status: 429, body: { success: false, error: 'Please wait one minute and try again.' } }
+} });
+assert.equal(limitedSession.storage.get('m4l_account_token'),'NEW_SESSION','Temporary throttling does not sign the learner out');
+assert.equal(limitedSession.elements.get('academy-session-retry').hidden,false);
+assert.equal(limitedSession.elements.get('academy-home-card').hidden,true,'A failed validation does not grant access');
+const quotaSession = await loadPage({ academyId: 'TEST-USER', storedToken: 'NEW_SESSION', replies: {
+  '/api/account/session': [
+    { ok: false, status: 503, body: { success: false, code: 'SHEETS_RATE_LIMITED', retryAfterMs: 60000,
+      error: 'The account service is temporarily busy. Please wait one minute and try again.' } },
+    { body: { success: true, account: { uniqueid: 'TEST-USER' } } }
+  ]
+} });
+assert.match(quotaSession.elements.get('academy-session-message').textContent,/temporarily busy.*sign-in is saved/);
+await quotaSession.retrySession();
+assert.equal(quotaSession.calls.length,1,'Session retry also observes the quota cooldown');
+assert.equal(quotaSession.storage.get('m4l_account_token'),'NEW_SESSION');
+quotaSession.advance(60001);await quotaSession.retrySession();
+assert.equal(quotaSession.calls.length,2);
+assert.equal(quotaSession.elements.get('academy-home-card').hidden,false);
+console.log('Academy overview sign-in, session, sign-out, quota cooldown and page restoration checks passed.');

@@ -185,6 +185,14 @@ assert.deepEqual(programRoles(account('LEARNER-DEMO'), [{ AccountID: 'LEARNER-DE
 const unavailable = await buildEntrance({ ...args, loadProgram: async () => { throw Error('private sheet error'); } });
 assert(unavailable.warnings.length);
 assert(!JSON.stringify(unavailable).includes('private sheet error'));
+const partlyLimited = await buildEntrance({ ...args, loadProgram: async program => {
+  if (program.id === first.program.id) throw Object.assign(new Error('private quota details'), { status: 429 });
+  return structuredClone(second.data);
+} });
+assert.equal(partlyLimited.retryAfterMs, 60000, 'A quota failure within one Program carries a cooldown with the partial timetable');
+assert(partlyLimited.timetable.some(row => row.activityId === second.program.id), 'Available Program lessons remain visible');
+assert(partlyLimited.warnings.some(message => /wait one minute/.test(message)));
+assert(!JSON.stringify(partlyLimited).includes('private quota details'));
 await assert.rejects(buildEntrance({ ...args, input: { startDate: '2026-02-30' } }));
 await assert.rejects(buildEntrance({ ...args, input: { id: 'COURSE1' } }), error => error.status === 404);
 await assert.rejects(buildEntrance({ ...args, user: account('REMOVED') }), error => error.status === 401);

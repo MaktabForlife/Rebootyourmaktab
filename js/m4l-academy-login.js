@@ -19,6 +19,8 @@
   const avatar = document.getElementById("academy-avatar");
   let activeToken = "";
   let sessionGeneration = 0;
+  let retryAfter = 0;
+  let retryError = null;
 
   if (!form || !linkInput || !pinInput || !apiBase) return;
 
@@ -48,7 +50,8 @@
     clearStoredAccountState();
     showSignedOut();
   });
-  window.addEventListener("pageshow", () => {
+  window.addEventListener("pageshow", event => {
+    if (!event.persisted) return;
     if (activeToken && localStorage.getItem(tokenKey) !== activeToken) showSignedOut();
     if (localStorage.getItem(tokenKey)) void restoreAcademySession();
   });
@@ -106,7 +109,9 @@
       if (isTemporaryServiceError(error) &&
         localStorage.getItem(tokenKey) === token &&
         sessionStorage.getItem(academySessionKey) === expectedId) {
-        sessionMessage.textContent = "The account service is temporarily unavailable. Your sign-in is saved.";
+        sessionMessage.textContent = error.code === "SHEETS_RATE_LIMITED"
+          ? `${error.message} Your sign-in is saved.`
+          : "The account service is temporarily unavailable. Your sign-in is saved.";
         sessionRetry.hidden = false;
       } else {
         clearStoredAccountState();
@@ -222,6 +227,7 @@
   }
 
   async function api(path, payload, token = "") {
+    if (Date.now() < retryAfter) throw retryError;
     const response = await fetch(`${apiBase}${path}`, {
       method: "POST",
       headers: {
@@ -239,12 +245,17 @@
     if (!response.ok || !result.success) {
       const error = new Error(result.error || "The account request could not be completed.");
       error.status = response.status;
+      error.code = result.code;
+      if (response.status === 429 || result.code === "SHEETS_RATE_LIMITED") {
+        retryAfter = Date.now() + Math.max(60000, Number(result.retryAfterMs) || 0);
+        retryError = error;
+      }
       throw error;
     }
     return result;
   }
 
   function isTemporaryServiceError(error) {
-    return !error?.status || error.status >= 500;
+    return !error?.status || error.status === 429 || error.status >= 500;
   }
 })();

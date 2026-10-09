@@ -8,7 +8,7 @@ import {
   isValidFourDigitPin,
   verifyPin
 } from "../lib/auth.js";
-import { batchUpdateGoogleSheetValues } from "../lib/google-sheets.js";
+import { batchUpdateGoogleSheetValues, GoogleSheetsApiError } from "../lib/google-sheets.js";
 import { json } from "../lib/http.js";
 import { accessibleGlobalSubjectIds } from "../lib/global-subject-delivery.js";
 import {
@@ -773,6 +773,13 @@ function invalidPinResponse() {
 }
 
 function accountServiceError(error, env) {
+  if (error instanceof GoogleSheetsApiError && error.status === 429) {
+    const response = json({ success: false,
+      error: "The account service is temporarily busy. Please wait one minute and try again.",
+      code: "SHEETS_RATE_LIMITED", retryable: true, retryAfterMs: 60000 }, 503);
+    response.headers.set("Retry-After", "60");
+    return response;
+  }
   const response = {
     success: false,
     error: "Central account service is not ready"
