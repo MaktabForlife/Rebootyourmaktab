@@ -14,11 +14,11 @@
   const sessionRetry = document.getElementById("academy-session-retry");
   const homeCard = document.getElementById("academy-home-card");
   const accountName = document.getElementById("academy-account-name");
-  const maktabLink = document.getElementById("academy-maktab-link");
   const signOutButton = document.getElementById("academy-sign-out");
   const libraryNav = document.getElementById("academy-library-nav");
   const avatar = document.getElementById("academy-avatar");
   let activeToken = "";
+  let sessionGeneration = 0;
 
   if (!form || !linkInput || !pinInput || !apiBase) return;
 
@@ -41,15 +41,21 @@
     if (event.key === tokenKey) {
       sessionStorage.removeItem(academySessionKey);
       showSignedOut();
+      if (localStorage.getItem(tokenKey)) void restoreAcademySession();
     }
   });
-  window.addEventListener("pageshow", () => {
-    if (homeCard.hidden || (activeToken && localStorage.getItem(tokenKey) === activeToken && sessionStorage.getItem(academySessionKey))) return;
+  window.addEventListener("m4l-academy-session-ended", () => {
+    clearStoredAccountState();
     showSignedOut();
+  });
+  window.addEventListener("pageshow", () => {
+    if (activeToken && localStorage.getItem(tokenKey) !== activeToken) showSignedOut();
+    if (localStorage.getItem(tokenKey)) void restoreAcademySession();
   });
   void restoreAcademySession();
 
   function showSignedOut() {
+    sessionGeneration++;
     activeToken = "";
     homeCard.hidden = true;
     signOutButton.hidden = true;
@@ -62,24 +68,25 @@
     pinToggle.textContent = "Show";
     pinToggle.setAttribute("aria-label", "Show PIN");
     accountName.textContent = "";
-    maktabLink.href = "/academy/";
     avatar.textContent = "A";
-    avatar.setAttribute("aria-label", "Illustrative learner profile");
+    avatar.setAttribute("aria-label", "Academy account");
     document.body.classList.remove("academy-signed-in");
     libraryNav.href = "/academy/open-library/";
     showStatus("");
     setBusy(false);
     window.location.hash = "overview";
     linkInput.focus();
+    window.dispatchEvent(new Event("m4l-academy-session"));
   }
 
   async function restoreAcademySession() {
     const expectedId = sessionStorage.getItem(academySessionKey);
     const token = localStorage.getItem(tokenKey);
-    if (!expectedId || !token) {
+    if (!token) {
       if (!token) sessionStorage.removeItem(academySessionKey);
       return;
     }
+    const generation = ++sessionGeneration;
     form.hidden = true;
     sessionLoading.hidden = false;
     sessionMessage.textContent = "Opening your Academy home…";
@@ -87,24 +94,23 @@
     setBusy(true);
     try {
       const result = await api("/api/account/session", {}, token);
-      if (localStorage.getItem(tokenKey) !== token || sessionStorage.getItem(academySessionKey) !== expectedId) {
-        throw Object.assign(new Error("The Academy session has ended."), { status: 401 });
-      }
+      if (generation !== sessionGeneration || localStorage.getItem(tokenKey) !== token) return;
       const account = result.account;
-      if (String(account?.uniqueid || "").trim().toUpperCase() !== expectedId.toUpperCase()) {
+      if (!account?.uniqueid || (expectedId && String(account.uniqueid).trim().toUpperCase() !== expectedId.toUpperCase())) {
         throw Object.assign(new Error("The signed-in account has changed."), { status: 401 });
       }
+      sessionStorage.setItem(academySessionKey, account.uniqueid);
       showSignedIn(account);
     } catch (error) {
+      if (generation !== sessionGeneration || localStorage.getItem(tokenKey) !== token) return;
       if (isTemporaryServiceError(error) &&
         localStorage.getItem(tokenKey) === token &&
         sessionStorage.getItem(academySessionKey) === expectedId) {
         sessionMessage.textContent = "The account service is temporarily unavailable. Your sign-in is saved.";
         sessionRetry.hidden = false;
       } else {
-        sessionStorage.removeItem(academySessionKey);
-        form.hidden = false;
-        sessionLoading.hidden = true;
+        clearStoredAccountState();
+        showSignedOut();
       }
     } finally {
       setBusy(false);
@@ -116,7 +122,6 @@
     const uniqueId = String(account.uniqueid || "").trim();
     const name = String(account.displayName || "Academy member").trim();
     accountName.textContent = name;
-    maktabLink.href = `/account/${encodeURIComponent(uniqueId)}`;
     avatar.textContent = name.charAt(0).toUpperCase();
     avatar.setAttribute("aria-label", `Signed in as ${name}`);
     form.hidden = true;
@@ -125,6 +130,7 @@
     signOutButton.hidden = false;
     document.body.classList.add("academy-signed-in");
     libraryNav.href = "/academy/library/";
+    window.dispatchEvent(new Event("m4l-academy-session"));
   }
 
   async function signIn(event) {
@@ -136,6 +142,7 @@
       return;
     }
 
+    const generation = ++sessionGeneration;
     setBusy(true);
     try {
       const pin = pinInput.value;
@@ -169,6 +176,7 @@
         }
         throw error;
       }
+      if (generation !== sessionGeneration) return;
       if (!result.token) throw new Error("Sign-in did not return an account session.");
       clearStoredAccountState();
       localStorage.setItem(tokenKey, result.token);

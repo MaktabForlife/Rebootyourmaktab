@@ -1,3 +1,7 @@
+# V105.4.3.4 — Academy entrance
+
+The Academy home now uses published new Program timetables and the shared Course curriculum, with account-based activity pills and protected lesson links. Reboot maps to the verified Pilot Program ID. Personal Library excludes legacy Reboot, Explore opens the public Library, and the original ummabbadacademy.com links remain. Unsupported features show Coming soon. Feature release for `feature/105.3.4.13`; deployment remains separate. [Implementation and verification](docs/ACADEMY-ENTRANCE.md).
+
 # V105.4.3.3 — One attendance entry
 
 The main account page has one Take attendance link for teaching accounts. Programs are selected using the pills on the attendance page. [Release notes](RELEASE-NOTES.md).

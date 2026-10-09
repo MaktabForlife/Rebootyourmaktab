@@ -12,9 +12,7 @@
 
   function matchesCategory(type) {
     if (state.category === 'ALL') return true;
-    if (state.category === 'PDF') return type === 'EBOOK' || type === 'PRINTABLE';
-    if (state.category === 'AUDIO_VISUAL') return type === 'AUDIO' || type === 'VIDEO';
-    return type === 'OTHER';
+    return type === state.category;
   }
 
   function clearMedia() {
@@ -78,7 +76,11 @@
       body: JSON.stringify(body)
     });
     const result = await response.json();
-    if (!response.ok || !result.success) throw new Error(result.error || 'Library access is unavailable.');
+    if (localStorage.getItem('m4l_account_token') !== token) throw new Error('Your Academy account has changed.');
+    if (!response.ok || !result.success) {
+      if (response.status === 401) showSignedOut();
+      throw new Error(result.error || 'Library access is unavailable.');
+    }
     return result;
   }
 
@@ -86,7 +88,7 @@
     const query = $('al-search').value.trim().toLocaleLowerCase();
     const source = $('al-source').value;
     return state.rows.filter(row =>
-      (state.view === 'you' ? row.forYou : !row.forYou) &&
+      (row.forYou) &&
       matchesCategory(row.type) &&
       (source === 'ALL' || `${row.source}:${row.sourceName}` === source) &&
       (!query || [row.name, row.subject, row.module, row.level, ...(row.learningAreas || []), row.sourceName, row.description, row.author]
@@ -97,6 +99,11 @@
     state.rows = [];
     state.openRow = null;
     state.covers.clear();
+    state.learningAreaRefs.clear();
+    state.observer?.disconnect();
+    $('al-results').replaceChildren();
+    $('al-open').removeAttribute?.('href');
+    clearMedia();
     $('al-content').hidden = true;
     $('al-manage-books').hidden = true;
     $('al-status').innerHTML = 'Signed out. <a href="/academy/#overview">Sign in to Academy →</a> You can still <a href="/academy/open-library/">browse public books</a>.';
@@ -104,7 +111,7 @@
   }
 
   window.addEventListener('storage', event => {
-    if (event.key === 'm4l_account_token' && !event.newValue) showSignedOut();
+    if (event.key === 'm4l_account_token') { showSignedOut(); if (event.newValue) void start(); }
   });
   window.addEventListener('pageshow', () => {
     if (!localStorage.getItem('m4l_account_token')) showSignedOut();
@@ -221,6 +228,7 @@
     if (row.locked) return;
     try {
       const result = await api('access', { resourceId: row.id });
+      if (state.openRow !== row || !$('al-preview').open) return;
       $('al-preview-status').textContent = '';
       const mime = String(result.mimeType || '').toLowerCase();
       let media;
@@ -253,6 +261,7 @@
   }
 
   async function loadArchiveBooks() {
+    const sessionToken = localStorage.getItem('m4l_account_token');
     let archiveBooks = [];
     let archiveUnavailable = false;
     try {
@@ -269,7 +278,7 @@
       const response = await fetch(`${window.M4L_CONFIG?.API_BASE || ''}/api/academy/open-library/metadata/public`);
       if (response.ok) records = (await response.json()).records || [];
     } catch { /* Archive books remain available if Academy details cannot load. */ }
-    if (!localStorage.getItem('m4l_account_token')) return;
+    if (!sessionToken || sessionToken !== localStorage.getItem('m4l_account_token')) return;
     const byId = new Map(records.map(record => [record.id, record]));
     const edited = archiveBooks.map(book => {
       const record = byId.get(book.id);
@@ -296,7 +305,7 @@
       const response = await fetch(`${window.M4L_CONFIG?.API_BASE || ''}/api/academy/open-library/metadata/list`, {
         method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: '{}'
       });
-      if (response.ok && (await response.json()).success) $('al-manage-books').hidden = false;
+      if (response.ok && (await response.json()).success && token === localStorage.getItem('m4l_account_token')) $('al-manage-books').hidden = false;
     } catch { /* Management stays hidden when unavailable. */ }
   }
 
@@ -317,11 +326,6 @@
     }
   }
 
-  document.querySelectorAll('[data-view]').forEach(button => button.addEventListener('click', () => {
-    state.view = button.dataset.view;
-    document.querySelectorAll('[data-view]').forEach(tab => tab.setAttribute('aria-selected', String(tab === button)));
-    render();
-  }));
   for (const id of ['al-search', 'al-source']) $(id).addEventListener('input', render);
   $('al-categories').addEventListener('click', event => {
     const button = event.target.closest('[data-category]');

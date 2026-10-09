@@ -1,4 +1,5 @@
 import { academySubjectRepository } from '../programs/academy-subjects.js';
+import { programDisplayName } from '../academy/entrance.js';
 import { programService } from '../programs/service.js';
 import { sheetsProgramRepository } from '../programs/sheets-repository.js';
 import { timetableRepository } from '../programs/timetable-repository.js';
@@ -28,9 +29,9 @@ export function buildOpenLibraryTaxonomy({ academy = [], globalSubjects = [], gl
     modules.set(id, { id, subjectId, name, source });
   };
   for (const row of academy) if (active(row.Active)) addSubject(`ACADEMY:${clean(row.SubjectID)}`, clean(row.SubjectName), 'Academy');
-  for (const row of globalSubjects) if (active(row.Active)) addSubject(`GLOBAL:${clean(row.SubjectID)}`, clean(row.SubjectName), 'Global Subject');
+  for (const row of globalSubjects) if (active(row.Active)) addSubject(`GLOBAL:${clean(row.SubjectID)}`, clean(row.SubjectName), 'Course');
   for (const row of globalModules) if (active(row.Active)) {
-    addModule(`GLOBAL:${clean(row.ModuleID)}`, `GLOBAL:${clean(row.SubjectID)}`, clean(row.ModuleName), 'Global Subject');
+    addModule(`GLOBAL:${clean(row.ModuleID)}`, `GLOBAL:${clean(row.SubjectID)}`, clean(row.ModuleName), 'Course');
   }
   for (const course of reboot) {
     const prefix = `REBOOT:${clean(course.id)}:`;
@@ -65,13 +66,13 @@ export function buildOpenLibraryTaxonomy({ academy = [], globalSubjects = [], gl
   return { subjects: [...subjects.values()].sort(sort), modules: [...modules.values()].sort(sort), learningAreas: learningAreas.sort(sort) };
 }
 
-export async function loadOpenLibraryTaxonomy(env) {
+export async function loadOpenLibraryTaxonomy(env, { includeLegacy = false } = {}) {
   const [shared, platform, listed] = await Promise.all([
     academySubjectRepository(env).load(),
     readPlatformSheets(env, ['CourseRegistry', 'GlobalSubjectList', 'GlobalModuleList']),
     programService(sheetsProgramRepository(env)).list()
   ]);
-  const legacy = platform.CourseRegistry.filter(row => active(row.Active) &&
+  const legacy = platform.CourseRegistry.filter(row => includeLegacy && active(row.Active) &&
     !String(row.SchemaVersion || '').includes('-program') && clean(row.SpreadsheetID));
   const rebootResults = await Promise.allSettled(legacy.map(async row => {
     const [subjectRows, moduleRows] = await batchReadGoogleSheetValues(env,
@@ -82,7 +83,7 @@ export async function loadOpenLibraryTaxonomy(env) {
   const programResults = await Promise.allSettled(programCandidates.map(async program => {
       const data = await timetableRepository(env, program).load();
       const snapshot = managementState(data, program).snapshot;
-      return { id: program.id, name: program.name, subjects: snapshot.ProgramSubjects,
+      return { id: program.id, name: programDisplayName(program), subjects: snapshot.ProgramSubjects,
         modules: snapshot.ProgramModules };
     }));
   const reboot = rebootResults.filter(result => result.status === 'fulfilled').map(result => result.value);
@@ -110,7 +111,7 @@ export function resolveOpenLibraryTaxonomySelection(input, taxonomy) {
   const moduleRef = clean(input.moduleRef);
   const learningAreas = learningAreaRefs.map(ref => {
     const area = taxonomy.learningAreas.find(item => item.id === ref);
-    if (!area) throw problem('Choose only active Programs and Global Subject courses.');
+    if (!area) throw problem('Choose only active Programs and Courses.');
     return area.name;
   });
   if (!subjectRef && !moduleRef) {

@@ -9,11 +9,11 @@ assert.match(html, /placeholder="Enter your account ID"/);
 assert.match(html, /id="academy-home-card" hidden/);
 assert.match(html, /id="academy-sign-out" type="button" hidden/);
 assert.match(html, /id="academy-library-nav" href="\/academy\/open-library\/"/);
-assert.match(html, /Website V105\.4\.3\.3/);
+assert.match(html, /Website V105\.4\.3\.4/);
 assert.doesNotMatch(html, /ABCDEFG/);
 assert.match(redirects, /^\/academy\/:uniqueid \/academy\/#overview 302$/m);
 
-async function loadPage({ id = '', pin = '', replies = {}, storedToken = 'OLD_SESSION', academyId = '' } = {}) {
+async function loadPage({ id = '', pin = '', replies = {}, storedToken = '', academyId = '' } = {}) {
   const elements = new Map();
   for (const name of ['login-preview', 'demo-username', 'demo-pin', 'demo-pin-toggle', 'login-status',
     'academy-session-loading', 'academy-session-message', 'academy-session-retry', 'academy-home-card', 'academy-account-name', 'academy-maktab-link',
@@ -37,8 +37,10 @@ async function loadPage({ id = '', pin = '', replies = {}, storedToken = 'OLD_SE
   const windowHandlers = {};
   let destination = '';
   const context = {
+    Event,
     window: { M4L_CONFIG: { API_BASE: 'https://test.example' }, location: { hash: '', assign(path) { destination = path; } },
-      addEventListener(type, handler) { windowHandlers[type] = handler; } },
+      addEventListener(type, handler) { windowHandlers[type] = handler; },
+      dispatchEvent(event) { windowHandlers[event.type]?.(event); } },
     document: { getElementById(name) { return elements.get(name); }, body: { classList: { add() {}, remove() {} } } },
     localStorage: {
       get length() { return storage.size; },
@@ -77,7 +79,7 @@ async function loadPage({ id = '', pin = '', replies = {}, storedToken = 'OLD_SE
 }
 
 const oldMaktabSession = await loadPage();
-assert.equal(oldMaktabSession.calls.length, 0, 'An unrelated saved session must not bypass Academy sign-in');
+assert.equal(oldMaktabSession.calls.length, 0, 'Visitors must not trigger an account request');
 assert.equal(oldMaktabSession.elements.get('login-preview').hidden, false);
 assert.equal(oldMaktabSession.elements.get('academy-library-nav').href, '/academy/open-library/');
 await oldMaktabSession.submit();
@@ -112,7 +114,7 @@ const signedIn = await loadPage({ academyId: 'TEST-USER', storedToken: 'NEW_SESS
 assert.equal(signedIn.elements.get('login-preview').hidden, true, 'Signed-in users must not see ID and PIN fields');
 assert.equal(signedIn.elements.get('academy-home-card').hidden, false);
 assert.equal(signedIn.elements.get('academy-sign-out').hidden, false);
-assert.equal(signedIn.elements.get('academy-maktab-link').href, '/account/TEST-USER');
+assert.doesNotMatch(html, /id="academy-maktab-link"/, 'The home must not link to a legacy account screen');
 assert.equal(signedIn.elements.get('academy-library-nav').href, '/academy/library/');
 signedIn.signOut();
 assert.equal(signedIn.storage.get('m4l_account_token'), undefined);
@@ -132,7 +134,7 @@ otherTab.storageChanged({ key: 'm4l_account_token', newValue: null });
 assert.equal(otherTab.elements.get('login-preview').hidden, false);
 assert.equal(otherTab.elements.get('academy-home-card').hidden, true);
 
-const wrongAccount = await loadPage({ academyId: 'TEST-USER', replies: {
+const wrongAccount = await loadPage({ academyId: 'TEST-USER', storedToken: 'NEW_SESSION', replies: {
   '/api/account/session': { body: { success: true, account: { uniqueid: 'OTHER-USER' } } }
 } });
 assert.equal(wrongAccount.elements.get('login-preview').hidden, false);
@@ -156,5 +158,11 @@ const firstSetup = await loadPage({ id: 'TEST-USER', replies: {
 } });
 await firstSetup.submit();
 assert.equal(firstSetup.destination, '/account/TEST-USER?academy=1');
+
+const newTab = await loadPage({ storedToken: 'NEW_SESSION', replies: {
+  '/api/account/session': { body: { success: true, account: { uniqueid: 'TEST-USER' } } }
+} });
+assert.equal(newTab.elements.get('academy-home-card').hidden, false, 'A new Academy tab reuses a server-validated account session');
+assert.equal(newTab.session.get('m4l_academy_signed_in'), 'TEST-USER');
 
 console.log('Academy overview sign-in, session, and sign-out checks passed.');

@@ -1,14 +1,12 @@
 import { getAuthUser } from '../lib/auth.js';
-import { readAcademyLibraryPolicies, academyResourceDecision, canonicalCourseResourceType } from '../lib/academy-library-policy.js';
-import { legacyR2ObjectKey, r2MediaFilename, r2MediaMimeType, createR2MediaToken,
+import { readAcademyLibraryPolicies, academyResourceDecision } from '../lib/academy-library-policy.js';
+import { r2MediaFilename, r2MediaMimeType, createR2MediaToken,
   R2_MEDIA_TTL_SECONDS } from '../lib/academy-r2-media.js';
-import { createCourseEnvironment, resolveOperationalAccountUser } from '../lib/course-routing.js';
 import { readPlatformSheets } from '../lib/platform-sheet.js';
 import { accessibleGlobalSubjectIds } from '../lib/global-subject-delivery.js';
 import { isActivePlatformValue, normalizePlatformIdentifier } from '../lib/platform-schema.js';
 import { json } from '../lib/http.js';
-import { buildGlobalLibrary, resolveAuthorisedCourses } from './library-catalogue.js';
-import { readResourcesGoogleSheetsCatalogue } from './resources.js';
+import { buildGlobalLibrary } from './library-catalogue.js';
 import { extractDriveFileId, getRootFolderId, requireItemInsideRoot,
   validateFileForResourceType, getResourceConfig, createDriveAccessToken,
   getDriveAccessTtlSeconds, deriveFileFormat } from './drive-library.js';
@@ -17,9 +15,10 @@ import { sheetsProgramRepository } from '../programs/sheets-repository.js';
 import { timetableRepository } from '../programs/timetable-repository.js';
 import { readProgramRoleAccountsForPrograms } from '../profiles/program-roles.js';
 import { programViewerRole, visibleProgramResources } from '../programs/library-viewer.js';
+import { programDisplayName } from '../academy/entrance.js';
 import { managementState } from '../programs/management-model.js';
 
-const TABLES = ['UserAccounts', 'UserCourseAccess', 'CourseRegistry', 'GlobalSubjectAccessMatrix',
+const TABLES = ['UserAccounts', 'GlobalSubjectAccessMatrix',
   'GlobalSubjectAccessPolicy', 'GlobalSubjectRuns', 'GlobalSubjectList', 'GlobalModuleList',
   'GlobalTaskList', 'GlobalResources', 'PlatformConfig'];
 const TYPES = new Set(['EBOOK', 'PRINTABLE', 'AUDIO', 'VIDEO', 'OTHER']);
@@ -122,8 +121,8 @@ export async function collectAcademyLibrary(env, user, requested = '') {
   const add = entry => {
     if ((!requested || entry.id === requested) && entry.decision.visible) entries.push(entry);
   };
-  const authorised = new Map(resolveAuthorisedCourses(user, tables).map(row => [row.courseId, row]));
-  const learningAreaRefs = new Set([...authorised.keys()].map(id => `REBOOT:${id}`));
+  // Academy integration only uses new Programs and Courses. Legacy services remain separate.
+  const learningAreaRefs = new Set();
   for (const id of accessibleGlobalSubjectIds({ account, subjects: tables.GlobalSubjectList,
     policyRows: tables.GlobalSubjectAccessPolicy, accessRows: tables.GlobalSubjectAccessMatrix })) {
     learningAreaRefs.add(`GLOBAL:${id}`);
@@ -133,46 +132,6 @@ export async function collectAcademyLibrary(env, user, requested = '') {
       learningAreaRefs.add(`GLOBAL:${normalizePlatformIdentifier(subject.SubjectID)}`);
     }
   }
-  const courses = tables.CourseRegistry.filter(row => isActivePlatformValue(row.Active) &&
-    !clean(row.SchemaVersion).includes('-program'));
-  for (const course of courses.filter(row => !requested || requested.startsWith(`COURSE:${clean(row.CourseID)}:`))) {
-    const courseId = clean(course.CourseID);
-    try {
-      const courseEnv = createCourseEnvironment(env, { courseId, courseName: clean(course.CourseName),
-        spreadsheetId: clean(course.SpreadsheetID) });
-      const raw = await readResourcesGoogleSheetsCatalogue(courseEnv, { type: 'admin' });
-      let assignedIds = new Set();
-      const access = authorised.get(courseId);
-      if (access) {
-        try {
-          const operational = await resolveOperationalAccountUser(courseEnv, {
-            ...user, type: 'account', scope: 'COURSE', role: access.role, accessid: access.accessId,
-            courseid: courseId, coursename: access.courseName,
-            coursespreadsheetid: access.spreadsheetId, courserecordid: access.courseRecordId
-          });
-          assignedIds = new Set(items(await readResourcesGoogleSheetsCatalogue(courseEnv, operational))
-            .map(item => `${canonicalCourseResourceType(item.resource.type)}:${clean(item.resource.resourceid)}`));
-        } catch { warnings.push(`${clean(course.CourseName)} assigned resources are unavailable.`); }
-      }
-      for (const { resource, subject, module } of items(raw)) {
-        const type = canonicalCourseResourceType(resource.type);
-        const originId = clean(resource.resourceid);
-        const fileId = extractDriveFileId(resource.link);
-        const r2Key = fileId ? '' : legacyR2ObjectKey(resource.link, env);
-        if (!TYPES.has(type) || !originId || (!fileId && !r2Key)) continue;
-        const id = `COURSE:${courseId}:${type}:${originId}`;
-        const decision = academyResourceDecision({ key: id, source: 'COURSE', sourceActive: true,
-          assigned: assignedIds.has(`${type}:${originId}`), role: access?.role || user.role,
-          accountId: user.accountid, policy: policies.get(id), globalMatrix: tables.GlobalSubjectAccessMatrix,
-          globalSubjects: tables.GlobalSubjectList });
-        add({ id, source: 'COURSE', sourceName: clean(course.CourseName), type,
-          name: clean(resource.name), description: clean(resource.description),
-          subject: clean(subject.subjectname), module: clean(module.modulename),
-          fileId, r2Key, courseEnv, hasCover: false, decision });
-      }
-    } catch (error) { warnings.push(`${clean(course.CourseName)} Library is unavailable.`); }
-  }
-
   const syntheticId = '__ACADEMY_LIBRARY_CATALOGUE__';
   const syntheticMatrix = [{ AccountID: syntheticId, _subjectAccess: Object.fromEntries(
     tables.GlobalSubjectList.map(subject => [normalizePlatformIdentifier(subject.SubjectID), true])
@@ -190,7 +149,7 @@ export async function collectAcademyLibrary(env, user, requested = '') {
       assigned: false, role: user.role, accountId: user.accountid, policy: policies.get(id),
       globalAccessModel: subject.accessmodel, globalSubjectId: clean(subject.originsubjectid),
       globalMatrix: tables.GlobalSubjectAccessMatrix, globalSubjects: tables.GlobalSubjectList });
-    add({ id, source: 'GLOBAL', sourceName: 'Global Subjects', type: resource.type,
+    add({ id, source: 'GLOBAL', sourceName: 'Courses', type: resource.type,
       name: clean(resource.name), description: clean(resource.description),
       subject: clean(subject.subjectname), module: clean(module.modulename),
       fileId, hasCover: false, decision,
@@ -199,16 +158,17 @@ export async function collectAcademyLibrary(env, user, requested = '') {
 
   const { programs } = !requested || requested.startsWith('PROGRAM:')
     ? await programService(sheetsProgramRepository(env)).list() : { programs: [] };
-  const candidates = programs.filter(row => row.mode === 'PROGRAM' && row.status === 'DRAFT' &&
-    (!requested || requested.startsWith(`PROGRAM:${row.id}:`)));
+  const allPrograms = programs.filter(row => row.mode === 'PROGRAM' && row.status === 'DRAFT');
+  const candidates = allPrograms.filter(row => !requested || requested.startsWith(`PROGRAM:${row.id}:`));
   const roles = user.role === 'GLOBAL_ADMIN' ? {} :
-    await readProgramRoleAccountsForPrograms(env, candidates.map(row => row.id));
+    await readProgramRoleAccountsForPrograms(env, allPrograms.map(row => row.id));
+  const academyStaff = user.role === 'GLOBAL_ADMIN' || allPrograms.some(program =>
+    ['ADMIN', 'SENIOR', 'TEACHER'].includes(programViewerRole(user, roles[program.id])));
   for (const program of candidates) {
     try {
       const repository = timetableRepository(env, program);
       const data = await repository.load();
-      const role = user.scope === 'COURSE' && user.courseid === program.id
-        ? user.role : programViewerRole(user, roles[program.id]);
+      const role = programViewerRole(user, roles[program.id]);
       if (role) learningAreaRefs.add(`PROGRAM:${program.id}`);
       if (!data.prepared || !data.libraryPrepared) continue;
       const shared = await repository.subjectReferences(data);
@@ -217,10 +177,10 @@ export async function collectAcademyLibrary(env, user, requested = '') {
       for (const resource of visibleProgramResources(data, program, shared)) {
         const id = `PROGRAM:${program.id}:${resource.id}`;
         const decision = academyResourceDecision({ key: id, source: 'PROGRAM', sourceActive: true,
-          assigned: Boolean(role), role: role || user.role, accountId: user.accountid,
+          assigned: Boolean(role || academyStaff), role: role || (academyStaff ? 'TEACHER' : 'USER'), accountId: user.accountid,
           policy: policies.get(id), globalMatrix: tables.GlobalSubjectAccessMatrix,
           globalSubjects: tables.GlobalSubjectList });
-        add({ id, source: 'PROGRAM', sourceName: program.name, type: resource.type,
+        add({ id, source: 'PROGRAM', sourceName: programDisplayName(program), type: resource.type,
           name: resource.name, description: resource.description, subject: resource.subjectName,
           module: resource.moduleName, author: resource.author, publisher: resource.publisher,
           hasCover: resource.hasCover, resource: byId.get(resource.id), repository,
@@ -232,7 +192,7 @@ export async function collectAcademyLibrary(env, user, requested = '') {
     author, publisher, hasCover, decision }) => ({ id, source, sourceName, type, name,
     description, subject, module, author: author || '', publisher: publisher || '',
     hasCover, accessState: decision.state, locked: Boolean(decision.locked),
-    forYou: Boolean(decision.forYou) }));
+    forYou: Boolean(decision.forYou || decision.open) }));
   rows.sort((a, b) => a.sourceName.localeCompare(b.sourceName) || a.subject.localeCompare(b.subject) || a.name.localeCompare(b.name));
   return { rows, entries, warnings, learningAreaRefs: [...learningAreaRefs] };
 }

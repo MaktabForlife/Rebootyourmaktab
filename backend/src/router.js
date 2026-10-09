@@ -1,5 +1,6 @@
 import { userProfilesEndpoint } from './routes/user-profiles.js';
 import { academySubjectsEndpoint } from './routes/academy-subjects.js';
+import { academyEntranceEndpoint } from './routes/academy-entrance.js';
 import { programTimetableEndpoint } from './routes/program-timetable.js';
 import { programAttendanceEndpoint } from './routes/program-attendance.js';
 import { programLibraryEndpoint } from './routes/program-library.js';
@@ -168,6 +169,7 @@ import { json } from "./lib/http.js";
 import { createRequestEnvironment } from "./lib/request-context.js";
 
 const ROUTES = new Map([
+  ['/api/academy/entrance', workerRoute('academy-timetable', academyEntranceEndpoint)],
   ...['public', 'cover', 'list', 'save', 'options'].map(action => [
     `/api/academy/open-library/metadata/${action}`,
     workerRoute('program-library-viewer', openLibraryMetadataEndpoint(action))

@@ -29,9 +29,7 @@
 
   function matchesCategory(type) {
     if (selectedCategory === 'ALL') return true;
-    if (selectedCategory === 'PDF') return ['EBOOK', 'PRINTABLE'].includes(type || 'EBOOK');
-    if (selectedCategory === 'AUDIO_VISUAL') return ['AUDIO', 'VIDEO'].includes(type);
-    return type === 'OTHER';
+    return (type || 'EBOOK') === selectedCategory;
   }
 
   function clearMedia() {
