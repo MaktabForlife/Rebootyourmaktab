@@ -39,7 +39,7 @@ const stamp = event => {
   if (Date.parse(fixtureNow)<result.joinAvailableAt || Date.parse(fixtureNow)>=endsAt || result.status!=='SCHEDULED') delete result.joinUrl;
   return result;
 };
-let deferNext=false, release, hasWorkshops=true, globalAdmin=false, programRole='STUDENT';
+let deferNext=false, release, hasWorkshops=true, globalAdmin=false, programRole='STUDENT', roomFixture=false;
 const fetch = async (_url, options) => {
   const signedIn = Boolean(options.headers.Authorization), body = JSON.parse(options.body);
   requests.push(body);
@@ -74,6 +74,22 @@ const fetch = async (_url, options) => {
     ...workshops.filter(item=>item.roles.length).flatMap(item=>item.timetable.map(event=>stamp({...event,title:`Course ${item.name}`,startTime:'14:30',endTime:'15:30'})))
   ] : result.timetable.filter(event=>event.status!=='CANCELLED').map(stamp)) : [];
   if (body.id) result.personalTimetable=result.personalTimetable.filter(event=>event.status==='SCHEDULED');
+  if (roomFixture && body.id) {
+    const roomLesson={...row.timetable[0],subjectName:'Quran',meetingGroup:'room-a',information:['Class one','Teacher A'],joinUrl:'https://zoom.test/shared'};
+    result.personalTimetable=[
+      roomLesson,
+      {...roomLesson,information:['Class two','Teacher <two>']},
+      {...roomLesson,subjectName:'Fiqh',title:'Fiqh module',startTime:'14:00',endTime:'15:00',involvement:'teacher',information:['Fiqh module','Class three','Teacher B']},
+      {...roomLesson,kind:'COURSE',activityId:'COURSE-BARAKAH',activityName:'Barakah',subjectName:'Barakah',startTime:'15:00',endTime:'16:00',information:['Course module','Teacher C']},
+      {...roomLesson,meetingGroup:'room-b',information:['Different room'],joinUrl:''},
+      {...roomLesson,meetingGroup:'',startTime:'16:00',endTime:'17:00',information:['No room one'],joinUrl:''},
+      {...roomLesson,meetingGroup:'',startTime:'16:00',endTime:'17:00',information:['No room two'],joinUrl:''},
+      {...roomLesson,date:'2026-10-06',information:['Next day lesson']}
+    ].map(stamp);
+    result.personalTimetable.push({...stamp(roomLesson),meetingGroup:'overnight',information:['Overnight class'],joinUrl:'',
+      startsAt:Date.parse('2026-10-06T00:30:00+03:00'),endsAt:Date.parse('2026-10-06T01:30:00+03:00'),joinAvailableAt:Date.parse('2026-10-06T00:25:00+03:00')});
+  }
+
   if (deferNext) { deferNext=false; await new Promise(resolve=>{release=resolve;}); }
   return {ok:true,status:200,json:async()=>result};
 };
@@ -169,7 +185,7 @@ assert.match($('activity-sessions').innerHTML,/next-lesson student/);
 assert.match($('activity-sessions').innerHTML,/Next lesson/);
 assert.match($('activity-sessions').innerHTML,/Course Barakah/);
 assert.match($('activity-sessions').innerHTML,/Course Salaah/);
-assert.match($('activity-sessions').innerHTML,/class="upcoming-days"/);
+assert.match($('activity-sessions').innerHTML,/class="upcoming-days timetable-days"/);
 assert.match($('activity-sessions').innerHTML,/Tomorrow Program lesson/);
 assert.equal(($('activity-sessions').innerHTML.match(/<li class="upcoming-item /g)||[]).length,4,'The personal day columns retain every lesson, including repeat Programs on later dates');
 $('personal-next').listeners.get('click')();
@@ -276,4 +292,26 @@ location.hash='#workshops';handlers.get('hashchange')();
 assert.match($('workshops-message').textContent,/Sign in/);
 location.hash='#administration';handlers.get('hashchange')();assert.doesNotMatch($('administration').innerHTML,/href="\/users\//);
 assert.doesNotMatch(html, /data-information="\d+"/);
-console.log('Academy entrance UI: one upcoming item per activity per day, public timetable without links, independent full schedule, visitor/personal views, escaped labels, combined-lesson popup, contextual tools, student recorder and delayed-response sign-out passed.');
+roomFixture=true;globalAdmin=false;hasWorkshops=true;programRole='STUDENT';fixtureNow='2026-10-05T10:55:00Z';
+storage.set('m4l_account_token','ROOM-TEST');location.hash='#activity/PROGRAM/PRG-46c8576d-9fcf-4000-96b9-856b00a0218a';
+window.dispatchEvent(new Event('m4l-academy-session'));await flush();
+const roomHtml=$('activity-sessions').innerHTML;
+assert.equal((roomHtml.match(/class="upcoming-day"/g)||[]).length,7,'Show seven consecutive dates, including empty days');
+assert.equal((roomHtml.match(/<li class="upcoming-item /g)||[]).length,6,'Same-day room lessons combine across subjects, times and Programs; other rooms, missing rooms and dates remain separate');
+assert.equal((roomHtml.match(/>Reboot · Barakah<\/div>/g)||[]).length,1);
+assert.equal((roomHtml.match(/data-information="activity-sessions:/g)||[]).length,6,'Each daily room card has one information button');
+assert.equal((roomHtml.match(/Africa\/Johannesburg/g)||[]).length,1,'Timezone appears once above the week');
+assert.doesNotMatch(roomHtml.replace(/<p class="timetable-timezone">.*?<\/p>/,''),/Africa\/Johannesburg/);
+assert.match(roomHtml,/next-lesson mixed/,'Mixed student/teacher participation remains highlighted');
+assert.match(roomHtml,/23:30–00:30 \(\+1 day\)/,'Published instants display in the Academy timezone, including overnight ends');
+assert.equal((roomHtml.match(/>Join lesson<\/a>/g)||[]).length,1,'One room join link appears when one of its lessons is within the authorised window');
+const roomInfo=/data-information="activity-sessions:(\d+)"/.exec(roomHtml)[1];
+documentHandlers.get('click')({target:{closest:selector=>selector==='[data-information]'?{dataset:{information:`activity-sessions:${roomInfo}`}}:null}});
+assert.equal($('lesson-information-title').textContent,'Reboot · Barakah','Grouped information retains a meaningful dialog title');
+assert.equal(($('lesson-information-body').innerHTML.match(/class="combined-lesson"/g)||[]).length,4);
+for(const detail of ['Class one','Class two','Teacher &lt;two&gt;','Fiqh module','Class three','Course module','Barakah','13:00–14:00','14:00–15:00','15:00–16:00']) assert.ok($('lesson-information-body').innerHTML.includes(detail),detail);
+fixtureNow='2026-10-05T12:01:00Z';handlers.get('hashchange')();await flush();
+assert.equal(($('activity-sessions').innerHTML.match(/>Join lesson<\/a>/g)||[]).length,1,'The room stays joinable for a later authorised lesson after the first lesson ends');
+fixtureNow='2026-10-05T14:00:00Z';handlers.get('hashchange')();await flush();
+assert.doesNotMatch($('activity-sessions').innerHTML,/>Join lesson<\/a>/,'No room joins outside all authorised lesson windows');
+console.log('Academy entrance UI: compact seven-day rooms, complete per-lesson information, timezone conversion, timed joins, public privacy and retained navigation passed.');

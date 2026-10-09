@@ -1,3 +1,19 @@
+# Academy timetable · V105.4.3.13
+
+Signed-in Program/Course timetables and the full integrated timetable now use compact seven-day columns, including dates without lessons. Wide views can show seven columns; smaller screens retain horizontal swiping and arrow controls. Published instants are converted to the Academy timezone, shown once above the week. Cards no longer repeat timezone text, and overnight ends remain clear.
+
+Classes sharing the same Zoom link are combined into **one card per day**, across subjects, lesson times and Programs. Cards retain Program names and distinct time slots. One **i** popup lists every underlying lesson with its subject/Module, Program, time, level/class and teachers where available. Different rooms, missing links and different days stay separate. The next/in-progress lesson and student/teacher participation colours remain, including mixed participation.
+
+The server supplies request-local room labels only with authorised lesson details, so grouping works before a lesson opens without exposing its Zoom URL. Each underlying lesson keeps its existing server-enforced five-minute joining window; the combined card is joinable only while at least one authorised lesson is open. Global Admin retains the complete Academy schedule; other accounts retain enrolled/assigned scope. The public home summary and visitor privacy remain unchanged.
+
+**106/106 test files passed.** Focused checks cover grouping across subjects, times and Programs, separate rooms and dates, missing links, complete escaped popup details and title, all seven dates, timezone conversion and overnight ends, joining across later room lessons and closed windows, Global Admin access, public metadata redaction and revoked accounts. Static checks verify synchronized release markers, JavaScript syntax, 13 pages' unique IDs and local asset references, unchanged original-site links and historical notes, and exact specification synchronization.
+
+The unfinished work in **Master Development** was reviewed. Its compact timetable draft grouped by subject and omitted grouped popup titles; this release reuses its compact layout with the requested room/day grouping and complete dialog data. Its separate login/service-throttling fixes passed their three focused test files and remain in that checkout. The older entrance and Library drafts were not copied over the newer timetable, access or attendance implementation.
+
+Push target: `feature/105.3.4.13`. Browser visual and physical iPhone checks remain pending because the preview tool could not verify the administrator-enforced browser policy. No website/Worker deployment or live-data changes are included. Legacy Reboot and the other chats' unfinished files remain untouched.
+
+---
+
 # Academy home · V105.4.3.12
 
 The subscribed top row uses smaller, uniform Program pills with centred names and roles beneath. Courses are combined into one **Workshops** pill opening the existing authorised Course chooser. Actual Program and Course IDs, memberships and permissions remain unchanged. The top row is hidden on the home page, which retains its My Academy activity panel.

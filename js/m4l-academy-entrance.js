@@ -3,7 +3,7 @@
   const $ = id => document.getElementById(id);
   const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
   const token = () => localStorage.getItem('m4l_account_token') || '';
-  const state = { home: null, activity: null, personalTimetable: [], activityTimer: null, generation: 0, scheduleGeneration: 0, activityGeneration: 0, information: {}, startDate: '' };
+  const state = { home: null, activity: null, personalTimetable: [], personalStartDate: '', activityTimer: null, generation: 0, scheduleGeneration: 0, activityGeneration: 0, information: {}, startDate: '' };
   const titles = { overview: 'Academy home', timetable: 'Academy timetable', learning: 'Programs and Courses', workshops: 'Workshops', activity: 'Activity',
     prospectus: '2026 Prospectus', about: 'About', contact: 'Contact', progress: 'Dua and Surah Progress', recorder: 'Voice Recorder', administration: 'Academy administration' };
   const activityHref = row => `#activity/${row.kind}/${encodeURIComponent(row.id)}`;
@@ -52,7 +52,7 @@
       state.home = result;
       state.startDate = result.startDate;
       $('schedule-date').value = result.startDate;
-      $('schedule-range').textContent = `${formatDate(result.startDate)} – ${formatDate(result.endDate)}. Times are shown with their timezone.`;
+      $('schedule-range').textContent = `${formatDate(result.startDate)} – ${formatDate(result.endDate)}. ${result.signedIn ? '' : 'Times are shown with their timezone.'}`;
       $('entrance-message').textContent = result.warnings.join(' ');
       $('entrance-retry').hidden = !result.warnings.length;
       renderHome();
@@ -76,7 +76,7 @@
       if (generation !== state.scheduleGeneration) return;
       state.startDate = result.startDate;
       $('schedule-date').value = result.startDate;
-      $('schedule-range').textContent = `${formatDate(result.startDate)} – ${formatDate(result.endDate)}. Times are shown with their timezone.`;
+      $('schedule-range').textContent = `${formatDate(result.startDate)} – ${formatDate(result.endDate)}. ${result.signedIn ? '' : 'Times are shown with their timezone.'}`;
       $('schedule-message').textContent = result.warnings.join(' ');
       renderSchedule('academy-sessions', scheduleRows(result));
     } catch (error) {
@@ -163,12 +163,13 @@
   }
 
   function renderSchedule(id, rows, detailed = false, compact = false) {
-    state.information[id] = rows;
+    state.information[id] = rows.slice();
     const personal = detailed || id === 'academy-sessions' && state.home?.signedIn;
     if (!rows.length) { $(id).textContent = personal && !state.home?.globalAdmin ? 'No lessons are scheduled for you in this date range.' : 'No published lessons in this date range.'; return; }
     const now = new Date().getTime();
     const next = detailed ? rows.findIndex(row => row.status === 'SCHEDULED' && row.endsAt > now) : -1;
-    if (compact || personal) {
+    if (personal) { renderPersonalWeek(id, rows, detailed, next, now); return; }
+    if (compact) {
       const days = new Map();
       rows.forEach((row, index) => {
         if (!days.has(row.date)) days.set(row.date, []);
@@ -185,6 +186,57 @@
       return;
     }
     $(id).innerHTML = `<ol class="schedule-list">${rows.map(row => `<li><time datetime="${esc(row.date)}">${esc(formatDate(row.date))}</time><div>${esc(row.startTime)}–${esc(row.endTime)}<small>${esc(row.timezone)}</small></div><div class="lesson-name">${esc(row.title)}</div></li>`).join('')}</ol>`;
+  }
+
+  function renderPersonalWeek(id, rows, detailed, next, now) {
+    const timezone = state.home?.timezone || rows[0].timezone;
+    const formatter = new Intl.DateTimeFormat('en-GB', { timeZone: timezone,
+      year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+    const clock = instant => {
+      const parts = Object.fromEntries(formatter.formatToParts(new Date(instant)).map(part => [part.type, part.value]));
+      return { date: `${parts.year}-${parts.month}-${parts.day}`, time: `${parts.hour}:${parts.minute}` };
+    };
+    const days = new Map();
+    const start = (id === 'academy-sessions' ? state.startDate : state.personalStartDate) || rows[0].date;
+    for (let offset = 0; offset < 7; offset++)
+      days.set(new Date(Date.parse(`${start}T12:00:00Z`) + offset * 86400000).toISOString().slice(0, 10), new Map());
+    rows.map((original, index) => ({ original, index })).sort((a, b) => a.original.startsAt - b.original.startsAt).forEach(({ original, index }) => {
+      const begins = clock(original.startsAt), ends = clock(original.endsAt);
+      const row = { ...original, date: begins.date, startTime: begins.time, endTime: ends.time, endDate: ends.date };
+      if (!days.has(row.date)) days.set(row.date, new Map());
+      const groups = days.get(row.date);
+      // Missing room information must never combine unrelated lessons.
+      const key = row.meetingGroup ? `room:${row.meetingGroup}` : `lesson:${index}`;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push({ row, index });
+    });
+    const participation = entries => {
+      const roles = [...new Set(entries.map(entry => entry.row.involvement).filter(Boolean))];
+      return roles.length > 1 ? 'mixed' : roles[0] || '';
+    };
+    const renderGroup = entries => {
+      const first = entries[0].row;
+      const activities = [...new Set(entries.map(entry => entry.row.activityName))];
+      const subjects = [...new Set(entries.map(entry => entry.row.subjectName || entry.row.title))];
+      const label = esc(activities.join(' · '));
+      const singleActivity = entries.every(entry => entry.row.kind === first.kind && entry.row.activityId === first.activityId);
+      const title = !detailed && singleActivity ? `<a href="${activityHref({ kind: first.kind, id: first.activityId })}">${label}</a>` : label;
+      const times = new Map();
+      for (const entry of entries) {
+        const key = JSON.stringify([entry.row.startsAt, entry.row.endsAt]);
+        if (!times.has(key)) times.set(key, []);
+        times.get(key).push(entry);
+      }
+      const nextEntry = entries.find(entry => entry.index === next);
+      const infoIndex = state.information[id].push({ title: activities.join(' · '), lessons: entries.map(entry => entry.row) }) - 1;
+      const joinable = entries.find(({ row }) => detailed && row.status === 'SCHEDULED' && now >= row.joinAvailableAt && now < row.endsAt && safeLink(row.joinUrl));
+      const join = joinable ? `<a class="button small" href="${esc(joinable.row.joinUrl)}" target="_blank" rel="noopener noreferrer">Join lesson</a>` : '';
+      return `<li class="upcoming-item ${nextEntry ? 'next-lesson ' : ''}${participation(entries)}">${nextEntry ? `<span class="next-lesson-label">${nextEntry.row.startsAt <= now ? 'In progress' : 'Next lesson'}</span>` : ''}<div class="upcoming-name">${title}</div>${subjects.length === 1 && subjects[0] !== activities[0] ? `<small>${esc(subjects[0])}</small>` : entries.length > 1 ? `<small>${entries.length} lessons</small>` : ''}${[...times.values()].map(lessons => {
+        const row = lessons[0].row;
+        return `<span class="upcoming-time lesson-slot ${participation(lessons)}">${esc(row.startTime)}–${esc(row.endTime)}${row.endDate !== row.date ? ' (+1 day)' : ''}</span>`;
+      }).join('')}<div class="upcoming-actions"><button type="button" class="information-button" data-information="${id}:${infoIndex}" aria-label="Lesson details for ${label}">i</button>${join}</div></li>`;
+    };
+    $(id).innerHTML = `<p class="timetable-timezone">Times in ${esc(timezone)}</p><ol class="upcoming-days timetable-days">${[...days].sort(([a], [b]) => a.localeCompare(b)).map(([date, groups]) => `<li class="upcoming-day"><time datetime="${esc(date)}">${esc(formatDate(date))}</time><ul class="upcoming-items">${groups.size ? [...groups.values()].map(renderGroup).join('') : '<li class="timetable-empty">No lessons</li>'}</ul></li>`).join('')}</ol>`;
   }
 
   async function loadActivity(id, refresh = false) {
@@ -224,6 +276,7 @@
         ['User management', users], ['Timetable builder', globalAdmin && row.tools?.timetableBuilder], ['Library management', resources]];
       $('activity-menu').innerHTML = menu.filter(([, href]) => safeLink(href)).map(([label, href]) => `<a href="${esc(href)}">${label}</a>`).join('') + '<a href="/academy/open-library/">Explore the Public Library</a>';
       $('activity-timetable-title').textContent = result.globalAdmin ? 'Academy timetable' : 'My Academy timetable';
+      state.personalStartDate = result.startDate;
       state.personalTimetable = result.signedIn ? scheduleRows(result) : [];
       renderSchedule('activity-sessions', state.personalTimetable, true);
       if (!state.personalTimetable.length) $('activity-sessions').textContent = result.globalAdmin
@@ -315,6 +368,7 @@
     state.home = null;
     state.activity = null;
     state.personalTimetable = [];
+    state.personalStartDate = '';
     clearTimeout(state.activityTimer);
     state.information = {};
     $('personal-activities').hidden = true;
@@ -356,7 +410,8 @@
       const row = state.information[group]?.[Number(index)];
       if (!row) return;
       $('lesson-information-title').textContent = row.title;
-      $('lesson-information-body').innerHTML = row.information.map(text => `<p>${esc(text)}</p>`).join('');
+      $('lesson-information-body').innerHTML = row.lessons ? row.lessons.map(lesson => `<section class="combined-lesson"><h3>${esc(lesson.subjectName || lesson.title)}</h3><p>${esc(lesson.activityName)} · ${esc(lesson.startTime)}–${esc(lesson.endTime)}${lesson.endDate !== lesson.date ? ` · ends ${esc(formatDate(lesson.endDate))}` : ''}</p>${(lesson.information || []).map(text => `<p>${esc(text)}</p>`).join('')}</section>`).join('')
+        : row.information.map(text => `<p>${esc(text)}</p>`).join('');
       $('lesson-information').showModal();
     }
   });

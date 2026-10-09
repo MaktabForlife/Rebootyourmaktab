@@ -1,3 +1,7 @@
+# V105.4.3.13 — Compact timetable grouped by daily Zoom room
+
+Show all seven dates in a compact, swipeable signed-in timetable. Combine classes sharing the same Zoom link into one card per day across subjects, times and Programs, retaining every lesson in its information popup. Display the Academy timezone once above the week, with no timezone text on cards. Preserve Global Admin Academy-wide access, other accounts’ personal scope and per-lesson timed joining. [Implementation and verification](docs/ACADEMY-ENTRANCE.md).
+
 # V105.4.3.12 — Compact Program navigation and Academy-wide admin timetable
 
 Use smaller, centred top-row Program pills and combine Courses into one Workshops pill opening the authorised chooser. Hide this row on the home page. Home Coming up uses the published Academy-wide timetable before and after sign-in. Global Admin sees the entire published Academy timetable on all Program/Course pages and in the full timetable, without enrolment or teaching assignments. Other personal timetables retain enrolled/assigned scope and all joining links retain the existing time window. Group Library display filters into All, PDF (eBooks and Printables), AudioVisual (Audio and Video), and Other while retaining stored resource types and permissions. [Implementation and verification](docs/ACADEMY-ENTRANCE.md).

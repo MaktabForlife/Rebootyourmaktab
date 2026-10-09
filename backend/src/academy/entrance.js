@@ -52,7 +52,7 @@ export function programRoles(user, accounts = []) {
   return matches.length === 1 ? matches[0].Roles.filter(role => ['ADMIN', 'SENIOR', 'TEACHER', 'STUDENT'].includes(role)) : [];
 }
 
-export function programProjection(program, data, user, roles, start, end, now, detailed = false) {
+export function programProjection(program, data, user, roles, start, end, now, detailed = false, groupZoom = () => '') {
   const name = programDisplayName(program);
   const snapshot = data.prepared ? managementState(data, program).snapshot : {};
   const classes = (snapshot.ProgramClasses || []).filter(row => row.CourseID === program.id && active(row.Active));
@@ -78,8 +78,13 @@ export function programProjection(program, data, user, roles, start, end, now, d
         title: detailed && mayView ? row.moduleName || row.subjectName || name : name,
         relevant: involved, involvement: teaching ? 'teacher' : enrolled ? 'student' : '',
         status: row.status || 'SCHEDULED' };
-      if (mayView) event.information = [row.subjectName, row.moduleName,
-        ...(row.classNames || []), ...(row.teacherNames || [row.teacherName])].filter(Boolean);
+      if (mayView) {
+        event.subjectName = row.subjectName || '';
+        event.moduleName = row.moduleName || '';
+        event.meetingGroup = groupZoom(row.zoomLink);
+        event.information = [row.subjectName, row.moduleName, row.levelName,
+          ...(row.classNames || []), ...(row.teacherNames || [row.teacherName])].filter(Boolean);
+      }
       if (detailed && mayView && (involved || oversight) && joinWindowOpen(event, now) && row.zoomLink)
         event.joinUrl = row.zoomLink;
       timetable.push(event);
@@ -110,6 +115,14 @@ export async function buildEntrance({ tables, programs, rolesByProgram, loadProg
   if (!validDate(start)) throw problem('Choose a valid timetable date.');
   const end = addDays(start, 6);
   const warnings = [], activities = [], timetable = [];
+  // Request-local labels allow grouping without releasing a joining URL before its time window.
+  const meetingGroups = new Map();
+  const groupZoom = value => {
+    const url = clean(value);
+    if (!url) return '';
+    if (!meetingGroups.has(url)) meetingGroups.set(url, `meeting-${meetingGroups.size + 1}`);
+    return meetingGroups.get(url);
+  };
   const candidates = programs.filter(row => row.mode === 'PROGRAM' && row.status === 'DRAFT');
   const requestedId = clean(input.id);
   const account = user ? tables.UserAccounts.find(row => key(row.AccountID) === key(user.accountid) && active(row.Active)) : null;
@@ -119,7 +132,7 @@ export async function buildEntrance({ tables, programs, rolesByProgram, loadProg
     const basic = { id: program.id, name: programDisplayName(program), kind: 'PROGRAM', roles };
     try {
       const data = await loadProgram(program, Boolean(user && roles.length));
-      return programProjection(program, data, user, roles, start, end, now, Boolean(requestedId));
+      return programProjection(program, data, user, roles, start, end, now, Boolean(requestedId), groupZoom);
     } catch {
       warnings.push(`${basic.name} timetable is unavailable.`);
       return { ...basic, timetable: [], classes: [], curriculum: [], tools: {}, unavailable: true };
@@ -157,7 +170,12 @@ export async function buildEntrance({ tables, programs, rolesByProgram, loadProg
           activityName: subject.SubjectName, date: event.date, startTime: event.startTime, endTime: event.endTime,
           timezone: runTimezone, title: event.title, status: event.status,
           relevant, involvement: relevant ? teaching ? 'teacher' : 'student' : '' };
-        if (user && event.visibilityLevel === 'DETAIL') projected.information = [event.subjectName, event.moduleName, event.teacherName].filter(Boolean);
+        if (user && event.visibilityLevel === 'DETAIL') {
+          projected.subjectName = event.subjectName || subject.SubjectName;
+          projected.moduleName = event.moduleName || '';
+          projected.meetingGroup = groupZoom(published[index]?.zoomlink);
+          projected.information = [event.subjectName, event.moduleName, event.teacherName].filter(Boolean);
+        }
         // Keep the shared/legacy timetable gate unchanged. The new website opens five minutes early.
         if (requestedId && user && (relevant || globalAdmin(user)) && event.visibilityLevel === 'DETAIL' &&
           joinWindowOpen(projected, now) && published[index]?.zoomlink) projected.joinUrl = published[index].zoomlink;

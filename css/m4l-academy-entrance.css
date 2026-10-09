@@ -40,3 +40,20 @@
 .upcoming-item.next-lesson{outline:2px solid var(--rose);outline-offset:1px}.upcoming-actions{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:8px;margin-top:10px}.upcoming-actions:empty{display:none}
 
 .academy-global-strip .activity-switcher small{font-size:10px}
+
+.timetable-timezone{font-size:11px;color:var(--muted);margin:0 0 10px}
+.timetable-days{gap:10px}
+.timetable-days>.upcoming-day{flex:0 0 max(116px,calc((100% - 60px)/7))}
+.timetable-days .upcoming-day>time{font-size:12px;margin-bottom:8px}
+.timetable-days .upcoming-items{gap:8px}
+.timetable-days .upcoming-item{padding:8px 7px;border-radius:9px;font-size:12px;line-height:1.35}
+.timetable-days .upcoming-name{min-height:0;font-size:13px}
+.timetable-days .upcoming-time{margin-top:5px;font-size:12px}
+.timetable-days .upcoming-actions{gap:5px;margin-top:5px}
+.timetable-days .information-button{width:32px;height:32px;flex-shrink:0}
+.timetable-days .button.small{padding:6px 8px;font-size:11px}
+.timetable-days .next-lesson-label{font-size:10px;margin-bottom:4px}
+.timetable-empty{text-align:center;font-size:11px;color:var(--muted);padding:8px 4px}
+
+.lesson-slot.student{border-left:3px solid #43816c}.lesson-slot.teacher{border-left:3px solid #9162a4}.lesson-slot.mixed{border-left:3px solid #43816c;border-right:3px solid #9162a4}.timetable-days .upcoming-item.mixed{border-left-color:#43816c;border-right:4px solid #9162a4;background:linear-gradient(90deg,#eff7f2,#f4edf8)}
+.combined-lesson+.combined-lesson{border-top:1px solid var(--line);margin-top:16px;padding-top:12px}.combined-lesson h3{font-size:16px;margin:0 0 6px}

@@ -14,7 +14,7 @@ assert.match(html, /id="context-view"/);
 assert.match(html, /id="context-list"/);
 assert.match(html, /id="open-workspace-button"/);
 assert.match(html, /Switch program or role/);
-assert.match(html, /m4l-account\.js\?v=105\.4\.3\.12/);
+assert.match(html, /m4l-account\.js\?v=105\.4\.3\.13/);
 assert.match(html, /id="program-library-links"/);
 assert.match(script, /program-library\/available/);
 assert.match(script, /library-view\.html\?program=/);
