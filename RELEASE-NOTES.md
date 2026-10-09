@@ -1,3 +1,7 @@
+# Unreleased — Main Academy D1 prepared
+
+Initialize the user-created `maktab-academy` main database from the current development application's fresh Academy source. Import 73 active accounts, five Programs and two Global Courses, excluding the legacy workspace and inactive records. Exact cloud readback passes across all 45 tables; refreshed permission/home parity passes 1,680 comparisons. The current Worker remains on Sheets while application integration and cutover checks continue. [Main database report](docs/ACADEMY-MAIN-D1-PREPARATION.md).
+
 # Unreleased — D1 login-to-home rehearsal
 
 Add an isolated D1 development API for account authentication, sessions, safe account changes and Academy home/activity reads. Verify all 73 active accounts and 104 contexts with 1,680 source comparisons; pass 200 concurrent synthetic HTTP flows in local Workers/D1 with zero external requests. Sheets remains authoritative and the live website is unchanged. [Results and remaining work](docs/ACADEMY-D1-FLOW-REHEARSAL.md).

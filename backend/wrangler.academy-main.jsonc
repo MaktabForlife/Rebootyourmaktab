@@ -1,0 +1,13 @@
+{
+  // Database administration only. No Worker entrypoint or deployment is defined.
+  // The main website continues using Sheets until an explicit cutover.
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "account_id": "c9a3e355b3d7a795880b1d36a1dbe123",
+  "compatibility_date": "2026-10-09",
+  "d1_databases": [{
+    "binding": "ACADEMY_DB",
+    "database_name": "maktab-academy",
+    "database_id": "7e732b79-a72f-4da6-be83-524919c49ba4",
+    "migrations_dir": "migrations/academy"
+  }]
+}
