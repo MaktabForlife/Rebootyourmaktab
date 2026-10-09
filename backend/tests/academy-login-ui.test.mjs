@@ -9,7 +9,9 @@ assert.match(html, /placeholder="Enter your account ID"/);
 assert.match(html, /id="academy-home-card" hidden/);
 assert.match(html, /id="academy-sign-out" type="button" hidden/);
 assert.match(html, /id="academy-library-nav" href="\/academy\/open-library\/"/);
-assert.match(html, /Website V105\.4\.3\.8/);
+assert.match(html, /id="academy-personal-library-nav" href="\/academy\/library\/" hidden>My Library<\/a>/);
+assert.doesNotMatch(html, /Open Academy Library/);
+assert.match(html, /Website V105\.4\.3\.9/);
 assert.doesNotMatch(html, /ABCDEFG/);
 assert.match(redirects, /^\/academy\/:uniqueid \/academy\/#overview 302$/m);
 
@@ -17,9 +19,9 @@ async function loadPage({ id = '', pin = '', replies = {}, storedToken = '', aca
   const elements = new Map();
   for (const name of ['login-preview', 'demo-username', 'demo-pin', 'demo-pin-toggle', 'login-status',
     'academy-session-loading', 'academy-session-message', 'academy-session-retry', 'academy-home-card', 'academy-account-name', 'academy-maktab-link',
-    'academy-sign-out', 'academy-avatar', 'academy-library-nav']) {
+    'academy-sign-out', 'academy-avatar', 'academy-library-nav', 'academy-personal-library-nav']) {
     elements.set(name, {
-      value: '', textContent: '', href: '', hidden: ['academy-home-card', 'academy-sign-out',
+      value: '', textContent: '', href: '', hidden: ['academy-home-card', 'academy-sign-out', 'academy-personal-library-nav',
         'academy-session-loading', 'login-status'].includes(name),
       disabled: false, type: name === 'demo-pin' ? 'password' : 'text', handlers: {},
       addEventListener(type, handler) { this.handlers[type] = handler; },
@@ -82,6 +84,7 @@ const oldMaktabSession = await loadPage();
 assert.equal(oldMaktabSession.calls.length, 0, 'Visitors must not trigger an account request');
 assert.equal(oldMaktabSession.elements.get('login-preview').hidden, false);
 assert.equal(oldMaktabSession.elements.get('academy-library-nav').href, '/academy/open-library/');
+assert.equal(oldMaktabSession.elements.get('academy-personal-library-nav').hidden, true);
 await oldMaktabSession.submit();
 assert.equal(oldMaktabSession.destination, '');
 assert.equal(oldMaktabSession.calls.length, 0);
@@ -106,6 +109,7 @@ assert.equal(validLogin.elements.get('demo-pin').value, '');
 assert.equal(validLogin.elements.get('login-preview').hidden, true);
 assert.equal(validLogin.elements.get('academy-home-card').hidden, false);
 assert.equal(validLogin.elements.get('academy-sign-out').hidden, false);
+assert.equal(validLogin.elements.get('academy-personal-library-nav').hidden, false);
 assert.equal(validLogin.elements.get('academy-library-nav').href, '/academy/open-library/');
 
 const signedIn = await loadPage({ academyId: 'TEST-USER', storedToken: 'NEW_SESSION', replies: {
@@ -114,6 +118,7 @@ const signedIn = await loadPage({ academyId: 'TEST-USER', storedToken: 'NEW_SESS
 assert.equal(signedIn.elements.get('login-preview').hidden, true, 'Signed-in users must not see ID and PIN fields');
 assert.equal(signedIn.elements.get('academy-home-card').hidden, false);
 assert.equal(signedIn.elements.get('academy-sign-out').hidden, false);
+assert.equal(signedIn.elements.get('academy-personal-library-nav').hidden, false);
 assert.doesNotMatch(html, /id="academy-maktab-link"/, 'The home must not link to a legacy account screen');
 assert.equal(signedIn.elements.get('academy-library-nav').href, '/academy/open-library/');
 signedIn.signOut();
@@ -124,6 +129,7 @@ assert.equal(signedIn.hash, 'overview');
 assert.equal(signedIn.elements.get('login-preview').hidden, false);
 assert.equal(signedIn.elements.get('academy-home-card').hidden, true);
 assert.equal(signedIn.elements.get('academy-sign-out').hidden, true);
+assert.equal(signedIn.elements.get('academy-personal-library-nav').hidden, true);
 assert.equal(signedIn.elements.get('academy-library-nav').href, '/academy/open-library/');
 
 const otherTab = await loadPage({ academyId: 'TEST-USER', storedToken: 'NEW_SESSION', replies: {
@@ -133,12 +139,14 @@ otherTab.storage.delete('m4l_account_token');
 otherTab.storageChanged({ key: 'm4l_account_token', newValue: null });
 assert.equal(otherTab.elements.get('login-preview').hidden, false);
 assert.equal(otherTab.elements.get('academy-home-card').hidden, true);
+assert.equal(otherTab.elements.get('academy-personal-library-nav').hidden, true);
 
 const wrongAccount = await loadPage({ academyId: 'TEST-USER', storedToken: 'NEW_SESSION', replies: {
   '/api/account/session': { body: { success: true, account: { uniqueid: 'OTHER-USER' } } }
 } });
 assert.equal(wrongAccount.elements.get('login-preview').hidden, false);
 assert.equal(wrongAccount.elements.get('academy-home-card').hidden, true);
+assert.equal(wrongAccount.elements.get('academy-personal-library-nav').hidden, true);
 
 const temporaryOutage = await loadPage({ academyId: 'TEST-USER', storedToken: 'NEW_SESSION', replies: {
   '/api/account/session': [
@@ -163,6 +171,7 @@ const newTab = await loadPage({ storedToken: 'NEW_SESSION', replies: {
   '/api/account/session': { body: { success: true, account: { uniqueid: 'TEST-USER' } } }
 } });
 assert.equal(newTab.elements.get('academy-home-card').hidden, false, 'A new Academy tab reuses a server-validated account session');
+assert.equal(newTab.elements.get('academy-personal-library-nav').hidden, false);
 assert.equal(newTab.session.get('m4l_academy_signed_in'), 'TEST-USER');
 
 console.log('Academy overview sign-in, session, and sign-out checks passed.');

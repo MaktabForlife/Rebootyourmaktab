@@ -1,3 +1,7 @@
+# V105.4.3.9 — Library access in the menu
+
+Remove the prominent Open Academy Library button from the signed-in home panel. Personal access is available through My Library in the menu after sign-in; the existing Library menu item continues to open the Public Library. Your activities sits directly below the welcome. [Implementation and verification](docs/ACADEMY-ENTRANCE.md).
+
 # V105.4.3.8 — Personal activities and Workshops
 
 Move Your activities into the signed-in My Academy panel beneath Library access, with each role below its activity name. Group the person's Courses under one Workshops pill, opening a chooser of authorised Courses while preserving their individual access and IDs. Coming up cards show the published time without a timezone; the full timetable retains timezones. [Implementation and verification](docs/ACADEMY-ENTRANCE.md).

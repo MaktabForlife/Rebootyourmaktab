@@ -1,3 +1,13 @@
+# Academy home · V105.4.3.9
+
+The signed-in home panel no longer displays the prominent **Open Academy Library** button. **Your activities** sits directly beneath the welcome. Personal resources are reached through **My Library** in the main menu, revealed only after successful sign-in or session validation and hidden again on sign-out, an expired session or an account change. The existing **Library** menu item continues to open the Public Library before and after sign-in.
+
+**104/104 backend test files passed.** Login/session fixtures cover personal-menu visibility for visitors, new logins, restored sessions, new tabs, sign-out and rejected accounts. Static checks confirm menu placement, hidden initial markup, unique IDs, script targets, synchronized release markers and all 46 original Academy-site URLs. The specification Page and checked-in specification are synchronized.
+
+Push target: `feature/105.3.4.13`. Browser visual and physical iPhone checks remain pending under the previously recorded preview-tool limitation.
+
+---
+
 # Academy home · V105.4.3.8
 
 **Your activities** now sits inside the signed-in **My Academy** panel, beneath personal Library access. Each pill places its role below its name. The former full-width personal section is removed.

@@ -114,7 +114,7 @@ Returning from a tool should provide a clear route back to the Academy home or r
 
 ## 3. Personal activity pills
 
-In the signed-in **My Academy** panel, beneath personal Library access, show **Your activities** as pills. Display the role beneath each activity name. Visitors must not see this personal section.
+In the signed-in **My Academy** panel, show **Your activities** as pills directly beneath the welcome. Display the role beneath each activity name. Access personal Library through the menu rather than a prominent home-panel button. Visitors must not see this personal section.
 
 Populate activity pills from actual account access, including authorised access to the existing shared curriculum displayed as Courses. Show each Program separately. Group all Courses, including Barakah and Salaah, into one **Workshops** home pill. This opens a chooser containing only the person’s authorised Courses, with the individual role beneath each Course name. Bind each chooser entry to its actual underlying curriculum ID and any required offering context. Hide the Workshops pill when no Course access is assigned; clear the chooser on sign-out. Do not use the demo’s fixed list as personal membership data.
 
@@ -189,7 +189,7 @@ The intended HOD remit includes Program management, timetable publication and ov
 
 ## 6. Library
 
-The main Academy menu’s **Library** link always opens the **Public Library** at `/academy/open-library/`, before and after sign-in. Keep personal Library access separately labelled.
+The main Academy menu’s **Library** link always opens the **Public Library** at `/academy/open-library/`, before and after sign-in. Add a separately labelled **My Library** menu link to `/academy/library/` for authenticated accounts. Hide My Library when signed out; remove the prominent Open Academy Library button from the signed-in home panel.
 
 **Library** is also a menu item on each Program and Course page.
 
