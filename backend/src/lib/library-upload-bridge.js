@@ -21,7 +21,7 @@ function validSessionUrl(value){
   catch{return false;}
 }
 export async function startLibraryUpload(env,details){
-  const payload=base64url(encoder.encode(JSON.stringify({purpose:'m4l-library-start',issuedAt:Date.now(),nonce:crypto.randomUUID(),folderId:details.folderId,fileName:details.fileName,mimeType:details.mimeType,size:details.size})));
+  const payload=base64url(encoder.encode(JSON.stringify({purpose:details.authorityStore==='D1'?'m4l-library-start-d1':'m4l-library-start',issuedAt:Date.now(),nonce:crypto.randomUUID(),folderId:details.folderId,fileName:details.fileName,mimeType:details.mimeType,size:details.size})));
   const hmac=await crypto.subtle.importKey('raw',encoder.encode(`apps-script-library-start:${secret(env)}`),{name:'HMAC',hash:'SHA-256'},false,['sign']);
   const signature=base64url(new Uint8Array(await crypto.subtle.sign('HMAC',hmac,encoder.encode(payload))));
   const result=await callAppsScript(env,{action:'startProgramLibraryUpload',data:{payload,signature}});

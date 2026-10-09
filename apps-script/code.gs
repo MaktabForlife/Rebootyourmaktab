@@ -218,14 +218,16 @@ function verifyProgramLibraryUploadRequest_(data) {
   if (different) throw new Error("Invalid Library upload signature");
   const padded = payload + "=".repeat((4 - payload.length % 4) % 4);
   const request = JSON.parse(Utilities.newBlob(Utilities.base64DecodeWebSafe(padded)).getDataAsString("UTF-8"));
-  if (request.purpose !== "m4l-library-start" || !Number.isSafeInteger(request.issuedAt) || Math.abs(Date.now() - request.issuedAt) > 5 * 60 * 1000) throw new Error("Library upload request expired");
+  if (!["m4l-library-start", "m4l-library-start-d1"].includes(request.purpose) || !Number.isSafeInteger(request.issuedAt) || Math.abs(Date.now() - request.issuedAt) > 5 * 60 * 1000) throw new Error("Library upload request expired");
   if (!/^[A-Za-z0-9_-]{10,128}$/.test(request.folderId || "") || !request.fileName || request.fileName.length > 160 || !/^[a-z0-9][a-z0-9.+-]*\/[a-z0-9][a-z0-9.+-]*$/.test(request.mimeType || "") || !Number.isSafeInteger(request.size) || request.size < 1 || request.size > 5 * 1024 * 1024 * 1024) throw new Error("Invalid Library upload details");
   return request;
 }
 
 function startProgramLibraryUpload(data) {
   const request = verifyProgramLibraryUploadRequest_(data);
-  if (request.folderId !== getSystemConfigValue_(PROGRAM_LIBRARY_DRIVE_FOLDER_ID_CONFIG_KEY, true)) throw new Error("The Library destination has changed. Refresh and try again");
+  // D1 requests carry the destination checked by the Worker against D1. Their
+  // authenticated purpose avoids a Sheets lookup; legacy requests keep it.
+  if (request.purpose !== "m4l-library-start-d1" && request.folderId !== getSystemConfigValue_(PROGRAM_LIBRARY_DRIVE_FOLDER_ID_CONFIG_KEY, true)) throw new Error("The Library destination has changed. Refresh and try again");
   const folder = DriveApp.getFolderById(request.folderId);
   if (folder.isTrashed()) throw new Error("The selected Library folder is in Trash");
   const response = UrlFetchApp.fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=id,name,mimeType,parents", {

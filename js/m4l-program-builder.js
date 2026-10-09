@@ -31,6 +31,7 @@
     try {
       const data = await api("list");
       state.store = data.store || "SHEETS";
+      state.learningWorkflowsReady = Boolean(data.learningWorkflowsReady);
       state.statuses = data.statuses || ["DRAFT", "ARCHIVED"];
       if (state.store === "D1") {
         byId("program-intro").textContent = "Set up Programs and manage their curriculum, classes and enrolments.";
@@ -78,11 +79,11 @@
     if (panel.hidden) return;
     const readiness = state.readiness[row.id];
     panel.innerHTML = `<div class="pb-detail-header"><div><h2>${escape(row.name || "New Program")}</h2><small>${escape(row.id)}</small></div>
-      <div class="pb-actions">${row.saved && !dirty(row) ? `<a href="/programs/manage.html?program=${encodeURIComponent(row.id)}">Manage Program →</a>${state.store === "D1" ? "" : `<a href="/programs/library.html?program=${encodeURIComponent(row.id)}">Manage Library →</a><a href="/programs/timetable.html?program=${encodeURIComponent(row.id)}">Open timetable →</a><a href="/programs/attendance.html?program=${encodeURIComponent(row.id)}">Attendance →</a>`}` : ""}<button type="button" data-action="check" class="pb-secondary" ${state.busy || !row.saved || dirty(row) ? "disabled" : ""}>Check readiness</button>
+      <div class="pb-actions">${row.saved && !dirty(row) ? `<a href="/programs/manage.html?program=${encodeURIComponent(row.id)}">Manage Program →</a>${state.store === "D1" && !state.learningWorkflowsReady ? "" : `<a href="/programs/library.html?program=${encodeURIComponent(row.id)}">Manage Library →</a><a href="/programs/timetable.html?program=${encodeURIComponent(row.id)}">Open timetable →</a><a href="/programs/attendance.html?program=${encodeURIComponent(row.id)}">Attendance →</a>`}` : ""}<button type="button" data-action="check" class="pb-secondary" ${state.busy || !row.saved || dirty(row) ? "disabled" : ""}>Check readiness</button>
       <button type="button" data-action="prepare" ${state.store === "D1" ? "hidden" : ""} ${state.busy || !row.saved || dirty(row) || readiness?.prepared ? "disabled" : ""}>Prepare spreadsheet</button></div></div>
       <p>${escape(readiness?.message || (state.store === "D1" ? "Program records are ready. Timetable publication controls which lessons appear on the website." : row.saved ? "Check backend access and prepare the Program spreadsheet. Save changes before checking." : "Save this draft to register the Program. Its spreadsheet can then be prepared."))}</p>
       <div class="pb-checks">${(readiness?.checks || [{ label: state.store === "D1" ? "Program records ready" : "Spreadsheet not checked", ok: state.store === "D1" }]).filter(check => !/time\s*zone/i.test(check.label)).map(check => `<span class="pb-check ${check.ok ? "is-ready" : ""}">${check.ok ? "✓" : "○"} ${escape(check.label)}</span>`).join("")}</div>
-      <div class="pb-capabilities" aria-label="Capability availability"><span>✓ Configuration</span><span>✓ Curriculum management</span>${state.store === "D1" ? "<span>✓ Classes and enrolments</span>" : "<span>✓ Library management</span><span>✓ Library viewer</span><span>✓ Timetable builder</span><span>✓ Attendance registers</span>"}${(state.store === "D1" ? ["Library", "Timetable editing", "Attendance", "Planner"] : ["Progress", "Planner"]).map(name => `<span>${name} · Later stage</span>`).join("")}</div>`;
+      <div class="pb-capabilities" aria-label="Capability availability"><span>✓ Configuration</span><span>✓ Curriculum management</span>${state.store === "D1" ? "<span>✓ Classes and enrolments</span>" : ""}${state.store !== "D1" || state.learningWorkflowsReady ? "<span>✓ Library management</span><span>✓ Library viewer</span><span>✓ Timetable builder</span><span>✓ Attendance registers</span>" : ""}${(state.store === "D1" && !state.learningWorkflowsReady ? ["Library", "Timetable editing", "Attendance", "Planner"] : ["Planner export"]).map(name => `<span>${name} · Later stage</span>`).join("")}</div>`;
   }
   function add() {
     if (state.busy) return;

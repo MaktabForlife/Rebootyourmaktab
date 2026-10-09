@@ -123,7 +123,7 @@ export function timetableService(repository,program,now=()=>new Date()) {
         return {plan:repository.plan(data,records),result};
       }
       if (!['save','publish'].includes(action)) throw problem('Unknown timetable change.');
-      if (program.status!=='DRAFT') throw problem('Archived Programs cannot change their timetable.',409);
+      if (program.status!=='DRAFT'&&program.timetableEditable!==true) throw problem('Archived Programs cannot change their timetable.',409);
       const data=await repository.load(), current=state(data);
       if (input.revision!==current.revision) throw problem('Another administrator changed this timetable. Your edits are kept; load the latest draft before reapplying them.',409);
       const legacySave=action==='save'&&input.draft&&input.draft.format===undefined;

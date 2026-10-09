@@ -188,8 +188,8 @@
     const moduleMode=['modules','progress'].includes(state.kind),gridKind=moduleMode?'modules':state.kind,def=defs[gridKind],edit=visibleEdit();
     $('pm-title').textContent=`${state.data.program.name} · Management`;
     $('pm-timetable').href=`/programs/timetable.html?program=${encodeURIComponent(programId)}`;
-    $('pm-timetable').hidden=state.data.store==='D1';
-    $('pm-library').hidden=state.data.store==='D1';
+    $('pm-timetable').hidden=state.data.store==='D1'&&!state.data.learningWorkflowsReady;
+    $('pm-library').hidden=state.data.store==='D1'&&!state.data.learningWorkflowsReady;
     $('pm-workspace').hidden=!state.data.prepared;$('pm-prepare').hidden=state.data.prepared;
     $('pm-library-prepare').hidden=!state.data.prepared||state.data.libraryPrepared;
     $('pm-tabs').innerHTML=tabs.map(([key,label])=>`<button type="button" data-tab="${key}" aria-current="${state.overview?key==='overview':key===tabKind(state.kind)}">${label}</button>`).join('');

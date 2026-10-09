@@ -1,8 +1,10 @@
-# Unreleased — D1 user and Program management
+# Unreleased — D1 user, Program and learning workflows
 
 Add atomic D1 account/profile, Program-role, registry, curriculum, class and enrolment management behind the isolated rehearsal mode. Apply the owner-approved Senior-to-Teacher and Admin-to-Program-Admin rules without changing original evidence or Global Admin grants. Preserve Student access.
 
-Validate scoped permissions, stale saves, transaction rollback and replay through twelve new management scenarios, existing frontend integration checks and the local Workers/D1 runtime. All 112 regression test files pass; 200 simultaneous synthetic login/home flows and the 73-account mapping check pass with zero external requests. Main schema/data and live Sheets routing remain unchanged. This work is not pushed or deployed. [Details and pending workflows](docs/ACADEMY-D1-MANAGEMENT.md).
+Extend the rehearsal with timetable authoring/publication, assigned-teacher attendance, Library metadata and session-bound protected Drive/R2 files. Reuse publishing and attendance rules, bulk-save learners and lessons, preserve supplemental active-Program history, and keep the main cloud import unchanged. Device upload support requires the updated Apps Script bridge deployment and its explicit D1 flag.
+
+Validate scoped permissions, stale saves, rollback, replay, current file access and the existing frontend scripts. All 114 regression test files pass; the local Workers/D1 runtime passes 200 simultaneous login/home flows and 196 concurrent Library reads with zero outbound requests. A private main-candidate copy preserves all four historical registers/21 marks and eight resources. Live Sheets routing remains unchanged. This work is not pushed or deployed. [Learning workflows and pending work](docs/ACADEMY-D1-LEARNING.md) · [Management stage](docs/ACADEMY-D1-MANAGEMENT.md).
 
 ---
 

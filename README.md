@@ -1,8 +1,8 @@
-# Unreleased — D1 user and Program management
+# Unreleased — D1 user, Program and learning workflows
 
 Implement D1 profile and Program-role management, Program setup, curriculum, classes and enrolments. Follow the approved authority model: Teacher, Program Admin and Global Admin, with Seniors becoming Teachers and existing Admin assignments scoped to their Programs. Preserve Student access and imported source evidence.
 
-The updated screens and atomic saves pass 112/112 regression test files, 200 simultaneous local login/home flows and the 73-account role-mapping check. This increment is local and not deployed; the main database has not received its separate runtime extension. Live storage remains Sheets. Timetable, Library, attendance and access-policy decisions remain before cutover. [Implementation and remaining work](docs/ACADEMY-D1-MANAGEMENT.md).
+Add timetable publishing, scoped attendance, Library metadata management and protected Drive/R2 access. Preserve four historical attendance registers and 21 marks in a verified local candidate while excluding the old Reboot workspace and inactive data. The screens and atomic saves pass 114/114 regression test files, 200 simultaneous local login/home flows and 196 concurrent Library reads with no outbound requests. This work is local and not deployed; live storage remains Sheets and the main database has not received either runtime extension. Device uploads await deployment/configuration of the updated Apps Script bridge. [Learning workflows and remaining work](docs/ACADEMY-D1-LEARNING.md) · [User and Program management](docs/ACADEMY-D1-MANAGEMENT.md).
 
 ---
 

@@ -2,6 +2,8 @@
 
 This increment implements account profiles, Program roles, Program setup, curriculum records, classes and enrolments on the isolated D1 application path. It is built on the deployed V106.0 feature code. It has **not been pushed or deployed**, and the main database has not received the new schema extension. The live website continues using Sheets.
 
+The subsequent local [learning stage](ACADEMY-D1-LEARNING.md) adds timetable publishing, Library and attendance, including a separate schema extension and verified historical-register import. Verification figures below describe this earlier management increment.
+
 ## Approved roles
 
 The project owner specified Teacher, Program Admin and Global Admin, with Seniors becoming Teachers. The D1 implementation maps effective source `ADMIN` assignments to `PROGRAM_ADMIN` and `SENIOR` assignments to `TEACHER`, within their original Program. Existing Student access and class memberships are preserved.
@@ -59,7 +61,7 @@ Private evidence is under ignored `.academy-migration/`: `d1-management-final-re
 
 ## Remaining before cutover
 
-Timetable authoring/publication, Library reads/writes and protected resource access, attendance, shared calendar and other dependent workflows still require consistent D1 support. New shared Academy subject creation/rename and legacy catalogue import are also outside this increment; existing catalogue names can be linked to Programs. Imported Library/timetable records remain preserved.
+Timetable authoring/publication, Library reads/writes/protected resource access and attendance are implemented in the subsequent local learning stage. Shared calendar, Global Course authoring and other dependent workflows still require consistent D1 support. New shared Academy subject creation/rename and legacy catalogue import are also outside this increment; existing catalogue names can be linked to Programs. Imported Library/timetable records remain preserved.
 
 Admission rules and Free/Paid entitlement decisions remain open. Global Admin grant administration is not exposed through the Program matrix. Refresh the source after remaining workflows are ready, reconcile post-snapshot changes, verify hosted complete flows and peak usage, and obtain approval of the concrete cutover. Keep the production-named legacy Worker separate.
 

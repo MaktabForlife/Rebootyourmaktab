@@ -7,6 +7,9 @@ import {DatabaseSync} from 'node:sqlite';
 import {performance} from 'node:perf_hooks';
 import {flowFixture} from '../tests/fixtures/academy-d1-fixture.mjs';
 import {buildOperationalImport,importOperationalPlan,operationalSQL,migrations} from './academy-migration/operational.mjs';
+import {buildLearningImport,learningSQL} from './academy-migration/learning.mjs';
+import {withLearningSource,subject,moduleId} from '../tests/fixtures/academy-d1-learning-fixture.mjs';
+import {WEEKLY_SCHEMA,programToday} from '../src/programs/weekly-timetable.js';
 
 // Synthetic accounts only, private local storage and no permitted network egress.
 // This measures the local Workers/D1 runtime, not Cloudflare edge performance.
@@ -21,7 +24,8 @@ let mf,step='PREPARE';
 try {
   const {build}=await import(pathToFileURL(join(runtime,'esbuild/lib/main.js')));
   const miniflare=await import(pathToFileURL(join(runtime,'miniflare/dist/src/index.js')));
-  const {snapshot,policy}=await flowFixture(200),plan=await buildOperationalImport(snapshot,policy);
+  const {snapshot,policy}=await flowFixture(200);withLearningSource(snapshot);
+  const plan=await buildOperationalImport(snapshot,policy),learning=buildLearningImport(snapshot,plan);
   const native=new DatabaseSync(':memory:');try{importOperationalPlan(native,plan);}finally{native.close();}
   const config=save('wrangler.json',JSON.stringify({name:'academy-d1-load-local',compatibility_date:compatibilityDate,d1_databases:[{binding:'ACADEMY_DB',database_name:'academy-load-local',database_id:'00000000-0000-4000-8000-000000000003'}]}));
   const state=join(directory,'state');
@@ -34,6 +38,8 @@ try {
   for(const migration of migrations)run(resolve('backend/migrations/academy',migration.name),migration.name);
   run(save('synthetic.sql',operationalSQL(plan)),'SYNTHETIC_IMPORT');
   run(resolve('backend/migrations/academy/0004_management_transactions.sql'),'MANAGEMENT_RUNTIME_EXTENSION');
+  run(resolve('backend/migrations/academy/0005_learning_workflows.sql'),'LEARNING_RUNTIME_EXTENSION');
+  run(save('synthetic-learning.sql',learningSQL(learning)),'LEARNING_IMPORT');
   const bundle=join(directory,'worker.js');
   await build({entryPoints:['backend/src/worker-runtime.js'],bundle:true,format:'esm',platform:'browser',target:'es2022',external:['cloudflare:workers'],outfile:bundle,logLevel:'silent'});
   let outboundRequests=0;
@@ -111,10 +117,31 @@ try {
   const membership=await db.prepare('SELECT count(*) AS n FROM class_memberships WHERE account_id=? AND active=1').bind(accountId).first();
   if(membership.n!==1)throw Error('Enrollment duplicated');
   ensure(await post(profiles+'get',{},tokens[2]),403);
+  step='LEARNING_SMOKE';
+  const today=programToday('Africa/Johannesburg'),scopedAdmin=tokens[3],teacher=tokens[2];
+  const timetable=ensure(await post(management+'get',{id:program.id},scopedAdmin));
+  const draft={format:WEEKLY_SCHEMA,timezone:'Africa/Johannesburg',rules:[{id:'RULE-runtime-learning',programSubjectId:subject,moduleId,teacherId:'account-0003',classIds:[input.record.ClassID],weekdays:[0,1,2,3,4,5,6],startTime:'10:00',endTime:'11:00',zoomLink:''}]};
+  const publication={id:program.id,revision:timetable.revision,draft,effectiveFrom:today,operationId:crypto.randomUUID()};
+  ensure(await post(management+'publish',publication,scopedAdmin));
+  if(!ensure(await post(management+'publish',publication,scopedAdmin)).replayed)throw Error('Publication replay failed');
+  const attendance='/api/program-attendance/',register=ensure(await post(attendance+'get',{id:program.id,date:today},teacher));
+  if(register.lessons.length!==1||register.complete)throw Error('Attendance roster failed');
+  const submit={id:program.id,date:today,scope:'day',exceptions:{},baseRegisterIds:{},operationId:crypto.randomUUID()};
+  ensure(await post(attendance+'submit',submit,teacher));
+  if(!ensure(await post(attendance+'submit',submit,teacher)).replayed)throw Error('Attendance replay failed');
+  if(!ensure(await post(attendance+'get',{id:program.id,date:today},teacher)).complete)throw Error('Attendance completion failed');
+  const catalogue=ensure(await post('/api/academy/library/catalogue',{},tokens[13]));
+  if(catalogue.resources.length!==1||JSON.stringify(catalogue).includes('synthetic_file_1'))throw Error('Library catalogue privacy failed');
+  ensure(await post('/api/admin/platform/program-library/manage',{id:program.id},teacher),403);
+  ensure(await post('/api/admin/platform/program-library/manage',{id:program.id},scopedAdmin));
+  const learningReadResults=await Promise.all(tokens.filter((_,i)=>![1,7,10,11].includes(i)).map(async token=>{
+    const response=await post('/api/academy/library/catalogue',{},token);ensure(response);return response.status;
+  }));
+  if((await db.prepare('SELECT count(*) AS n FROM attendance_marks').first()).n<90)throw Error('Large attendance batch failed');
   if((await db.prepare('SELECT count(*) AS n FROM academy_write_guards').first()).n!==0)throw Error('Management guard left behind');
   if(outboundRequests!==0)throw Error('Unexpected external request');
   const report={success:true,runtime:'LOCAL_WORKERS_D1',workerEntrypoint:'backend/src/worker-runtime.js',compatibilityDate,syntheticAccounts:true,...burst,securitySmokeChecks:'PASS',externalRequests:outboundRequests,
-    managementSmokeChecks:'PASS',cloudPerformanceMeasured:false,cutoverReady:false};
+    managementSmokeChecks:'PASS',learningSmokeChecks:'PASS',simultaneousLibraryReads:learningReadResults.length,cloudPerformanceMeasured:false,cutoverReady:false};
   save('report.json',JSON.stringify(report,null,2));
   console.log(JSON.stringify({step:'COMPLETE',...report,privateReport:join(directory,'report.json')}));
 }catch(error){console.error(JSON.stringify({success:false,step,code:'LOCAL_D1_FLOW_REHEARSAL_FAILED',status:error.status || null,message:error.message}));process.exitCode=1;}

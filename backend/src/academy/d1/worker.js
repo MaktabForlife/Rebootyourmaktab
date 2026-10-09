@@ -3,6 +3,9 @@ import { academyD1Repository, rehearsalError } from './repository.js';
 import { d1Entrance } from './entrance.js';
 import { d1Profiles } from './profiles.js';
 import { d1Programs } from './programs.js';
+import {d1Learning} from './learning.js';
+import {learningAvailable} from './learning-state.js';
+import {d1Library,d1LibraryStream} from './library.js';
 
 const audience='academy-d1-rehearsal';
 const contextEqual=(a,b)=>a.scope===b.scope&&a.courseId.toUpperCase()===b.courseId.toUpperCase()&&a.role===b.role;
@@ -48,10 +51,15 @@ async function dispatch(request,env) {
   const repository=academyD1Repository(env);
   const path=new URL(request.url).pathname;
   if(path==='/api/health'&&request.method==='GET')return {success:true,store:'D1_REHEARSAL',cutoverReady:false};
-  if(request.method!=='POST')throw rehearsalError('Use POST.',405,'METHOD_NOT_ALLOWED');
   await repository.ready();
+  if(path==='/api/academy/d1/library/file'&&['GET','HEAD'].includes(request.method))return d1LibraryStream(request,repository,env);
+  if(request.method!=='POST')throw rehearsalError('Use POST.',405,'METHOD_NOT_ALLOWED');
+  if(path==='/api/admin/platform/program-library/upload-chunk') {
+    const auth=await authenticated(request,env,repository);
+    return {success:true,...await d1Library(repository,auth,env).uploadChunk(request)};
+  }
   const managementPath=path.startsWith('/api/admin/platform/');
-  const input=await boundedBody(request,managementPath?131072:4096);
+  const input=await boundedBody(request,managementPath?131072:path.startsWith('/api/program-attendance/')?65536:4096);
   if(['/api/account/check','/api/account/login','/api/account/setup-pin'].includes(path)) {
     const login=String(input.uniqueid || '').trim();
     if(!login||login.length>160)throw rehearsalError('Missing or invalid account link.',400,'INVALID_ACCOUNT_LINK');
@@ -79,13 +87,22 @@ async function dispatch(request,env) {
     return {success:true,...await d1Entrance(repository,auth?.state,auth?.user,input)};
   }
   const auth=await authenticated(request,env,repository);
+  const timetableAction=path.match(/^\/api\/admin\/platform\/program-timetable\/(get|save|publish|history|published|preview|validate|prepare|prepare-library)$/)?.[1];
+  const attendanceAction=path.match(/^\/api\/program-attendance\/(get|submit|prepare|recover)$/)?.[1];
+  if(timetableAction||attendanceAction) {
+    const learning=d1Learning(repository,auth);
+    return {success:true,...await (timetableAction?learning.timetable(timetableAction,input):learning.attendance(attendanceAction,input))};
+  }
+  const libraryAction=path.match(/^\/api\/(admin\/platform\/program-library|program-library|academy\/library)\/(available|manage|save|recover|prepare-library|folder-set|browse|access|cover|covers|catalogue|upload-start)$/);
+  if(libraryAction)return {success:true,...await d1Library(repository,auth,env).run(libraryAction[2],input,request,{admin:libraryAction[1].startsWith('admin/'),academy:libraryAction[1]==='academy/library'})};
   const profileAction=path.match(/^\/api\/admin\/platform\/user-profiles\/(get|link|save|recover)$/)?.[1];
   const registryAction=path.match(/^\/api\/admin\/platform\/programs\/(list|create|save|readiness|prepare)$/)?.[1];
   const managementAction=path.match(/^\/api\/admin\/platform\/program-timetable\/(manage-get|manage-save|recover)$/)?.[1];
   if(profileAction||registryAction||managementAction) {
-    const programAdmin=managementAction&&auth.state.roles.some(r=>r.role==='PROGRAM_ADMIN'&&r.activity_key.toUpperCase()===`PROGRAM:${String(input.id||'')}`.toUpperCase());
+    const programAdmin=(managementAction||registryAction==='list')&&auth.state.roles.some(r=>r.role==='PROGRAM_ADMIN'&&(registryAction==='list'||r.activity_key.toUpperCase()===`PROGRAM:${String(input.id||'')}`.toUpperCase()));
     if(!auth.state.account.global_admin&&!programAdmin)throw rehearsalError('This action requires an authorised administrator.',403,'FORBIDDEN');
-    const result=profileAction?await d1Profiles(repository,auth).run(profileAction,input):registryAction?await d1Programs(repository,auth).registry(registryAction,input):await d1Programs(repository,auth).management(managementAction,input);
+    const learningView=managementAction==='manage-get'&&await learningAvailable(repository.db);
+    const result=profileAction?await d1Profiles(repository,auth).run(profileAction,input):registryAction?await d1Programs(repository,auth).registry(registryAction,input):learningView?await d1Learning(repository,auth).timetable('manage-get',input):await d1Programs(repository,auth).management(managementAction,input);
     return {success:true,...result};
   }
   if(path==='/api/account/session')return {success:true,...sessionResponse(auth.state,auth.context)};
@@ -118,16 +135,21 @@ export default {
     const origin=request.headers.get('Origin');
     const allowed=(env.ALLOWED_ORIGINS || '').split(',').filter(Boolean);
     const headers={'Content-Type':'application/json','Cache-Control':'private, no-store','Vary':'Origin',
-      'Access-Control-Allow-Methods':'POST, GET, OPTIONS','Access-Control-Allow-Headers':'Content-Type, Authorization'};
+      'Access-Control-Allow-Methods':'POST, GET, HEAD, OPTIONS','Access-Control-Allow-Headers':'Content-Type, Authorization, Range, X-Library-Upload-Ticket, X-Library-Upload-Offset'};
     if(origin&&allowed.includes(origin))headers['Access-Control-Allow-Origin']=origin;
     if(origin&&!allowed.includes(origin))return new Response(JSON.stringify({success:false,error:'Origin is not allowed.'}),{status:403,headers});
     if(request.method==='OPTIONS')return new Response(null,{status:204,headers});
-    try{return new Response(JSON.stringify(await dispatch(request,env)),{headers});}
+    try{const result=await dispatch(request,env);
+      if(result instanceof Response){const mediaHeaders=new Headers(result.headers);for(const name of ['Vary','Access-Control-Allow-Methods','Access-Control-Allow-Headers'])mediaHeaders.set(name,headers[name]);
+        mediaHeaders.set('X-Content-Type-Options','nosniff');
+        mediaHeaders.delete('Access-Control-Allow-Origin');if(headers['Access-Control-Allow-Origin'])mediaHeaders.set('Access-Control-Allow-Origin',headers['Access-Control-Allow-Origin']);
+        return new Response(result.body,{status:result.status,headers:mediaHeaders});}
+      return new Response(JSON.stringify(result),{headers});}
     catch(error){const status=Number.isInteger(error.status)?error.status:503;
       const unavailable=status>=500&&status!==501;
       if(status===429)headers['Retry-After']='60';
       return new Response(JSON.stringify({success:false,error:unavailable?'Academy information is temporarily unavailable. Please try again.':error.message,
-        code:unavailable?(error.code==='MANAGEMENT_SCHEMA_REQUIRED'?error.code:'ACADEMY_D1_UNAVAILABLE'):error.code,retryable:unavailable||status===429,...(status===429?{retryAfterMs:60000}:{}),
+        code:unavailable?(['MANAGEMENT_SCHEMA_REQUIRED','LEARNING_IMPORT_REQUIRED','UPLOAD_BRIDGE_REQUIRED'].includes(error.code)?error.code:'ACADEMY_D1_UNAVAILABLE'):error.code,retryable:unavailable||status===429,...(status===429?{retryAfterMs:60000}:{}),
         ...(status===409?Object.fromEntries(['currentRecord','rowRevision','entryKey'].filter(k=>error[k]!==undefined).map(k=>[k,error[k]])):{} )}),{status,headers});}
   }
 };

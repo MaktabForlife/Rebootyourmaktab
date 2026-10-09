@@ -38,8 +38,9 @@
     $('pl-destination').textContent=state.data.destinationId?`New files are saved in the Library Drive Resources folder (${state.data.destinationId}).`:'A global admin needs to set the Resources folder before new files can be added.';
     $('pl-prepare').hidden=!state.data.canManageFolder||!state.data.prepared||state.data.libraryPrepared;
     $('pl-prepare').disabled=state.busy||Boolean(state.pending)||!state.data.coordinatorAvailable;
-    const cannotAdd=state.busy||Boolean(state.pending)||!state.data.libraryPrepared||state.data.program.status!=='DRAFT'||!state.data.coordinatorAvailable;
-    $('pl-add-device').disabled=cannotAdd||Boolean(state.bulk);
+    const cannotAdd=state.busy||Boolean(state.pending)||!state.data.libraryPrepared||!(state.data.managementEditable??state.data.program.status==='DRAFT')||!state.data.coordinatorAvailable;
+    $('pl-add-device').disabled=cannotAdd||Boolean(state.bulk)||state.data.deviceUploadsReady===false;
+    $('pl-add-device').title=state.data.deviceUploadsReady===false?'Device uploads are awaiting setup. Use Library Drive to add an existing file.':'';
     $('pl-add-drive').disabled=cannotAdd||Boolean(state.bulk);
     $('pl-pending').hidden=!state.pending;
     const groups=types.map(([type,label])=>{
@@ -93,9 +94,9 @@
     $('pl-replace-label').textContent=state.creating?'Choose a file for this unfinished resource':'Replace resource file';
     $('pl-device').textContent=state.creating?'Choose from device':'Upload replacement from device';
     $('pl-browse').textContent=state.creating?'Choose from Library Drive':'Choose replacement from Library Drive';
-    $('pl-save').disabled=state.busy||!state.data?.libraryPrepared||!state.data?.coordinatorAvailable||Boolean(state.pending);
+    $('pl-save').disabled=state.busy||!state.data?.libraryPrepared||!state.data?.coordinatorAvailable||state.data?.managementEditable===false||Boolean(state.pending);
     $('pl-browse').disabled=state.busy||Boolean(state.pending);
-    $('pl-device').disabled=state.busy||Boolean(state.pending);
+    $('pl-device').disabled=state.busy||Boolean(state.pending)||state.data?.deviceUploadsReady===false;
     $('pl-preview').hidden=true;
     if(!state.creating&&active(r.Active)){
       $('pl-preview').hidden=false;$('pl-preview').removeAttribute('href');
@@ -547,7 +548,7 @@
     if(!folder){$('pl-folder-status').textContent='Paste a Google Drive folder link or ID.';return;}
     state.busy=true;$('pl-folder-status').textContent='Checking the Resources folder…';render();
     try{
-      const result=await api('program-library/folder-set',{folder});
+      const result=await api('program-library/folder-set',{folder,operationId:crypto.randomUUID()});
       $('pl-folder-input').value='';
       await load();
       $('pl-folder-status').textContent=`Resources folder set to ${result.folder.name}. New uploads will use it.`;

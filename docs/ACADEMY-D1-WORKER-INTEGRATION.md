@@ -1,5 +1,7 @@
 # Academy D1 application integration — 9 October 2026
 
+Local unreleased work now includes [user and Program management](ACADEMY-D1-MANAGEMENT.md) and [timetable, Library and attendance](ACADEMY-D1-LEARNING.md). Both runtime extensions remain unapplied to the main cloud database; V106.0 remains deployed with live Sheets routing. The verification below records the original V106.0 integration.
+
 The D1 login/home rehearsal now runs through the application's actual `backend/src/worker-runtime.js` entrypoint. Release **V106.0** is based on the verified feature release **V105.4.3.17**, commit `9dacef489ebaf76bfeaf97a05e5f0b961dafb40d`. Its navigation cache and timetable presentation are retained, together with the deliberate V105.4.3.15 rollback of the earlier Sheets request-efficiency changes. Pushing the feature branch deploys both the frontend and current development backend; this release keeps D1 mode unset/OFF.
 
 ## Integration and configuration

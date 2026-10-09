@@ -2,6 +2,7 @@ import { definition,programId } from '../../programs/model.js';
 import { MANAGEMENT_KINDS,managementView,managementRowRevision,studentClassRevision,applyManagementChange } from '../../programs/management-model.js';
 import { payloadHash } from '../../programs/timetable-model.js';
 import { managementStore,managementError,rowChanged,same,liveRoles } from './management-store.js';
+import {learningAvailable} from './learning-state.js';
 
 const dto=(data,a)=>{
   const settings=data.programs.find(p=>same(p.activity_key,a.activity_key));
@@ -23,14 +24,17 @@ const shape={
 
 export function d1Programs(repository,auth) {
   const store=managementStore(repository,auth),p=store.p;
-  async function loadManagement(id) {
-    const activityKey=`PROGRAM:${id}`;
-    const queries={subjects:p('SELECT * FROM subject_catalog ORDER BY subject_key'),revision:p('SELECT * FROM management_revisions WHERE activity_key=?',activityKey),
-      teachers:p('SELECT * FROM class_teacher_assignments WHERE activity_key=?',activityKey),legacyTeachers:p('SELECT * FROM program_legacy_teachers WHERE activity_key=?',activityKey),
-      evidence:p("SELECT * FROM legacy_access_evidence WHERE activity_key=? AND source_effective=1 AND source_role IN ('ADMIN','SENIOR')",activityKey),
-      resources:p('SELECT * FROM program_resources WHERE activity_key=?',activityKey),roots:p('SELECT * FROM program_library_roots WHERE activity_key=?',activityKey)};
-    for(const [name,spec] of Object.entries(shape))queries[name]=p(`SELECT * FROM ${spec.table} WHERE activity_key=?`,activityKey);
-    const data=await store.load(queries),a=selected(data,id),program=dto(data,a),snapshot={};
+  function queriesFor(activityKey) {
+    const values=activityKey?[activityKey]:[];
+    const tables={revision:'management_revisions',teachers:'class_teacher_assignments',legacyTeachers:'program_legacy_teachers',resources:'program_resources',roots:'program_library_roots',...Object.fromEntries(Object.entries(shape).map(([name,spec])=>[name,spec.table]))};
+    return {...Object.fromEntries(Object.entries(tables).map(([name,table])=>[name,p(`SELECT * FROM ${table}${activityKey?' WHERE activity_key=?':''}`,...values)])),
+      subjects:p('SELECT * FROM subject_catalog ORDER BY subject_key'),
+      evidence:p(`SELECT * FROM legacy_access_evidence WHERE ${activityKey?'activity_key=? AND ':''}source_effective=1 AND source_role IN ('ADMIN','SENIOR')`,...values)};
+  }
+  function projectManagement(all,id) {
+    const activityKey=`PROGRAM:${id}`,data={...all};
+    for(const name of ['revision','teachers','legacyTeachers','resources','roots',...Object.keys(shape)])data[name]=all[name].filter(r=>same(r.activity_key,activityKey));
+    const a=selected(data,id),program=dto(data,a),snapshot={};
     for(const [name,spec] of Object.entries(shape))snapshot[name]=data[name].map(row=>{
       const mapped=Object.fromEntries(Object.entries(spec.columns).filter(([column])=>column!=='subject_key').map(([column,field])=>[field,column==='active'?Boolean(row[column]):row[column]??'']));
       if(['ProgramSubjects','ProgramTasks','ProgramClasses','ProgramEnrollments','ProgramModuleProgress'].includes(name))mapped.CourseID=program.id;
@@ -48,6 +52,7 @@ export function d1Programs(repository,auth) {
     const shared={subjects:data.subjects.map(s=>({SubjectID:s.subject_id,SubjectName:s.name,Active:Boolean(s.active),Legacy:s.source_namespace!=='ACADEMY'})),accounts,grantedTeachers:accounts.filter(a=>a.Active&&a.Roles.some(r=>['TEACHER','ADMIN'].includes(r))).map(a=>({AccountID:a.AccountID}))};
     return {data,a,program,current,viewData:{tables,prepared:true,libraryPrepared:true},shared};
   }
+  async function loadManagement(id,extra={}) {return projectManagement(await store.load({...queriesFor(`PROGRAM:${id}`),...extra}),id);}
   async function persist(loaded,snapshot) {
     const statements=[],activity=loaded.a.activity_key;
     for(const [name,spec] of Object.entries(shape))for(const record of snapshot[name]) {
@@ -71,11 +76,21 @@ export function d1Programs(repository,auth) {
         if(record.TeacherAccountID)statements.push(p("INSERT INTO class_teacher_assignments(activity_key,class_id,account_id,responsibility) VALUES(?,?,?,'DEFAULT')",activity,record.ClassID,record.TeacherAccountID));
       }
     }
+    for(const record of snapshot.ProgramResources) {
+      const old=loaded.current.snapshot.ProgramResources.find(r=>same(r.ResourceID,record.ResourceID));
+      if(old&&plain(old)===plain(record))continue;
+      statements.push(p(`INSERT INTO program_resources(activity_key,resource_id,program_subject_id,level_id,module_id,task_id,resource_type,name,description,drive_file_id,metadata_json,active)
+        VALUES(?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(activity_key,resource_id) DO UPDATE SET program_subject_id=excluded.program_subject_id,level_id=excluded.level_id,module_id=excluded.module_id,task_id=excluded.task_id,resource_type=excluded.resource_type,name=excluded.name,description=excluded.description,drive_file_id=excluded.drive_file_id,metadata_json=excluded.metadata_json,active=excluded.active`,activity,record.ResourceID,record.ProgramSubjectID||null,record.LevelID||null,record.ProgramModuleID||null,record.TaskID||null,record.ResourceType,record.Name,record.Description||'',record.DriveFileID,plain(record),Number(Boolean(record.Active))));
+    }
+    for(const record of snapshot.ProgramLibraryRoots)if(!loaded.current.snapshot.ProgramLibraryRoots.some(r=>same(r.FolderID,record.FolderID)))
+      statements.push(p('INSERT INTO program_library_roots(activity_key,folder_id,name) VALUES(?,?,?)',activity,record.FolderID,record.Name));
     return statements;
   }
   return {
+    load:loadManagement,
+    async loadAll(extra={}) {const data=await store.load({...queriesFor(null),...extra});return {data,programs:data.activities.filter(a=>a.kind==='PROGRAM').map(a=>projectManagement(data,a.activity_id))};},
     async registry(action,input) {
-      if(action==='list') {const data=await store.load();return {programs:data.activities.filter(a=>a.kind==='PROGRAM').map(a=>dto(data,a)),platformPrepared:true,store:'D1',statuses:['DRAFT','ACTIVE','ARCHIVED']};}
+      if(action==='list') {const data=await store.load();return {programs:data.activities.filter(a=>a.kind==='PROGRAM'&&(auth.state.account.global_admin||liveRoles(data,auth.user.accountid,a.activity_key).includes('PROGRAM_ADMIN'))).map(a=>dto(data,a)),platformPrepared:true,store:'D1',learningWorkflowsReady:await learningAvailable(repository.db),statuses:['DRAFT','ACTIVE','ARCHIVED']};}
       if(['prepare','readiness'].includes(action)) {selected(await store.load(),input.id);return {prepared:true,message:'Program records are ready.',checks:[{label:'Program records ready',ok:true}]};}
       if(!['create','save'].includes(action))throw managementError('Unknown Program action.',404);
       return store.change('PROGRAM_REGISTRY','ACADEMY',action,input,async()=>{
@@ -97,7 +112,7 @@ export function d1Programs(repository,auth) {
         return {data,statements,result:{program:dto(next,updated)},fields:['Name','DurationYears','Timezone','Lifecycle']};
       });
     },
-    async management(action,input) {
+    async management(action,input,verifyLibraryChange,extra={},initialLoaded=null) {
       if(action==='recover')return {recovered:false};
       if(action==='manage-get') {
         const loaded=await loadManagement(input.id);
@@ -105,9 +120,15 @@ export function d1Programs(repository,auth) {
         return {...view,store:'D1',coordinatorAvailable:true,managementEditable:loaded.a.lifecycle!=='ARCHIVED',sharedSubjectsEditable:false,globalProfilesAvailable:Boolean(auth.state.account.global_admin),overview:{timetable:null,preview:null,error:{error:'Timetable editing is awaiting migration.',retryable:false}}};
       }
       if(action!=='manage-save')throw managementError('This operation is awaiting migration.',501,'OPERATION_NOT_MIGRATED');
-      if(!writableKinds.has(input.kind))throw managementError('Library and historical teacher-list changes are awaiting migration.',501,'OPERATION_NOT_MIGRATED');
-      return store.change('PROGRAM_MANAGEMENT',`PROGRAM:${String(input.id).toUpperCase()}`,action,input,async()=>{
-        const loaded=await loadManagement(input.id),{data,program,current,shared}=loaded;
+      const library=['resources','library-root'].includes(input.kind);
+      if(!writableKinds.has(input.kind)&&!library)throw managementError('Historical teacher-list changes are awaiting migration.',501,'OPERATION_NOT_MIGRATED');
+      if(library&&!verifyLibraryChange)throw managementError('Use the Library screen for resource changes.',400);
+      let firstRead=initialLoaded;
+      return store.change(library?'PROGRAM_LIBRARY':'PROGRAM_MANAGEMENT',`PROGRAM:${String(input.id).toUpperCase()}`,action,input,async()=>{
+        // A Library request already read a consistent planning snapshot. The
+        // transaction guard validates it; a conflicting retry reads afresh.
+        const loaded=firstRead||await loadManagement(input.id,extra);firstRead=null;
+        const {data,program,current,shared}=loaded;
         if(loaded.a.lifecycle==='ARCHIVED')throw managementError('Reactivate the Program before changing its records.',409);
         let snapshot=current.snapshot,record,records;
         const changes=input.kind==='student-classes'?input.changes:[input];
@@ -121,6 +142,7 @@ export function d1Programs(repository,auth) {
           const revision=student?await studentClassRevision(current.snapshot.ProgramEnrollments,account):await managementRowRevision(old);
           if((spec||student)&&change.baseRowRevision!==revision||!spec&&!student&&input.revision!==current.revision)throw rowChanged(old,revision,input.kind==='student-classes'?account:undefined);
           const applied=applyManagementChange({snapshot},change,shared,program);snapshot=applied.snapshot;record=applied.record;
+          if(library)await verifyLibraryChange(loaded,record,old);
           if(input.kind==='student-classes')records.push({...record,rowRevision:await studentClassRevision(snapshot.ProgramEnrollments,account)});
         }
         const revision=crypto.randomUUID(),result=input.kind==='student-classes'?{revision,records}:{revision,record,
