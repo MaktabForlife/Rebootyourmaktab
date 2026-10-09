@@ -1,6 +1,6 @@
 import { isActivePlatformValue as active, normalizePlatformIdentifier as key } from '../lib/platform-schema.js';
 import { canAccountAccessGlobalSubject, dateInTimezone } from '../lib/global-subject-delivery.js';
-import { buildGlobalCourseEvents, isAcademySessionCurrent } from '../routes/academy-timetable.js';
+import { buildGlobalCourseEvents, academyClockInTimezone } from '../routes/academy-timetable.js';
 import { resolveCurrentPublishedGlobalTimetable } from '../lib/global-timetable.js';
 import { publicationRecord, publicationSchedule } from '../programs/weekly-timetable.js';
 import { managementState } from '../programs/management-model.js';
@@ -16,6 +16,34 @@ const staff = roles => roles.some(role => ['ADMIN', 'SENIOR', 'TEACHER', 'GLOBAL
 const globalAdmin = user => user?.role === 'GLOBAL_ADMIN';
 const participant = (row, accountId, date, classIds) => active(row.Active) && key(row.AccountID) === key(accountId) &&
   classIds.includes(row.ClassID) && (!row.StartDate || row.StartDate <= date) && (!row.EndDate || row.EndDate >= date);
+
+// Convert each published local clock to an instant before combining timezones.
+function timetableInstant(date, time, timezone) {
+  const local = Date.parse(`${date}T${time}:00Z`);
+  if (!Number.isFinite(local)) return NaN;
+  let instant = local;
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const clock = academyClockInTimezone(new Date(instant), timezone);
+    const represented = Date.parse(`${clock.date}T00:00:00Z`) + clock.minutes * 60000;
+    const adjustment = local - represented;
+    if (!adjustment) return instant;
+    instant += adjustment;
+  }
+  // A nonexistent local clock during a daylight-saving change must fail closed.
+  return NaN;
+}
+
+export function lessonTimes(event) {
+  const startsAt = timetableInstant(event.date, event.startTime, event.timezone);
+  const endDate = event.endTime <= event.startTime ? addDays(event.date, 1) : event.date;
+  const endsAt = timetableInstant(endDate, event.endTime, event.timezone);
+  return { startsAt, endsAt, joinAvailableAt: startsAt - 5 * 60000 };
+}
+
+const joinWindowOpen = (event, now) => {
+  const times = lessonTimes(event);
+  return event.status === 'SCHEDULED' && now.getTime() >= times.joinAvailableAt && now.getTime() < times.endsAt;
+};
 
 export function programRoles(user, accounts = []) {
   if (!user) return [];
@@ -52,13 +80,8 @@ export function programProjection(program, data, user, roles, start, end, now, d
         status: row.status || 'SCHEDULED' };
       if (mayView) event.information = [row.subjectName, row.moduleName,
         ...(row.classNames || []), ...(row.teacherNames || [row.teacherName])].filter(Boolean);
-      if (detailed && mayView && (involved || oversight)) {
-        const parts = Object.fromEntries(new Intl.DateTimeFormat('en-GB', { timeZone: publishedTimezone,
-          hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(now).map(part => [part.type, part.value]));
-        const currentDate = dateInTimezone(now, publishedTimezone);
-        if (isAcademySessionCurrent(event, currentDate, Number(parts.hour) * 60 + Number(parts.minute)) && row.zoomLink)
-          event.joinUrl = row.zoomLink;
-      }
+      if (detailed && mayView && (involved || oversight) && joinWindowOpen(event, now) && row.zoomLink)
+        event.joinUrl = row.zoomLink;
       timetable.push(event);
     }
   }
@@ -73,10 +96,12 @@ export function programProjection(program, data, user, roles, start, end, now, d
   return { id: program.id, name, kind: 'PROGRAM', roles,
     timetable, classes: ownClasses.map(row => ({ id: row.ClassID, name: row.Name })), curriculum,
     tools: { library: '/academy/library/',
-      attendance: staff(roles) && program.capabilities?.attendance ? `/programs/attendance.html?id=${encodeURIComponent(program.id)}` : '',
-      manage: globalAdmin(user) ? `/programs/manage.html?id=${encodeURIComponent(program.id)}` : '',
-      timetableBuilder: globalAdmin(user) ? `/programs/timetable.html?id=${encodeURIComponent(program.id)}` : '',
-      resources: staff(roles) ? `/programs/library.html?id=${encodeURIComponent(program.id)}` : '' } };
+      attendance: staff(roles) && program.capabilities?.attendance ? `/programs/attendance.html?program=${encodeURIComponent(program.id)}` : '',
+      manage: globalAdmin(user) ? `/programs/manage.html?program=${encodeURIComponent(program.id)}` : '',
+      users: globalAdmin(user) ? '/users/' : '',
+      timetableBuilder: globalAdmin(user) ? `/programs/timetable.html?program=${encodeURIComponent(program.id)}` : '',
+      // The existing editor is Program-wide; class-scoped editing is not yet supported.
+      resources: globalAdmin(user) ? `/programs/library.html?program=${encodeURIComponent(program.id)}` : '' } };
 }
 
 export async function buildEntrance({ tables, programs, rolesByProgram, loadProgram, user, input = {}, now = new Date() }) {
@@ -89,8 +114,7 @@ export async function buildEntrance({ tables, programs, rolesByProgram, loadProg
   const requestedId = clean(input.id);
   const account = user ? tables.UserAccounts.find(row => key(row.AccountID) === key(user.accountid) && active(row.Active)) : null;
   if (user && !account) throw problem('Your Academy session has ended.', 401);
-  const selected = requestedId ? candidates.filter(row => key(row.id) === key(requestedId)) : candidates;
-  const programViews = await Promise.all(selected.map(async program => {
+  const programViews = await Promise.all(candidates.map(async program => {
     const roles = programRoles(user, rolesByProgram[program.id]);
     const basic = { id: program.id, name: programDisplayName(program), kind: 'PROGRAM', roles };
     try {
@@ -110,7 +134,7 @@ export async function buildEntrance({ tables, programs, rolesByProgram, loadProg
     GlobalTimetablePublications: tables.GlobalTimetablePublications, GlobalTimetableSessionLifecycle: tables.GlobalTimetableSessionLifecycle,
     PublishedGlobalTimetableSessions: tables.PublishedGlobalTimetableSessions };
   const courseViews = [];
-  for (const subject of subjects.filter(row => !requestedId || key(row.SubjectID) === key(requestedId))) {
+  for (const subject of subjects) {
     const allowed = Boolean(user && (globalAdmin(user) || canAccountAccessGlobalSubject({ account, subject,
       policyRows: platform.policies, accessRows: platform.matrix })));
     const sessions = [];
@@ -134,7 +158,9 @@ export async function buildEntrance({ tables, programs, rolesByProgram, loadProg
           timezone: runTimezone, title: event.title, status: event.status,
           relevant, involvement: relevant ? teaching ? 'teacher' : 'student' : '' };
         if (user && event.visibilityLevel === 'DETAIL') projected.information = [event.subjectName, event.moduleName, event.teacherName].filter(Boolean);
-        if (requestedId && user && event.canOpenZoom && event.zoomLink) projected.joinUrl = event.zoomLink;
+        // Keep the shared/legacy timetable gate unchanged. The new website opens five minutes early.
+        if (requestedId && user && relevant && event.visibilityLevel === 'DETAIL' &&
+          joinWindowOpen(projected, now) && published[index]?.zoomlink) projected.joinUrl = published[index].zoomlink;
         sessions.push(projected);
       }
     }
@@ -153,10 +179,16 @@ export async function buildEntrance({ tables, programs, rolesByProgram, loadProg
     warnings.push('Reboot is coming soon. Its new Program registration is unavailable.');
   const activity = requestedId ? [...programViews, ...courseViews].find(row => key(row.id) === key(requestedId)) : null;
   if (requestedId && !activity) throw problem('This Academy activity is unavailable.', 404);
+  const personalTimetable = user ? timetable.filter(row => row.relevant && row.status === 'SCHEDULED')
+    .map(row => ({ ...row, ...lessonTimes(row) }))
+    .filter(row => Number.isFinite(row.startsAt) && Number.isFinite(row.endsAt))
+    .sort((a, b) => a.startsAt - b.startsAt || a.activityId.localeCompare(b.activityId)) : [];
+  const visibleTimetable = requestedId ? timetable.filter(row => key(row.activityId) === key(requestedId)) : timetable;
   return { signedIn: Boolean(user), globalAdmin: globalAdmin(user), startDate: start, endDate: end, timezone,
     activities, personalActivities: user ? activities.filter(row => row.roles.length) : [],
     student: Boolean(user && activities.some(row => row.roles.includes('STUDENT'))),
-    timetable: timetable.sort((a, b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime)),
+    personalTimetable,
+    timetable: visibleTimetable.sort((a, b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime)),
     activity, warnings };
 }
 

@@ -1,3 +1,21 @@
+# Academy home · V105.4.3.10
+
+Every Program and Course landing page now shows the same **personal integrated Academy timetable**, including the account’s enrolled or assigned lessons across the new Program framework and shared Courses. Unassigned lessons and cancelled occurrences are excluded. Global administrative oversight alone does not make lessons personal. Subscribed Programs and Courses appear in one horizontally swipeable row beside the activity title, with roles below names and the current activity marked. The home still groups Courses under Workshops.
+
+The next personal lesson is highlighted; an ongoing lesson is marked In progress. The website’s server response releases authorised joining URLs from exactly five minutes before start until the lesson ends. The visible activity page refreshes at timing boundaries and revalidates access at least once a minute while visible; background pages stop refreshing and revalidate on return. Local clock conversion orders published lessons across timezones and handles overnight ends. The shared/legacy timetable gate is unchanged. Activity timetables open at the current seven-day window independently of dates browsed on the full timetable screen.
+
+The main menu has one **Library** item: signed-in accounts open **For You** across all authorised Academy resources, and visitors open the Public Library. Program pages keep their Library entry; Explore remains public and independent of membership. The duplicate My Library item is removed. **Dua and Surah Progress** and **Voice Recorder** are student menu items; **Programs and Courses** is removed from the menu while the public artwork row remains.
+
+Students see Announcements, Calendar and Assignments on Program pages. Teachers and administrators additionally have Make announcement, Mark attendance, Assignments, Library management and Class preparation. Existing new Program attendance is connected using the screen’s actual `program` URL parameter. Assigned-level/class Library editing and preparation remain **Coming soon** because the current editor is wider than the agreed scope. Program Admin management, User management and Calendar management remain Coming soon where their role-specific integration is unsupported. Existing Global Admin management, users, timetable builder and Program Library screens retain their established authority. Universal progress remains Coming soon. No role migration or legacy Reboot changes are included.
+
+**104/104 backend test files passed on the final implementation.** Coverage includes multiple enrolled Programs and Courses, identical timetables when switching pages, actual chronological ordering, assigned teaching versus oversight, five-minute and end boundaries for Program and Course links, cancelled and revoked access, empty personal timetables, delayed-response sign-out, menu visibility, scoped staff placeholders and Academy-wide For You without a Program filter. Static checks pass for synchronized release markers, JavaScript syntax, unique IDs, script targets and all **46 original Academy-site URLs**. The native specification Page and checked-in specification are synchronized.
+
+Overlapping unfinished changes were reviewed in the original entrance checkout and left intact. This release uses the separate `feature/academy-library-spec` checkout based on the last verified feature commit, combining the requested behaviour without including wider Library-editor links or a duplicate My Library menu.
+
+Push target: `feature/105.3.4.13`. Browser visual and physical iPhone checks remain pending because the preview tool could not verify the administrator-enforced browser policy. This feature push does not deploy the website or Worker.
+
+---
+
 # Academy home · V105.4.3.9
 
 The signed-in home panel no longer displays the prominent **Open Academy Library** button. **Your activities** sits directly beneath the welcome. Personal resources are reached through **My Library** in the main menu, revealed only after successful sign-in or session validation and hidden again on sign-out, an expired session or an account change. The existing **Library** menu item continues to open the Public Library before and after sign-in.

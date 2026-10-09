@@ -54,7 +54,7 @@ Include:
 
 - Prospectus, About and Contact information.
 
-- Sign-in controls when signed out, with Account ID and PIN labels. Omit the Academy account badge and the explanatory paragraph below the submit button. Remove the three shortcut buttons beneath sign-in while keeping the original Academy-site link; Public Library and Programs and Courses remain available through the main navigation.
+- Sign-in controls when signed out, with Account ID and PIN labels. Omit the Academy account badge and the explanatory paragraph below the submit button. Remove the three shortcut buttons beneath sign-in while keeping the original Academy-site link. Library is available through the main navigation; remove Programs and Courses from that menu while retaining the public artwork row on the home page.
 
 - Personal activity pills and Sign out when signed in.
 
@@ -70,7 +70,7 @@ Remove obsolete demo instructions, connection-plan content and sample completion
 
 On the main page, display the shortened Academy timetable as **Coming up**, beneath the enlarged announcements area. Group entries into horizontally swipeable date columns, with Program or Course names as compact cards and their published time visible. Omit the timezone from these Coming up cards; keep it in the full timetable. Provide arrow buttons and keyboard access as well as touch scrolling. Include only the next published item per Program or Course within the next seven days. Exclude ended and cancelled items, and combine Course offerings under their Course for this summary.
 
-Signed-in users can open the full Academy timetable from this summary. Do not include Timetable in the main menu. Highlight the signed-in person’s involvement using **colour**, supported by a simple colour key in the full timetable.
+Signed-in users see their **personal integrated Academy timetable**, combining their enrolled and assigned lessons across the Academy. Display the same personal timetable on every Program page and retain it when switching Programs or Courses. A staff or administrator role alone does not make every lesson personal. The full timetable remains accessible from the signed-in Coming up summary. Do not include Timetable in the main menu. Highlight participation using **colour**, supported by a simple colour key in the full timetable.
 
 Do not add “My class” or “Teaching” labels to highlight involvement.
 
@@ -78,7 +78,7 @@ Visitors see public timetable entries as plain text, with no timetable, activity
 
 For signed-in authorised users, an **i** icon opens supplementary information, such as multiple teachers or the classes included in a combined lesson. It must work on tap and click.
 
-Joining links and protected lesson details are accessed through the relevant activity page.
+Joining links and protected lesson details are accessed through signed-in activity pages. Highlight the next personal lesson, or the current lesson while it is in progress. Activate its authorised joining link **five minutes before the published start**, and remove it when the lesson ends. Enforce the opening window, current membership and publication status on the server, and refresh the visible timetable as these boundaries pass. Combine timezones by actual start instants; preserve published timezone labels in the full timetable.
 
 Reuse the existing Academy timetable service where appropriate. Verify that it consumes the new V105 Program publications, including the Reboot Pilot’s timetable identified by its actual Program ID, as well as published schedules for Courses and their scheduled offerings from the existing shared curriculum.
 
@@ -122,7 +122,7 @@ Display the new Reboot Pilot Program pill as **Reboot** and bind it to the Pilot
 
 A person can hold different roles in different Programs and Courses. Preserve the existing scope of each role and entitlement. **Workshops** is a home navigation grouping only; it does not merge memberships, permissions or underlying Course records.
 
-Include universal student activities, such as Dua and Surah Progress and Voice Recorder, alongside relevant Program and Course activities. Show **Coming soon** when their required integration is unavailable.
+Place the universal student activities **Dua and Surah Progress** and **Voice Recorder** in the Academy menu for signed-in students. Do not repeat them among the home Program and Course activity pills. Hide these menu items for visitors and accounts without student access, and clear them on sign-out. Show **Coming soon** when a required integration is unavailable.
 
 Provide:
 
@@ -140,9 +140,9 @@ Use these learning structures:
 
 - **Courses:** The existing shared curriculum, organised into Modules, with linked scheduled lessons and offerings such as workshops, bootcamps and presentations where supported.
 
-Each activity opens an appropriate landing page containing its available tools.
+Each activity opens an appropriate landing page containing its available tools. Display the person’s subscribed Program and Course pills in **one horizontally swipeable row beside the activity title**, with roles beneath names and the current activity indicated. Populate this row from actual authorised account access and retain every underlying ID. Students see their **personal integrated Academy timetable**, **Announcements**, **Calendar** and **Assignments** on every Program page, with **Library** in its menu. The timetable includes their enrolled or assigned lessons across all new Programs and Courses, rather than filtering to the displayed Program. Show **Coming soon** for announcements, calendar or assignments while their new Program integrations are unavailable.
 
-The Reboot landing page uses the new Pilot Program’s timetable, Library, classes and available teaching tools, all scoped by its actual Program ID. Apply the same Program framework integration pattern to the other Academy Programs.
+Reboot’s lessons within the personal integrated Academy timetable come from the new Pilot Program’s published timetable. Its Library resources, classes and available teaching tools use that same new Program and actual Program ID. Apply the same integration pattern to other Academy Programs; the timetable remains Academy-wide for the signed-in person when switching activity pages.
 
 ### Courses and shared curriculum
 
@@ -156,16 +156,22 @@ Course landing pages expose the available curriculum, timetable, Library and too
 
 | Feature | Intended availability |
 |---|---|
-| Detailed timetable and authorised lesson links | Relevant participants |
-| Library | Opens the Academy Personal Library, using the new Program Library integration for Program resources |
-| Announcements | Relevant audience |
-| Assignments | Learners and responsible staff |
-| Attendance | Teachers and authorised administrators |
-| Lesson preparation | Teachers and authorised administrators |
-| Manage Program | Program Admin |
+| Personal integrated Academy timetable and authorised lesson links | Enrolled learners and assigned teachers; same timetable on every Program page |
+| Library | For You across the Academy, without automatic Program filtering; Explore remains public |
+| Announcements and Calendar | Learners and responsible staff |
+| Assignments | Learners; authorised staff create and manage assignments |
+| Make announcement | Teachers and authorised administrators |
+| Mark attendance | Teachers and authorised administrators |
+| Library management | Teachers and administrators within their assigned teaching levels/classes |
+| Class preparation | Teachers and administrators within their assigned teaching levels/classes |
+| Program management | Program Admin; existing backend permissions still apply |
+| User management | Program Admin within their authorised Program; existing backend permissions still apply |
+| Calendar management | Program Admin within their authorised Program |
 | Program-specific progress | Where supported by the new Program framework |
 
-Teachers may view lesson preparations for other classes **within the same Program**. This permission does not grant access to those classes’ private learner records.
+Display **Coming soon** for unavailable functions or role-specific integrations. Existing Global Admin tools retain their actual authorised scope.
+
+Class preparation and Library editing/management for Teachers and Program Admins are restricted to **their assigned teaching levels/classes**. Do not substitute a wider Program editor or allow access to other classes’ preparation because they are in the same Program. Keep the integration **Coming soon** until this scope is enforced by the supporting service. Preserve Global Admin’s established Academy-wide authority.
 
 Use existing working screens in the new Program framework where possible. Mark unsupported functions or role-specific integrations **Coming soon**. Do not replace a missing function with a legacy Reboot screen or data source.
 
@@ -185,13 +191,13 @@ Global Admin admits new students. Program Admin assigns admitted students to cla
 
 For Reboot, class assignment and staff responsibilities refer to the new Pilot Program’s classes and access records. Do not convert legacy Reboot roles or learner records as part of this website work.
 
-The intended HOD remit includes Program management, timetable publication and oversight of teaching, attendance, progress and resources. Where current services only allow Global Admin access, show the HOD integration as pending rather than bypassing that restriction.
+Program Admin additionally has **Program management**, **User management** and **Calendar management** within their authorised Program. The intended HOD remit includes timetable publication and oversight of teaching, attendance, progress and resources. Where current services only allow Global Admin access or do not enforce the required scope, show **Coming soon** rather than bypassing that restriction.
 
 ## 6. Library
 
-The main Academy menu’s **Library** link always opens the **Public Library** at `/academy/open-library/`, before and after sign-in. Add a separately labelled **My Library** menu link to `/academy/library/` for authenticated accounts. Hide My Library when signed out; remove the prominent Open Academy Library button from the signed-in home panel.
+The main Academy menu has one **Library** item. For a signed-in Academy account it opens the Personal Library at `/academy/library/`, on **For You** by default across all authorised Academy resources. Visitors use this menu item to reach the Public Library at `/academy/open-library/`. **Explore** opens that same Public Library independently of Program or Course membership, without sign-in. Do not display a separate My Library menu item or a prominent Library button in the signed-in home panel.
 
-**Library** is also a menu item on each Program and Course page.
+**Library** is a menu item on each Program page. Course pages retain the same Academy-wide Library entry where available.
 
 It opens **For You** by default, without automatically filtering to the current Program or Course.
 
@@ -217,7 +223,7 @@ Retain the agreed categories:
 
 - Other
 
-Teachers can browse teaching resources across Programs. Editing and management follow their authorised scope. Only Global Admin can change the shared Resources folder.
+Teachers can browse teaching resources across Programs. Editing and management for Teachers and Program Admins are limited to **their assigned teaching levels/classes**. Only Global Admin can change the shared Resources folder. Wider browse access does not grant editing rights.
 
 ### Subscription model to support
 
@@ -327,15 +333,15 @@ Verify:
 
 - The display rename preserves curriculum and offering relationships, backend IDs and permissions, without data duplication or migration.
 
-- Public Library and free-material access without signing in; the main menu Library link remains public after sign-in.
+- Public Library and free-material access without sign-in; one Library menu item opens For You for a signed-in Academy account and the Public Library for visitors, with public Explore available independently.
 
 - For You showing authorised resources across the Academy within the agreed integration scope.
 
 - Protected content remaining protected when opened directly.
 
-- One upcoming timetable item per Program or Course on the main page; visitor entries have no links; Timetable is absent from the menu; authorised colour highlighting and supplementary information popups still work.
+- One upcoming timetable item per Program or Course on the main page; visitors see plain entries without links. Timetable and Programs and Courses are absent from the main menu. Every Program page shows the same integrated personal Academy timetable, with authorised information popups, next-lesson highlighting and server-enforced joining from five minutes before start until the lesson ends.
 
-- Correct Program context for attendance and management links.
+- Correct actual Program context for attendance and management links, a single swipeable subscribed-activity row, and assigned-level/class limits for preparation and Library management. Teacher and administrator actions remain Coming soon wherever their required backend integration or scope is unavailable.
 
 - Student-only recorder visibility and mobile recording/sharing where supported; otherwise **Coming soon**.
 

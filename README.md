@@ -1,3 +1,9 @@
+# V105.4.3.10 — Personal timetable and Academy navigation
+
+Every Program page now displays the same personal Academy timetable across enrolled Programs and Courses, with subscribed activity pills in one swipeable row beside the title. Highlight the next lesson and activate authorised joining links five minutes before start, removing them at the end. Use one Library menu item that opens For You after sign-in and the Public Library for visitors. Move Dua and Surah Progress and Voice Recorder to the student menu; remove Programs and Courses from the menu.
+
+Student Program pages include Announcements, Calendar and Assignments. Teacher and admin actions follow existing permissions; assigned-class Library management, class preparation and unavailable administration integrations show Coming soon. Correct Program tool URLs to carry their actual Program context. [Implementation and verification](docs/ACADEMY-ENTRANCE.md).
+
 # V105.4.3.9 — Library access in the menu
 
 Remove the prominent Open Academy Library button from the signed-in home panel. Personal access is available through My Library in the menu after sign-in; the existing Library menu item continues to open the Public Library. Your activities sits directly below the welcome. [Implementation and verification](docs/ACADEMY-ENTRANCE.md).

@@ -39,8 +39,14 @@ const fetch = async (url, options = {}) => {
   calls.push({ url, options });
   if (url === '/api/academy/library/catalogue') return {
     ok: true, json: async () => ({ success: true, learningAreaRefs: ['PROGRAM:P1'], resources: [{
-      id: 'REBOOT:BOOK:1', name: 'Assigned book', source: 'REBOOT',
+      id: 'PROGRAM:P1:BOOK1', name: 'Assigned book', source: 'PROGRAM',
       sourceName: 'Reboot', subject: 'Fiqh', type: 'EBOOK', forYou: true
+    }, {
+      id: 'PROGRAM:P2:AUDIO1', name: 'Second Program audio', source: 'PROGRAM',
+      sourceName: 'Hifz', subject: 'Quran', type: 'AUDIO', forYou: true
+    }, {
+      id: 'GLOBAL:BOOK1', name: 'Course book', source: 'GLOBAL',
+      sourceName: 'Courses', subject: 'Arabic', type: 'EBOOK', forYou: true
     }] })
   };
   if (url === '/academy/open-library/catalogue') return {
@@ -93,6 +99,10 @@ runInNewContext(script, {
 await new Promise(resolve => setImmediate(resolve));
 
 assert.match(nodes['al-results'].innerHTML, /Assigned book/);
+assert.match(nodes['al-results'].innerHTML, /Second Program audio/);
+assert.match(nodes['al-results'].innerHTML, /Course book/);
+assert.equal(nodes['al-source'].value, 'ALL');
+assert.deepEqual(JSON.parse(calls.find(call => call.url === '/api/academy/library/catalogue').options.body), {}, 'For You must not send a current Program filter');
 assert.match(nodes['al-results'].innerHTML, /Academy Quran book/);
 assert.match(nodes['al-results'].innerHTML, /Useful website/);
 assert.doesNotMatch(nodes['al-results'].innerHTML, /Aalimiya|Quran \+1/);
@@ -101,6 +111,7 @@ assert.match(nodes['al-results'].innerHTML, /al-card-title"><img src="\/icons\/o
 assert.doesNotMatch(nodes['al-results'].innerHTML, /Ihya Ulum/);
 const personalHtml = await readFile(new URL('../../academy/library/index.html', import.meta.url), 'utf8');
 assert.match(personalHtml, /href="\/academy\/open-library\/">Explore/);
+assert.match(personalHtml, /data-view="you" role="tab" aria-selected="true">For You/);
 chooseCategory('OTHER');
 assert.match(nodes['al-results'].innerHTML, /Useful website/);
 assert.doesNotMatch(nodes['al-results'].innerHTML, /Assigned book|Academy Quran book/);
@@ -141,7 +152,7 @@ assert.equal(displayedPdf(), 'https://archive.org/download/NewBook/NewBook.pdf')
 assert.equal(calls.filter(call => call.url === '/api/academy/library/access').length, 0);
 
 nodes['al-preview'].close();
-clickResource('REBOOT:BOOK:1');
+clickResource('PROGRAM:P1:BOOK1');
 await new Promise(resolve => setImmediate(resolve));
 assert.equal(calls.filter(call => call.url === '/api/academy/library/access').length, 1);
 assert.equal(nodes['al-media'].children[0].src, '/private-book.pdf');

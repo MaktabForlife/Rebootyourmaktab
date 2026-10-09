@@ -16,7 +16,6 @@
   const accountName = document.getElementById("academy-account-name");
   const signOutButton = document.getElementById("academy-sign-out");
   const libraryNav = document.getElementById("academy-library-nav");
-  const personalLibraryNav = document.getElementById("academy-personal-library-nav");
   const avatar = document.getElementById("academy-avatar");
   let activeToken = "";
   let sessionGeneration = 0;
@@ -73,7 +72,6 @@
     avatar.setAttribute("aria-label", "Academy account");
     document.body.classList.remove("academy-signed-in");
     libraryNav.href = "/academy/open-library/";
-    personalLibraryNav.hidden = true;
     showStatus("");
     setBusy(false);
     window.location.hash = "overview";
@@ -131,8 +129,7 @@
     homeCard.hidden = false;
     signOutButton.hidden = false;
     document.body.classList.add("academy-signed-in");
-    libraryNav.href = "/academy/open-library/";
-    personalLibraryNav.hidden = false;
+    libraryNav.href = "/academy/library/";
     window.dispatchEvent(new Event("m4l-academy-session"));
   }
 
