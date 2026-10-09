@@ -203,8 +203,12 @@ export async function buildEntrance({ tables, programs, rolesByProgram, loadProg
     .filter(row => Number.isFinite(row.startsAt) && Number.isFinite(row.endsAt))
     .sort((a, b) => a.startsAt - b.startsAt || a.activityId.localeCompare(b.activityId)) : [];
   const visibleTimetable = requestedId ? timetable.filter(row => key(row.activityId) === key(requestedId)) : timetable;
+  // These views are already projected above. Share authorised page metadata once so
+  // Program navigation can reuse the same personal timetable without another Sheets read.
+  const activityPages = user ? [...programViews, ...courseViews].filter(row => row.roles.length)
+    .map(({ timetable: _, ...row }) => row) : [];
   return { signedIn: Boolean(user), globalAdmin: globalAdmin(user), startDate: start, endDate: end, timezone,
-    activities, personalActivities: user ? activities.filter(row => row.roles.length) : [],
+    activities, personalActivities: user ? activities.filter(row => row.roles.length) : [], activityPages,
     student: Boolean(user && activities.some(row => row.roles.includes('STUDENT'))),
     personalTimetable,
     timetable: visibleTimetable.sort((a, b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime)),

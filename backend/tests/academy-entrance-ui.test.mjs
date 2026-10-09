@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
 const html = await readFile(new URL('../../academy/index.html', import.meta.url), 'utf8');
 const script = await readFile(new URL('../../js/m4l-academy-entrance.js', import.meta.url), 'utf8');
+const css = await readFile(new URL('../../css/m4l-academy-entrance.css', import.meta.url), 'utf8');
 const elements = new Map(), handlers = new Map(), documentHandlers = new Map(), storage = new Map();
 function element(id = '') {
   const classes = new Set(), listeners = new Map();
@@ -39,7 +40,7 @@ const stamp = event => {
   if (Date.parse(fixtureNow)<result.joinAvailableAt || Date.parse(fixtureNow)>=endsAt || result.status!=='SCHEDULED') delete result.joinUrl;
   return result;
 };
-let deferNext=false, release, hasWorkshops=true, globalAdmin=false, programRole='STUDENT', roomFixture=false;
+let deferNext=false, release, hasWorkshops=true, globalAdmin=false, programRole='STUDENT', roomFixture=false, colourFixture=false, cacheFixture=false, failNext=false, warningFixture=false;
 const fetch = async (_url, options) => {
   const signedIn = Boolean(options.headers.Authorization), body = JSON.parse(options.body);
   requests.push(body);
@@ -89,8 +90,32 @@ const fetch = async (_url, options) => {
     result.personalTimetable.push({...stamp(roomLesson),meetingGroup:'overnight',information:['Overnight class'],joinUrl:'',
       startsAt:Date.parse('2026-10-06T00:30:00+03:00'),endsAt:Date.parse('2026-10-06T01:30:00+03:00'),joinAvailableAt:Date.parse('2026-10-06T00:25:00+03:00')});
   }
+  if (colourFixture) {
+    const alimiya={id:'PRG-ALIMIYA',kind:'PROGRAM',name:'Alimiyah',roles:['TEACHER']};
+    const hifz={id:'PRG-HIFZ',kind:'PROGRAM',name:'Hifz',roles:['STUDENT']};
+    result.activities.push(alimiya,hifz);
+    result.personalActivities.push(alimiya,hifz);
+    result.personalTimetable=[
+      {...base,activityId:alimiya.id,activityName:alimiya.name,involvement:'student',date:'2026-10-06',subjectName:'Assembly'},
+      {...base,activityId:alimiya.id,activityName:alimiya.name,involvement:'teacher',date:'2026-10-07',meetingGroup:'alimiya-room'},
+      {...base,activityId:alimiya.id,activityName:alimiya.name,involvement:'teacher',date:'2026-10-07',meetingGroup:'alimiya-room',startTime:'14:00',endTime:'15:00'},
+      {...base,activityId:alimiya.id,activityName:alimiya.name,involvement:'teacher',date:'2026-10-08'},
+      {...base,activityId:hifz.id,activityName:hifz.name,involvement:'student'},
+      ...workshops.flatMap(course=>course.timetable),base
+    ].map(stamp).sort((a,b)=>a.startsAt-b.startsAt);
+    result.timetable=result.personalTimetable.map(event=>{const publicEvent={...event,involvement:''};delete publicEvent.information;delete publicEvent.joinUrl;return publicEvent;});
+    // Registry order must not affect colours when navigating or refreshing.
+    if (body.id) result.activities.reverse();
+  }
+  if (cacheFixture) {
+    result.timezone='Africa/Johannesburg';
+    result.activityPages=signedIn?activities.filter(item=>item.roles.length).map(({timetable,...page})=>page):[];
+    result.personalTimetable=signedIn?[...row.timetable,...workshops.flatMap(course=>course.timetable.map(event=>({...event,startTime:'14:30',endTime:'15:30'})))].map(stamp):[];
+    if (warningFixture) result.warnings=['Timetable service temporarily incomplete.'];
+  }
 
   if (deferNext) { deferNext=false; await new Promise(resolve=>{release=resolve;}); }
+  if (failNext) { failNext=false; return {ok:false,status:503,json:async()=>({success:false,error:'Temporary timetable failure'})}; }
   return {ok:true,status:200,json:async()=>result};
 };
 const RealDate = Date;
@@ -322,4 +347,89 @@ const fullRooms=$('academy-sessions').innerHTML;
 assert.equal((fullRooms.match(/<li class="upcoming-item /g)||[]).length,6,'The full timetable also rolls up daily rooms outside activity pages');
 assert.doesNotMatch(fullRooms,/Africa\/Johannesburg|Times in|timetable-timezone/);
 assert.doesNotMatch($('schedule-range').textContent,/timezone/i);
-console.log('Academy entrance UI: compact daily rooms, combined times inside information, hidden timezone labels, preserved clock conversion, timed joins and access passed.');
+roomFixture=false;colourFixture=true;fixtureNow='2026-10-05T10:55:00Z';
+window.dispatchEvent(new Event('m4l-academy-session'));await flush();
+const cards = markup => [...markup.matchAll(/<li class="upcoming-item ([^"]*)" style="([^"]*)">(.*?)<\/li>/g)]
+  .map(([,classes,style,body])=>({classes,style,body}));
+const shadeCards=cards($('academy-sessions').innerHTML);
+const alimiyaCards=shadeCards.filter(card=>card.body.includes('title="Alimiyah"'));
+assert.equal(alimiyaCards.length,3);
+assert.equal(new Set(alimiyaCards.map(card=>card.style)).size,1,'Alimiyah has one shade across days, student/teacher participation and grouped/single lessons');
+assert.equal(alimiyaCards.filter(card=>card.classes.includes('teacher')).length,2,'Teacher participation is retained for the all-around border');
+const courseCards=shadeCards.filter(card=>/title="(?:Barakah|Salaah)"/.test(card.body));
+assert.equal(courseCards.length,2);
+assert.equal(new Set(courseCards.map(card=>card.style)).size,1,'All Courses share one shade, regardless of Course ID or participation');
+const programStyles=['Alimiyah','Hifz','Reboot'].map(name=>shadeCards.find(card=>card.body.includes(`title="${name}"`)).style);
+assert.equal(new Set([...programStyles,courseCards[0].style]).size,4,'Programs have distinct shades, separate from the shared Course shade');
+for(const card of shadeCards) {
+  for(const slot of ['upcoming-status','upcoming-name','upcoming-summary','upcoming-actions'])
+    assert.ok(card.body.includes(slot),`Every card reserves the ${slot} slot`);
+}
+for(const previewCard of cards($('academy-preview-sessions').innerHTML)) {
+  const name=/class="upcoming-name" title="([^"]+)"/.exec(previewCard.body)[1];
+  assert.equal(previewCard.style,shadeCards.find(card=>card.body.includes(`title="${name}"`)).style,'Home and personal timetables use the same activity shade');
+}
+location.hash='#activity/PROGRAM/PRG-46c8576d-9fcf-4000-96b9-856b00a0218a';handlers.get('hashchange')();await flush();
+const detailedShades=cards($('activity-sessions').innerHTML);
+assert.deepEqual(detailedShades.map(card=>card.style),shadeCards.map(card=>card.style),'Registry order and the next-lesson/Join state do not change shades');
+assert.ok(detailedShades.some(card=>card.classes.includes('next-lesson')&&card.body.includes('Join lesson')));
+assert.match(css,/\.upcoming-item\{[^}]*box-sizing:border-box;block-size:172px;[^}]*grid-template-rows:14px minmax\(0,1fr\) 36px 32px/,'All timetable cards use the same fixed outer height and reserved content rows');
+assert.match(css,/\.upcoming-item\.teacher,\.upcoming-item\.mixed\{border:3px solid var\(--timetable-accent,var\(--rose-dark\)\)\}/,'Teacher and mixed-participation cards have a thick border on all four sides');
+assert.doesNotMatch(css,/\.upcoming-item\.(?:teacher|student|mixed)\{[^}]*background/,'Participation cannot replace the Program/Course background');
+assert.doesNotMatch(html,/Student participation|key-dot teacher/,'The full timetable key no longer describes role-based background colours');
+colourFixture=false;cacheFixture=true;fixtureNow='2026-10-05T10:54:30Z';
+window.dispatchEvent(new Event('m4l-academy-session'));await flush();
+let count=requests.length;
+$('activity-sessions').scrollLeft=240;
+location.hash='#activity/COURSE/COURSE-BARAKAH';handlers.get('hashchange')();await flush();
+assert.equal($('activity-title').textContent,'Barakah');
+assert.equal(requests.length,count,'Switching to an authorised Course reuses the shared page/timetable snapshot');
+assert.equal($('activity-sessions').scrollLeft,240,'Navigation retains the browsed dates');
+location.hash='#activity/PROGRAM/PRG-46c8576d-9fcf-4000-96b9-856b00a0218a';handlers.get('hashchange')();await flush();
+assert.equal(requests.length,count,'Returning to a Program does not fetch it again');
+handlers.get('pageshow')({persisted:false});await flush();
+assert.equal(requests.length,count,'Initial pageshow does not duplicate the initial home request');
+fixtureNow='2026-10-05T10:55:00Z';
+handlers.get('hashchange')();await flush();
+assert.equal(requests.length,++count,'The five-minute join boundary invalidates even a snapshot younger than one minute');
+assert.match($('activity-sessions').innerHTML,/Join lesson/);
+location.hash='#activity/COURSE/COURSE-SALAAH';handlers.get('hashchange')();await flush();
+assert.equal(requests.length,count,'A server-checked open lesson remains available while switching Programs/Courses');
+$('personal-refresh').listeners.get('click')();await flush();
+assert.equal(requests.length,++count,'Manual refresh always rechecks the server');
+assert.equal($('personal-refresh').disabled,false);
+fixtureNow='2026-10-05T10:56:01Z';handlers.get('hashchange')();await flush();
+assert.equal(requests.length,++count,'The shared snapshot expires after one minute');
+fixtureNow='2026-10-05T11:59:40Z';$('personal-refresh').listeners.get('click')();await flush();count=requests.length;
+fixtureNow='2026-10-05T12:00:00Z';handlers.get('hashchange')();await flush();
+assert.equal(requests.length,++count,'The lesson end invalidates a still-fresh snapshot');
+assert.doesNotMatch($('activity-sessions').innerHTML,/https:\/\/zoom.test\/lesson/,'Ended joins cannot be revived from cache');
+deferNext=true;$('personal-refresh').listeners.get('click')();await flush();count=requests.length;
+handlers.get('hashchange')();handlers.get('hashchange')();await flush();
+// Fresh navigation can use the existing snapshot while a manual refresh is pending.
+assert.equal(requests.length,count);
+release();await flush();
+fixtureNow='2026-10-05T12:02:00Z';deferNext=true;handlers.get('hashchange')();await flush();count=requests.length;
+handlers.get('hashchange')();handlers.get('hashchange')();await flush();
+assert.equal(requests.length,count,'Concurrent identical stale-page requests share one fetch');
+release();await flush();
+failNext=true;$('personal-refresh').listeners.get('click')();await flush();count=requests.length;
+assert.match($('activity-status').textContent,/Temporary timetable failure/);
+assert.equal($('activity-sessions').innerHTML,'','A refresh failure removes the protected view rather than restoring a stale snapshot');
+handlers.get('hashchange')();await flush();
+assert.equal(requests.length,count+1,'A failure is not cached');
+warningFixture=true;$('personal-refresh').listeners.get('click')();await flush();count=requests.length;
+handlers.get('hashchange')();await flush();
+assert.equal(requests.length,count+1,'Partial responses with warnings are not cached');
+warningFixture=false;window.dispatchEvent(new Event('m4l-academy-session'));await flush();count=requests.length;
+handlers.get('pageshow')({persisted:true});await flush();
+assert.equal(requests.length,count+1,'Restoring a page from browser history rechecks the account');
+storage.set('m4l_account_token','DIFFERENT-ACCOUNT');window.dispatchEvent(new Event('m4l-academy-session'));await flush();count=requests.length;
+location.hash='#activity/COURSE/COURSE-BARAKAH';handlers.get('hashchange')();await flush();
+assert.equal(requests.length,count,'The new account can use only its own newly loaded cache');
+fixtureNow='2026-10-05T12:04:00Z';deferNext=true;handlers.get('hashchange')();await flush();
+storage.clear();window.dispatchEvent(new Event('m4l-academy-session'));release();await flush();
+assert.equal($('activity-sessions').innerHTML,'');
+assert.equal($('personal-refresh').hidden,true);
+assert.doesNotMatch($('academy-preview-sessions').innerHTML,/data-information|Join lesson|<a /,'Sign-out clears cached protected content and late responses cannot restore it');
+console.log('Academy entrance UI: uniform Program/Course cards, teacher borders, bounded account cache, joining transitions, failure/session invalidation and private daily rooms passed.');

@@ -1,6 +1,6 @@
 {
   "name": "rebootworker",
-  "version": "105.4.3.16",
+  "version": "105.4.3.17",
   "type": "module",
   "scripts": {
     "test": "node tests/run-all.mjs",

@@ -1,3 +1,11 @@
+# V105.4.3.17 — Uniform timetable cards and cached Program navigation
+
+Timetable cards have equal dimensions, a consistent shade for each Program and one shared shade for all Courses. Teacher participation uses a thick border on all four sides, including shared-room cards with teaching involvement. Keep next/in-progress indicators and authorised Join controls within the same card size.
+
+Reuse authorised Program/Course page metadata and the integrated timetable in memory for up to one minute while switching activities. Recheck at joining/start/end boundaries, expiry, explicit refresh and browser-history restoration; clear the cache on account changes. Preserve browsed dates and avoid duplicate opening requests. [Implementation and verification](docs/ACADEMY-ENTRANCE.md).
+
+---
+
 # V105.4.3.16 — Compact timetable details and hidden timezone labels
 
 Combined daily Zoom-room cards show their Program names and lesson count; all individual lesson times are inside the i popup. Single lessons keep their time. Remove visible timezone labels from the Academy website, connected new Program setup/timetable tools and timetable exports by default, retaining scheduling data, clock conversion and authorised joining windows. An explicit presentation option can include the timezone when requested. [Implementation, Reboot publication findings and verification](docs/ACADEMY-ENTRANCE.md).
