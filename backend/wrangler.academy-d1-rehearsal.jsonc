@@ -1,0 +1,21 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "academy-d1-rehearsal",
+  "main": "src/academy/d1/worker.js",
+  "compatibility_date": "2026-10-09",
+  "observability": {"enabled": true, "head_sampling_rate": 1},
+  "secrets": {"required": ["PIN_SECRET", "SESSION_SECRET"]},
+  "vars": {
+    "ENVIRONMENT": "local",
+    "ACADEMY_D1_MODE": "REHEARSAL",
+    "ALLOWED_ORIGINS": "http://localhost:3000,http://127.0.0.1:3000"
+  },
+  "d1_databases": [{
+    "binding": "ACADEMY_DB",
+    "database_name": "academy-operational-local-rehearsal",
+    "database_id": "00000000-0000-4000-8000-000000000002",
+    "migrations_dir": "migrations/academy",
+    "remote": false
+  }],
+  "ratelimits": [{"name":"AUTH_LOGIN_RATE_LIMITER","namespace_id":"100102","simple":{"limit":5,"period":60}}]
+}

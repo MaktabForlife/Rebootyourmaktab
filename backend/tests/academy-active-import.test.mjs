@@ -96,6 +96,22 @@ test('unsupported credentials and collisions between login links and account IDs
   await assert.rejects(buildOperationalImport(collision,policy()),e=>e.code==='AMBIGUOUS_LOGIN_IDENTITY');
 });
 
+test('only the reviewed platform timezone is imported, with invalid and duplicate values rejected',async()=>{
+  const s=fixture(6),tab=fixtureTab(s,'PlatformConfig');
+  const row=(name,value)=>tab.rows[0].map(h=>({ConfigKey:name,ConfigValue:value})[h] ?? '');
+  tab.rows.push(row('PlatformTimezone','Africa/Johannesburg'),row('FuturePrivateSetting','PRIVATE_UNREVIEWED_VALUE'));
+  const plan=await buildOperationalImport(s,policy());
+  database(db=>{
+    importOperationalPlan(db,plan);
+    assert.deepEqual(db.prepare('SELECT setting_key,setting_value FROM academy_settings').all().map(r=>({...r})),[{setting_key:'PlatformTimezone',setting_value:'Africa/Johannesburg'}]);
+    assert.ok(!operationalSQL(plan).includes('PRIVATE_UNREVIEWED_VALUE'));
+  });
+  setCell(s,'PlatformConfig',1,'ConfigValue','Not/A_Timezone');
+  await assert.rejects(buildOperationalImport(s,policy()),e=>e.code==='INVALID_PLATFORM_TIMEZONE');
+  setCell(s,'PlatformConfig',1,'ConfigValue','Africa/Johannesburg');tab.rows.push(row('PlatformTimezone','UTC'));
+  await assert.rejects(buildOperationalImport(s,policy()),e=>e.code==='AMBIGUOUS_PLATFORM_TIMEZONE');
+});
+
 test('SQL foreign keys reject cross-Program relationships and failed imports roll back completely',async()=>{
   const plan=await buildOperationalImport(fixture(6),policy());
   const row=plan.tables.class_memberships.find(r=>r.activity_key===`PROGRAM:${PROGRAM_IDS[0]}`);row.class_id='class-2';

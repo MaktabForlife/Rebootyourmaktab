@@ -109,7 +109,7 @@ export function programProjection(program, data, user, roles, start, end, now, d
       resources: globalAdmin(user) ? `/programs/library.html?program=${encodeURIComponent(program.id)}` : '' } };
 }
 
-export async function buildEntrance({ tables, programs, rolesByProgram, loadProgram, user, input = {}, now = new Date() }) {
+export async function buildEntrance({ tables, programs, rolesByProgram, loadProgram, user, input = {}, now = new Date(), programLifecycle = 'DRAFT' }) {
   const timezone = tables.PlatformConfig.find(row => key(row.ConfigKey) === 'PLATFORMTIMEZONE')?.ConfigValue || 'Africa/Johannesburg';
   const start = clean(input.startDate) || dateInTimezone(now, timezone);
   if (!validDate(start)) throw problem('Choose a valid timetable date.');
@@ -124,7 +124,7 @@ export async function buildEntrance({ tables, programs, rolesByProgram, loadProg
     if (!meetingGroups.has(url)) meetingGroups.set(url, `meeting-${meetingGroups.size + 1}`);
     return meetingGroups.get(url);
   };
-  const candidates = programs.filter(row => row.mode === 'PROGRAM' && row.status === 'DRAFT');
+  const candidates = programs.filter(row => row.mode === 'PROGRAM' && row.status === programLifecycle);
   const requestedId = clean(input.id);
   const account = user ? tables.UserAccounts.find(row => key(row.AccountID) === key(user.accountid) && active(row.Active)) : null;
   if (user && !account) throw problem('Your Academy session has ended.', 401);
@@ -195,7 +195,7 @@ export async function buildEntrance({ tables, programs, rolesByProgram, loadProg
     activities.push({ id: view.id, name: view.name, kind: view.kind, roles });
     timetable.push(...sessions);
   }
-  if (!programs.some(row => key(row.id) === key(REBOOT_PILOT_PROGRAM_ID) && row.mode === 'PROGRAM' && row.status === 'DRAFT'))
+  if (!programs.some(row => key(row.id) === key(REBOOT_PILOT_PROGRAM_ID) && row.mode === 'PROGRAM' && row.status === programLifecycle))
     warnings.push('Reboot is coming soon. Its new Program registration is unavailable.');
   if (retryAfterMs) warnings.push('Some Academy information is temporarily busy. Please wait one minute before trying again.');
   const activity = requestedId ? [...programViews, ...courseViews].find(row => key(row.id) === key(requestedId)) : null;

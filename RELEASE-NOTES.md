@@ -1,3 +1,7 @@
+# Unreleased — D1 login-to-home rehearsal
+
+Add an isolated D1 development API for account authentication, sessions, safe account changes and Academy home/activity reads. Verify all 73 active accounts and 104 contexts with 1,680 source comparisons; pass 200 concurrent synthetic HTTP flows in local Workers/D1 with zero external requests. Sheets remains authoritative and the live website is unchanged. [Results and remaining work](docs/ACADEMY-D1-FLOW-REHEARSAL.md).
+
 # Unreleased — Active Academy import rehearsal
 
 Add the operational schema and active-data converter. The real development baseline imports and verifies locally and in the D1 emulator: 73 active accounts, five intended active Programs and two active Global Courses. Preserve credentials, exclude inactive/archive records and keep 20 legacy privileged assignments pending review. Sheets remains authoritative; application integration and load testing remain pending. [Rehearsal report and tooling](docs/ACADEMY-ACTIVE-IMPORT.md).

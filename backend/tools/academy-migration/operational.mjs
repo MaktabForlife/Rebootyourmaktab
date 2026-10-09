@@ -63,6 +63,13 @@ export async function buildOperationalImport(snapshot, policy) {
     const allowed = new Set((manifest.platformRecords[name] || []).map(r => r.sourceRow));
     return (source[name] || []).filter(r => allowed.has(r._rowNumber));
   };
+  const timezone=(source.PlatformConfig || []).filter(r=>key(r.ConfigKey)==='PLATFORMTIMEZONE');
+  if(timezone.length) {
+    requireCondition(timezone.length===1,'AMBIGUOUS_PLATFORM_TIMEZONE',{table:'PlatformConfig'});
+    try {new Intl.DateTimeFormat('en',{timeZone:timezone[0].ConfigValue}).format(new Date());}
+    catch {throw new SnapshotError('INVALID_PLATFORM_TIMEZONE',{table:'PlatformConfig',row:timezone[0]._rowNumber});}
+    add('academy_settings',{setting_key:'PlatformTimezone',setting_value:timezone[0].ConfigValue,updated_at:nullable(timezone[0].UpdatedDate),updated_by_account_id:null},origin('PlatformConfig',timezone[0]),['PlatformTimezone']);
+  }
   const accounts = new Map(selected('UserAccounts').map(r => [key(r.AccountID), r]));
   const allAccounts = new Map(source.UserAccounts.map(r => [key(r.AccountID), r]));
   const loginKeys = new Map();
@@ -293,7 +300,7 @@ export async function buildOperationalImport(snapshot, policy) {
   return {runId,tables,summary:{...summary,accountsImported:tables.accounts.length,credentialsWithHash:tables.account_credentials.filter(r=>text(r.pin_hash).trim()).length,programsImported:tables.program_settings.length,coursesImported:tables.course_settings.length,classMembershipsImported:tables.class_memberships.length,publicationsImported:tables.timetable_publications.length,publishedLessonsImported:tables.published_lessons.length,pendingRoleReviews:tables.role_import_reviews.length,tableCounts:Object.fromEntries(Object.entries(tables).map(([name,rows])=>[name,rows.length])),ownership:'SHEETS',verification:'ACTIVE_CANDIDATE_ONLY'}};
 }
 
-const orderedTables = ['academy_import_schema','migration_runs','accounts','account_credentials','global_role_assignments','activities','activity_source_bindings','program_settings','course_settings','subject_catalog','program_subjects','program_levels','modules','tasks','classes','class_memberships','class_teacher_assignments','class_module_progress','program_resources','program_library_roots','program_legacy_teachers','management_revisions','course_runs','course_resources','activity_policy_imports','legacy_access_evidence','role_assignments','role_import_reviews','timetable_drafts','course_draft_sessions','timetable_publications','published_lessons','published_lesson_classes','published_lesson_teachers','lesson_lifecycle','course_run_state','audit_events','data_ownership','source_record_map','migration_checks'];
+const orderedTables = ['academy_import_schema','migration_runs','accounts','account_credentials','global_role_assignments','activities','activity_source_bindings','program_settings','course_settings','subject_catalog','program_subjects','program_levels','modules','tasks','classes','class_memberships','class_teacher_assignments','class_module_progress','program_resources','program_library_roots','program_legacy_teachers','management_revisions','course_runs','course_resources','activity_policy_imports','legacy_access_evidence','role_assignments','role_import_reviews','timetable_drafts','course_draft_sessions','timetable_publications','published_lessons','published_lesson_classes','published_lesson_teachers','lesson_lifecycle','course_run_state','academy_settings','audit_events','data_ownership','source_record_map','migration_checks'];
 function ensureSchema(db, create=false) {
   const existing=db.prepare("SELECT name FROM sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name").all().map(r=>r.name);
   if(!existing.length && create) for(const migration of migrations) db.exec(migration.sql);
@@ -326,6 +333,7 @@ function verifyPlan(db,plan) {
   requireCondition(db.prepare('PRAGMA integrity_check').get().integrity_check==='ok','OPERATIONAL_INTEGRITY_CHECK_FAILED');
 }
 export function importOperationalPlan(db,plan) {
+  requireCondition(Object.entries(plan.tables).every(([name,rows])=>!rows.length||orderedTables.includes(name)),'UNREVIEWED_IMPORT_TABLE');
   db.exec('PRAGMA foreign_keys=ON');db.exec('BEGIN IMMEDIATE');
   try {
     ensureSchema(db,true);
