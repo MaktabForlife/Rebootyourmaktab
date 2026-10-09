@@ -74,8 +74,6 @@ let reads = 0;
 let failWrite = false;
 let loseResponse = false;
 let denyTarget = false;
-let limitTarget = false;
-let limitedTargetAttempts = 0;
 const originalFetch = globalThis.fetch;
 globalThis.fetch = async (url, init = {}) => {
   const parsed = new URL(url);
@@ -102,10 +100,6 @@ globalThis.fetch = async (url, init = {}) => {
   assert.equal(parsed.hostname, "sheets.googleapis.com");
   const match = /^\/v4\/spreadsheets\/([^/:]+)(.*)$/.exec(parsed.pathname);
   const [, id, suffix] = match;
-  if (limitTarget && id === targetId && (!init.method || init.method === 'GET')) {
-    limitedTargetAttempts++;
-    return new Response(JSON.stringify({error:{message:'Private quota details'}}),{status:429});
-  }
   if (!books.has(id) || (denyTarget && id === targetId)) return new Response(JSON.stringify({ error:{ message:"Test access denied" } }), { status:403 });
   const sheets = books.get(id);
   if (!init.method || init.method === "GET") reads++;
@@ -258,8 +252,7 @@ try{
  }
  const entrance = async (session='') => {
   const response=await worker.fetch(new Request('https://worker.test/api/academy/entrance',{method:'POST',headers:{'Content-Type':'application/json',...(session?{Authorization:`Bearer ${session}`}:{})},body:JSON.stringify({id:input.id,startDate:'2026-09-21'})}),env);
-  assert.equal(response.status,200);assert.equal(response.headers.get('Cache-Control'),'no-store');
-  assert.equal(response.headers.get('Retry-After'),limitTarget?'60':null);return response.json();
+  assert.equal(response.status,200);assert.equal(response.headers.get('Cache-Control'),'no-store');return response.json();
  };
  const publicEntrance=await entrance();
  assert.equal(publicEntrance.activity.id,input.id);
@@ -267,16 +260,6 @@ try{
  assert(!JSON.stringify(publicEntrance).includes('REBOOT-BOOK'));
  assert(publicEntrance.activity.timetable.every(row=>!row.joinUrl&&!row.information));
  assert.equal((await entrance(token)).globalAdmin,true);
- const writesBeforeQuota=writes;
- limitTarget=true;
- const partialEntrance=await entrance();
- assert.equal(partialEntrance.retryAfterMs,60000);
- assert.equal(partialEntrance.activity.unavailable,true);
- assert(!JSON.stringify(partialEntrance).includes('Private quota details'));
- assert.equal(limitedTargetAttempts,1,'A Program quota failure must not trigger immediate backend retries');
- assert.equal(writes,writesBeforeQuota,'Entrance quota handling remains read-only');
- limitTarget=false;
- assert(!(await entrance()).activity.unavailable,'The next request recovers when Sheets is available');
  const combinedLibrary=await academyLibrary('catalogue');
  assert(combinedLibrary.resources.some(row=>row.id===`PROGRAM:${input.id}:RES-BOOK`&&row.forYou));
  assert(!combinedLibrary.resources.some(row=>row.id.startsWith('COURSE:')), 'Academy Library excludes legacy sources');

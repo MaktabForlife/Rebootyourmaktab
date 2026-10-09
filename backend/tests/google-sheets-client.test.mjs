@@ -8,7 +8,6 @@ import {
   readGoogleSpreadsheetSheetProperties,
   updateGoogleSheetValues
 } from "../src/lib/google-sheets.js";
-import { createRequestEnvironment, sheetsRequestMetrics } from "../src/lib/request-context.js";
 
 const keyPair = await crypto.subtle.generateKey(
   {
@@ -36,8 +35,6 @@ let oauthCalls = 0;
 let retryReadAttempts = 0;
 let retryFailureAttempts = 0;
 let retryNetworkAttempts = 0;
-let quotaAttempts = 0;
-let quotaLimited = true;
 const originalFetch = globalThis.fetch;
 
 globalThis.fetch = async (input, init = {}) => {
@@ -69,10 +66,6 @@ globalThis.fetch = async (input, init = {}) => {
 
     if (method === "GET" && url.pathname.includes("/values/")) {
       const decodedPath = decodeURIComponent(url.pathname);
-      if (decodedPath.includes("/values/Quota!A:B")) {
-        quotaAttempts += 1;
-        if (quotaLimited) return response({ error: { message: "Quota exceeded" } }, 429);
-      }
       if (decodedPath.includes("/values/Retry!A:B")) {
         retryReadAttempts += 1;
         if (retryReadAttempts === 1) {
@@ -248,32 +241,6 @@ try {
   assert.equal(sheetsCalls[12].url.pathname.endsWith("/values/RetryFail!A%3AB"), true);
   assert.equal(sheetsCalls[13].url.pathname.endsWith("/values/RetryNetwork!A%3AB"), true);
   assert.equal(sheetsCalls[14].url.pathname.endsWith("/values/RetryNetwork!A%3AB"), true);
-
-  const quotaEnv = createRequestEnvironment(env);
-  await assert.rejects(
-    () => readGoogleSheetValues(quotaEnv, "Quota!A:B"),
-    error => error?.status === 429 && error?.retryable === true
-  );
-  assert.equal(quotaAttempts, 1, "Sheets 429 must return without immediate retries");
-  const limitedMetrics = sheetsRequestMetrics(quotaEnv);
-  assert.deepEqual({ ...limitedMetrics, fetchMs: 0 }, {
-    readAttempts: 1, writeAttempts: 0, failedAttempts: 1,
-    rateLimitedAttempts: 1, inFlight: 0, fetchMs: 0
-  });
-  assert.equal(Number.isFinite(limitedMetrics.fetchMs) && limitedMetrics.fetchMs >= 0, true);
-
-  quotaLimited = false;
-  const recoveredEnv = createRequestEnvironment(env);
-  await readGoogleSheetValues(recoveredEnv, "Quota!A:B");
-  assert.equal(quotaAttempts, 2, "A fresh request can recover after a quota rejection");
-  await updateGoogleSheetValues(recoveredEnv, "Quota!A2:B2", [["recovered"]]);
-  assert.equal(sheetsRequestMetrics(recoveredEnv).readAttempts, 1);
-  assert.equal(sheetsRequestMetrics(recoveredEnv).writeAttempts, 1);
-  assert.equal(sheetsRequestMetrics(recoveredEnv).failedAttempts, 0);
-  limitedMetrics.readAttempts = 999;
-  assert.equal(sheetsRequestMetrics(quotaEnv).readAttempts, 1, "Metrics snapshots cannot mutate request state");
-  assert.equal(sheetsRequestMetrics(createRequestEnvironment(env)).readAttempts, 0);
-  assert.equal(sheetsRequestMetrics(env), null, "The shared Worker environment must not hold request metrics");
 } finally {
   globalThis.fetch = originalFetch;
 }

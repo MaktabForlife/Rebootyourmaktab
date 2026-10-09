@@ -1,3 +1,11 @@
+# V105.4.3.15 — Roll back V105.4.3.14
+
+At the user’s request, restore V105.4.3.13 application behaviour while retaining its compact daily Zoom-room timetable. Revert V105.4.3.14 request deduplication, quota cooldown, account error classification and request metrics. No spreadsheet records, credentials, subscriptions or attendance data are changed. Version markers and changed asset URLs use V105.4.3.15 so browsers load the rollback.
+
+**106/106 regression test files passed.** Operational source was compared with V105.4.3.13 and matches apart from the current Worker version label. Google Sheets quotas may still prevent reads after rollback; recovery of live Program Management requires a signed-in acceptance check. The separate navigation-load investigation is not included in this rollback.
+
+---
+
 # Academy request efficiency · V105.4.3.14
 
 The Academy now avoids the extra initial `pageshow` requests and combines identical entrance requests while they are in flight. Sheets throttling receives a one-minute retry pause and a clear service-busy message; temporary account-service failures retain saved sign-ins without granting unverified access. Partial Program timetable failures retain available lessons and carry the same cooldown. Backend Sheets 429 responses return immediately instead of receiving three quick attempts. Login and Academy routes emit request-local counts and timings without account or spreadsheet details. [Implementation and measurement limits](ACADEMY-REQUEST-EFFICIENCY.md).

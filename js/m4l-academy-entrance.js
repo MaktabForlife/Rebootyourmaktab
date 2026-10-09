@@ -29,25 +29,12 @@
     $('learning-catalogue').innerHTML = `<ul class="learning-cards">${originalActivities.map(row => `<li class="card activity-card"><div class="activity-art"><img src="${esc(row.image)}" alt="Academy artwork for ${esc(row.name)}" loading="lazy"></div><div class="card-pad"><span class="eyebrow">${row.kind === 'PROGRAM' ? 'Program' : 'Course'}</span><h3>${esc(row.name)}</h3></div></li>`).join('')}</ul>`;
   }
 
-  const pendingRequests = new Map();
-  let retryAfter = 0;
-  function request(body) {
+  async function request(body) {
     const session = token();
-    if (Date.now() < retryAfter) return Promise.reject(new Error('Academy information is temporarily busy. Please wait one minute and try again.'));
-    const key = JSON.stringify([session, body]);
-    if (pendingRequests.has(key)) return pendingRequests.get(key);
-    const pending = fetchEntrance(body, session).finally(() => pendingRequests.delete(key));
-    pendingRequests.set(key, pending);
-    return pending;
-  }
-
-  async function fetchEntrance(body, session) {
     const response = await fetch(`${window.M4L_CONFIG?.API_BASE || ''}/api/academy/entrance`, { method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(session ? { Authorization: `Bearer ${session}` } : {}) }, body: JSON.stringify(body) });
     const result = await response.json();
     if (token() !== session) throw new Error('The Academy account has changed.');
-    if (response.status === 429 || result.code === 'SHEETS_RATE_LIMITED' || Number(result.retryAfterMs) > 0)
-      retryAfter = Date.now() + Math.max(60000, Number(result.retryAfterMs) || 0);
     if (!response.ok || !result.success) {
       if (response.status === 401) window.dispatchEvent(new Event('m4l-academy-session-ended'));
       throw new Error(result.error || 'Academy information is temporarily unavailable.');
@@ -443,9 +430,7 @@
   window.addEventListener('hashchange', route);
   window.addEventListener('m4l-academy-session', () => { clearPersonal(); void loadHome(); });
   window.addEventListener('storage', event => { if (event.key === 'm4l_account_token') { clearPersonal(); void loadHome(); } });
-  window.addEventListener('pageshow', event => {
-    if (event.persisted) { clearPersonal(); void loadHome(); }
-  });
+  window.addEventListener('pageshow', () => { clearPersonal(); void loadHome(); });
 
   route();
   renderCatalogue();

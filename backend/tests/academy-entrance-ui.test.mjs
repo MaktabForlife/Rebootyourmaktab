@@ -40,13 +40,9 @@ const stamp = event => {
   return result;
 };
 let deferNext=false, release, hasWorkshops=true, globalAdmin=false, programRole='STUDENT', roomFixture=false;
-let limited = false;
-let partlyLimited = false;
 const fetch = async (_url, options) => {
   const signedIn = Boolean(options.headers.Authorization), body = JSON.parse(options.body);
   requests.push(body);
-  if (limited) return { ok: false, status: 429, json: async () => ({ success: false,
-    code: 'SHEETS_RATE_LIMITED', retryAfterMs: 60000, error: 'Please wait one minute and try again.' }) };
   const row = structuredClone(activity);
   if (signedIn) row.roles=[globalAdmin?'GLOBAL_ADMIN':programRole];
   if (signedIn && (globalAdmin || programRole!=='STUDENT')) {
@@ -72,7 +68,6 @@ const fetch = async (_url, options) => {
     {...base,activityId:'CANCELLED',title:'Cancelled item',status:'CANCELLED'}];
   const result = { success:true,signedIn,globalAdmin:signedIn&&globalAdmin,student:signedIn&&activities.some(item=>item.roles.includes('STUDENT')),startDate:body.startDate||'2026-10-05',endDate:'2026-10-11',warnings:[],
     activities,personalActivities:signedIn?activities.filter(item=>item.roles.length):[],timetable:homeTimetable.map(event=>{const publicEvent={...event};delete publicEvent.joinUrl;return publicEvent;}),activity:body.id?activities.find(item=>item.id===body.id):null };
-  if (partlyLimited) { result.retryAfterMs=60000; result.warnings=['Some Academy information is temporarily busy. Please wait one minute before trying again.']; }
   result.personalTimetable=signedIn ? (globalAdmin ? result.timetable.filter(event=>event.status!=='CANCELLED').map(stamp) : body.id ? [
     ...row.timetable.map(stamp),
     ...row.timetable.map(event=>stamp({...event,date:'2026-10-06',title:'Tomorrow Program lesson'})),
@@ -99,16 +94,10 @@ const fetch = async (_url, options) => {
   return {ok:true,status:200,json:async()=>result};
 };
 const RealDate = Date;
-class FixtureDate extends RealDate {
-  constructor(...args) { super(...(args.length?args:[fixtureNow])); }
-  static now() { return RealDate.parse(fixtureNow); }
-}
+class FixtureDate extends RealDate { constructor(...args) { super(...(args.length?args:[fixtureNow])); } }
 vm.runInNewContext(script, { window, document, location, localStorage:{getItem:key=>storage.get(key)||null}, fetch, Event,
   Intl, Date:FixtureDate, setInterval() {}, setTimeout(fn,delay) { const id=++nextTimer;timers.set(id,{fn,delay});return id; }, clearTimeout(id) {timers.delete(id);}, matchMedia:()=>({matches:false}) });
 await flush();
-assert.equal(requests.length, 1);
-handlers.get('pageshow')({ persisted: false });await flush();
-assert.equal(requests.length, 1, 'The initial pageshow must not duplicate the opening request');
 assert.equal($('personal-activities').hidden,true);
 assert.equal($('academy-progress-nav').hidden,true);
 assert.equal($('academy-recorder-nav').hidden,true);
@@ -325,30 +314,4 @@ fixtureNow='2026-10-05T12:01:00Z';handlers.get('hashchange')();await flush();
 assert.equal(($('activity-sessions').innerHTML.match(/>Join lesson<\/a>/g)||[]).length,1,'The room stays joinable for a later authorised lesson after the first lesson ends');
 fixtureNow='2026-10-05T14:00:00Z';handlers.get('hashchange')();await flush();
 assert.doesNotMatch($('activity-sessions').innerHTML,/>Join lesson<\/a>/,'No room joins outside all authorised lesson windows');
-roomFixture=false;fixtureNow='2026-10-05T10:00:00Z';storage.clear();
-location.hash='#overview';handlers.get('hashchange')();
-const beforeConcurrent = requests.length;
-deferNext=true;
-$('entrance-retry').listeners.get('click')();await flush();
-$('entrance-retry').listeners.get('click')();await flush();
-assert.equal(requests.length, beforeConcurrent + 1, 'Concurrent identical entrance requests share one fetch');
-release();await flush();
-limited=true;
-$('entrance-retry').listeners.get('click')();await flush();
-const beforeCooldown = requests.length;
-$('entrance-retry').listeners.get('click')();await flush();
-assert.equal(requests.length, beforeCooldown, 'Retry clicks during a quota cooldown do not reach the backend');
-assert.match($('entrance-message').textContent,/wait one minute/);
-limited=false;fixtureNow='2026-10-05T10:01:01Z';
-$('entrance-retry').listeners.get('click')();await flush();
-assert.equal(requests.length, beforeCooldown + 1, 'Requests resume after the cooldown');
-partlyLimited=true;
-$('entrance-retry').listeners.get('click')();await flush();
-const beforePartialCooldown=requests.length;
-assert.match($('entrance-message').textContent,/temporarily busy/);
-$('entrance-retry').listeners.get('click')();await flush();
-assert.equal(requests.length,beforePartialCooldown,'Partial timetable quota failures also pause retry requests');
-partlyLimited=false;fixtureNow='2026-10-05T10:02:02Z';
-handlers.get('pageshow')({ persisted: true });await flush();
-assert.equal(requests.length, beforePartialCooldown + 1, 'Back/forward restoration still refreshes Academy data');
-console.log('Academy entrance UI: timetable and permissions, delayed-response sign-out, single opening request and quota cooldown passed.');
+console.log('Academy entrance UI: compact seven-day rooms, complete per-lesson information, timezone conversion, timed joins, public privacy and retained navigation passed.');

@@ -150,14 +150,6 @@ const env = {
 const reads = [];
 const writes = [];
 let failNextLoginRecord = false;
-let upstreamReadStatus = 0;
-const requestMetrics = [];
-const originalInfo = console.info;
-console.info = (...args) => {
-  if (typeof args[0] === 'string' && args[0].startsWith('{"event":"academy_request"')) {
-    requestMetrics.push(JSON.parse(args[0]));
-  } else originalInfo(...args);
-};
 const originalFetch = globalThis.fetch;
 globalThis.fetch = async (input, init = {}) => {
   const url = new URL(String(input));
@@ -169,7 +161,6 @@ globalThis.fetch = async (input, init = {}) => {
   }
   assert.equal(init.headers.Authorization, "Bearer mock-account-token");
   assert.match(url.pathname, /spreadsheets\/platform-sheet-test/);
-  if (init.method === 'GET' && upstreamReadStatus) return response({ error: { message: 'Synthetic quota failure' } }, upstreamReadStatus);
   if(url.pathname==='/v4/spreadsheets/platform-sheet-test')return response({sheets:Object.keys(tables).map((title,sheetId)=>({properties:{title,sheetId}}))});
 
   if (url.pathname.endsWith("/values:batchUpdate")) {
@@ -484,41 +475,8 @@ try {
   tables.AcademyAccessReview[1][3]='REQUIRED';
   const unreviewedSession=await post('/api/account/session',{},studentSwitched.data.token);
   assert.equal(unreviewedSession.response.status,401,'An unreviewed imported Student role does not grant access');
-  upstreamReadStatus = 429;
-  const limitedLogin = await post('/api/account/login', { uniqueid: 'ADMIN-LINK', pin: '4321' });
-  assert.equal(limitedLogin.response.status, 503);
-  assert.equal(limitedLogin.data.code, 'SHEETS_RATE_LIMITED');
-  assert.equal(limitedLogin.data.retryAfterMs, 60000);
-  assert.equal(limitedLogin.response.headers.get('Retry-After'), '60');
-  assert.match(limitedLogin.data.error, /temporarily busy/);
-  assert.equal(limitedLogin.data.token, undefined);
-  assert.equal(limitedLogin.data.detail, undefined, 'Quota responses must not disclose upstream details');
-  const limitedLoginMetrics = requestMetrics.at(-1);
-  assert.equal(limitedLoginMetrics.route, '/api/account/login');
-  assert.equal(limitedLoginMetrics.status, 503);
-  assert.equal(limitedLoginMetrics.sheets.readAttempts, 1, 'Login stops at the first quota rejection');
-  assert.equal(limitedLoginMetrics.sheets.rateLimitedAttempts, 1);
-  assert.equal(limitedLoginMetrics.sheets.writeAttempts, 0);
-  assert.equal(limitedLoginMetrics.sheets.inFlight, 0);
-  const limitedEntrance = await post('/api/academy/entrance', {});
-  assert.equal(limitedEntrance.response.status, 429);
-  assert.equal(limitedEntrance.data.code, 'SHEETS_RATE_LIMITED');
-  assert.equal(limitedEntrance.response.headers.get('Retry-After'), '60');
-  upstreamReadStatus = 0;
-  const recoveredLogin = await post('/api/account/login', { uniqueid: 'ADMIN-LINK', pin: '4321' });
-  assert.equal(recoveredLogin.response.status, 200, JSON.stringify(recoveredLogin.data));
-  assert.equal(requestMetrics.at(-1).sheets.rateLimitedAttempts, 0, 'A recovered request has fresh metrics');
-  assert.equal(requestMetrics.at(-1).status, 200);
-  for (const entry of requestMetrics) {
-    assert.deepEqual(Object.keys(entry).sort(), ['durationMs', 'event', 'route', 'sheets', 'status']);
-    assert.deepEqual(Object.keys(entry.sheets).sort(), ['failedAttempts', 'fetchMs', 'inFlight', 'rateLimitedAttempts', 'readAttempts', 'writeAttempts']);
-    assert.equal(Number.isFinite(entry.durationMs) && entry.durationMs >= 0, true);
-  }
-  assert.equal(/ADMIN-LINK|4321|mock-account-token|platform-sheet-test/.test(JSON.stringify(requestMetrics)), false,
-    'Request measurements must not include account details, PINs, credentials or spreadsheet IDs');
 } finally {
   globalThis.fetch = originalFetch;
-  console.info = originalInfo;
 }
 
 console.log("V102.12.2 central account, FREE and subscription global-context authentication tests passed.");
