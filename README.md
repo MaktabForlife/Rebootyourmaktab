@@ -1,3 +1,7 @@
+# Unreleased — Academy migration preflight
+
+Add private source capture, structural and reference validation, a local staging archive, and an explicit inclusion manifest. Development data has been captured and checked. The migration selects active accounts and the five intended active Programs, excludes the old Reboot workspace, and separates Program status from timetable publication. [First data report](docs/ACADEMY-MIGRATION-REPORT-2026-10-09.md) · [Dependency map and tooling](docs/ACADEMY-MIGRATION-PREFLIGHT.md). Operational conversion and cutover remain pending.
+
 # V105.4.3.14 — Fewer Academy requests and clearer service errors
 
 Remove duplicate opening calls and combine identical in-flight Academy requests. Pause retries for one minute after Sheets throttling, including partial timetable responses, and distinguish a busy account service from a wrong PIN while retaining saved sign-ins for retry. Stop immediate Sheets 429 retries and record private request-count and timing measurements for login and Academy data requests. [Behaviour, verification and remaining limits](docs/ACADEMY-REQUEST-EFFICIENCY.md).

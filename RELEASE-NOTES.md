@@ -1,3 +1,7 @@
+# Unreleased — Academy migration preflight
+
+Prepare a repeatable development snapshot, local staging archive and active-data inclusion manifest with validation. Preserve exact source values for comparison; keep inactive accounts, inactive management records and the excluded old Reboot workspace out of the migration selection. Record the five intended active Programs separately from publication eligibility. No application storage switch or cloud database provisioning. [Data report](docs/ACADEMY-MIGRATION-REPORT-2026-10-09.md).
+
 # V105.4.3.14 — Fewer Academy requests and clearer service errors
 
 Remove duplicate opening calls and combine identical in-flight Academy requests. Pause retries for one minute after Sheets throttling, including partial timetable responses, and distinguish a busy account service from a wrong PIN while retaining saved sign-ins for retry. Stop immediate Sheets 429 retries and record private request-count and timing measurements for login and Academy data requests. [Behaviour, verification and remaining limits](docs/ACADEMY-REQUEST-EFFICIENCY.md).
