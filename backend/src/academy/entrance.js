@@ -159,7 +159,7 @@ export async function buildEntrance({ tables, programs, rolesByProgram, loadProg
           relevant, involvement: relevant ? teaching ? 'teacher' : 'student' : '' };
         if (user && event.visibilityLevel === 'DETAIL') projected.information = [event.subjectName, event.moduleName, event.teacherName].filter(Boolean);
         // Keep the shared/legacy timetable gate unchanged. The new website opens five minutes early.
-        if (requestedId && user && relevant && event.visibilityLevel === 'DETAIL' &&
+        if (requestedId && user && (relevant || globalAdmin(user)) && event.visibilityLevel === 'DETAIL' &&
           joinWindowOpen(projected, now) && published[index]?.zoomlink) projected.joinUrl = published[index].zoomlink;
         sessions.push(projected);
       }
@@ -179,7 +179,8 @@ export async function buildEntrance({ tables, programs, rolesByProgram, loadProg
     warnings.push('Reboot is coming soon. Its new Program registration is unavailable.');
   const activity = requestedId ? [...programViews, ...courseViews].find(row => key(row.id) === key(requestedId)) : null;
   if (requestedId && !activity) throw problem('This Academy activity is unavailable.', 404);
-  const personalTimetable = user ? timetable.filter(row => row.relevant && row.status === 'SCHEDULED')
+  // Global Admin sees the entire Academy schedule without claiming learner/teacher participation.
+  const personalTimetable = user ? timetable.filter(row => (globalAdmin(user) || row.relevant) && row.status === 'SCHEDULED')
     .map(row => ({ ...row, ...lessonTimes(row) }))
     .filter(row => Number.isFinite(row.startsAt) && Number.isFinite(row.endsAt))
     .sort((a, b) => a.startsAt - b.startsAt || a.activityId.localeCompare(b.activityId)) : [];

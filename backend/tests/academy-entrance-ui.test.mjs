@@ -68,7 +68,7 @@ const fetch = async (_url, options) => {
     {...base,activityId:'CANCELLED',title:'Cancelled item',status:'CANCELLED'}];
   const result = { success:true,signedIn,globalAdmin:signedIn&&globalAdmin,student:signedIn&&activities.some(item=>item.roles.includes('STUDENT')),startDate:body.startDate||'2026-10-05',endDate:'2026-10-11',warnings:[],
     activities,personalActivities:signedIn?activities.filter(item=>item.roles.length):[],timetable:homeTimetable.map(event=>{const publicEvent={...event};delete publicEvent.joinUrl;return publicEvent;}),activity:body.id?activities.find(item=>item.id===body.id):null };
-  result.personalTimetable=signedIn ? (body.id ? [
+  result.personalTimetable=signedIn ? (globalAdmin ? result.timetable.filter(event=>event.status!=='CANCELLED').map(stamp) : body.id ? [
     ...row.timetable.map(stamp),
     ...row.timetable.map(event=>stamp({...event,date:'2026-10-06',title:'Tomorrow Program lesson'})),
     ...workshops.filter(item=>item.roles.length).flatMap(item=>item.timetable.map(event=>stamp({...event,title:`Course ${item.name}`,startTime:'14:30',endTime:'15:30'})))
@@ -126,8 +126,8 @@ location.hash='#learning';handlers.get('hashchange')();
 assert.equal($('overview').classList.contains('active'),true,'Programs and Courses must remain on the main page');
 storage.set('m4l_account_token','QA');window.dispatchEvent(new Event('m4l-academy-session'));await flush();
 assert.equal($('personal-activities').hidden,false);
-assert.equal($('activity-switcher').hidden,false);
-assert.match($('activity-switcher').innerHTML,/COURSE-BARAKAH/);
+assert.equal($('activity-switcher').hidden,true,'Home does not repeat the subscribed row');
+assert.equal($('activity-switcher').innerHTML,'');
 assert.ok(html.indexOf('id="activity-switcher"') < html.indexOf('class="container"'),'Subscriptions belong above every view');
 assert.doesNotMatch($('personal-pills').innerHTML,/Voice Recorder|Dua and Surah Progress/);
 assert.equal($('academy-progress-nav').hidden,false);
@@ -136,6 +136,10 @@ assert.match($('personal-pills').innerHTML,/<span>Reboot<\/span><small>Student<\
 assert.equal(($('personal-pills').innerHTML.match(/href="#workshops"/g)||[]).length,1);
 assert.doesNotMatch($('personal-pills').innerHTML,/Barakah|Salaah|COURSE-BARAKAH|COURSE-SALAAH/);
 location.hash='#workshops';handlers.get('hashchange')();
+assert.equal($('activity-switcher').hidden,false);
+assert.equal(($('activity-switcher').innerHTML.match(/href="#workshops"/g)||[]).length,1);
+assert.match($('activity-switcher').innerHTML,/href="#workshops" aria-current="page"/);
+assert.doesNotMatch($('activity-switcher').innerHTML,/COURSE-BARAKAH|COURSE-SALAAH|Barakah|Salaah/);
 assert.match($('workshop-pills').innerHTML,/href="#activity\/COURSE\/COURSE-BARAKAH"><span>Barakah<\/span><small>Teacher<\/small>/);
 assert.match($('workshop-pills').innerHTML,/href="#activity\/COURSE\/COURSE-SALAAH"><span>Salaah<\/span><small>Student<\/small>/);
 assert.doesNotMatch($('workshop-pills').innerHTML,/COURSE-TAFSEER/,'The chooser must not expose a Course without account access');
@@ -152,7 +156,7 @@ assert.match($('lesson-information-body').innerHTML,/Teacher A.*Teacher B/);
 const previewBefore=$('academy-preview-sessions').innerHTML;
 location.hash='#timetable';handlers.get('hashchange')();
 assert.equal($('activity-switcher').hidden,false);
-assert.match($('activity-switcher').innerHTML,/COURSE-SALAAH/);
+assert.match($('activity-switcher').innerHTML,/href="#workshops"/);
 assert.equal($('timetable').classList.contains('active'),true);
 $('schedule-date').value='2026-09-28';$('schedule-date').listeners.get('change')();await flush();
 assert.equal(requests.at(-1).startDate,'2026-09-28');
@@ -173,8 +177,8 @@ assert.equal($('activity-sessions').lastScroll.left,400);
 $('personal-previous').listeners.get('click')();
 assert.equal($('activity-sessions').lastScroll.left,-400);
 assert.match($('activity-switcher').innerHTML,/<a href="#activity\/PROGRAM\/PRG-[^"]+" aria-current="page">/);
-assert.match($('activity-switcher').innerHTML,/<span>Barakah<\/span><small>Teacher<\/small>/);
-assert.match($('activity-switcher').innerHTML,/COURSE-SALAAH/);
+assert.match($('activity-switcher').innerHTML,/<span>Workshops<\/span><small>Teacher · Student<\/small>/);
+assert.doesNotMatch($('activity-switcher').innerHTML,/COURSE-SALAAH/);
 assert.doesNotMatch($('activity-switcher').innerHTML,/COURSE-TAFSEER/);
 assert.equal($('activity-switcher').hidden,false);
 const integratedBefore=$('activity-sessions').innerHTML;
@@ -182,7 +186,7 @@ location.hash='#activity/COURSE/COURSE-SALAAH';handlers.get('hashchange')();awai
 assert.equal($('activity-sessions').innerHTML,integratedBefore,'The personal integrated timetable is the same on Program and Course pages');
 assert.equal($('activity-curriculum-section').hidden,true,'Student Course pages also omit Modules');
 assert.equal($('activity-classes-section').hidden,true);
-assert.match($('activity-switcher').innerHTML,/<a href="#activity\/COURSE\/COURSE-SALAAH" aria-current="page">/);
+assert.match($('activity-switcher').innerHTML,/<a href="#workshops" aria-current="page">/);
 fixtureNow='2026-10-05T10:55:00Z';
 const refreshAtGate=[...timers.values()][0];timers.clear();refreshAtGate.fn();await flush();
 assert.match($('activity-sessions').innerHTML,/Join lesson/,'The open page refreshes joining at five minutes before start');
@@ -235,8 +239,18 @@ assert.equal($('academy-progress-nav').hidden,true);
 assert.equal($('academy-recorder-nav').hidden,true);
 assert.match($('personal-pills').innerHTML,/<span>Workshops<\/span><small>Global Admin<\/small>/);
 assert.match($('personal-pills').innerHTML,/<span>Academy administration<\/span><small>Global Admin<\/small>/);
+assert.match($('academy-preview-sessions').innerHTML,/Reboot|Course item/,'Home Coming up remains the published Academy schedule for Global Admin');
+assert.equal(($('academy-preview-sessions').innerHTML.match(/<li class="upcoming-item /g)||[]).length,4);
+assert.match($('academy-sessions').innerHTML,/Course item|Later Program item/,'Global Admin sees the whole Academy timetable');
+assert.equal($('schedule-title').textContent,'Academy timetable');
+assert.equal($('full-timetable-title').textContent,'Full Academy timetable');
+location.hash='#overview';handlers.get('hashchange')();
+assert.equal($('activity-switcher').hidden,true);
+assert.equal($('activity-switcher').innerHTML,'');
 location.hash='#activity/PROGRAM/PRG-46c8576d-9fcf-4000-96b9-856b00a0218a';handlers.get('hashchange')();await flush();
 assert.match($('activity-coming').innerHTML,/Make announcement|Class preparation|Calendar management/);
+assert.equal($('activity-timetable-title').textContent,'Academy timetable');
+assert.match($('activity-sessions').innerHTML,/Course item|Later Program item/,'Program pages retain the complete Global Admin timetable');
 assert.match($('activity-menu').innerHTML,/href="\/programs\/library\.html\?program=[^"]+">Library management<\/a>/);
 assert.match($('activity-menu').innerHTML,/href="\/users\/">User management<\/a>/);
 assert.match($('activity-menu').innerHTML,/href="\/programs\/manage\.html\?program=[^"]+">Program management<\/a>/);

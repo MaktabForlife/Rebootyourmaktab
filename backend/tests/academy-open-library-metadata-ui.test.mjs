@@ -16,7 +16,7 @@ function element(tagName = '') {
 const ids = ['ol-results', 'ol-preview', 'ol-viewer', 'ol-status', 'ol-search', 'ol-empty',
   'ol-original', 'ol-source', 'ol-title', 'ol-details', 'ol-volume-wrap', 'ol-volume-label', 'ol-volume', 'ol-close', 'ol-media', 'ol-categories'];
 const nodes = Object.fromEntries(ids.map(id => [id, element()]));
-const categoryButtons = ['ALL', 'EBOOK', 'PRINTABLE', 'AUDIO', 'VIDEO', 'OTHER'].map(category => ({ dataset: { category }, setAttribute() {} }));
+const categoryButtons = ['ALL', 'PDF', 'AUDIOVISUAL', 'OTHER'].map(category => ({ dataset: { category }, setAttribute() {} }));
 nodes['ol-categories'].querySelectorAll = () => categoryButtons;
 const chooseCategory = category => nodes['ol-categories'].listeners.click({
   target: { closest: () => categoryButtons.find(button => button.dataset.category === category) }
@@ -96,11 +96,11 @@ nodes['ol-search'].listeners.input();
 assert.deepEqual(nodes['ol-results'].children.map(section => section.children[0].textContent), ['Tafseer']);
 assert.equal(nodes['ol-status'].textContent, '');
 nodes['ol-search'].value = '';
-chooseCategory('PRINTABLE');
-assert.deepEqual(nodes['ol-results'].children.map(section => section.children[0].textContent), ['Tafseer']);
-chooseCategory('AUDIO');
-assert.deepEqual(nodes['ol-results'].children.map(section => section.children[0].textContent), ['Quran']);
-assert.equal(nodes['ol-results'].children[0].children[1].children[0].children[1].children.at(-1).textContent, '2 recordings · Listen →');
+chooseCategory('PDF');
+assert.deepEqual(nodes['ol-results'].children.map(section => section.children[0].textContent), ['Duas','Tafseer'],'PDF combines eBooks and Printables');
+chooseCategory('AUDIOVISUAL');
+assert.deepEqual(nodes['ol-results'].children.map(section => section.children[0].textContent), ['History','Quran'],'AudioVisual combines audio and video');
+assert.equal(nodes['ol-results'].children[1].children[1].children[0].children[1].children.at(-1).textContent, '2 recordings · Listen →');
 nodes['ol-results'].listeners.click({ target: { closest: () => ({ dataset: { resource: archiveAudio.id } }) } });
 assert.equal(nodes['ol-preview'].open, true);
 assert.equal(nodes['ol-viewer'].hidden, true);
@@ -110,8 +110,8 @@ nodes['ol-volume'].listeners.change({ target: { value: '2' } });
 assert.equal(nodes['ol-media'].children[0].src, archiveAudio.mediaFiles[1].mediaUrl);
 nodes['ol-preview'].close();
 assert.equal(nodes['ol-media'].children.length, 0, 'Closing the preview stops playback');
-chooseCategory('VIDEO');
-assert.deepEqual(nodes['ol-results'].children.map(section => section.children[0].textContent), ['History']);
+chooseCategory('AUDIOVISUAL');
+assert.deepEqual(nodes['ol-results'].children.map(section => section.children[0].textContent), ['History','Quran']);
 assert.equal(nodes['ol-results'].children[0].children[1].children[0].children[1].children.at(-1).textContent, '2 recordings · Watch →');
 nodes['ol-results'].listeners.click({ target: { closest: () => ({ dataset: { resource: archiveVideo.id } }) } });
 assert.equal(nodes['ol-media'].children[0].tagName, 'video');
@@ -120,5 +120,7 @@ chooseCategory('OTHER');
 assert.deepEqual(nodes['ol-results'].children.map(section => section.children[0].textContent), ['Websites']);
 const html = await readFile(new URL('../../academy/open-library/index.html', import.meta.url), 'utf8');
 assert.doesNotMatch(html, /Selected public books, audio and video|appear here automatically/);
-assert.match(html, /data-category="PRINTABLE"/);
+assert.match(html, /data-category="PDF"/);
+assert.match(html,/data-category="AUDIOVISUAL"[^>]*>AudioVisual/);
+assert.doesNotMatch(html,/data-category="EBOOK"|data-category="PRINTABLE"|data-category="AUDIO"|data-category="VIDEO"/);
 console.log('Public Open Library applies Academy metadata while retaining the Archive PDF.');

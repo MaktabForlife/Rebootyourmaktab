@@ -50,7 +50,10 @@
       $('ac-signout').hidden = false;
       if ($('library-for-you')) $('library-for-you').hidden = false;
       const activities = (result.personalActivities || []).filter(row => ['PROGRAM', 'COURSE'].includes(row.kind) && row.id && row.roles?.length);
-      strip.innerHTML = activities.map(row => `<a href="/academy/#activity/${row.kind}/${encodeURIComponent(row.id)}"${row.kind === 'PROGRAM' && row.id === currentProgram ? ' aria-current="page"' : ''}><span>${esc(row.name)}</span><small>${esc(roles(row.roles))}</small></a>`).join('');
+      const programs = activities.filter(row => row.kind === 'PROGRAM');
+      const courses = activities.filter(row => row.kind === 'COURSE');
+      strip.innerHTML = programs.map(row => `<a href="/academy/#activity/${row.kind}/${encodeURIComponent(row.id)}"${row.kind === 'PROGRAM' && row.id === currentProgram ? ' aria-current="page"' : ''}><span>${esc(row.name)}</span><small>${esc(roles(row.roles))}</small></a>`).join('') +
+        (courses.length ? `<a href="/academy/#workshops"><span>Workshops</span><small>${esc(roles([...new Set(courses.flatMap(row => row.roles))]))}</small></a>` : '');
       strip.hidden = !activities.length;
     } catch { /* Public navigation stays available while account information is unavailable. */ }
   }

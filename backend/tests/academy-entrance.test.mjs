@@ -147,7 +147,23 @@ assert.equal(outsider.activity.curriculum.length, 0);
 assert.equal(outsider.activity.classes.length, 0);
 assert(outsider.activity.timetable.every(row => !row.joinUrl && !row.information));
 assert.deepEqual(outsider.personalTimetable, []);
-assert.deepEqual(admin.personalTimetable, [], 'Global oversight alone must not populate a personal lesson schedule');
+assert.equal(admin.personalTimetable.length, visitor.timetable.filter(row => row.status === 'SCHEDULED').length, 'Global Admin sees every published Academy lesson');
+assert.deepEqual(new Set(admin.personalTimetable.map(row => row.activityId)), new Set([first.program.id, second.program.id, 'SUB1']));
+assert(admin.personalTimetable.every(row => row.information?.length && !row.involvement), 'Global oversight includes detail without labelling the admin as a participant');
+const adminOtherPage = await buildEntrance({ ...args, user: account('ADMIN', 'GLOBAL_ADMIN'), input: { id: second.program.id } });
+assert.deepEqual(adminOtherPage.personalTimetable, admin.personalTimetable, 'Global Admin retains the entire schedule across Program pages');
+assert.deepEqual(hod.personalTimetable, [], 'Program Admin oversight remains limited to enrolled or assigned lessons');
+for (const target of [admin.personalTimetable.find(row => row.kind === 'PROGRAM'), admin.personalTimetable.find(row => row.kind === 'COURSE')]) {
+  for (const [offset, canJoin] of [[-300001, false], [-300000, true], [0, true], [3599999, true], [3600000, false]]) {
+    const view = await buildEntrance({ ...args, now: new Date(target.startsAt + offset), user: account('ADMIN', 'GLOBAL_ADMIN'),
+      input: { id: first.program.id, startDate: target.date } });
+    const event = view.personalTimetable.find(row => row.activityId === target.activityId && row.startsAt === target.startsAt);
+    assert.equal(Boolean(event?.joinUrl), canJoin, `Global Admin ${target.kind} join boundary ${offset}`);
+  }
+}
+const cancelledAdmin = await buildEntrance({ ...args, tables: cancelledTables, user: account('ADMIN', 'GLOBAL_ADMIN'), input: { id: first.program.id } });
+assert(!cancelledAdmin.personalTimetable.some(row => row.kind === 'COURSE'), 'Global Admin excludes cancelled lessons');
+await assert.rejects(buildEntrance({ ...args, user: account('REMOVED', 'GLOBAL_ADMIN') }), error => error.status === 401);
 const expired = structuredClone(first.data);
 expired.tables.ProgramEnrollments[0].EndDate = '2026-09-29';
 const formerStudent = await buildEntrance({ ...args, user: account('LEARNER-DEMO'), input: { id: first.program.id }, loadProgram: async () => expired });

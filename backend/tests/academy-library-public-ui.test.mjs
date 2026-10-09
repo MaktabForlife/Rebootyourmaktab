@@ -23,7 +23,7 @@ const ids = ['al-search', 'al-categories', 'al-source', 'al-content', 'al-status
   'al-preview-title', 'al-preview-details', 'al-preview-status', 'al-close', 'al-manage-books'];
 const nodes = Object.fromEntries(ids.map(id => [id, element()]));
 nodes['al-source'].value = 'ALL';
-const categoryButtons = ['ALL', 'EBOOK', 'PRINTABLE', 'AUDIO', 'VIDEO', 'OTHER'].map(category => ({ dataset: { category }, setAttribute() {} }));
+const categoryButtons = ['ALL', 'PDF', 'AUDIOVISUAL', 'OTHER'].map(category => ({ dataset: { category }, setAttribute() {} }));
 nodes['al-categories'].querySelectorAll = () => categoryButtons;
 const chooseCategory = category => nodes['al-categories'].listeners.click({
   target: { closest: () => categoryButtons.find(button => button.dataset.category === category) }
@@ -45,8 +45,11 @@ const fetch = async (url, options = {}) => {
       id: 'PROGRAM:P2:AUDIO1', name: 'Second Program audio', source: 'PROGRAM',
       sourceName: 'Hifz', subject: 'Fiqh', type: 'AUDIO', forYou: true
     }, {
+      id: 'PROGRAM:P2:VIDEO1', name: 'Assigned video', source: 'PROGRAM',
+      sourceName: 'Hifz', subject: 'Quran', type: 'VIDEO', forYou: true
+    }, {
       id: 'GLOBAL:BOOK1', name: 'Course book', source: 'GLOBAL',
-      sourceName: 'Courses', subject: 'Arabic', type: 'EBOOK', forYou: true
+      sourceName: 'Courses', subject: 'Arabic', type: 'PRINTABLE', forYou: true
     }] })
   };
   if (url === '/academy/open-library/catalogue') return {
@@ -117,9 +120,17 @@ assert.match(personalHtml, /href="\/academy\/library\/" aria-current="page">For 
 chooseCategory('OTHER');
 assert.match(nodes['al-results'].innerHTML, /Useful website/);
 assert.doesNotMatch(nodes['al-results'].innerHTML, /Assigned book|Academy Quran book/);
-chooseCategory('EBOOK');
-assert.match(nodes['al-results'].innerHTML, /Assigned book|Academy Quran book/);
+chooseCategory('PDF');
+assert.match(nodes['al-results'].innerHTML, /Assigned book/);
+assert.match(nodes['al-results'].innerHTML, /Course book/,'PDF includes Printables without changing their stored type');
+assert.match(nodes['al-results'].innerHTML, /Academy Quran book/);
+assert.doesNotMatch(nodes['al-results'].innerHTML,/Second Program audio|Public audio|Public video/);
 assert.doesNotMatch(nodes['al-results'].innerHTML, /Useful website/);
+chooseCategory('AUDIOVISUAL');
+assert.match(nodes['al-results'].innerHTML,/Second Program audio/);
+assert.match(nodes['al-results'].innerHTML,/Assigned video/);
+assert.doesNotMatch(nodes['al-results'].innerHTML,/Public audio|Public video/,'Grouping filters must not grant extra For You entitlements');
+assert.doesNotMatch(nodes['al-results'].innerHTML,/Assigned book|Course book|Useful website/);
 chooseCategory('ALL');
 assert.match(nodes['al-results'].innerHTML, /Introduction/);
 assert.match(nodes['al-results'].innerHTML, /https:\/\/example\.test\/cover\.png/);

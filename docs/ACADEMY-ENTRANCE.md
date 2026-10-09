@@ -1,3 +1,19 @@
+# Academy home · V105.4.3.12
+
+The subscribed top row uses smaller, uniform Program pills with centred names and roles beneath. Courses are combined into one **Workshops** pill opening the existing authorised Course chooser. Actual Program and Course IDs, memberships and permissions remain unchanged. The top row is hidden on the home page, which retains its My Academy activity panel.
+
+Home **Coming up** now uses the published Academy-wide timetable before and after sign-in. Previously, signing in switched this summary to the personal timetable; an account with Global Admin oversight but no enrolled or assigned lessons therefore saw an empty summary. **Global Admin now sees the entire published Academy timetable on every Program/Course page and in the full timetable, without enrolment or a teaching assignment.** Other accounts retain their integrated enrolled/assigned timetable. Global Admin receives lesson details and authorised joining URLs within the same five-minutes-before-start to end window, without being labelled as a learner or assigned teacher. Cancelled lessons and expired accounts remain excluded. Empty personal timetables now say that no lessons are scheduled for that person.
+
+A read-only request to the configured development entrance service returned **53 published lessons for 9–15 October 2026**, with no warnings, confirming that the empty home summary was not caused by missing published lessons. No live data was changed.
+
+Both Library views now display **All**, **PDF**, **AudioVisual** and **Other** filter pills. PDF includes eBooks and Printables; AudioVisual includes Audio and Video. The change is for Library display only: stored resource types, resource formats, editing controls and access permissions remain intact.
+
+**106/106 test files passed on the final implementation.** Affected checks cover home visibility, the combined Workshops chooser and actual access, published home events, complete Global Admin schedules across activity pages, Program/Course joining boundaries, cancellation and session revocation, both Library filter mappings, retained media previews and unchanged For You entitlements. JavaScript syntax, unique HTML IDs and local script/style targets across 13 pages, synchronized release markers, historical release notes and all original Academy-site URLs pass static checks. The native specification Page and checked-in specification are synchronized.
+
+Push target: `feature/105.3.4.13`. Browser visual and physical iPhone checks remain pending because the preview tool could not verify the administrator-enforced browser policy. This feature push does not deploy the website or Worker. Legacy Reboot screens/data and the other chat's unfinished checkout remain untouched.
+
+---
+
 # Academy home · V105.4.3.11
 
 The Academy side menu and the signed-in person's subscribed Program/Course row are available across Academy views, both Library pages and connected new Program setup, management, timetable, attendance, Library and user tools. The recorder receives this navigation only through its Academy entry point. Top-row pills retain actual authorised IDs, place roles beneath names and mark the current Program where applicable. Home activity pills have equal dimensions and a stronger plum background. Compact navigation stays visible on smaller screens. Failed account validation keeps public navigation available; sign-out and token changes clear private activity names and prevent delayed responses from restoring them.

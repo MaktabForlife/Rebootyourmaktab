@@ -102,9 +102,9 @@
     renderSubscriptions(activities);
     renderWorkshops();
     const personalSchedule = scheduleRows(data);
-    $('schedule-title').textContent = data.signedIn ? 'My Academy timetable' : 'Academy timetable';
-    $('full-timetable-title').textContent = data.signedIn ? 'My Academy timetable' : 'Full Academy timetable';
-    const preview = upcomingItems(personalSchedule);
+    $('schedule-title').textContent = data.signedIn && !data.globalAdmin ? 'My Academy timetable' : 'Academy timetable';
+    $('full-timetable-title').textContent = data.signedIn && !data.globalAdmin ? 'My Academy timetable' : 'Full Academy timetable';
+    const preview = upcomingItems(data.timetable);
     renderSchedule('academy-preview-sessions', preview, false, true);
     if (!preview.length) $('academy-preview-sessions').textContent = 'No upcoming published lessons in the next seven days.';
     $('preview-timetable-link').hidden = !data.signedIn;
@@ -113,9 +113,20 @@
   }
 
   function renderSubscriptions(activities, current) {
-    $('activity-switcher').innerHTML = activities.map(item => activityPill(activityHref(item), item.name, item.roles,
-      Boolean(current && item.kind === current.kind && item.id === current.id))).join('');
-    $('activity-switcher').hidden = !activities.length;
+    const view = location.hash.slice(1).split('/')[0];
+    const strip = $('activity-switcher');
+    if (!titles[view] || view === 'overview' || view === 'learning') {
+      strip.replaceChildren();
+      strip.hidden = true;
+      return;
+    }
+    const programs = activities.filter(item => item.kind === 'PROGRAM');
+    const courses = activities.filter(item => item.kind === 'COURSE');
+    strip.innerHTML = programs.map(item => activityPill(activityHref(item), item.name, item.roles,
+      Boolean(current && item.id === current.id && current.kind === 'PROGRAM'))).join('') +
+      (courses.length ? activityPill('#workshops', 'Workshops', [...new Set(courses.flatMap(item => item.roles))],
+        view === 'workshops' || current?.kind === 'COURSE') : '');
+    strip.hidden = !activities.length;
   }
 
   function renderWorkshops() {
@@ -153,10 +164,10 @@
 
   function renderSchedule(id, rows, detailed = false, compact = false) {
     state.information[id] = rows;
-    if (!rows.length) { $(id).textContent = 'No published lessons in this date range.'; return; }
+    const personal = detailed || id === 'academy-sessions' && state.home?.signedIn;
+    if (!rows.length) { $(id).textContent = personal && !state.home?.globalAdmin ? 'No lessons are scheduled for you in this date range.' : 'No published lessons in this date range.'; return; }
     const now = new Date().getTime();
     const next = detailed ? rows.findIndex(row => row.status === 'SCHEDULED' && row.endsAt > now) : -1;
-    const personal = detailed || id === 'academy-sessions' && state.home?.signedIn;
     if (compact || personal) {
       const days = new Map();
       rows.forEach((row, index) => {
@@ -212,10 +223,12 @@
       const menu = [['Library', row.tools?.library], ['Mark attendance', staff && row.tools?.attendance], ['Program management', manage],
         ['User management', users], ['Timetable builder', globalAdmin && row.tools?.timetableBuilder], ['Library management', resources]];
       $('activity-menu').innerHTML = menu.filter(([, href]) => safeLink(href)).map(([label, href]) => `<a href="${esc(href)}">${label}</a>`).join('') + '<a href="/academy/open-library/">Explore the Public Library</a>';
+      $('activity-timetable-title').textContent = result.globalAdmin ? 'Academy timetable' : 'My Academy timetable';
       state.personalTimetable = result.signedIn ? scheduleRows(result) : [];
       renderSchedule('activity-sessions', state.personalTimetable, true);
-      if (!state.personalTimetable.length) $('activity-sessions').textContent = result.signedIn
-        ? 'No lessons are scheduled for you in this date range.' : 'Sign in to view your personal Academy timetable.';
+      if (!state.personalTimetable.length) $('activity-sessions').textContent = result.globalAdmin
+        ? 'No published lessons in this date range.' : result.signedIn
+          ? 'No lessons are scheduled for you in this date range.' : 'Sign in to view your personal Academy timetable.';
       if (result.signedIn) armActivityRefresh(id);
 
       $('activity-classes-section').hidden = true;
@@ -310,6 +323,7 @@
     for (const id of ['personal-pills', 'workshop-pills', 'academy-preview-sessions', 'academy-sessions', 'activity-switcher', 'activity-menu', 'activity-sessions', 'activity-coming', 'activity-classes', 'activity-curriculum', 'recorder-card']) $(id).replaceChildren();
     $('activity-switcher').hidden = true;
     $('schedule-title').textContent = 'Academy timetable';
+    $('activity-timetable-title').textContent = 'My Academy timetable';
     $('full-timetable-title').textContent = 'Full Academy timetable';
     $('workshops-message').textContent = '';
     $('activity-back-link').href = '#overview';

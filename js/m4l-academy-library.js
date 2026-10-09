@@ -12,6 +12,8 @@
 
   function matchesCategory(type) {
     if (state.category === 'ALL') return true;
+    if (state.category === 'PDF') return type === 'EBOOK' || type === 'PRINTABLE';
+    if (state.category === 'AUDIOVISUAL') return type === 'AUDIO' || type === 'VIDEO';
     return type === state.category;
   }
 

@@ -44,8 +44,9 @@ assert.equal(app.forYou.hidden,false);
 assert.equal(app.nodes.get('ac-library').href,'/academy/library/');
 assert.equal(app.nodes.get('ac-progress').hidden,false);
 assert.match(app.children[1].innerHTML,/\/academy\/#activity\/PROGRAM\/Pilot-actual-id/);
-assert.match(app.children[1].innerHTML,/\/academy\/#activity\/COURSE\/Course-actual-id/);
-assert.match(app.children[1].innerHTML,/Barakah &lt;course&gt;/);
+assert.match(app.children[1].innerHTML,/href="\/academy\/#workshops"/);
+assert.equal((app.children[1].innerHTML.match(/<span>Workshops<\/span>/g)||[]).length,1);
+assert.doesNotMatch(app.children[1].innerHTML,/Course-actual-id|Barakah/);
 assert.match(app.children[1].innerHTML,/<small>Teacher<\/small>/);
 assert.doesNotMatch(app.children[0].innerHTML,/>Programs and Courses<|>Timetable</);
 // Every account role can move between For You and Explore; student-only tools stay scoped.

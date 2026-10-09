@@ -29,7 +29,10 @@
 
   function matchesCategory(type) {
     if (selectedCategory === 'ALL') return true;
-    return (type || 'EBOOK') === selectedCategory;
+    const resourceType = type || 'EBOOK';
+    if (selectedCategory === 'PDF') return resourceType === 'EBOOK' || resourceType === 'PRINTABLE';
+    if (selectedCategory === 'AUDIOVISUAL') return resourceType === 'AUDIO' || resourceType === 'VIDEO';
+    return resourceType === selectedCategory;
   }
 
   function clearMedia() {
