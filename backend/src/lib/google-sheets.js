@@ -6,7 +6,7 @@
 */
 
 import { assertGoogleServiceAccountEmailMatches } from "./google-service-account-email.js";
-import { beginSheetsRequest, getRequestSheetsReadContext } from "./request-context.js";
+import { getRequestSheetsReadContext } from "./request-context.js";
 
 let accessTokenCache = {
   key: "",
@@ -145,7 +145,7 @@ async function batchReadGoogleSheetValuesUncached(env, normalizedRanges, spreads
       Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json;charset=UTF-8"
     }
-  }, env);
+  });
   const result = await parseGoogleSheetsResponse(response);
   const valueRanges = Array.isArray(result.valueRanges) ? result.valueRanges : [];
 
@@ -206,7 +206,7 @@ export async function batchUpdateGoogleSheetValues(env, data, target = {}) {
     encodeURIComponent(spreadsheetId),
     "/values:batchUpdate"
   ].join("");
-  const response = await fetchSheetsRequest(env, url, {
+  const response = await fetch(url, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -251,7 +251,7 @@ async function readGoogleSpreadsheetSheetPropertiesUncached(env, spreadsheetId, 
       Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json;charset=UTF-8"
     }
-  }, env);
+  });
   const data = await parseGoogleSheetsResponse(response);
   return (Array.isArray(data.sheets) ? data.sheets : []).map(sheet => ({
     sheetId: Number(sheet?.properties?.sheetId),
@@ -274,7 +274,7 @@ export async function batchUpdateGoogleSpreadsheet(env, requests, target = {}) {
     encodeURIComponent(spreadsheetId),
     ":batchUpdate"
   ].join("");
-  const response = await fetchSheetsRequest(env, url, {
+  const response = await fetch(url, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -522,38 +522,24 @@ async function callGoogleSheetsValuesApi(env, range, options = {}) {
     body: options.body === undefined ? undefined : JSON.stringify(options.body)
   };
   const response = String(requestOptions.method).toUpperCase() === "GET"
-    ? await fetchGoogleRetryableRequest(url, requestOptions, env)
-    : await fetchSheetsRequest(env, url, requestOptions);
+    ? await fetchGoogleRetryableRequest(url, requestOptions)
+    : await fetch(url, requestOptions);
 
   return parseGoogleSheetsResponse(response);
 }
 
-async function fetchSheetsRequest(env, url, init) {
-  const finish = beginSheetsRequest(env, String(init.method || 'GET').toUpperCase());
-  let status = 0;
-  try {
-    const response = await fetch(url, init);
-    status = response.status;
-    return response;
-  } finally {
-    finish(status);
-  }
-}
-
-async function fetchGoogleRetryableRequest(url, init, env) {
+async function fetchGoogleRetryableRequest(url, init) {
   let response;
 
   for (let attempt = 0; attempt < GOOGLE_READ_MAX_ATTEMPTS; attempt += 1) {
     try {
-      response = env ? await fetchSheetsRequest(env, url, init) : await fetch(url, init);
+      response = await fetch(url, init);
     } catch (error) {
       if (attempt === GOOGLE_READ_MAX_ATTEMPTS - 1) throw error;
       await waitForGoogleReadRetry(null, attempt);
       continue;
     }
-    // Quota recovery needs a longer pause. Return it to the caller instead of
-    // spending more shared quota on immediate retries; keep transient 5xx retries.
-    if ((env && response.status === 429) || !RETRYABLE_GOOGLE_STATUSES.has(response.status) || attempt === GOOGLE_READ_MAX_ATTEMPTS - 1) {
+    if (!RETRYABLE_GOOGLE_STATUSES.has(response.status) || attempt === GOOGLE_READ_MAX_ATTEMPTS - 1) {
       return response;
     }
 

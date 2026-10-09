@@ -8,7 +8,7 @@ import {
   updateGoogleSheetValues
 } from "../src/lib/google-sheets.js";
 import { createCourseEnvironment } from "../src/lib/course-routing.js";
-import { createRequestEnvironment, sheetsRequestMetrics } from "../src/lib/request-context.js";
+import { createRequestEnvironment } from "../src/lib/request-context.js";
 
 const keyPair = await crypto.subtle.generateKey(
   {
@@ -89,7 +89,6 @@ try {
   assert.deepEqual(first, [["program-sheet:Data!A:B:v0"]]);
   assert.deepEqual(second, first);
   assert.equal(getCalls("program-sheet", "Data!A:B").length, 1);
-  assert.equal(sheetsRequestMetrics(requestEnv).readAttempts, 1, "Cached reads do not count as HTTP attempts");
 
   // Returned rows are defensive copies; consumer mutation must not poison cache.
   first[0][0] = "MUTATED BY CALLER";
@@ -158,19 +157,15 @@ try {
   const courseEnvA = createCourseEnvironment(requestEnv, course);
   const courseEnvB = createCourseEnvironment(requestEnv, course);
   const courseBefore = sheetCalls.length;
-  const courseMetricsBefore = sheetsRequestMetrics(requestEnv).readAttempts;
   await readGoogleSheetValues(courseEnvA, "AdminRecords!A:J");
   await readGoogleSheetValues(courseEnvB, "AdminRecords!A:J");
   assert.equal(sheetCalls.length - courseBefore, 1);
-  assert.equal(sheetsRequestMetrics(requestEnv).readAttempts, courseMetricsBefore + 1);
-  assert.deepEqual(sheetsRequestMetrics(courseEnvA), sheetsRequestMetrics(requestEnv));
 
   // A new Worker request environment must never inherit a previous request's values.
   const isolatedEnv = createRequestEnvironment(baseEnv);
   const isolationBefore = sheetCalls.length;
   await readGoogleSheetValues(isolatedEnv, "Data!A:B");
   assert.equal(sheetCalls.length - isolationBefore, 1);
-  assert.equal(sheetsRequestMetrics(isolatedEnv).readAttempts, 1, "Metrics stay within their Worker request");
 
   // Successful writes invalidate all cached ranges for only the affected spreadsheet.
   await readGoogleSheetValues(requestEnv, "Mutable!A:B");

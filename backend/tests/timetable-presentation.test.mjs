@@ -8,6 +8,9 @@ const b={...a,moduleName:'Fiqh',classIds:['B'],classNames:['Year 2'],weekday:3,z
 const source={pattern:'WEEKLY',version:3,effectiveFrom:'2026-10-01',snapshot:{programName:'Program',timezone:'Asia/Riyadh'},occurrences:[a,b]};
 const m=presentation.model(source,{history:true});assert.equal(m.rows.length,1);assert.equal(m.columns.length,2);assert.match(m.stamp,/Published version 3/);
 let html=presentation.html(m);assert(!html.includes('<script>'));assert(html.includes('&lt;script&gt;'));assert(html.includes('href="https://zoom.us/j/123?pwd=example"'));assert(!html.includes('href="javascript:'));assert(html.includes('Tuesday'));assert(html.includes('08h45 - 10h15'));
+assert.equal(m.timezone,'Asia/Riyadh','Display policy does not remove publication timezone data');
+assert.doesNotMatch(html,/Asia\/Riyadh/,'Timezone is hidden by default');
+assert.match(presentation.html(presentation.model(source,{showTimezone:true})),/Asia\/Riyadh/,'An explicit request can include the timezone');
 const filtered=presentation.model(source,{classId:'B',effectiveFrom:'2026-10-05'});assert.equal(filtered.columns.length,1);assert.equal(filtered.columns[0].id,3);assert.equal(filtered.classes,'Year 2');assert.match(filtered.stamp,/DRAFT PREVIEW/);assert(!presentation.html(filtered).includes('zoom.us'));
 const coTeacherRow={...a,teacherId:'T1',teacherIds:['T1','T2'],teacherNames:['Teacher A','Teacher B'],assignmentMode:'EXPLICIT'};
 const coTeacherSource={...source,occurrences:[coTeacherRow]};

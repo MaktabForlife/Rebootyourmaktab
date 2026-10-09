@@ -4,6 +4,8 @@
   const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
   const token = () => localStorage.getItem('m4l_account_token') || '';
   const state = { home: null, activity: null, personalTimetable: [], personalStartDate: '', activityTimer: null, generation: 0, scheduleGeneration: 0, activityGeneration: 0, information: {}, startDate: '' };
+  const pageCache = { epoch: 0, snapshot: null, pending: new Map() };
+  const PAGE_CACHE_MS = 60000;
   const titles = { overview: 'Academy home', timetable: 'Academy timetable', learning: 'Programs and Courses', workshops: 'Workshops', activity: 'Activity',
     prospectus: '2026 Prospectus', about: 'About', contact: 'Contact', progress: 'Dua and Surah Progress', recorder: 'Voice Recorder', administration: 'Academy administration' };
   const activityHref = row => `#activity/${row.kind}/${encodeURIComponent(row.id)}`;
@@ -29,30 +31,48 @@
     $('learning-catalogue').innerHTML = `<ul class="learning-cards">${originalActivities.map(row => `<li class="card activity-card"><div class="activity-art"><img src="${esc(row.image)}" alt="Academy artwork for ${esc(row.name)}" loading="lazy"></div><div class="card-pad"><span class="eyebrow">${row.kind === 'PROGRAM' ? 'Program' : 'Course'}</span><h3>${esc(row.name)}</h3></div></li>`).join('')}</ul>`;
   }
 
-  const pendingRequests = new Map();
-  let retryAfter = 0;
-  function request(body) {
-    const session = token();
-    if (Date.now() < retryAfter) return Promise.reject(new Error('Academy information is temporarily busy. Please wait one minute and try again.'));
-    const key = JSON.stringify([session, body]);
-    if (pendingRequests.has(key)) return pendingRequests.get(key);
-    const pending = fetchEntrance(body, session).finally(() => pendingRequests.delete(key));
-    pendingRequests.set(key, pending);
-    return pending;
+  async function request(body) {
+    const session = token(), epoch = pageCache.epoch, key = JSON.stringify([session, body]);
+    if (pageCache.pending.has(key)) return pageCache.pending.get(key);
+    const pending = (async () => {
+      const response = await fetch(`${window.M4L_CONFIG?.API_BASE || ''}/api/academy/entrance`, { method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(session ? { Authorization: `Bearer ${session}` } : {}) }, body: JSON.stringify(body) });
+      const result = await response.json();
+      if (token() !== session || pageCache.epoch !== epoch) throw new Error('The Academy account has changed.');
+      if (!response.ok || !result.success) {
+        pageCache.snapshot = null;
+        if (response.status === 401) window.dispatchEvent(new Event('m4l-academy-session-ended'));
+        throw new Error(result.error || 'Academy information is temporarily unavailable.');
+      }
+      return result;
+    })();
+    pageCache.pending.set(key, pending);
+    try { return await pending; }
+    catch (error) {
+      if (pageCache.epoch === epoch && token() === session) pageCache.snapshot = null;
+      throw error;
+    }
+    finally { if (pageCache.pending.get(key) === pending) pageCache.pending.delete(key); }
   }
 
-  async function fetchEntrance(body, session) {
-    const response = await fetch(`${window.M4L_CONFIG?.API_BASE || ''}/api/academy/entrance`, { method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...(session ? { Authorization: `Bearer ${session}` } : {}) }, body: JSON.stringify(body) });
-    const result = await response.json();
-    if (token() !== session) throw new Error('The Academy account has changed.');
-    if (response.status === 429 || result.code === 'SHEETS_RATE_LIMITED' || Number(result.retryAfterMs) > 0)
-      retryAfter = Date.now() + Math.max(60000, Number(result.retryAfterMs) || 0);
-    if (!response.ok || !result.success) {
-      if (response.status === 401) window.dispatchEvent(new Event('m4l-academy-session-ended'));
-      throw new Error(result.error || 'Academy information is temporarily unavailable.');
-    }
-    return result;
+  function rememberPages(result) {
+    pageCache.snapshot = result.signedIn && Array.isArray(result.activityPages) && !result.warnings.length
+      ? { session: token(), at: new Date().getTime(), result } : null;
+  }
+
+  function cachedActivity(id) {
+    const snapshot = pageCache.snapshot, now = new Date().getTime();
+    if (!snapshot || snapshot.session !== token() || now < snapshot.at || now - snapshot.at >= PAGE_CACHE_MS) return null;
+    const result = snapshot.result;
+    const clock = Object.fromEntries(new Intl.DateTimeFormat('en-GB', { timeZone: result.timezone,
+      year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date(now)).map(part => [part.type, part.value]));
+    if (result.startDate !== `${clock.year}-${clock.month}-${clock.day}` || result.personalTimetable.some(row =>
+      [row.joinAvailableAt, row.startsAt, row.endsAt].some(time => time > snapshot.at && time <= now))) return null;
+    // Home responses intentionally contain no joining URLs. Recheck with the server
+    // if a lesson is already open before using one as a detailed page snapshot.
+    if (!result.activity && result.personalTimetable.some(row => now >= row.joinAvailableAt && now < row.endsAt)) return null;
+    const activity = result.activityPages.find(row => row.id === id && !row.unavailable);
+    return activity ? { ...result, activity } : null;
   }
 
   async function loadHome() {
@@ -62,10 +82,11 @@
     try {
       const result = await request({});
       if (generation !== state.generation) return;
+      rememberPages(result);
       state.home = result;
       state.startDate = result.startDate;
       $('schedule-date').value = result.startDate;
-      $('schedule-range').textContent = `${formatDate(result.startDate)} – ${formatDate(result.endDate)}. ${result.signedIn ? '' : 'Times are shown with their timezone.'}`;
+      $('schedule-range').textContent = `${formatDate(result.startDate)} – ${formatDate(result.endDate)}`;
       $('entrance-message').textContent = result.warnings.join(' ');
       $('entrance-retry').hidden = !result.warnings.length;
       renderHome();
@@ -89,7 +110,7 @@
       if (generation !== state.scheduleGeneration) return;
       state.startDate = result.startDate;
       $('schedule-date').value = result.startDate;
-      $('schedule-range').textContent = `${formatDate(result.startDate)} – ${formatDate(result.endDate)}. ${result.signedIn ? '' : 'Times are shown with their timezone.'}`;
+      $('schedule-range').textContent = `${formatDate(result.startDate)} – ${formatDate(result.endDate)}`;
       $('schedule-message').textContent = result.warnings.join(' ');
       renderSchedule('academy-sessions', scheduleRows(result));
     } catch (error) {
@@ -175,6 +196,24 @@
     return new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' }).format(new Date(`${value}T12:00:00Z`));
   }
 
+  function timetableColour(row) {
+    // Use the whole Academy registry, not the current week, account role or selected Program.
+    const programs = [...new Set((state.home?.activities || []).filter(item => item.kind === 'PROGRAM').map(item => item.id))].sort();
+    const index = programs.indexOf(row.activityId);
+    const fallback = [...String(row.activityId || row.activityName)].reduce((hash, char) => (hash * 31 + char.charCodeAt(0)) >>> 0, 0);
+    const hue = row.kind === 'COURSE' ? 28 : Math.round((272 + (index < 0 ? fallback : index) * 137.508) % 360);
+    const saturation = row.kind === 'COURSE' ? 60 : 45;
+    return { fill: `hsl(${hue} ${saturation}% 92%)`, line: `hsl(${hue} ${saturation}% 78%)`, accent: `hsl(${hue} 42% 38%)` };
+  }
+
+  function timetableStyle(rows) {
+    const identities = new Map(rows.map(row => [row.kind === 'COURSE' ? 'COURSE' : `PROGRAM:${row.activityId}`, row]));
+    const colours = [...identities].sort(([a], [b]) => a.localeCompare(b)).map(([, row]) => timetableColour(row));
+    // A shared room may span activities: retain each participating Program/Course shade.
+    const fill = colours.length === 1 ? colours[0].fill : `linear-gradient(135deg,${colours.map((colour, index) => `${colour.fill} ${index * 100 / colours.length}% ${(index + 1) * 100 / colours.length}%`).join(',')})`;
+    return `style="--timetable-fill:${fill};--timetable-line:${colours[0].line};--timetable-accent:${colours[0].accent}"`;
+  }
+
   function renderSchedule(id, rows, detailed = false, compact = false) {
     state.information[id] = rows.slice();
     const personal = detailed || id === 'academy-sessions' && state.home?.signedIn;
@@ -189,16 +228,14 @@
         days.get(row.date).push({ row, index });
       });
       $(id).innerHTML = `<ol class="upcoming-days">${[...days].map(([date, lessons]) => `<li class="upcoming-day"><time datetime="${esc(date)}">${esc(formatDate(date))}</time><ul class="upcoming-items">${lessons.map(({ row, index }) => {
-        const label = esc(personal ? row.title : row.activityName || row.title);
-        const title = !detailed && state.home?.signedIn ? `<a href="${activityHref({ kind: row.kind, id: row.activityId })}">${label}</a>` : label;
+        const label = esc(row.activityName || row.title);
+        const title = state.home?.signedIn ? `<a href="${activityHref({ kind: row.kind, id: row.activityId })}">${label}</a>` : label;
         const info = state.home?.signedIn && row.information?.length ? `<button type="button" class="information-button" data-information="${id}:${index}" aria-label="More information about ${label}">i</button>` : '';
-        const join = detailed && row.status === 'SCHEDULED' && now >= row.joinAvailableAt && now < row.endsAt && safeLink(row.joinUrl) ? `<a class="button small" href="${esc(row.joinUrl)}" target="_blank" rel="noopener noreferrer">Join lesson</a>` : '';
-        const nextLabel = index === next ? `<span class="next-lesson-label">${row.startsAt <= now ? 'In progress' : 'Next lesson'}</span>` : '';
-        return `<li class="upcoming-item ${index === next ? 'next-lesson ' : ''}${row.involvement === 'teacher' ? 'teacher' : row.involvement === 'student' ? 'student' : ''}">${nextLabel}<div class="upcoming-name">${title}${!personal ? info : ''}</div>${personal ? `<small>${esc(row.activityName)}</small>` : ''}<span class="upcoming-time">${esc(row.startTime)}–${esc(row.endTime)}</span>${personal ? `<small>${esc(row.timezone)}</small><div class="upcoming-actions">${info}${join}</div>` : ''}</li>`;
+        return `<li class="upcoming-item ${row.involvement === 'teacher' ? 'teacher' : row.involvement === 'student' ? 'student' : ''}" ${timetableStyle([row])}><span class="upcoming-status"></span><div class="upcoming-name" title="${label}">${title}</div><div class="upcoming-summary"><span class="upcoming-time">${esc(row.startTime)}–${esc(row.endTime)}</span></div><div class="upcoming-actions">${info}</div></li>`;
       }).join('')}</ul></li>`).join('')}</ol>`;
       return;
     }
-    $(id).innerHTML = `<ol class="schedule-list">${rows.map(row => `<li><time datetime="${esc(row.date)}">${esc(formatDate(row.date))}</time><div>${esc(row.startTime)}–${esc(row.endTime)}<small>${esc(row.timezone)}</small></div><div class="lesson-name">${esc(row.title)}</div></li>`).join('')}</ol>`;
+    $(id).innerHTML = `<ol class="schedule-list">${rows.map(row => `<li><time datetime="${esc(row.date)}">${esc(formatDate(row.date))}</time><div>${esc(row.startTime)}–${esc(row.endTime)}</div><div class="lesson-name">${esc(row.title)}</div></li>`).join('')}</ol>`;
   }
 
   function renderPersonalWeek(id, rows, detailed, next, now) {
@@ -234,28 +271,22 @@
       const label = esc(activities.join(' · '));
       const singleActivity = entries.every(entry => entry.row.kind === first.kind && entry.row.activityId === first.activityId);
       const title = !detailed && singleActivity ? `<a href="${activityHref({ kind: first.kind, id: first.activityId })}">${label}</a>` : label;
-      const times = new Map();
-      for (const entry of entries) {
-        const key = JSON.stringify([entry.row.startsAt, entry.row.endsAt]);
-        if (!times.has(key)) times.set(key, []);
-        times.get(key).push(entry);
-      }
       const nextEntry = entries.find(entry => entry.index === next);
       const infoIndex = state.information[id].push({ title: activities.join(' · '), lessons: entries.map(entry => entry.row) }) - 1;
       const joinable = entries.find(({ row }) => detailed && row.status === 'SCHEDULED' && now >= row.joinAvailableAt && now < row.endsAt && safeLink(row.joinUrl));
       const join = joinable ? `<a class="button small" href="${esc(joinable.row.joinUrl)}" target="_blank" rel="noopener noreferrer">Join lesson</a>` : '';
-      return `<li class="upcoming-item ${nextEntry ? 'next-lesson ' : ''}${participation(entries)}">${nextEntry ? `<span class="next-lesson-label">${nextEntry.row.startsAt <= now ? 'In progress' : 'Next lesson'}</span>` : ''}<div class="upcoming-name">${title}</div>${subjects.length === 1 && subjects[0] !== activities[0] ? `<small>${esc(subjects[0])}</small>` : entries.length > 1 ? `<small>${entries.length} lessons</small>` : ''}${[...times.values()].map(lessons => {
-        const row = lessons[0].row;
-        return `<span class="upcoming-time lesson-slot ${participation(lessons)}">${esc(row.startTime)}–${esc(row.endTime)}${row.endDate !== row.date ? ' (+1 day)' : ''}</span>`;
-      }).join('')}<div class="upcoming-actions"><button type="button" class="information-button" data-information="${id}:${infoIndex}" aria-label="Lesson details for ${label}">i</button>${join}</div></li>`;
+      return `<li class="upcoming-item ${nextEntry ? 'next-lesson ' : ''}${participation(entries)}" ${timetableStyle(entries.map(entry => entry.row))}><span class="upcoming-status next-lesson-label">${nextEntry ? nextEntry.row.startsAt <= now ? 'In progress' : 'Next lesson' : ''}</span><div class="upcoming-name" title="${label}">${title}</div><div class="upcoming-summary">${entries.length > 1 ? `<small>${entries.length} lessons</small>` : subjects[0] !== activities[0] ? `<small title="${esc(subjects[0])}">${esc(subjects[0])}</small>` : ''}${entries.length === 1 ? `<span class="upcoming-time">${esc(first.startTime)}–${esc(first.endTime)}${first.endDate !== first.date ? ' (+1 day)' : ''}</span>` : ''}</div><div class="upcoming-actions"><button type="button" class="information-button" data-information="${id}:${infoIndex}" aria-label="Lesson details for ${label}">i</button>${join}</div></li>`;
     };
-    $(id).innerHTML = `<p class="timetable-timezone">Times in ${esc(timezone)}</p><ol class="upcoming-days timetable-days">${[...days].sort(([a], [b]) => a.localeCompare(b)).map(([date, groups]) => `<li class="upcoming-day"><time datetime="${esc(date)}">${esc(formatDate(date))}</time><ul class="upcoming-items">${groups.size ? [...groups.values()].map(renderGroup).join('') : '<li class="timetable-empty">No lessons</li>'}</ul></li>`).join('')}</ol>`;
+    $(id).innerHTML = `<ol class="upcoming-days timetable-days">${[...days].sort(([a], [b]) => a.localeCompare(b)).map(([date, groups]) => `<li class="upcoming-day"><time datetime="${esc(date)}">${esc(formatDate(date))}</time><ul class="upcoming-items">${groups.size ? [...groups.values()].map(renderGroup).join('') : '<li class="timetable-empty">No lessons</li>'}</ul></li>`).join('')}</ol>`;
   }
 
   async function loadActivity(id, refresh = false) {
     clearTimeout(state.activityTimer);
     const generation = ++state.activityGeneration;
-    if (!refresh) {
+    $('personal-refresh').disabled = true;
+    const cached = !refresh && cachedActivity(id);
+    const scrollLeft = $('activity-sessions').scrollLeft || 0;
+    if (!refresh && !cached) {
       $('activity-title').textContent = 'Opening activity…';
       $('activity-role').textContent = '';
       $('activity-status').textContent = '';
@@ -265,9 +296,11 @@
       $('activity-curriculum-section').hidden = true;
     }
     try {
-      const result = await request({ id });
+      const result = cached || await request({ id });
       if (generation !== state.activityGeneration) return;
+      if (!cached) rememberPages(result);
       const row = state.activity = result.activity;
+      $('personal-refresh').hidden = !result.signedIn;
       $('activity-back-link').href = row.kind === 'COURSE' ? '#workshops' : '#overview';
       $('activity-back-link').textContent = row.kind === 'COURSE' ? '← Workshops' : '← My Academy';
       $('activity-title').textContent = row.name;
@@ -292,6 +325,7 @@
       state.personalStartDate = result.startDate;
       state.personalTimetable = result.signedIn ? scheduleRows(result) : [];
       renderSchedule('activity-sessions', state.personalTimetable, true);
+      $('activity-sessions').scrollLeft = scrollLeft;
       if (!state.personalTimetable.length) $('activity-sessions').textContent = result.globalAdmin
         ? 'No published lessons in this date range.' : result.signedIn
           ? 'No lessons are scheduled for you in this date range.' : 'Sign in to view your personal Academy timetable.';
@@ -323,6 +357,7 @@
         (administrator ? coming('Calendar management', 'Manage dates and events for your authorised Program.') : '');
     } catch (error) {
       if (generation === state.activityGeneration) {
+        pageCache.snapshot = null;
         $('activity-title').textContent = 'Activity unavailable'; $('activity-status').textContent = error.message;
         for (const target of ['activity-menu', 'activity-sessions', 'activity-coming', 'activity-curriculum', 'activity-classes']) $(target).replaceChildren();
         $('activity-classes-section').hidden = true;
@@ -331,6 +366,8 @@
         state.personalTimetable = [];
         if (token()) armActivityRefresh(id);
       }
+    } finally {
+      if (generation === state.activityGeneration) $('personal-refresh').disabled = false;
     }
   }
 
@@ -362,7 +399,7 @@
     $('current-view').textContent = titles[name];
     if (requested === 'learning') $('learning').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
     if (name === 'workshops') renderWorkshops();
-    if (name === 'activity' && encodedId) { try { void loadActivity(decodeURIComponent(encodedId)); } catch { $('activity-status').textContent = 'This activity link is invalid.'; } }
+    if (name === 'activity' && encodedId && state.home) { try { void loadActivity(decodeURIComponent(encodedId)); } catch { $('activity-status').textContent = 'This activity link is invalid.'; } }
     if (name === 'recorder') $('recorder-card').innerHTML = state.home?.student ? '<p>Select an existing lesson image, record your voice, then preview and share your video.</p><a class="button" href="/recorder/?academy=1">Open Voice Recorder →</a>' : '<p>Voice Recorder is available to signed-in Academy students.</p>';
     if (name === 'administration') renderAdministration();
   }
@@ -375,6 +412,9 @@
   }
 
   function clearPersonal() {
+    pageCache.epoch++;
+    pageCache.snapshot = null;
+    pageCache.pending.clear();
     state.generation++;
     state.scheduleGeneration++;
     state.activityGeneration++;
@@ -396,6 +436,8 @@
     $('activity-back-link').href = '#overview';
     $('activity-back-link').textContent = '← My Academy';
     $('preview-timetable-link').hidden = true;
+    $('personal-refresh').hidden = true;
+    $('personal-refresh').disabled = false;
     $('schedule-message').textContent = '';
     $('activity-title').textContent = '';
     $('activity-role').textContent = '';
@@ -434,6 +476,7 @@
     strip.scrollBy({ left: direction * strip.clientWidth, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
   });
   $('entrance-retry').addEventListener('click', () => void loadHome());
+  $('personal-refresh').addEventListener('click', () => { if (token() && state.activity) void loadActivity(state.activity.id, true); });
   $('schedule-date').addEventListener('change', () => { state.startDate = $('schedule-date').value; void loadSchedule(); });
   for (const [id, days] of [['schedule-previous', -7], ['schedule-next', 7]]) $(id).addEventListener('click', () => {
     if (!state.startDate) return;
@@ -443,9 +486,7 @@
   window.addEventListener('hashchange', route);
   window.addEventListener('m4l-academy-session', () => { clearPersonal(); void loadHome(); });
   window.addEventListener('storage', event => { if (event.key === 'm4l_account_token') { clearPersonal(); void loadHome(); } });
-  window.addEventListener('pageshow', event => {
-    if (event.persisted) { clearPersonal(); void loadHome(); }
-  });
+  window.addEventListener('pageshow', event => { if (event.persisted) { clearPersonal(); void loadHome(); } });
 
   route();
   renderCatalogue();

@@ -55,6 +55,7 @@ assert.equal(visitor.activities.find(row => row.id === REBOOT_PILOT_PROGRAM_ID).
 assert(visitor.activities.some(row => row.kind === 'COURSE' && row.name === 'Salaah'));
 assert.equal(visitor.personalActivities.length, 0);
 assert.deepEqual(visitor.personalTimetable, []);
+assert.deepEqual(visitor.activityPages, [], 'Visitors receive no protected page cache metadata');
 assert(visitor.timetable.length > 0);
 assert(visitor.timetable.every(row => !row.information && !row.joinUrl && !row.relevant));
 assert(visitor.timetable.every(row => !row.meetingGroup && !row.subjectName && !row.moduleName), 'Visitors receive no protected room or lesson metadata');
@@ -63,6 +64,8 @@ assert(!JSON.stringify(visitor).includes('Course teacher'));
 assert(!loaded.includes('COURSE1'), 'The gateway never loads legacy Reboot');
 const student = await buildEntrance({ ...args, user: account('LEARNER-DEMO') });
 assert.equal(student.student, true);
+assert.deepEqual(student.activityPages.map(row=>row.id).sort(),student.personalActivities.map(row=>row.id).sort());
+assert(student.activityPages.every(row=>!row.timetable), 'Shared page metadata does not duplicate individual timetables or join URLs');
 assert.deepEqual(student.personalActivities.find(row => row.id === first.program.id).roles, ['STUDENT']);
 assert.deepEqual(student.personalActivities.find(row => row.id === second.program.id).roles, ['TEACHER']);
 assert(student.timetable.some(row => row.kind === 'PROGRAM' && row.involvement === 'student'));
@@ -76,6 +79,8 @@ for (let i = 1; i < student.personalTimetable.length; i++) assert(student.person
 const detailed = await buildEntrance({ ...args, user: account('LEARNER-DEMO'), input: { id: first.program.id } });
 assert.deepEqual(detailed.activity.classes.map(row => row.id), ['CLASS-1']);
 assert.equal(detailed.activity.curriculum[0].name, 'Tafseer');
+assert.deepEqual(student.activityPages.find(row=>row.id===first.program.id).classes,detailed.activity.classes,'Cached page metadata retains the same assigned class scope');
+assert.deepEqual(student.activityPages.find(row=>row.id===first.program.id).curriculum,detailed.activity.curriculum);
 assert(detailed.activity.timetable.some(row => row.joinUrl?.includes('zoom.us')));
 const otherPage = await buildEntrance({ ...args, user: account('LEARNER-DEMO'), input: { id: 'SUB1' } });
 assert.deepEqual(otherPage.personalTimetable, detailed.personalTimetable, 'Every activity shows the same integrated personal Academy timetable');
@@ -148,6 +153,7 @@ assert.equal(outsider.activity.curriculum.length, 0);
 assert.equal(outsider.activity.classes.length, 0);
 assert(outsider.activity.timetable.every(row => !row.joinUrl && !row.information));
 assert.deepEqual(outsider.personalTimetable, []);
+assert.deepEqual(outsider.activityPages, [], 'Unauthorised accounts receive no protected page metadata');
 assert(outsider.activity.timetable.every(row => !row.meetingGroup), 'An unauthorised account receives no room grouping metadata');
 assert.equal(admin.personalTimetable.length, visitor.timetable.filter(row => row.status === 'SCHEDULED').length, 'Global Admin sees every published Academy lesson');
 assert.deepEqual(new Set(admin.personalTimetable.map(row => row.activityId)), new Set([first.program.id, second.program.id, 'SUB1']));
@@ -176,6 +182,29 @@ const sharedRoomTables=structuredClone(tables);
 sharedRoomTables.PublishedGlobalTimetableSessions[0].ZoomLink='https://example.zoom.us/j/123456789';
 const sharedRooms=await buildEntrance({...args,tables:sharedRoomTables,now:new Date('2026-09-30T08:00:00Z'),user:account('ADMIN','GLOBAL_ADMIN'),input:{id:first.program.id}});
 assert.equal(new Set(sharedRooms.personalTimetable.map(row=>row.meetingGroup)).size,1,'Course and Program lessons sharing a room can be combined');
+// Synthetic equivalent of the Pilot's split class rules: one shared room per day,
+// including later subjects, while genuinely unpublished links remain distinguishable.
+const splitData=structuredClone(first.data);
+const splitSnapshot=JSON.parse(splitData.tables.ProgramTimetablePublications[0].SnapshotJSON);
+const baseRule=splitSnapshot.rules[0];
+const splitRules=(subject,startTime,endTime,link)=>Array.from({length:4},(_,i)=>({...baseRule,
+  id:`${subject}-${i}`,sourceRuleId:subject,assignmentMode:'CLASS',weekdays:[3],
+  classIds:[`CLASS-${i+1}`],classNames:[`Class ${i+1}`],subjectName:subject,moduleName:subject,
+  startTime,endTime,zoomLink:link,effectiveZoomLink:link}));
+splitSnapshot.rules=[...splitRules('Quran','05:30','06:00','https://zoom.test/reboot'),
+  ...splitRules('Surahs','06:00','06:15','https://zoom.test/reboot'),
+  {...baseRule,id:'Fiqh',weekdays:[3],subjectName:'Fiqh',moduleName:'Fiqh',startTime:'06:15',endTime:'06:30',
+    zoomLink:'https://zoom.test/reboot',effectiveZoomLink:'https://zoom.test/reboot'},
+  ...splitRules('Hadith','06:30','06:45','')];
+splitData.tables.ProgramTimetablePublications[0].SnapshotJSON=JSON.stringify(splitSnapshot);
+const splitView=await buildEntrance({...args,programs:[first.program],loadProgram:async()=>splitData,
+  now:new Date('2026-09-30T00:00:00Z'),user:account('ADMIN','GLOBAL_ADMIN'),input:{id:first.program.id,startDate:'2026-09-30'}});
+const rebootDay=splitView.personalTimetable.filter(row=>row.activityId===first.program.id&&row.date==='2026-09-30');
+assert.equal(rebootDay.filter(row=>row.meetingGroup).length,9,'Every split class lesson keeps its shared room even before joining opens');
+assert.equal(new Set(rebootDay.filter(row=>row.meetingGroup).map(row=>row.meetingGroup)).size,1);
+assert.equal(rebootDay.filter(row=>!row.meetingGroup).length,4,'Unpublished Hadith links are not silently replaced with another lesson link');
+assert(rebootDay.every(row=>!row.joinUrl));
+assert(!JSON.stringify(splitView).includes('https://zoom.test/reboot'));
 const expired = structuredClone(first.data);
 expired.tables.ProgramEnrollments[0].EndDate = '2026-09-29';
 const formerStudent = await buildEntrance({ ...args, user: account('LEARNER-DEMO'), input: { id: first.program.id }, loadProgram: async () => expired });
@@ -185,14 +214,6 @@ assert.deepEqual(programRoles(account('LEARNER-DEMO'), [{ AccountID: 'LEARNER-DE
 const unavailable = await buildEntrance({ ...args, loadProgram: async () => { throw Error('private sheet error'); } });
 assert(unavailable.warnings.length);
 assert(!JSON.stringify(unavailable).includes('private sheet error'));
-const partlyLimited = await buildEntrance({ ...args, loadProgram: async program => {
-  if (program.id === first.program.id) throw Object.assign(new Error('private quota details'), { status: 429 });
-  return structuredClone(second.data);
-} });
-assert.equal(partlyLimited.retryAfterMs, 60000, 'A quota failure within one Program carries a cooldown with the partial timetable');
-assert(partlyLimited.timetable.some(row => row.activityId === second.program.id), 'Available Program lessons remain visible');
-assert(partlyLimited.warnings.some(message => /wait one minute/.test(message)));
-assert(!JSON.stringify(partlyLimited).includes('private quota details'));
 await assert.rejects(buildEntrance({ ...args, input: { startDate: '2026-02-30' } }));
 await assert.rejects(buildEntrance({ ...args, input: { id: 'COURSE1' } }), error => error.status === 404);
 await assert.rejects(buildEntrance({ ...args, user: account('REMOVED') }), error => error.status === 401);

@@ -1,3 +1,39 @@
+# Academy timetable and navigation · V105.4.3.17
+
+All Coming up and personal timetable cards use a fixed 172px outer height with reserved status, name, summary and action rows. The compact seven-column week remains swipeable. Program colours come from a deterministic ordering of the complete Academy Program registry, independent of week, account participation and selected page. Every Course uses one shared shade. Rooms spanning different activities retain their activity names and combine their shades. A teacher or mixed-participation card has a 3px border on all four sides in its activity accent; participation does not replace the background. Single/grouped lessons, next/in-progress labels and joining controls retain the same card dimensions. The full timetable key explains the border.
+
+The entrance response now includes already-projected metadata for authorised activity pages, without duplicating their individual timetables. The browser reuses that metadata and its shared personal timetable in memory for up to 60 seconds when switching Programs/Courses, retaining horizontal date position. This avoids another Sheets-backed entrance request for each navigation. It does not persist private snapshots in local/session storage or change private, no-store HTTP responses. Older backend responses without the new metadata fall back to the existing request path.
+
+A snapshot expires at its one-minute limit, Academy date rollover or an intervening lesson join/start/end boundary. Home snapshots without joining URLs are rechecked if a lesson is already open. The existing timer still revalidates access at those boundaries and at least once per minute while an activity is visible. The new refresh button always asks the server. Sign-out/account changes clear snapshots and pending request state, with an epoch guard against late responses. Failures/incomplete responses are not cached. Identical in-flight requests share one fetch; the initial pageshow no longer duplicates the opening request, while browser-history restoration rechecks the account. Protected server scope and joining windows remain authoritative.
+
+Focused regression checks cover colours across days, roles, grouped/single lessons, registry reordering and timetable views; shared Course shades; equal card slots and teacher borders; navigation request counts; cache expiry and lesson boundaries; explicit refresh; failure/warning handling; history restoration; account changes and late sign-out responses. Public visitors receive no private page-cache metadata. The native specification Page and checked-in specification are synchronized.
+
+**106/106 regression test files passed.** JavaScript syntax, synchronized manifests/health/page versions, unique IDs and local assets across 13 HTML pages, changed asset URLs, all 47 original Academy-site link occurrences, unchanged historical notes and exact specification synchronization passed static checks. Browser visual and physical iPhone checks remain pending under the existing preview-tool limitation. Push target: `feature/105.3.4.13`. Website/Worker deployment is separate.
+
+---
+
+# Academy timetable · V105.4.3.16
+
+Combined room cards now show the applicable Program names and a compact lesson count. All individual lesson times are in the single **i** popup alongside their subject, Module, Program, class/level and teacher details. Single-lesson cards retain their time. Smaller padding and the existing compact seven-date columns keep the week readable. Participation colours, next/in-progress highlighting and per-lesson joining windows remain.
+
+Timezone labels are hidden by default across the Academy entrance, public/full/personal timetables, information popups, connected new Program setup and timetable previews, and their image/PDF exports. The presentation model retains the timezone and supports an explicit `showTimezone` option. Stored publication times, timezone data, chronological conversion and five-minute joining calculations are unchanged. The standalone legacy Reboot screens/data remain untouched.
+
+The remote feature branch was reviewed and fast-forwarded through **V105.4.3.15**, preserving the other chat's rollback. The configured Development Worker reports V105.4.3.15. A read-only Drive inspection verified the Pilot registry/workbook identity and current immutable publication: Quran, Surahs, Duas, 99 Names, Fiqh, Aqaaid, History and Akhlaq use the same exact published link. The four Wednesday Hadith class entries have no published link, and the current class records have no default links. Shared-link entries already receive one request-local room identifier; missing links explain the remaining separate Hadith cards. No replacement link is inferred and no live spreadsheet/publication is changed. Hadith needs a confirmed published link before those entries can join the shared-room card.
+
+Regression coverage includes split class rules with one shared link across successive subjects, protected room identifiers before joining opens, full and activity timetable rollups, compact cards with every time retained in i, different/missing rooms and dates remaining separate, hidden timezone labels, retained clock conversion/overnight handling and explicit timezone inclusion in timetable HTML/image exports. **106/106 regression test files passed.** JavaScript syntax, release manifests/health/page markers, changed asset cache URLs, unique IDs and local assets across 13 HTML pages, all 47 original Academy-site link occurrences and unchanged historical notes were verified. The native specification Page and checked-in specification are synchronized.
+
+Push target: `feature/105.3.4.13`. Browser visual and physical iPhone checks remain pending under the previously recorded preview-tool limitation. This feature push does not deploy the website or Worker.
+
+---
+
+# V105.4.3.15 — Roll back V105.4.3.14
+
+At the user’s request, restore V105.4.3.13 application behaviour while retaining its compact daily Zoom-room timetable. Revert V105.4.3.14 request deduplication, quota cooldown, account error classification and request metrics. No spreadsheet records, credentials, subscriptions or attendance data are changed. Version markers and changed asset URLs use V105.4.3.15 so browsers load the rollback.
+
+**106/106 regression test files passed.** Operational source was compared with V105.4.3.13 and matches apart from the current Worker version label. Google Sheets quotas may still prevent reads after rollback; recovery of live Program Management requires a signed-in acceptance check. The separate navigation-load investigation is not included in this rollback.
+
+---
+
 # Academy request efficiency · V105.4.3.14
 
 The Academy now avoids the extra initial `pageshow` requests and combines identical entrance requests while they are in flight. Sheets throttling receives a one-minute retry pause and a clear service-busy message; temporary account-service failures retain saved sign-ins without granting unverified access. Partial Program timetable failures retain available lessons and carry the same cooldown. Backend Sheets 429 responses return immediately instead of receiving three quick attempts. Login and Academy routes emit request-local counts and timings without account or spreadsheet details. [Implementation and measurement limits](ACADEMY-REQUEST-EFFICIENCY.md).

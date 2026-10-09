@@ -1,3 +1,5 @@
+> Historical release note: the V105.4.3.14 changes below were rolled back in V105.4.3.15.
+
 # Academy request efficiency · V105.4.3.14
 
 ## Immediate changes

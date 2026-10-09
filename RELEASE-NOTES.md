@@ -13,6 +13,27 @@ Add the operational schema and active-data converter. The real development basel
 # Unreleased — Academy migration preflight
 
 Prepare a repeatable development snapshot, local staging archive and active-data inclusion manifest with validation. Preserve exact source values for comparison; keep inactive accounts, inactive management records and the excluded old Reboot workspace out of the migration selection. Record the five intended active Programs separately from publication eligibility. No application storage switch or cloud database provisioning. [Data report](docs/ACADEMY-MIGRATION-REPORT-2026-10-09.md).
+# V105.4.3.17 — Uniform timetable cards and cached Program navigation
+
+Timetable cards have equal dimensions, a consistent shade for each Program and one shared shade for all Courses. Teacher participation uses a thick border on all four sides, including shared-room cards with teaching involvement. Keep next/in-progress indicators and authorised Join controls within the same card size.
+
+Reuse authorised Program/Course page metadata and the integrated timetable in memory for up to one minute while switching activities. Recheck at joining/start/end boundaries, expiry, explicit refresh and browser-history restoration; clear the cache on account changes. Preserve browsed dates and avoid duplicate opening requests. [Implementation and verification](docs/ACADEMY-ENTRANCE.md).
+
+---
+
+# V105.4.3.16 — Compact timetable details and hidden timezone labels
+
+Combined daily Zoom-room cards show their Program names and lesson count; all individual lesson times are inside the i popup. Single lessons keep their time. Remove visible timezone labels from the Academy website, connected new Program setup/timetable tools and timetable exports by default, retaining scheduling data, clock conversion and authorised joining windows. An explicit presentation option can include the timezone when requested. [Implementation, Reboot publication findings and verification](docs/ACADEMY-ENTRANCE.md).
+
+---
+
+# V105.4.3.15 — Roll back V105.4.3.14
+
+At the user’s request, restore V105.4.3.13 application behaviour while retaining its compact daily Zoom-room timetable. Revert V105.4.3.14 request deduplication, quota cooldown, account error classification and request metrics. No spreadsheet records, credentials, subscriptions or attendance data are changed. Version markers and changed asset URLs use V105.4.3.15 so browsers load the rollback.
+
+**106/106 regression test files passed.** Operational source was compared with V105.4.3.13 and matches apart from the current Worker version label. Google Sheets quotas may still prevent reads after rollback; recovery of live Program Management requires a signed-in acceptance check. The separate navigation-load investigation is not included in this rollback.
+
+---
 
 # V105.4.3.14 — Fewer Academy requests and clearer service errors
 

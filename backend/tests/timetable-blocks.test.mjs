@@ -120,3 +120,14 @@ const busyProgram=blocks.model(source(Array.from({length:10},(_,period)=>['A','B
 const busyPage=blocks.canvases(busyProgram,canvas)[0];busyPage.canvas.toDataURL=()=>'';pdfSizes.length=0;
 await ctx.window.M4L_TIMETABLE_PRESENTATION.pdf([busyPage],pdfLib,{size:'program'});
 assert.equal(pdfSizes.length,1);assert(pdfSizes[0][1]>1683.78,'A dense Program timetable grows vertically instead of shrinking the text');
+
+// Website, image and PDF sources use the same default timezone display policy.
+for(const options of [{classId:'A'},{teacherId:'T1'},{program:true}]){
+  const plain=blocks.model(input,options);
+  assert.equal(plain.timezone,'Asia/Riyadh');
+  assert.doesNotMatch(blocks.html(plain,canvas),/Asia\/Riyadh/);
+  assert(blocks.canvases(plain,canvas).every(page=>page.canvas.text.every(row=>!String(row.value).includes('Asia/Riyadh'))));
+  const explicit=blocks.model(input,{...options,showTimezone:true});
+  assert.match(blocks.html(explicit,canvas),/Asia\/Riyadh/);
+  assert(blocks.canvases(explicit,canvas).some(page=>page.canvas.text.some(row=>String(row.value).includes('Asia/Riyadh'))));
+}

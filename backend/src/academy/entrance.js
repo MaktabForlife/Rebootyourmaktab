@@ -115,7 +115,6 @@ export async function buildEntrance({ tables, programs, rolesByProgram, loadProg
   if (!validDate(start)) throw problem('Choose a valid timetable date.');
   const end = addDays(start, 6);
   const warnings = [], activities = [], timetable = [];
-  let retryAfterMs = 0;
   // Request-local labels allow grouping without releasing a joining URL before its time window.
   const meetingGroups = new Map();
   const groupZoom = value => {
@@ -134,8 +133,7 @@ export async function buildEntrance({ tables, programs, rolesByProgram, loadProg
     try {
       const data = await loadProgram(program, Boolean(user && roles.length));
       return programProjection(program, data, user, roles, start, end, now, Boolean(requestedId), groupZoom);
-    } catch (error) {
-      if (error?.status === 429) retryAfterMs = 60000;
+    } catch {
       warnings.push(`${basic.name} timetable is unavailable.`);
       return { ...basic, timetable: [], classes: [], curriculum: [], tools: {}, unavailable: true };
     }
@@ -197,7 +195,6 @@ export async function buildEntrance({ tables, programs, rolesByProgram, loadProg
   }
   if (!programs.some(row => key(row.id) === key(REBOOT_PILOT_PROGRAM_ID) && row.mode === 'PROGRAM' && row.status === programLifecycle))
     warnings.push('Reboot is coming soon. Its new Program registration is unavailable.');
-  if (retryAfterMs) warnings.push('Some Academy information is temporarily busy. Please wait one minute before trying again.');
   const activity = requestedId ? [...programViews, ...courseViews].find(row => key(row.id) === key(requestedId)) : null;
   if (requestedId && !activity) throw problem('This Academy activity is unavailable.', 404);
   // Global Admin sees the entire Academy schedule without claiming learner/teacher participation.
@@ -206,12 +203,16 @@ export async function buildEntrance({ tables, programs, rolesByProgram, loadProg
     .filter(row => Number.isFinite(row.startsAt) && Number.isFinite(row.endsAt))
     .sort((a, b) => a.startsAt - b.startsAt || a.activityId.localeCompare(b.activityId)) : [];
   const visibleTimetable = requestedId ? timetable.filter(row => key(row.activityId) === key(requestedId)) : timetable;
+  // These views are already projected above. Share authorised page metadata once so
+  // Program navigation can reuse the same personal timetable without another Sheets read.
+  const activityPages = user ? [...programViews, ...courseViews].filter(row => row.roles.length)
+    .map(({ timetable: _, ...row }) => row) : [];
   return { signedIn: Boolean(user), globalAdmin: globalAdmin(user), startDate: start, endDate: end, timezone,
-    activities, personalActivities: user ? activities.filter(row => row.roles.length) : [],
+    activities, personalActivities: user ? activities.filter(row => row.roles.length) : [], activityPages,
     student: Boolean(user && activities.some(row => row.roles.includes('STUDENT'))),
     personalTimetable,
     timetable: visibleTimetable.sort((a, b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime)),
-    activity, warnings, ...(retryAfterMs ? { retryAfterMs } : {}) };
+    activity, warnings };
 }
 
 function nowInMinutes(now, timezone) {
