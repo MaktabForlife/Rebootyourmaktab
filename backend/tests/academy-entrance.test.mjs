@@ -176,6 +176,29 @@ const sharedRoomTables=structuredClone(tables);
 sharedRoomTables.PublishedGlobalTimetableSessions[0].ZoomLink='https://example.zoom.us/j/123456789';
 const sharedRooms=await buildEntrance({...args,tables:sharedRoomTables,now:new Date('2026-09-30T08:00:00Z'),user:account('ADMIN','GLOBAL_ADMIN'),input:{id:first.program.id}});
 assert.equal(new Set(sharedRooms.personalTimetable.map(row=>row.meetingGroup)).size,1,'Course and Program lessons sharing a room can be combined');
+// Synthetic equivalent of the Pilot's split class rules: one shared room per day,
+// including later subjects, while genuinely unpublished links remain distinguishable.
+const splitData=structuredClone(first.data);
+const splitSnapshot=JSON.parse(splitData.tables.ProgramTimetablePublications[0].SnapshotJSON);
+const baseRule=splitSnapshot.rules[0];
+const splitRules=(subject,startTime,endTime,link)=>Array.from({length:4},(_,i)=>({...baseRule,
+  id:`${subject}-${i}`,sourceRuleId:subject,assignmentMode:'CLASS',weekdays:[3],
+  classIds:[`CLASS-${i+1}`],classNames:[`Class ${i+1}`],subjectName:subject,moduleName:subject,
+  startTime,endTime,zoomLink:link,effectiveZoomLink:link}));
+splitSnapshot.rules=[...splitRules('Quran','05:30','06:00','https://zoom.test/reboot'),
+  ...splitRules('Surahs','06:00','06:15','https://zoom.test/reboot'),
+  {...baseRule,id:'Fiqh',weekdays:[3],subjectName:'Fiqh',moduleName:'Fiqh',startTime:'06:15',endTime:'06:30',
+    zoomLink:'https://zoom.test/reboot',effectiveZoomLink:'https://zoom.test/reboot'},
+  ...splitRules('Hadith','06:30','06:45','')];
+splitData.tables.ProgramTimetablePublications[0].SnapshotJSON=JSON.stringify(splitSnapshot);
+const splitView=await buildEntrance({...args,programs:[first.program],loadProgram:async()=>splitData,
+  now:new Date('2026-09-30T00:00:00Z'),user:account('ADMIN','GLOBAL_ADMIN'),input:{id:first.program.id,startDate:'2026-09-30'}});
+const rebootDay=splitView.personalTimetable.filter(row=>row.activityId===first.program.id&&row.date==='2026-09-30');
+assert.equal(rebootDay.filter(row=>row.meetingGroup).length,9,'Every split class lesson keeps its shared room even before joining opens');
+assert.equal(new Set(rebootDay.filter(row=>row.meetingGroup).map(row=>row.meetingGroup)).size,1);
+assert.equal(rebootDay.filter(row=>!row.meetingGroup).length,4,'Unpublished Hadith links are not silently replaced with another lesson link');
+assert(rebootDay.every(row=>!row.joinUrl));
+assert(!JSON.stringify(splitView).includes('https://zoom.test/reboot'));
 const expired = structuredClone(first.data);
 expired.tables.ProgramEnrollments[0].EndDate = '2026-09-29';
 const formerStudent = await buildEntrance({ ...args, user: account('LEARNER-DEMO'), input: { id: first.program.id }, loadProgram: async () => expired });

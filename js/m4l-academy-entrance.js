@@ -52,7 +52,7 @@
       state.home = result;
       state.startDate = result.startDate;
       $('schedule-date').value = result.startDate;
-      $('schedule-range').textContent = `${formatDate(result.startDate)} – ${formatDate(result.endDate)}. ${result.signedIn ? '' : 'Times are shown with their timezone.'}`;
+      $('schedule-range').textContent = `${formatDate(result.startDate)} – ${formatDate(result.endDate)}`;
       $('entrance-message').textContent = result.warnings.join(' ');
       $('entrance-retry').hidden = !result.warnings.length;
       renderHome();
@@ -76,7 +76,7 @@
       if (generation !== state.scheduleGeneration) return;
       state.startDate = result.startDate;
       $('schedule-date').value = result.startDate;
-      $('schedule-range').textContent = `${formatDate(result.startDate)} – ${formatDate(result.endDate)}. ${result.signedIn ? '' : 'Times are shown with their timezone.'}`;
+      $('schedule-range').textContent = `${formatDate(result.startDate)} – ${formatDate(result.endDate)}`;
       $('schedule-message').textContent = result.warnings.join(' ');
       renderSchedule('academy-sessions', scheduleRows(result));
     } catch (error) {
@@ -176,16 +176,14 @@
         days.get(row.date).push({ row, index });
       });
       $(id).innerHTML = `<ol class="upcoming-days">${[...days].map(([date, lessons]) => `<li class="upcoming-day"><time datetime="${esc(date)}">${esc(formatDate(date))}</time><ul class="upcoming-items">${lessons.map(({ row, index }) => {
-        const label = esc(personal ? row.title : row.activityName || row.title);
-        const title = !detailed && state.home?.signedIn ? `<a href="${activityHref({ kind: row.kind, id: row.activityId })}">${label}</a>` : label;
+        const label = esc(row.activityName || row.title);
+        const title = state.home?.signedIn ? `<a href="${activityHref({ kind: row.kind, id: row.activityId })}">${label}</a>` : label;
         const info = state.home?.signedIn && row.information?.length ? `<button type="button" class="information-button" data-information="${id}:${index}" aria-label="More information about ${label}">i</button>` : '';
-        const join = detailed && row.status === 'SCHEDULED' && now >= row.joinAvailableAt && now < row.endsAt && safeLink(row.joinUrl) ? `<a class="button small" href="${esc(row.joinUrl)}" target="_blank" rel="noopener noreferrer">Join lesson</a>` : '';
-        const nextLabel = index === next ? `<span class="next-lesson-label">${row.startsAt <= now ? 'In progress' : 'Next lesson'}</span>` : '';
-        return `<li class="upcoming-item ${index === next ? 'next-lesson ' : ''}${row.involvement === 'teacher' ? 'teacher' : row.involvement === 'student' ? 'student' : ''}">${nextLabel}<div class="upcoming-name">${title}${!personal ? info : ''}</div>${personal ? `<small>${esc(row.activityName)}</small>` : ''}<span class="upcoming-time">${esc(row.startTime)}–${esc(row.endTime)}</span>${personal ? `<small>${esc(row.timezone)}</small><div class="upcoming-actions">${info}${join}</div>` : ''}</li>`;
+        return `<li class="upcoming-item ${row.involvement === 'teacher' ? 'teacher' : row.involvement === 'student' ? 'student' : ''}"><div class="upcoming-name">${title}${info}</div><span class="upcoming-time">${esc(row.startTime)}–${esc(row.endTime)}</span></li>`;
       }).join('')}</ul></li>`).join('')}</ol>`;
       return;
     }
-    $(id).innerHTML = `<ol class="schedule-list">${rows.map(row => `<li><time datetime="${esc(row.date)}">${esc(formatDate(row.date))}</time><div>${esc(row.startTime)}–${esc(row.endTime)}<small>${esc(row.timezone)}</small></div><div class="lesson-name">${esc(row.title)}</div></li>`).join('')}</ol>`;
+    $(id).innerHTML = `<ol class="schedule-list">${rows.map(row => `<li><time datetime="${esc(row.date)}">${esc(formatDate(row.date))}</time><div>${esc(row.startTime)}–${esc(row.endTime)}</div><div class="lesson-name">${esc(row.title)}</div></li>`).join('')}</ol>`;
   }
 
   function renderPersonalWeek(id, rows, detailed, next, now) {
@@ -221,22 +219,13 @@
       const label = esc(activities.join(' · '));
       const singleActivity = entries.every(entry => entry.row.kind === first.kind && entry.row.activityId === first.activityId);
       const title = !detailed && singleActivity ? `<a href="${activityHref({ kind: first.kind, id: first.activityId })}">${label}</a>` : label;
-      const times = new Map();
-      for (const entry of entries) {
-        const key = JSON.stringify([entry.row.startsAt, entry.row.endsAt]);
-        if (!times.has(key)) times.set(key, []);
-        times.get(key).push(entry);
-      }
       const nextEntry = entries.find(entry => entry.index === next);
       const infoIndex = state.information[id].push({ title: activities.join(' · '), lessons: entries.map(entry => entry.row) }) - 1;
       const joinable = entries.find(({ row }) => detailed && row.status === 'SCHEDULED' && now >= row.joinAvailableAt && now < row.endsAt && safeLink(row.joinUrl));
       const join = joinable ? `<a class="button small" href="${esc(joinable.row.joinUrl)}" target="_blank" rel="noopener noreferrer">Join lesson</a>` : '';
-      return `<li class="upcoming-item ${nextEntry ? 'next-lesson ' : ''}${participation(entries)}">${nextEntry ? `<span class="next-lesson-label">${nextEntry.row.startsAt <= now ? 'In progress' : 'Next lesson'}</span>` : ''}<div class="upcoming-name">${title}</div>${subjects.length === 1 && subjects[0] !== activities[0] ? `<small>${esc(subjects[0])}</small>` : entries.length > 1 ? `<small>${entries.length} lessons</small>` : ''}${[...times.values()].map(lessons => {
-        const row = lessons[0].row;
-        return `<span class="upcoming-time lesson-slot ${participation(lessons)}">${esc(row.startTime)}–${esc(row.endTime)}${row.endDate !== row.date ? ' (+1 day)' : ''}</span>`;
-      }).join('')}<div class="upcoming-actions"><button type="button" class="information-button" data-information="${id}:${infoIndex}" aria-label="Lesson details for ${label}">i</button>${join}</div></li>`;
+      return `<li class="upcoming-item ${nextEntry ? 'next-lesson ' : ''}${participation(entries)}">${nextEntry ? `<span class="next-lesson-label">${nextEntry.row.startsAt <= now ? 'In progress' : 'Next lesson'}</span>` : ''}<div class="upcoming-name">${title}</div>${entries.length > 1 ? `<small>${entries.length} lessons</small>` : subjects[0] !== activities[0] ? `<small>${esc(subjects[0])}</small>` : ''}${entries.length === 1 ? `<span class="upcoming-time">${esc(first.startTime)}–${esc(first.endTime)}${first.endDate !== first.date ? ' (+1 day)' : ''}</span>` : ''}<div class="upcoming-actions"><button type="button" class="information-button" data-information="${id}:${infoIndex}" aria-label="Lesson details for ${label}">i</button>${join}</div></li>`;
     };
-    $(id).innerHTML = `<p class="timetable-timezone">Times in ${esc(timezone)}</p><ol class="upcoming-days timetable-days">${[...days].sort(([a], [b]) => a.localeCompare(b)).map(([date, groups]) => `<li class="upcoming-day"><time datetime="${esc(date)}">${esc(formatDate(date))}</time><ul class="upcoming-items">${groups.size ? [...groups.values()].map(renderGroup).join('') : '<li class="timetable-empty">No lessons</li>'}</ul></li>`).join('')}</ol>`;
+    $(id).innerHTML = `<ol class="upcoming-days timetable-days">${[...days].sort(([a], [b]) => a.localeCompare(b)).map(([date, groups]) => `<li class="upcoming-day"><time datetime="${esc(date)}">${esc(formatDate(date))}</time><ul class="upcoming-items">${groups.size ? [...groups.values()].map(renderGroup).join('') : '<li class="timetable-empty">No lessons</li>'}</ul></li>`).join('')}</ol>`;
   }
 
   async function loadActivity(id, refresh = false) {

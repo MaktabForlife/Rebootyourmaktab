@@ -47,7 +47,7 @@
       && `${row.name} ${row.id}`.toLowerCase().includes(state.search.toLowerCase()));
     byId("program-count").textContent = `${rows.length} of ${state.rows.length} Programs`;
     byId("program-rows").innerHTML = rows.length ? rows.map((row, index) => renderRow(row, index + 1)).join("")
-      : '<tr><td colspan="7" class="pb-empty">No Programs found. Clear your filters or create a new Program.</td></tr>';
+      : '<tr><td colspan="6" class="pb-empty">No Programs found. Clear your filters or create a new Program.</td></tr>';
     renderDetail();
   }
   function renderRow(row, index) {
@@ -56,7 +56,6 @@
     return `<tr data-id="${escape(row.id)}" class="${state.selected === row.id ? "is-selected" : ""}">
       <td>${editable ? `<button type="button" class="pb-program-select" data-action="select" aria-label="Select ${escape(row.name || "new Program")}" aria-pressed="${state.selected === row.id}" ${state.busy ? "disabled" : ""}>${index}</button>` : index}</td><td>${input("name", "Program name", 'class="pb-name" maxlength="160"')}</td>
       <td>${editable ? input("durationYears", "Duration in years", 'type="number" min="1" max="30" step="1"') : "—"}</td>
-      <td>${editable ? "South Africa (SAST)" : "—"}</td>
       <td>${editable ? `<select data-field="status" aria-label="Status for ${escape(row.name || "new Program")}" ${state.busy ? "disabled" : ""}>${["DRAFT", "ARCHIVED"].map(value => `<option value="${value}" ${row.status === value ? "selected" : ""}>${value === "DRAFT" ? "Draft" : "Archived"}</option>`).join("")}</select>` : escape(row.status === "ACTIVE" ? "Active" : "Inactive")}</td>
       <td>${row.saved ? `<a href="https://docs.google.com/spreadsheets/d/${encodeURIComponent(row.spreadsheetId)}/edit" target="_blank" rel="noopener noreferrer">Open spreadsheet ↗</a>` : input("spreadsheetId", "Spreadsheet link or ID", 'placeholder="Paste Google Sheets link"')} </td>
       <td><div class="pb-actions"><span class="pb-state">${!editable ? "Existing workspace" : row.error ? "Save failed" : dirty(row) ? "Unsaved" : "Saved"}</span>
@@ -74,7 +73,7 @@
       <div class="pb-actions">${row.saved && !dirty(row) ? `<a href="/programs/manage.html?program=${encodeURIComponent(row.id)}">Manage Program →</a><a href="/programs/library.html?program=${encodeURIComponent(row.id)}">Manage Library →</a><a href="/programs/timetable.html?program=${encodeURIComponent(row.id)}">Open timetable →</a><a href="/programs/attendance.html?program=${encodeURIComponent(row.id)}">Attendance →</a>` : ""}<button type="button" data-action="check" class="pb-secondary" ${state.busy || !row.saved || dirty(row) ? "disabled" : ""}>Check readiness</button>
       <button type="button" data-action="prepare" ${state.busy || !row.saved || dirty(row) || readiness?.prepared ? "disabled" : ""}>Prepare spreadsheet</button></div></div>
       <p>${escape(readiness?.message || (row.saved ? "Check backend access and prepare the Program spreadsheet. Save changes before checking." : "Save this draft to register the Program. Its spreadsheet can then be prepared."))}</p>
-      <div class="pb-checks">${(readiness?.checks || [{ label: "Spreadsheet not checked", ok: false }, { label: row.timezone ? "Timezone entered" : "Timezone pending", ok: Boolean(row.timezone) }]).map(check => `<span class="pb-check ${check.ok ? "is-ready" : ""}">${check.ok ? "✓" : "○"} ${escape(check.label)}</span>`).join("")}</div>
+      <div class="pb-checks">${(readiness?.checks || [{ label: "Spreadsheet not checked", ok: false }]).filter(check => !/time\s*zone/i.test(check.label)).map(check => `<span class="pb-check ${check.ok ? "is-ready" : ""}">${check.ok ? "✓" : "○"} ${escape(check.label)}</span>`).join("")}</div>
       <div class="pb-capabilities" aria-label="Capability availability"><span>✓ Configuration</span><span>✓ Curriculum management</span><span>✓ Library management</span><span>✓ Library viewer</span><span>✓ Timetable builder</span><span>✓ Attendance registers</span>${["Progress", "Planner"].map(name => `<span>${name} · Later stage</span>`).join("")}</div>`;
   }
   function add() {
@@ -86,7 +85,7 @@
     byId("program-search").value = byId("program-filter").value = "";
     render();
     document.querySelector(`[data-id="${id}"] [data-field="name"]`).focus();
-    message("New draft. Enter its name and spreadsheet. Times use South Africa time.");
+    message("New draft. Enter its name and spreadsheet.");
   }
   async function save(row) {
     if (state.busy || !dirty(row)) return;

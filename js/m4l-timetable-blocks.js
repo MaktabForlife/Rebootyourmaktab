@@ -99,7 +99,7 @@
       const text=b.lines.map(line=>{const value=`<text x="${b.x+line.dx}" y="${textTop+line.dy+line.size}" font-size="${line.size}" font-weight="${line.bold?'bold':'normal'}" fill="${line.color}" ${line.title&&b.cancelled?'text-decoration="line-through"':''}>${esc(line.text)}</text>`;return line.title&&b.url?`<a href="${esc(b.url)}" target="_blank" rel="noopener noreferrer" aria-label="${esc(b.title+' meeting link')}">${value.replace('<text ','<text text-decoration="underline" ')}</a>`:value;}).join('');
       return `<g role="group" aria-label="${esc(`${b.title}, ${clock(b.start)} to ${clock(b.end)}, ${b.teacher}, ${b.classes}`)}"><rect x="${b.x}" y="${y}" width="${b.width}" height="${height}" rx="16" fill="${fill}" stroke="${stroke}" stroke-width="1.5"/>${text}</g>`;
     }).join('');
-    return `<section class="tt-block-sheet">${header(m)}<svg class="tt-block-grid" viewBox="0 0 ${s.width} ${top+s.height+28}" xmlns="http://www.w3.org/2000/svg" role="group" aria-label="${esc(m.timetableName)} timetable blocks positioned by start and end time" style="min-width:${Math.max(850,m.columns.length*230+120)}px;font-family:Arial,sans-serif">${cols}${ticks.join('')}${blocks}</svg><p class="tt-block-footnote">${esc(m.stamp)} · ${esc(m.timezone)}</p></section>`;
+    return `<section class="tt-block-sheet">${header(m)}<svg class="tt-block-grid" viewBox="0 0 ${s.width} ${top+s.height+28}" xmlns="http://www.w3.org/2000/svg" role="group" aria-label="${esc(m.timetableName)} timetable blocks positioned by start and end time" style="min-width:${Math.max(850,m.columns.length*230+120)}px;font-family:Arial,sans-serif">${cols}${ticks.join('')}${blocks}</svg><p class="tt-block-footnote">${esc(m.stamp)}${m.showTimezone ? ` · ${esc(m.timezone)}` : ''}</p></section>`;
   }
   function rounded(ctx,x,y,w,h,fill,stroke){ctx.beginPath();ctx.roundRect(x,y,w,h,14);ctx.fillStyle=fill;ctx.fill();ctx.strokeStyle=stroke;ctx.lineWidth=1.5;ctx.stroke();}
   // One Program publication is shown in time bands. Parallel class lessons remain
@@ -131,7 +131,7 @@
   function programHtml(m,createCanvas){
     if(!m.events.length)return '<p class="tt-empty">No lessons to display.</p>';
     const s=programScene(m,createCanvas);
-    return `<section class="tt-block-sheet tt-program-sheet">${header(m)}<p class="tt-program-roster">All classes: ${m.allClassNames.map(esc).join(' · ')}</p><div class="tt-program-scroll"><table class="tt-program-grid"><caption class="pb-sr-only">${esc(m.timetableName)} timetable for all classes</caption><thead><tr><th scope="col">Time</th>${s.columns.map(day=>`<th scope="col">${esc(day.label)}</th>`).join('')}</tr></thead><tbody>${s.rows.map(row=>`<tr><th scope="row">${clock(row.start)}–${clock(row.end)}</th>${row.cells.map(items=>`<td>${items.map(item=>`<div class="tt-program-lesson ${item.cancelled?'tt-cancelled':''}"><strong>${esc(clock(item.start)+'–'+clock(item.end))}</strong>${item.url&&!item.cancelled?`<a href="${esc(item.url)}" target="_blank" rel="noopener noreferrer">${esc(item.title)}</a>`:`<b>${esc(item.title)}</b>`}<span>${esc(item.classes)}</span>${item.teacher?`<span>${esc(item.teacher)}</span>`:''}</div>`).join('')}</td>`).join('')}</tr>`).join('')}</tbody></table></div><p class="tt-block-footnote">${esc(m.stamp)} · ${esc(m.timezone)}</p></section>`;
+    return `<section class="tt-block-sheet tt-program-sheet">${header(m)}<p class="tt-program-roster">All classes: ${m.allClassNames.map(esc).join(' · ')}</p><div class="tt-program-scroll"><table class="tt-program-grid"><caption class="pb-sr-only">${esc(m.timetableName)} timetable for all classes</caption><thead><tr><th scope="col">Time</th>${s.columns.map(day=>`<th scope="col">${esc(day.label)}</th>`).join('')}</tr></thead><tbody>${s.rows.map(row=>`<tr><th scope="row">${clock(row.start)}–${clock(row.end)}</th>${row.cells.map(items=>`<td>${items.map(item=>`<div class="tt-program-lesson ${item.cancelled?'tt-cancelled':''}"><strong>${esc(clock(item.start)+'–'+clock(item.end))}</strong>${item.url&&!item.cancelled?`<a href="${esc(item.url)}" target="_blank" rel="noopener noreferrer">${esc(item.title)}</a>`:`<b>${esc(item.title)}</b>`}<span>${esc(item.classes)}</span>${item.teacher?`<span>${esc(item.teacher)}</span>`:''}</div>`).join('')}</td>`).join('')}</tr>`).join('')}</tbody></table></div><p class="tt-block-footnote">${esc(m.stamp)}${m.showTimezone ? ` · ${esc(m.timezone)}` : ''}</p></section>`;
   }
   function programCanvases(m,createCanvas,logo){
     if(!m.events.length)throw Error('There are no lessons to export.');
@@ -160,7 +160,7 @@
       });
       y+=row.height;
     }
-    font(ctx,15);ctx.fillStyle='#685f6e';ctx.fillText(`${m.stamp} · ${m.timezone}`,W/2,H-32);
+    font(ctx,15);ctx.fillStyle='#685f6e';ctx.fillText(`${m.stamp}${m.showTimezone ? ` · ${m.timezone}` : ''}`,W/2,H-32);
     return [{canvas,links}];
   }
   function canvases(m,createCanvas,logo){
@@ -189,7 +189,7 @@
       for(const line of b.lines){const lx=b.x+line.dx,ly=textTop+line.dy;font(ctx,line.size,line.bold);ctx.fillStyle=line.color;ctx.fillText(line.text,lx,ly);if(line.title&&b.url){ctx.fillRect(lx,ly+line.size+1,line.width,1);links.push({url:b.url,x:lx,y:ly,width:line.width,height:line.size+3});}}
       ctx.textAlign='center';
     }
-    font(ctx,15);ctx.fillStyle='#685f6e';ctx.fillText(`${m.stamp} · ${m.timezone}`,W/2,H-32);
+    font(ctx,15);ctx.fillStyle='#685f6e';ctx.fillText(`${m.stamp}${m.showTimezone ? ` · ${m.timezone}` : ''}`,W/2,H-32);
     return [{canvas,links}];
   }
   window.M4L_TIMETABLE_BLOCKS={model,position,scene,html:(m,createCanvas)=>m.timetableType==='program'?programHtml(m,createCanvas):html(m,createCanvas),canvases,programScene};

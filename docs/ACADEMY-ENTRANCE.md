@@ -1,3 +1,17 @@
+# Academy timetable · V105.4.3.16
+
+Combined room cards now show the applicable Program names and a compact lesson count. All individual lesson times are in the single **i** popup alongside their subject, Module, Program, class/level and teacher details. Single-lesson cards retain their time. Smaller padding and the existing compact seven-date columns keep the week readable. Participation colours, next/in-progress highlighting and per-lesson joining windows remain.
+
+Timezone labels are hidden by default across the Academy entrance, public/full/personal timetables, information popups, connected new Program setup and timetable previews, and their image/PDF exports. The presentation model retains the timezone and supports an explicit `showTimezone` option. Stored publication times, timezone data, chronological conversion and five-minute joining calculations are unchanged. The standalone legacy Reboot screens/data remain untouched.
+
+The remote feature branch was reviewed and fast-forwarded through **V105.4.3.15**, preserving the other chat's rollback. The configured Development Worker reports V105.4.3.15. A read-only Drive inspection verified the Pilot registry/workbook identity and current immutable publication: Quran, Surahs, Duas, 99 Names, Fiqh, Aqaaid, History and Akhlaq use the same exact published link. The four Wednesday Hadith class entries have no published link, and the current class records have no default links. Shared-link entries already receive one request-local room identifier; missing links explain the remaining separate Hadith cards. No replacement link is inferred and no live spreadsheet/publication is changed. Hadith needs a confirmed published link before those entries can join the shared-room card.
+
+Regression coverage includes split class rules with one shared link across successive subjects, protected room identifiers before joining opens, full and activity timetable rollups, compact cards with every time retained in i, different/missing rooms and dates remaining separate, hidden timezone labels, retained clock conversion/overnight handling and explicit timezone inclusion in timetable HTML/image exports. **106/106 regression test files passed.** JavaScript syntax, release manifests/health/page markers, changed asset cache URLs, unique IDs and local assets across 13 HTML pages, all 47 original Academy-site link occurrences and unchanged historical notes were verified. The native specification Page and checked-in specification are synchronized.
+
+Push target: `feature/105.3.4.13`. Browser visual and physical iPhone checks remain pending under the previously recorded preview-tool limitation. This feature push does not deploy the website or Worker.
+
+---
+
 # V105.4.3.15 — Roll back V105.4.3.14
 
 At the user’s request, restore V105.4.3.13 application behaviour while retaining its compact daily Zoom-room timetable. Revert V105.4.3.14 request deduplication, quota cooldown, account error classification and request metrics. No spreadsheet records, credentials, subscriptions or attendance data are changed. Version markers and changed asset URLs use V105.4.3.15 so browsers load the rollback.

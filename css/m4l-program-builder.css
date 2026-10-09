@@ -38,10 +38,9 @@ p { margin:8px 0; }
 .pb-grid th:first-child { width:68px; left:0; z-index:4; }
 .pb-grid th:nth-child(2) { width:220px; }
 .pb-grid th:nth-child(3) { width:64px; }
-.pb-grid th:nth-child(4) { width:170px; }
-.pb-grid th:nth-child(5) { width:110px; }
-.pb-grid th:nth-child(6) { width:235px; }
-.pb-grid th:nth-child(7) { width:245px; }
+.pb-grid th:nth-child(4) { width:110px; }
+.pb-grid th:nth-child(5) { width:235px; }
+.pb-grid th:nth-child(6) { width:245px; }
 .pb-grid td:first-child { position:sticky; left:0; z-index:2; background:white; color:var(--pb-muted); text-align:center; font-size:11px; }
 .pb-grid th:nth-child(2),.pb-grid td:nth-child(2) { position:sticky; left:68px; z-index:1; background:white; }
 .pb-grid th:nth-child(2) { z-index:3; background:#f2f1f4; }

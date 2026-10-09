@@ -20,7 +20,7 @@
     }
     return display;
   }
-  function model(result,{programName='',classId='',effectiveFrom='',history=false,layout}={}){
+  function model(result,{programName='',classId='',effectiveFrom='',history=false,layout,showTimezone=false}={}){
     const items=displayOccurrences(result.occurrences.filter(r=>r.kind==='BREAK'||!classId||r.classIds.includes(classId)),{program:!classId});
     const weekly=result.pattern==='WEEKLY';
     const columns=weekly?[1,2,3,4,5,6,0].filter(d=>items.some(r=>r.weekday===d)).map(d=>({id:d,label:days[d]})):[...new Set(items.map(r=>r.date))].sort().map(d=>({id:d,label:d}));
@@ -28,7 +28,7 @@
     const boundaries=[...new Set(items.flatMap(r=>[r.startTime,r.endTime]))].sort();
     return {academy:'UMM ABBAD ACADEMY',program:result.snapshot?.programName||programName,title:weekly?'Weekly timetable':'Timetable',classes:classes.join(' · '),
       stamp:history?`Published version ${result.version} · Effective ${result.effectiveFrom}`:`DRAFT PREVIEW · Proposed effective date ${effectiveFrom}`,
-      timezone:result.snapshot?.timezone||'',columns,layout:{...defaults(),...(layout||result.snapshot?.layout||result.draft?.layout||{})},
+      timezone:result.snapshot?.timezone||'',showTimezone,columns,layout:{...defaults(),...(layout||result.snapshot?.layout||result.draft?.layout||{})},
       rows:boundaries.slice(0,-1).map((start,i)=>{const end=boundaries[i+1];return {key:`${start}|${end}`,start,end,label:`${time(start)} - ${time(end)}`,cells:columns.map(col=>items.filter(r=>(weekly?r.weekday:r.date)===col.id&&r.startTime<=start&&r.endTime>=end).map(r=>({ruleId:r.ruleId,kind:r.kind||'LESSON',title:r.moduleName||r.subjectName,teacher:teacherLabel(r),classes:r.classNames.join(', '),url:link(r.zoomLink),cancelled:r.status==='CANCELLED',identity:[r.moduleId||'',r.programSubjectId||'',r.assignmentMode||'',...(r.teacherIds||[r.teacherId]).slice().sort(),...r.classIds.slice().sort()].join('|'),start:r.startTime,end:r.endTime})))};})};
   }
   const signature=items=>JSON.stringify(items.map(({ruleId,...item})=>item).sort((a,b)=>JSON.stringify(a).localeCompare(JSON.stringify(b))));
@@ -49,7 +49,7 @@
   function html(m,{editable=false}={}){
     const cells=grid(m),weights=[m.layout.columnWidths.time||180,...m.columns.map(c=>m.layout.columnWidths[c.id]||360)],total=weights.reduce((a,b)=>a+b,0);
     const itemHTML=item=>`<div class="tt-sheet-lesson ${item.cancelled?'tt-cancelled':''}">${item.url&&!item.cancelled?`<a href="${esc(item.url)}" target="_blank" rel="noopener noreferrer">${esc(item.title)}</a>`:`<strong>${esc(item.title)}</strong>`}${item.teacher?`<span>${esc(item.teacher)}</span>`:''}${item.classes?`<small>${esc(item.classes)}</small>`:''}${item.cancelled?'<small>Cancelled</small>':''}</div>`;
-    return `<div class="tt-sheet" style="min-width:${Math.max(680,total*.65)}px"><header><img src="/logo.png" alt="Academy logo"><div><p>${esc(m.academy)}</p><h2>${esc(m.program)}</h2><h3>${esc(m.title)}</h3><p>${esc(m.classes)}</p></div></header><p class="tt-sheet-stamp">${esc(m.stamp)} · ${esc(m.timezone)}</p><table style="--tt-alignment:${m.layout.alignment}"><caption class="pb-sr-only">${esc(m.program)} ${esc(m.title)}</caption><colgroup>${weights.map(w=>`<col style="width:${w/total*100}%">`).join('')}</colgroup><thead><tr><th scope="col">Time</th>${m.columns.map(c=>`<th scope="col">${esc(c.label)}</th>`).join('')}</tr></thead><tbody>${m.rows.map((row,i)=>`<tr style="height:${m.layout.rowHeights[row.key]||70}px"><th scope="row">${esc(row.label)}</th>${cells.filter(c=>c.row===i).map(cell=>`<td rowspan="${cell.rowSpan}" colspan="${cell.colSpan}">${cell.items.map(itemHTML).join('')||'—'}${editable?cell.edits.map(e=>`<button type="button" class="tt-cell-edit pb-secondary" data-edit-entry="${esc(e.id)}">Edit ${e.kind==='BREAK'?'break':'lesson'}${cell.edits.length>cell.items.length?' · '+esc(e.day):''}</button>`).join(''):''}${editable&&!cell.items.length?`<button type="button" class="tt-cell-edit pb-secondary" data-gap="${esc(row.key)}" data-gap-days="${m.columns.slice(cell.col,cell.col+cell.colSpan).map(c=>c.id).join(',')}">Add break</button>`:''}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+    return `<div class="tt-sheet" style="min-width:${Math.max(680,total*.65)}px"><header><img src="/logo.png" alt="Academy logo"><div><p>${esc(m.academy)}</p><h2>${esc(m.program)}</h2><h3>${esc(m.title)}</h3><p>${esc(m.classes)}</p></div></header><p class="tt-sheet-stamp">${esc(m.stamp)}${m.showTimezone ? ` · ${esc(m.timezone)}` : ''}</p><table style="--tt-alignment:${m.layout.alignment}"><caption class="pb-sr-only">${esc(m.program)} ${esc(m.title)}</caption><colgroup>${weights.map(w=>`<col style="width:${w/total*100}%">`).join('')}</colgroup><thead><tr><th scope="col">Time</th>${m.columns.map(c=>`<th scope="col">${esc(c.label)}</th>`).join('')}</tr></thead><tbody>${m.rows.map((row,i)=>`<tr style="height:${m.layout.rowHeights[row.key]||70}px"><th scope="row">${esc(row.label)}</th>${cells.filter(c=>c.row===i).map(cell=>`<td rowspan="${cell.rowSpan}" colspan="${cell.colSpan}">${cell.items.map(itemHTML).join('')||'—'}${editable?cell.edits.map(e=>`<button type="button" class="tt-cell-edit pb-secondary" data-edit-entry="${esc(e.id)}">Edit ${e.kind==='BREAK'?'break':'lesson'}${cell.edits.length>cell.items.length?' · '+esc(e.day):''}</button>`).join(''):''}${editable&&!cell.items.length?`<button type="button" class="tt-cell-edit pb-secondary" data-gap="${esc(row.key)}" data-gap-days="${m.columns.slice(cell.col,cell.col+cell.colSpan).map(c=>c.id).join(',')}">Add break</button>`:''}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
   }
   function wrap(ctx,text,width){
     const lines=[];let line='';
@@ -92,7 +92,7 @@
         for(const [text,size,bold] of [[m.academy,24,true],[m.program,32,true],[m.title,23,true],[m.classes,20,false]]){
           font(ctx,size,bold);for(const line of wrap(ctx,text,W-380)){ctx.fillText(line,W/2,y);y+=size+7;}y+=3;
         }
-        font(ctx,19);ctx.fillStyle='#715078';for(const line of wrap(ctx,`${m.stamp} · ${m.timezone}`,W-pad*2)){ctx.fillText(line,W/2,y);y+=25;}y+=18;
+        font(ctx,19);ctx.fillStyle='#715078';for(const line of wrap(ctx,`${m.stamp}${m.showTimezone ? ` · ${m.timezone}` : ''}`,W-pad*2)){ctx.fillText(line,W/2,y);y+=25;}y+=18;
         ['Time',...columns.map(c=>c.label)].forEach((label,i)=>{ctx.fillStyle='#c8a6d4';ctx.fillRect(xs[i],y,widths[i],48);ctx.strokeStyle='#76647e';ctx.lineWidth=1.5;ctx.strokeRect(xs[i],y,widths[i],48);font(ctx,24,true);ctx.fillStyle='#302237';ctx.fillText(label,xs[i]+widths[i]/2,y+10);});y+=48;
         pages.push({canvas,links});
       }

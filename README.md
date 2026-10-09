@@ -1,3 +1,9 @@
+# V105.4.3.16 — Compact timetable details and hidden timezone labels
+
+Combined daily Zoom-room cards show their Program names and lesson count; all individual lesson times are inside the i popup. Single lessons keep their time. Remove visible timezone labels from the Academy website, connected new Program setup/timetable tools and timetable exports by default, retaining scheduling data, clock conversion and authorised joining windows. An explicit presentation option can include the timezone when requested. [Implementation, Reboot publication findings and verification](docs/ACADEMY-ENTRANCE.md).
+
+---
+
 # V105.4.3.15 — Roll back V105.4.3.14
 
 At the user’s request, restore V105.4.3.13 application behaviour while retaining its compact daily Zoom-room timetable. Revert V105.4.3.14 request deduplication, quota cooldown, account error classification and request metrics. No spreadsheet records, credentials, subscriptions or attendance data are changed. Version markers and changed asset URLs use V105.4.3.15 so browsers load the rollback.

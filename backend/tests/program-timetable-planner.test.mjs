@@ -133,7 +133,7 @@ assert.doesNotMatch(html,/id="tt-move-lesson"/);
 assert.doesNotMatch(html,/id="tt-open-board"/,'board tabs stay inside the timetable screen');
 assert.doesNotMatch(html,/id="tt-add-period"/,'periods are added from the board column');
 assert.match(html,/id="tt-add-board-tab"/);
-assert.match(html,/South Africa time/);
+assert.doesNotMatch(html,/South Africa time|SAST|Timezone/,'Timezone labels are hidden while the scheduling timezone remains fixed');
 assert.doesNotMatch(html,/id="tt-availability-days"/);
 assert.doesNotMatch(html,/id="tt-editor"/);
 assert.doesNotMatch(html,/id="tt-board-subject"/);

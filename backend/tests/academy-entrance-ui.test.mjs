@@ -74,7 +74,7 @@ const fetch = async (_url, options) => {
     ...workshops.filter(item=>item.roles.length).flatMap(item=>item.timetable.map(event=>stamp({...event,title:`Course ${item.name}`,startTime:'14:30',endTime:'15:30'})))
   ] : result.timetable.filter(event=>event.status!=='CANCELLED').map(stamp)) : [];
   if (body.id) result.personalTimetable=result.personalTimetable.filter(event=>event.status==='SCHEDULED');
-  if (roomFixture && body.id) {
+  if (roomFixture && signedIn) {
     const roomLesson={...row.timetable[0],subjectName:'Quran',meetingGroup:'room-a',information:['Class one','Teacher A'],joinUrl:'https://zoom.test/shared'};
     result.personalTimetable=[
       roomLesson,
@@ -111,7 +111,7 @@ assert.doesNotMatch($('academy-sessions').innerHTML,/data-information|Join lesso
 assert.doesNotMatch($('academy-preview-sessions').innerHTML, /<a |Earlier item|Ended item|Cancelled item/);
 assert.match($('academy-preview-sessions').innerHTML,/Course item/);
 assert.doesNotMatch($('academy-preview-sessions').innerHTML,/Africa\/Johannesburg/);
-assert.match($('academy-sessions').innerHTML,/Africa\/Johannesburg/);
+assert.doesNotMatch($('academy-sessions').innerHTML,/Africa\/Johannesburg/);
 assert.equal(($('academy-preview-sessions').innerHTML.match(/<li class="upcoming-item /g)||[]).length,4);
 assert.equal($('preview-timetable-link').hidden,true);
 assert.match(html,/id="academy-library-nav" href="\/academy\/open-library\/"/);
@@ -300,8 +300,10 @@ assert.equal((roomHtml.match(/class="upcoming-day"/g)||[]).length,7,'Show seven 
 assert.equal((roomHtml.match(/<li class="upcoming-item /g)||[]).length,6,'Same-day room lessons combine across subjects, times and Programs; other rooms, missing rooms and dates remain separate');
 assert.equal((roomHtml.match(/>Reboot · Barakah<\/div>/g)||[]).length,1);
 assert.equal((roomHtml.match(/data-information="activity-sessions:/g)||[]).length,6,'Each daily room card has one information button');
-assert.equal((roomHtml.match(/Africa\/Johannesburg/g)||[]).length,1,'Timezone appears once above the week');
-assert.doesNotMatch(roomHtml.replace(/<p class="timetable-timezone">.*?<\/p>/,''),/Africa\/Johannesburg/);
+assert.doesNotMatch(roomHtml,/Africa\/Johannesburg|Times in|timetable-timezone/,'Timezone labels are absent from the website');
+const combinedCard=roomHtml.match(/<li class="upcoming-item [^>]*>.*?>Reboot · Barakah<\/div>.*?<\/li>/)[0];
+assert.match(combinedCard,/>4 lessons<\/small>/);
+assert.doesNotMatch(combinedCard,/upcoming-time|13:00|14:00|15:00|16:00/,'All combined lesson times belong in the information popup');
 assert.match(roomHtml,/next-lesson mixed/,'Mixed student/teacher participation remains highlighted');
 assert.match(roomHtml,/23:30–00:30 \(\+1 day\)/,'Published instants display in the Academy timezone, including overnight ends');
 assert.equal((roomHtml.match(/>Join lesson<\/a>/g)||[]).length,1,'One room join link appears when one of its lessons is within the authorised window');
@@ -314,4 +316,10 @@ fixtureNow='2026-10-05T12:01:00Z';handlers.get('hashchange')();await flush();
 assert.equal(($('activity-sessions').innerHTML.match(/>Join lesson<\/a>/g)||[]).length,1,'The room stays joinable for a later authorised lesson after the first lesson ends');
 fixtureNow='2026-10-05T14:00:00Z';handlers.get('hashchange')();await flush();
 assert.doesNotMatch($('activity-sessions').innerHTML,/>Join lesson<\/a>/,'No room joins outside all authorised lesson windows');
-console.log('Academy entrance UI: compact seven-day rooms, complete per-lesson information, timezone conversion, timed joins, public privacy and retained navigation passed.');
+window.dispatchEvent(new Event('m4l-academy-session'));await flush();
+location.hash='#timetable';handlers.get('hashchange')();await flush();
+const fullRooms=$('academy-sessions').innerHTML;
+assert.equal((fullRooms.match(/<li class="upcoming-item /g)||[]).length,6,'The full timetable also rolls up daily rooms outside activity pages');
+assert.doesNotMatch(fullRooms,/Africa\/Johannesburg|Times in|timetable-timezone/);
+assert.doesNotMatch($('schedule-range').textContent,/timezone/i);
+console.log('Academy entrance UI: compact daily rooms, combined times inside information, hidden timezone labels, preserved clock conversion, timed joins and access passed.');
