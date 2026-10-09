@@ -3,7 +3,7 @@
   // The standalone recorder remains unchanged outside its Academy entry point.
   if (location.pathname.startsWith('/recorder/') && new URLSearchParams(location.search).get('academy') !== '1') return;
   const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
-  const roles = values => (values || []).map(role => ({ GLOBAL_ADMIN: 'Global Admin', ADMIN: 'Program Admin', SENIOR: 'Senior', TEACHER: 'Teacher', STUDENT: 'Student' })[role]).filter(Boolean).join(' · ');
+  const roles = values => (values || []).map(role => ({ GLOBAL_ADMIN: 'Global Admin', PROGRAM_ADMIN: 'Program Admin', ADMIN: 'Program Admin', SENIOR: 'Senior', TEACHER: 'Teacher', STUDENT: 'Student' })[role]).filter(Boolean).join(' · ');
   const token = () => localStorage.getItem('m4l_account_token') || '';
   const side = document.createElement('aside');
   side.className = 'academy-connected-sidebar';

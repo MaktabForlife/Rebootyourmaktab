@@ -18,7 +18,7 @@
   </header><p style="padding:0 18px"><a href="/academy/#overview">← Academy home</a></p>
   <main id="program-builder">
     <div class="pb-heading"><div><p class="pb-eyebrow">﷽ &nbsp; Academy administration</p><h1>Programs</h1><a href="/users/">User profiles →</a>
-      <p>Set up a Program, connect its spreadsheet and check what is ready.</p></div><span class="pb-phase">1 <span>Setup</span> <i>→</i> 2 <span>Management</span> <i>→</i> 3 <span>Timetable</span></span></div>
+      <p id="program-intro">Set up a Program, connect its spreadsheet and check what is ready.</p></div><span class="pb-phase">1 <span>Setup</span> <i>→</i> 2 <span>Management</span> <i>→</i> 3 <span>Timetable</span></span></div>
     <p id="program-message" class="pb-message" role="status" aria-live="polite">Checking your account…</p>
     <div id="program-refresh-warning" class="pb-refresh-warning" role="alert" hidden>
       <span>You have unsaved changes. Keep editing or discard them to load the latest Programs.</span>
@@ -37,13 +37,13 @@
       <p class="pb-grid-help" id="program-grid-help">Select a Program by clicking its number. Edit a cell, then save its row. Tab moves between fields. Ctrl/⌘ + Enter saves the current row.</p>
       <div class="pb-grid-scroll" tabindex="0" aria-label="Program table; scroll horizontally for more columns">
         <table class="pb-grid" aria-describedby="program-grid-help"><caption class="pb-sr-only">Program configuration</caption>
-          <thead><tr><th scope="col">Select</th><th scope="col">Program</th><th scope="col">Years</th><th scope="col">Status</th><th scope="col">Spreadsheet</th><th scope="col">Changes</th></tr></thead>
+          <thead><tr><th scope="col">Select</th><th scope="col">Program</th><th scope="col">Years</th><th scope="col">Status</th><th scope="col" id="program-store-label">Spreadsheet</th><th scope="col">Changes</th></tr></thead>
           <tbody id="program-rows"></tbody>
         </table>
       </div>
-    <div class="pb-footer"><span>Levels are optional and independent of years.</span><span>Enrolled students can view active Library resources; teaching remains in preparation.</span></div>
+    <div class="pb-footer"><span>Levels are optional and independent of years.</span><span id="program-access-note">Enrolled students can view active Library resources; teaching remains in preparation.</span></div>
       <section id="program-detail" class="pb-detail" aria-label="Selected Program details" hidden></section>
-      <aside class="pb-note"><strong>Teaching opens in later V105 stages.</strong> New Programs stay inactive while teaching and student access are being built. Existing Programs continue in their current workspaces.</aside>
+      <aside class="pb-note" id="program-setup-note"><strong>Teaching opens in later V105 stages.</strong> New Programs stay inactive while teaching and student access are being built. Existing Programs continue in their current workspaces.</aside>
     </section>
   </main>
   <script src="/js/m4l-config.js?v=102.4"></script>

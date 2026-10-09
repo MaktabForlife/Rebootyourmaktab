@@ -1,6 +1,8 @@
 import { createAuthRateLimitKey, createSaltedPinHash, createSessionToken, verifySessionToken, isValidFourDigitPin, verifyPin } from '../../lib/auth.js';
 import { academyD1Repository, rehearsalError } from './repository.js';
 import { d1Entrance } from './entrance.js';
+import { d1Profiles } from './profiles.js';
+import { d1Programs } from './programs.js';
 
 const audience='academy-d1-rehearsal';
 const contextEqual=(a,b)=>a.scope===b.scope&&a.courseId.toUpperCase()===b.courseId.toUpperCase()&&a.role===b.role;
@@ -8,10 +10,10 @@ const publicAccount=state=>({displayName:state.account.display_name,uniqueid:sta
 const sessionResponse=(state,context,token)=>({account:publicAccount(state),context,contexts:state.contexts,sessionStore:'D1',operationalAccessActive:['COURSE','GLOBAL'].includes(context.scope),...(token?{token}:{})});
 const requireActive=state=>{if(!state)throw rehearsalError('Invalid account link',404,'ACCOUNT_NOT_FOUND');if(!state.account.active)throw rehearsalError('Account disabled',403,'ACCOUNT_DISABLED');};
 
-async function boundedBody(request) {
+async function boundedBody(request,limit=4096) {
   const reader=request.body?.getReader();let size=0,raw='';const decoder=new TextDecoder();
   if(reader)while(true){const {done,value}=await reader.read();if(done)break;size+=value.byteLength;
-    if(size>4096){await reader.cancel();throw rehearsalError('Request is too large.',413,'REQUEST_TOO_LARGE');}raw+=decoder.decode(value,{stream:true});}
+    if(size>limit){await reader.cancel();throw rehearsalError('Request is too large.',413,'REQUEST_TOO_LARGE');}raw+=decoder.decode(value,{stream:true});}
   raw+=decoder.decode();
   let body;try{body=JSON.parse(raw || '{}');}catch{throw rehearsalError('Invalid request.',400,'INVALID_REQUEST');}
   if(!body||typeof body!=='object'||Array.isArray(body))throw rehearsalError('Invalid request.',400,'INVALID_REQUEST');
@@ -48,7 +50,8 @@ async function dispatch(request,env) {
   if(path==='/api/health'&&request.method==='GET')return {success:true,store:'D1_REHEARSAL',cutoverReady:false};
   if(request.method!=='POST')throw rehearsalError('Use POST.',405,'METHOD_NOT_ALLOWED');
   await repository.ready();
-  const input=await boundedBody(request);
+  const managementPath=path.startsWith('/api/admin/platform/');
+  const input=await boundedBody(request,managementPath?131072:4096);
   if(['/api/account/check','/api/account/login','/api/account/setup-pin'].includes(path)) {
     const login=String(input.uniqueid || '').trim();
     if(!login||login.length>160)throw rehearsalError('Missing or invalid account link.',400,'INVALID_ACCOUNT_LINK');
@@ -76,6 +79,15 @@ async function dispatch(request,env) {
     return {success:true,...await d1Entrance(repository,auth?.state,auth?.user,input)};
   }
   const auth=await authenticated(request,env,repository);
+  const profileAction=path.match(/^\/api\/admin\/platform\/user-profiles\/(get|link|save|recover)$/)?.[1];
+  const registryAction=path.match(/^\/api\/admin\/platform\/programs\/(list|create|save|readiness|prepare)$/)?.[1];
+  const managementAction=path.match(/^\/api\/admin\/platform\/program-timetable\/(manage-get|manage-save|recover)$/)?.[1];
+  if(profileAction||registryAction||managementAction) {
+    const programAdmin=managementAction&&auth.state.roles.some(r=>r.role==='PROGRAM_ADMIN'&&r.activity_key.toUpperCase()===`PROGRAM:${String(input.id||'')}`.toUpperCase());
+    if(!auth.state.account.global_admin&&!programAdmin)throw rehearsalError('This action requires an authorised administrator.',403,'FORBIDDEN');
+    const result=profileAction?await d1Profiles(repository,auth).run(profileAction,input):registryAction?await d1Programs(repository,auth).registry(registryAction,input):await d1Programs(repository,auth).management(managementAction,input);
+    return {success:true,...result};
+  }
   if(path==='/api/account/session')return {success:true,...sessionResponse(auth.state,auth.context)};
   if(path==='/api/account/logout') {await repository.revoke(auth.sid,auth.state.account.account_id);return {success:true};}
   if(path==='/api/account/switch-context') {
@@ -115,6 +127,7 @@ export default {
       const unavailable=status>=500&&status!==501;
       if(status===429)headers['Retry-After']='60';
       return new Response(JSON.stringify({success:false,error:unavailable?'Academy information is temporarily unavailable. Please try again.':error.message,
-        code:unavailable?'ACADEMY_D1_UNAVAILABLE':error.code,retryable:unavailable||status===429,...(status===429?{retryAfterMs:60000}:{})}),{status,headers});}
+        code:unavailable?(error.code==='MANAGEMENT_SCHEMA_REQUIRED'?error.code:'ACADEMY_D1_UNAVAILABLE'):error.code,retryable:unavailable||status===429,...(status===429?{retryAfterMs:60000}:{}),
+        ...(status===409?Object.fromEntries(['currentRecord','rowRevision','entryKey'].filter(k=>error[k]!==undefined).map(k=>[k,error[k]])):{} )}),{status,headers});}
   }
 };

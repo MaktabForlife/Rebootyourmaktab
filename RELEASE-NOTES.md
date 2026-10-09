@@ -1,3 +1,11 @@
+# Unreleased — D1 user and Program management
+
+Add atomic D1 account/profile, Program-role, registry, curriculum, class and enrolment management behind the isolated rehearsal mode. Apply the owner-approved Senior-to-Teacher and Admin-to-Program-Admin rules without changing original evidence or Global Admin grants. Preserve Student access.
+
+Validate scoped permissions, stale saves, transaction rollback and replay through twelve new management scenarios, existing frontend integration checks and the local Workers/D1 runtime. All 112 regression test files pass; 200 simultaneous synthetic login/home flows and the 73-account mapping check pass with zero external requests. Main schema/data and live Sheets routing remain unchanged. This work is not pushed or deployed. [Details and pending workflows](docs/ACADEMY-D1-MANAGEMENT.md).
+
+---
+
 # V106.0 — Academy D1 preparation and application integration
 
 Prepare the main Academy D1 database and integrate an opt-in login/home rehearsal through the application's actual Worker entrypoint. The feature branch deploys both the website and the current development Worker. This release declares the main D1 binding for `devrebootworker`; it keeps `ACADEMY_D1_MODE` unset/OFF, so live authentication, reads and writes continue using Google Sheets. The production-named legacy Worker has no D1 binding.

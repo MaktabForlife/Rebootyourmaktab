@@ -9,7 +9,7 @@
   const titles = { overview: 'Academy home', timetable: 'Academy timetable', learning: 'Programs and Courses', workshops: 'Workshops', activity: 'Activity',
     prospectus: '2026 Prospectus', about: 'About', contact: 'Contact', progress: 'Dua and Surah Progress', recorder: 'Voice Recorder', administration: 'Academy administration' };
   const activityHref = row => `#activity/${row.kind}/${encodeURIComponent(row.id)}`;
-  const roleName = roles => roles.map(role => ({ GLOBAL_ADMIN: 'Global Admin', ADMIN: 'Program Admin', SENIOR: 'Senior', TEACHER: 'Teacher', STUDENT: 'Student' })[role]).filter(Boolean).join(' · ') || 'Visitor';
+  const roleName = roles => roles.map(role => ({ GLOBAL_ADMIN: 'Global Admin', PROGRAM_ADMIN: 'Program Admin', ADMIN: 'Program Admin', SENIOR: 'Senior', TEACHER: 'Teacher', STUDENT: 'Student' })[role]).filter(Boolean).join(' · ') || 'Visitor';
   const activityPill = (href, name, roles, current = false) => `<a href="${href}"${current ? ' aria-current="page"' : ''}><span>${esc(name)}</span><small>${esc(roleName(roles))}</small></a>`;
   const coming = (name, purpose) => `<article class="card card-pad coming-card"><h3>${esc(name)}</h3><span class="tag neutral">Coming soon</span><p>${esc(purpose)}</p></article>`;
   const safeLink = url => typeof url === 'string' && (/^https:\/\//.test(url) || /^\/(?!\/)/.test(url));
@@ -312,11 +312,11 @@
       const activityMessage = row.unavailable ? 'This activity is temporarily unavailable. Please try again.' :
         !row.roles.length ? 'Sign in with an authorised Academy account to open protected lessons and tools.' : '';
       $('activity-status').textContent = [activityMessage, ...result.warnings].filter(Boolean).join(' ');
-      const staff = row.roles.some(role => ['TEACHER', 'ADMIN', 'SENIOR', 'GLOBAL_ADMIN'].includes(role));
-      const administrator = row.kind === 'PROGRAM' && row.roles.some(role => ['ADMIN', 'GLOBAL_ADMIN'].includes(role));
+      const staff = row.roles.some(role => ['TEACHER', 'PROGRAM_ADMIN', 'ADMIN', 'SENIOR', 'GLOBAL_ADMIN'].includes(role));
+      const administrator = row.kind === 'PROGRAM' && row.roles.some(role => ['PROGRAM_ADMIN', 'ADMIN', 'GLOBAL_ADMIN'].includes(role));
       const globalAdmin = row.roles.includes('GLOBAL_ADMIN');
       const resources = globalAdmin ? row.tools?.resources : '';
-      const manage = globalAdmin ? row.tools?.manage : '';
+      const manage = administrator ? row.tools?.manage : '';
       const users = globalAdmin ? row.tools?.users : '';
       const menu = [['Library', row.tools?.library], ['Mark attendance', staff && row.tools?.attendance], ['Program management', manage],
         ['User management', users], ['Timetable builder', globalAdmin && row.tools?.timetableBuilder], ['Library management', resources]];

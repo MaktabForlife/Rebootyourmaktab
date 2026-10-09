@@ -27,7 +27,7 @@
     if(!response.ok||!result.success)throw Object.assign(new Error(result.error||'The change could not be confirmed.'),{status:response.status,code:result.code,currentRecord:result.currentRecord,rowRevision:result.rowRevision,entryKey:result.entryKey,retryable:result.retryable,retryAfterMs:result.retryAfterMs,reference:result.reference});return result;
   }
   function controls(){
-    const locked=state.busy||Boolean(state.pending)||Boolean(state.importPending),editable=state.data?.prepared&&state.data?.coordinatorAvailable&&state.data?.program.status==='DRAFT'&&(state.kind!=='tasks'||state.data.libraryPrepared);
+    const locked=state.busy||Boolean(state.pending)||Boolean(state.importPending),editable=state.data?.prepared&&state.data?.coordinatorAvailable&&(state.data.managementEditable??state.data?.program.status==='DRAFT')&&(state.kind!=='tasks'||state.data.libraryPrepared);
     $('pm-editor').disabled=locked||!editable||Boolean(state.edit&&!visibleEdit());
     $('pm-add').disabled=locked||!editable||Boolean(state.edit)||Boolean(state.classPending);
     $('pm-save-all').disabled=locked||!editable||Boolean(state.edit)||state.refreshWaiting||(!state.classPending&&!Object.entries(state.classDrafts).some(([id,draft])=>enrolledAccountIds().has(id)&&draft.classId!==draft.baseClassId));
@@ -81,8 +81,8 @@
   }
   function cell(row,col){const [key,label,type]=col,values=choices(type,row),value=key==='Active'?String(active(row[key])):String(row[key]??'');
     const fixed=(state.kind==='enrollments'&&key==='AccountID'&&Boolean(state.profileAccountId))||!state.edit.creating&&((state.kind==='progress'&&['ProgramModuleID','ClassID'].includes(key))||(state.kind==='subjects'&&key==='SubjectID'&&!state.data.sharedSubjects.find(s=>s.SubjectID===state.edit.originalSubjectID)?.Legacy)||(state.kind==='teachers'&&key==='AccountID'));
-    if(type==='subject'&&fixed)return `<input data-field="SubjectName" aria-label="Subject name" maxlength="160" value="${esc(row.SubjectName||'')}"><small>Renames this shared Academy subject in all programs.</small>`;
-    if(values){let available=values.filter(v=>(v.active===undefined||active(v.active)||v.id===value)&&(type!=='account'||v.student||v.id===value));if(type==='subject'&&!fixed)available.push({id:'__new__',name:'＋ Create a new subject…'});if(value&&!available.some(v=>v.id===value))available.push({id:value,name:`Unavailable: ${value}`});
+    if(type==='subject'&&fixed&&state.data.sharedSubjectsEditable!==false)return `<input data-field="SubjectName" aria-label="Subject name" maxlength="160" value="${esc(row.SubjectName||'')}"><small>Renames this shared Academy subject in all programs.</small>`;
+    if(values){let available=values.filter(v=>(v.active===undefined||active(v.active)||v.id===value)&&(type!=='account'||v.student||v.id===value));if(type==='subject'&&!fixed&&state.data.sharedSubjectsEditable!==false)available.push({id:'__new__',name:'＋ Create a new subject…'});if(value&&!available.some(v=>v.id===value))available.push({id:value,name:`Unavailable: ${value}`});
       return `<select data-field="${key}" aria-label="${esc(label)}" ${fixed?'disabled':''}>${['active','progress'].includes(type)?'':`<option value="">${type==='level'?'No level':type==='classTeacher'?'No class teacher':'Choose…'}</option>`}${available.map(v=>`<option value="${esc(v.id)}" ${v.id===value?'selected':''}>${esc(v.name)}${type==='account'&&!v.student?' (Student role required)':v.active!==undefined&&!active(v.active)?' (inactive)':''}</option>`).join('')}</select>${type==='subject'&&value==='__new__'?`<label class="pm-new-subject">New subject name<input data-field="NewSubjectName" aria-label="New subject name" maxlength="160" placeholder="For example, Tafseer" value="${esc(row.NewSubjectName||'')}"></label>`:''}`;
     }
     return `<input data-field="${key}" aria-label="${esc(label)}" type="${type==='date'?'date':type==='number'?'number':type==='url'?'url':'text'}" value="${esc(value)}" ${type==='number'?'min="0" max="9999" step="1"':type==='url'?'maxlength="2048" placeholder="https://…"':'maxlength="160"'}>`;
@@ -188,6 +188,8 @@
     const moduleMode=['modules','progress'].includes(state.kind),gridKind=moduleMode?'modules':state.kind,def=defs[gridKind],edit=visibleEdit();
     $('pm-title').textContent=`${state.data.program.name} · Management`;
     $('pm-timetable').href=`/programs/timetable.html?program=${encodeURIComponent(programId)}`;
+    $('pm-timetable').hidden=state.data.store==='D1';
+    $('pm-library').hidden=state.data.store==='D1';
     $('pm-workspace').hidden=!state.data.prepared;$('pm-prepare').hidden=state.data.prepared;
     $('pm-library-prepare').hidden=!state.data.prepared||state.data.libraryPrepared;
     $('pm-tabs').innerHTML=tabs.map(([key,label])=>`<button type="button" data-tab="${key}" aria-current="${state.overview?key==='overview':key===tabKind(state.kind)}">${label}</button>`).join('');
@@ -195,8 +197,8 @@
     $('pm-add').hidden=!state.overview&&['profiles','teachers','levels'].includes(state.kind);
     $('pm-save-all').hidden=state.overview||state.kind!=='profiles';
     $('pm-profiles-back').hidden=state.overview||state.kind!=='enrollments';
-    $('pm-shared-profiles').hidden=state.overview||state.kind!=='profiles';$('pm-shared-profiles').href=`/users/?program=${encodeURIComponent(programId)}`;
-    $('pm-shared').hidden=state.overview||state.kind!=='subjects';$('pm-legacy').hidden=state.overview||state.kind!=='subjects'||!state.data.sharedSubjects.some(s=>s.Legacy);
+    $('pm-shared-profiles').hidden=state.overview||state.kind!=='profiles'||state.data.globalProfilesAvailable===false;$('pm-shared-profiles').href=`/users/?program=${encodeURIComponent(programId)}`;
+    $('pm-shared').hidden=state.overview||state.kind!=='subjects'||state.data.sharedSubjectsEditable===false;$('pm-legacy').hidden=state.overview||state.kind!=='subjects'||!state.data.sharedSubjects.some(s=>s.Legacy);
     $('pm-section-note').hidden=true;
     if(state.overview){$('pm-add').textContent='＋ Add module';renderOverview();controls();return;}
     if(state.kind==='profiles'){renderProfiles();controls();return;}

@@ -12,7 +12,7 @@ export const REBOOT_PILOT_PROGRAM_ID = 'PRG-46c8576d-9fcf-4000-96b9-856b00a0218a
 export const programDisplayName = program => key(program.id) === key(REBOOT_PILOT_PROGRAM_ID) ? 'Reboot' : program.name;
 export const addDays = (date, days) => new Date(Date.parse(`${date}T12:00:00Z`) + days * 86400000).toISOString().slice(0, 10);
 const validDate = date => /^\d{4}-\d{2}-\d{2}$/.test(date) && !Number.isNaN(Date.parse(date)) && addDays(date, 0) === date;
-const staff = roles => roles.some(role => ['ADMIN', 'SENIOR', 'TEACHER', 'GLOBAL_ADMIN'].includes(role));
+const staff = roles => roles.some(role => ['PROGRAM_ADMIN', 'ADMIN', 'SENIOR', 'TEACHER', 'GLOBAL_ADMIN'].includes(role));
 const globalAdmin = user => user?.role === 'GLOBAL_ADMIN';
 const participant = (row, accountId, date, classIds) => active(row.Active) && key(row.AccountID) === key(accountId) &&
   classIds.includes(row.ClassID) && (!row.StartDate || row.StartDate <= date) && (!row.EndDate || row.EndDate >= date);
@@ -49,7 +49,7 @@ export function programRoles(user, accounts = []) {
   if (!user) return [];
   if (globalAdmin(user)) return ['GLOBAL_ADMIN'];
   const matches = accounts.filter(row => key(row.AccountID) === key(user.accountid) && row.Active);
-  return matches.length === 1 ? matches[0].Roles.filter(role => ['ADMIN', 'SENIOR', 'TEACHER', 'STUDENT'].includes(role)) : [];
+  return matches.length === 1 ? matches[0].Roles.filter(role => ['PROGRAM_ADMIN', 'ADMIN', 'SENIOR', 'TEACHER', 'STUDENT'].includes(role)) : [];
 }
 
 export function programProjection(program, data, user, roles, start, end, now, detailed = false, groupZoom = () => '') {
@@ -70,7 +70,7 @@ export function programProjection(program, data, user, roles, start, end, now, d
       const classIds = row.classIds || [];
       const teaching = staff(roles) && (row.teacherIds || [row.teacherId]).some(id => key(id) === key(user?.accountid));
       const enrolled = roles.includes('STUDENT') && enrolments.some(item => participant(item, user?.accountid, date, classIds));
-      const oversight = roles.some(role => ['GLOBAL_ADMIN', 'ADMIN', 'SENIOR'].includes(role));
+      const oversight = roles.some(role => ['GLOBAL_ADMIN', 'PROGRAM_ADMIN', 'ADMIN', 'SENIOR'].includes(role));
       const involved = Boolean(teaching || enrolled);
       const mayView = Boolean(user && roles.length && (staff(roles) || enrolled));
       const event = { kind: 'PROGRAM', activityId: program.id, activityName: name, date,
@@ -102,7 +102,7 @@ export function programProjection(program, data, user, roles, start, end, now, d
     timetable, classes: ownClasses.map(row => ({ id: row.ClassID, name: row.Name })), curriculum,
     tools: { library: '/academy/library/',
       attendance: staff(roles) && program.capabilities?.attendance ? `/programs/attendance.html?program=${encodeURIComponent(program.id)}` : '',
-      manage: globalAdmin(user) ? `/programs/manage.html?program=${encodeURIComponent(program.id)}` : '',
+      manage: globalAdmin(user)||roles.includes('PROGRAM_ADMIN') ? `/programs/manage.html?program=${encodeURIComponent(program.id)}` : '',
       users: globalAdmin(user) ? '/users/' : '',
       timetableBuilder: globalAdmin(user) ? `/programs/timetable.html?program=${encodeURIComponent(program.id)}` : '',
       // The existing editor is Program-wide; class-scoped editing is not yet supported.

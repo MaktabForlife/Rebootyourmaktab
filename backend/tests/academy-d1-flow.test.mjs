@@ -134,7 +134,7 @@ test('the application entrypoint keeps rehearsals isolated and fails closed on a
   try {
     const admin=await login(env,'0001');assert.equal(admin.body.sessionStore,'D1');
     assert.equal((await call({...env,ACADEMY_D1_MODE:'OFF'},'/api/account/session',{},admin.body.token)).status,401);
-    const unmigrated=await call(env,'/api/admin/platform/programs/create',{name:'Blocked'},admin.body.token);
+    const unmigrated=await call(env,'/api/admin/platform/program-timetable/publish',{name:'Blocked'},admin.body.token);
     assert.equal(unmigrated.status,501);
     assert.equal((await call({...env,ACADEMY_D1_MODE:'TYPO'},'/api/account/check',{uniqueid:'login-0002'})).body.code,'ACADEMY_STORAGE_MODE_INVALID');
     assert.equal((await call({...env,ACADEMY_DB:undefined},'/api/account/check',{uniqueid:'login-0002'})).status,503);

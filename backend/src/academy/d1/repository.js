@@ -10,18 +10,22 @@ export function academyD1Repository(env) {
     throw rehearsalError('Academy database rehearsal is not enabled.');
   const db=env.ACADEMY_DB.withSession('first-primary');
   const prepare=(sql,...values)=>db.prepare(sql).bind(...values);
+  let mappingSchema;
   const accountSQL=`SELECT a.*,c.pin_hash,c.pin_setup,c.credential_epoch,
     EXISTS(SELECT 1 FROM global_role_assignments g WHERE g.account_id=a.account_id AND g.role='GLOBAL_ADMIN' AND g.active=1 AND g.review_state='CONFIRMED') AS global_admin
     FROM accounts a JOIN account_credentials c ON c.account_id=a.account_id`;
   async function stateFor(account) {
     if(!account)return null;
+    mappingSchema??=prepare("SELECT name FROM sqlite_schema WHERE type='table' AND name='role_mapping_decisions'").first();
+    const mapped=Boolean(await mappingSchema);
     const results=await db.batch([
       prepare(`SELECT a.*,cs.legacy_access_model FROM activities a LEFT JOIN course_settings cs USING(activity_key)
         WHERE a.active=1 AND a.lifecycle='ACTIVE' AND a.kind IN ('PROGRAM','COURSE')`),
       prepare(`SELECT r.activity_key,r.role FROM effective_activity_roles r JOIN activities a USING(activity_key)
         WHERE r.account_id=? AND a.active=1 AND a.lifecycle='ACTIVE'
-        UNION SELECT e.activity_key,e.source_role AS role FROM legacy_access_evidence e
+        UNION SELECT e.activity_key,${mapped?'m.target_role':'e.source_role'} AS role FROM legacy_access_evidence e
         JOIN activities a USING(activity_key) JOIN role_import_reviews v ON v.account_id=e.account_id AND v.activity_key=e.activity_key AND v.source_value=e.source_role
+        ${mapped?'JOIN role_mapping_decisions m ON m.source_role=e.source_role':''}
         WHERE e.account_id=? AND e.source_role IN ('ADMIN','SENIOR') AND e.source_effective=1 AND v.status='REQUIRED' AND a.active=1 AND a.lifecycle='ACTIVE'`,account.account_id,account.account_id),
       prepare(`SELECT activity_key FROM legacy_access_evidence WHERE account_id=? AND source_role='LEGACY_SUBSCRIPTION' AND source_effective=1`,account.account_id)
     ]);
@@ -31,12 +35,13 @@ export function academyD1Repository(env) {
     for(const activity of activities.filter(a=>a.kind==='PROGRAM')) {
       if(account.global_admin)continue;
       const assigned=roles.filter(r=>key(r.activity_key)===key(activity.activity_key)).map(r=>r.role);
-      // PROGRAM_ADMIN is intentionally not inferred from legacy privileges. The
-      // compatibility roles above apply only to the isolated rehearsal service.
-      for(const role of [...new Set(assigned)].filter(r=>['GLOBAL_ADMIN','ADMIN','SENIOR','TEACHER','STUDENT'].includes(r)))
+      // Mapping requires the explicit owner-approved decision records. Older
+      // three-migration imports keep their original isolated compatibility view.
+      for(const role of [...new Set(assigned)].filter(r=>['PROGRAM_ADMIN','ADMIN','SENIOR','TEACHER','STUDENT'].includes(r)))
         contexts.push({scope:'COURSE',courseId:activity.activity_id,courseName:activity.name,role,programLibrary:true});
     }
-    contexts.sort((a,b)=>authorityRank(a.role)-authorityRank(b.role)||a.courseName.localeCompare(b.courseName)||a.role.localeCompare(b.role));
+    const rank=role=>role==='PROGRAM_ADMIN'?1:authorityRank(role);
+    contexts.sort((a,b)=>rank(a.role)-rank(b.role)||a.courseName.localeCompare(b.courseName)||a.role.localeCompare(b.role));
     if(!account.global_admin&&activities.some(a=>a.kind==='COURSE'&&(a.legacy_access_model==='FREE'||subscriptions.some(s=>key(s.activity_key)===key(a.activity_key)))))
       contexts.push({scope:'GLOBAL',courseId:'',courseName:'Global Subjects',role:'STUDENT'});
     return {account,activities,roles,subscriptions,contexts};

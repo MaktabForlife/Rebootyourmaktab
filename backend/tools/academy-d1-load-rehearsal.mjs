@@ -33,6 +33,7 @@ try {
   };
   for(const migration of migrations)run(resolve('backend/migrations/academy',migration.name),migration.name);
   run(save('synthetic.sql',operationalSQL(plan)),'SYNTHETIC_IMPORT');
+  run(resolve('backend/migrations/academy/0004_management_transactions.sql'),'MANAGEMENT_RUNTIME_EXTENSION');
   const bundle=join(directory,'worker.js');
   await build({entryPoints:['backend/src/worker-runtime.js'],bundle:true,format:'esm',platform:'browser',target:'es2022',external:['cloudflare:workers'],outfile:bundle,logLevel:'silent'});
   let outboundRequests=0;
@@ -88,10 +89,33 @@ try {
   const db=await mf.getD1Database('ACADEMY_DB');
   await db.prepare("UPDATE role_assignments SET active=0 WHERE account_id='account-0012'").run();
   ensure(await post('/api/account/session',{},tokens[11]),401);
+  step='MANAGEMENT_SMOKE';
+  const profiles='/api/admin/platform/user-profiles/',programs='/api/admin/platform/programs/',management='/api/admin/platform/program-timetable/';
+  const registry=ensure(await post(programs+'list',{},admin)),program=registry.programs[0];
+  const view=ensure(await post(management+'manage-get',{id:program.id},admin));
+  const input={id:program.id,kind:'classes',record:{...view.rows.classes[0],Name:'Runtime updated class'},creating:false,baseRowRevision:view.rowRevisions.classes[view.rows.classes[0].ClassID],operationId:crypto.randomUUID()};
+  const edits=await Promise.all(['First','Second'].map(name=>post(management+'manage-save',{...input,record:{...input.record,Name:name},operationId:crypto.randomUUID()},admin)));
+  if(edits.map(r=>r.status).sort().join(',')!=='200,409')throw Error('Management concurrency guard failed');
+  const current=ensure(await post(management+'manage-get',{id:program.id},admin));
+  input.baseRowRevision=current.rowRevisions.classes[input.record.ClassID];
+  ensure(await post(management+'manage-save',input,admin));
+  if(!ensure(await post(management+'manage-save',input,admin)).replayed)throw Error('Management replay failed');
+  const profilesView=ensure(await post(profiles+'get',{},admin)),accountId=crypto.randomUUID();
+  ensure(await post(profiles+'save',{mode:'profile',accountId,displayName:'Runtime new learner',active:true,creating:true,baseRevision:profilesView.emptyRevision,operationId:crypto.randomUUID()},admin));
+  const next=ensure(await post(profiles+'get',{},admin)),scope=next.scopes.find(s=>s.id===program.id),assignment=next.accounts.find(a=>a.accountId===accountId).assignments.find(a=>a.scopeId===program.id);
+  ensure(await post(profiles+'save',{mode:'matrix-roles',accountId,scopeType:'PROGRAM',scopeId:program.id,roles:['STUDENT'],baseRevision:assignment.revision,scopeRevision:scope.revision,operationId:crypto.randomUUID()},admin));
+  const classes=ensure(await post(management+'manage-get',{id:program.id},admin));
+  const enrollment={id:program.id,kind:'student-classes',changes:[{AccountID:accountId,ClassID:input.record.ClassID,baseRowRevision:classes.studentClassRevisions[accountId]}],operationId:crypto.randomUUID()};
+  ensure(await post(management+'manage-save',enrollment,admin));
+  if(!ensure(await post(management+'manage-save',enrollment,admin)).replayed)throw Error('Enrollment replay failed');
+  const membership=await db.prepare('SELECT count(*) AS n FROM class_memberships WHERE account_id=? AND active=1').bind(accountId).first();
+  if(membership.n!==1)throw Error('Enrollment duplicated');
+  ensure(await post(profiles+'get',{},tokens[2]),403);
+  if((await db.prepare('SELECT count(*) AS n FROM academy_write_guards').first()).n!==0)throw Error('Management guard left behind');
   if(outboundRequests!==0)throw Error('Unexpected external request');
   const report={success:true,runtime:'LOCAL_WORKERS_D1',workerEntrypoint:'backend/src/worker-runtime.js',compatibilityDate,syntheticAccounts:true,...burst,securitySmokeChecks:'PASS',externalRequests:outboundRequests,
-    cloudPerformanceMeasured:false,cutoverReady:false};
+    managementSmokeChecks:'PASS',cloudPerformanceMeasured:false,cutoverReady:false};
   save('report.json',JSON.stringify(report,null,2));
   console.log(JSON.stringify({step:'COMPLETE',...report,privateReport:join(directory,'report.json')}));
-}catch(error){console.error(JSON.stringify({success:false,step,code:'LOCAL_D1_FLOW_REHEARSAL_FAILED',status:error.status || null}));process.exitCode=1;}
+}catch(error){console.error(JSON.stringify({success:false,step,code:'LOCAL_D1_FLOW_REHEARSAL_FAILED',status:error.status || null,message:error.message}));process.exitCode=1;}
 finally{if(mf)await mf.dispose().catch(()=>{process.exitCode=1;});}

@@ -5,7 +5,7 @@
   const escape = value => String(value ?? "").replace(/[&<>"']/g, char => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[char]));
   const timezone = "Africa/Johannesburg";
   const fields = ["name", "durationYears", "timezone", "status", "spreadsheetId"];
-  const state = { rows: [], selected: "", busy: false, search: "", filter: "", readiness: {} };
+  const state = { rows: [], selected: "", busy: false, search: "", filter: "", readiness: {}, store: "SHEETS", statuses: ["DRAFT", "ARCHIVED"] };
   const dirty = row => !row.saved || fields.some(field => String(row[field] ?? "") !== String(row.saved[field] ?? ""));
   const hasEdits = () => state.rows.some(dirty);
   const draft = program => ({ ...program, saved: { ...program }, error: "" });
@@ -30,11 +30,19 @@
     byId("program-retry").hidden = true;
     try {
       const data = await api("list");
+      state.store = data.store || "SHEETS";
+      state.statuses = data.statuses || ["DRAFT", "ARCHIVED"];
+      if (state.store === "D1") {
+        byId("program-intro").textContent = "Set up Programs and manage their curriculum, classes and enrolments.";
+        byId("program-store-label").textContent = "Records";
+        byId("program-access-note").textContent = "Activating a Program does not publish its timetable.";
+        byId("program-setup-note").textContent = "New Programs start as drafts. Timetable editing, Library and attendance are awaiting migration.";
+      }
       state.rows = data.programs.map(draft);
       state.selected = state.rows.some(row => row.id === state.selected) ? state.selected : (state.rows.find(row => row.mode === "PROGRAM")?.id || "");
       state.readiness = {};
       byId("program-workspace").hidden = false;
-      message("Ready. Select a Program to check its spreadsheet.");
+      message(state.store === "D1" ? "Ready. Select a Program to manage its records." : "Ready. Select a Program to check its spreadsheet.");
     } catch (error) { message(error.message, true); byId("program-retry").hidden = false; }
     finally { state.busy = false; render(); }
   }
@@ -56,8 +64,8 @@
     return `<tr data-id="${escape(row.id)}" class="${state.selected === row.id ? "is-selected" : ""}">
       <td>${editable ? `<button type="button" class="pb-program-select" data-action="select" aria-label="Select ${escape(row.name || "new Program")}" aria-pressed="${state.selected === row.id}" ${state.busy ? "disabled" : ""}>${index}</button>` : index}</td><td>${input("name", "Program name", 'class="pb-name" maxlength="160"')}</td>
       <td>${editable ? input("durationYears", "Duration in years", 'type="number" min="1" max="30" step="1"') : "—"}</td>
-      <td>${editable ? `<select data-field="status" aria-label="Status for ${escape(row.name || "new Program")}" ${state.busy ? "disabled" : ""}>${["DRAFT", "ARCHIVED"].map(value => `<option value="${value}" ${row.status === value ? "selected" : ""}>${value === "DRAFT" ? "Draft" : "Archived"}</option>`).join("")}</select>` : escape(row.status === "ACTIVE" ? "Active" : "Inactive")}</td>
-      <td>${row.saved ? `<a href="https://docs.google.com/spreadsheets/d/${encodeURIComponent(row.spreadsheetId)}/edit" target="_blank" rel="noopener noreferrer">Open spreadsheet ↗</a>` : input("spreadsheetId", "Spreadsheet link or ID", 'placeholder="Paste Google Sheets link"')} </td>
+      <td>${editable ? `<select data-field="status" aria-label="Status for ${escape(row.name || "new Program")}" ${state.busy ? "disabled" : ""}>${state.statuses.map(value => `<option value="${value}" ${row.status === value ? "selected" : ""}>${value === "DRAFT" ? "Draft" : value === "ACTIVE" ? "Active" : "Archived"}</option>`).join("")}</select>` : escape(row.status === "ACTIVE" ? "Active" : "Inactive")}</td>
+      <td>${state.store === "D1" ? (row.saved ? "Ready" : "New Program") : row.saved ? `<a href="https://docs.google.com/spreadsheets/d/${encodeURIComponent(row.spreadsheetId)}/edit" target="_blank" rel="noopener noreferrer">Open spreadsheet ↗</a>` : input("spreadsheetId", "Spreadsheet link or ID", 'placeholder="Paste Google Sheets link"')} </td>
       <td><div class="pb-actions"><span class="pb-state">${!editable ? "Existing workspace" : row.error ? "Save failed" : dirty(row) ? "Unsaved" : "Saved"}</span>
         ${editable ? `<button type="button" data-action="save" aria-label="Save ${escape(row.name || "new Program")}" title="Save Program" ${state.busy || !dirty(row) ? "disabled" : ""}>▣ Save</button><button type="button" data-action="discard" class="pb-secondary" aria-label="Discard changes to ${escape(row.name || "new Program")}" ${state.busy || !dirty(row) ? "disabled" : ""}>Discard</button>` : ""}</div>
         ${row.error ? `<span class="pb-row-error" role="alert">${escape(row.error)}</span>` : ""}</td></tr>`;
@@ -70,11 +78,11 @@
     if (panel.hidden) return;
     const readiness = state.readiness[row.id];
     panel.innerHTML = `<div class="pb-detail-header"><div><h2>${escape(row.name || "New Program")}</h2><small>${escape(row.id)}</small></div>
-      <div class="pb-actions">${row.saved && !dirty(row) ? `<a href="/programs/manage.html?program=${encodeURIComponent(row.id)}">Manage Program →</a><a href="/programs/library.html?program=${encodeURIComponent(row.id)}">Manage Library →</a><a href="/programs/timetable.html?program=${encodeURIComponent(row.id)}">Open timetable →</a><a href="/programs/attendance.html?program=${encodeURIComponent(row.id)}">Attendance →</a>` : ""}<button type="button" data-action="check" class="pb-secondary" ${state.busy || !row.saved || dirty(row) ? "disabled" : ""}>Check readiness</button>
-      <button type="button" data-action="prepare" ${state.busy || !row.saved || dirty(row) || readiness?.prepared ? "disabled" : ""}>Prepare spreadsheet</button></div></div>
-      <p>${escape(readiness?.message || (row.saved ? "Check backend access and prepare the Program spreadsheet. Save changes before checking." : "Save this draft to register the Program. Its spreadsheet can then be prepared."))}</p>
-      <div class="pb-checks">${(readiness?.checks || [{ label: "Spreadsheet not checked", ok: false }]).filter(check => !/time\s*zone/i.test(check.label)).map(check => `<span class="pb-check ${check.ok ? "is-ready" : ""}">${check.ok ? "✓" : "○"} ${escape(check.label)}</span>`).join("")}</div>
-      <div class="pb-capabilities" aria-label="Capability availability"><span>✓ Configuration</span><span>✓ Curriculum management</span><span>✓ Library management</span><span>✓ Library viewer</span><span>✓ Timetable builder</span><span>✓ Attendance registers</span>${["Progress", "Planner"].map(name => `<span>${name} · Later stage</span>`).join("")}</div>`;
+      <div class="pb-actions">${row.saved && !dirty(row) ? `<a href="/programs/manage.html?program=${encodeURIComponent(row.id)}">Manage Program →</a>${state.store === "D1" ? "" : `<a href="/programs/library.html?program=${encodeURIComponent(row.id)}">Manage Library →</a><a href="/programs/timetable.html?program=${encodeURIComponent(row.id)}">Open timetable →</a><a href="/programs/attendance.html?program=${encodeURIComponent(row.id)}">Attendance →</a>`}` : ""}<button type="button" data-action="check" class="pb-secondary" ${state.busy || !row.saved || dirty(row) ? "disabled" : ""}>Check readiness</button>
+      <button type="button" data-action="prepare" ${state.store === "D1" ? "hidden" : ""} ${state.busy || !row.saved || dirty(row) || readiness?.prepared ? "disabled" : ""}>Prepare spreadsheet</button></div></div>
+      <p>${escape(readiness?.message || (state.store === "D1" ? "Program records are ready. Timetable publication controls which lessons appear on the website." : row.saved ? "Check backend access and prepare the Program spreadsheet. Save changes before checking." : "Save this draft to register the Program. Its spreadsheet can then be prepared."))}</p>
+      <div class="pb-checks">${(readiness?.checks || [{ label: state.store === "D1" ? "Program records ready" : "Spreadsheet not checked", ok: state.store === "D1" }]).filter(check => !/time\s*zone/i.test(check.label)).map(check => `<span class="pb-check ${check.ok ? "is-ready" : ""}">${check.ok ? "✓" : "○"} ${escape(check.label)}</span>`).join("")}</div>
+      <div class="pb-capabilities" aria-label="Capability availability"><span>✓ Configuration</span><span>✓ Curriculum management</span>${state.store === "D1" ? "<span>✓ Classes and enrolments</span>" : "<span>✓ Library management</span><span>✓ Library viewer</span><span>✓ Timetable builder</span><span>✓ Attendance registers</span>"}${(state.store === "D1" ? ["Library", "Timetable editing", "Attendance", "Planner"] : ["Progress", "Planner"]).map(name => `<span>${name} · Later stage</span>`).join("")}</div>`;
   }
   function add() {
     if (state.busy) return;
@@ -85,7 +93,7 @@
     byId("program-search").value = byId("program-filter").value = "";
     render();
     document.querySelector(`[data-id="${id}"] [data-field="name"]`).focus();
-    message("New draft. Enter its name and spreadsheet.");
+    message(state.store === "D1" ? "New draft. Enter its name and duration." : "New draft. Enter its name and spreadsheet.");
   }
   async function save(row) {
     if (state.busy || !dirty(row)) return;
@@ -96,10 +104,11 @@
     try {
       const payload=Object.fromEntries(["id", "revision", ...fields].map(field => [field, row[field]]));
       payload.timezone=timezone;
+      if (state.store === "D1") payload.operationId = row.operationId ||= crypto.randomUUID();
       const result = await api(row.saved ? "save" : "create", payload);
       Object.assign(row, draft(result.program));
       delete state.readiness[row.id];
-      message(`${row.name} saved. Teaching remains disabled.`);
+      message(state.store === "D1" ? `${row.name} saved.` : `${row.name} saved. Teaching remains disabled.`);
     } catch (error) { row.error = error.message; message(`Save failed: ${error.message}`, true); }
     finally { state.busy = false; render(); document.querySelector(`[data-id="${row.id}"] [data-field="name"]`)?.focus(); }
   }
@@ -107,7 +116,7 @@
     const row = state.rows.find(item => item.id === state.selected);
     if (state.busy || !row?.saved || dirty(row)) return;
     state.busy = true;
-    message(action === "prepare" ? "Preparing spreadsheet…" : "Checking spreadsheet…");
+    message(state.store === "D1" ? "Checking Program records…" : action === "prepare" ? "Preparing spreadsheet…" : "Checking spreadsheet…");
     render();
     try { state.readiness[row.id] = await api(action === "prepare" ? "prepare" : "readiness", { id: row.id }); message(state.readiness[row.id].message); }
     catch (error) { message(error.message, true); }
@@ -118,6 +127,7 @@
     const row = state.rows.find(item => item.id === control?.closest("[data-id]")?.dataset.id);
     if (!row || row.mode !== "PROGRAM" || state.busy) return;
     row[control.dataset.field] = control.value;
+    row.operationId = null;
     row.error = "";
     const tr = control.closest("tr");
     tr.querySelector(".pb-state").textContent = dirty(row) ? "Unsaved" : "Saved";
