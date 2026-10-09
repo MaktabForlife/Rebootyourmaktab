@@ -99,6 +99,7 @@
       .map(row => activityPill(activityHref(row), row.name, row.roles)).join('') +
       (courses.length ? activityPill('#workshops', 'Workshops', [...new Set(courses.flatMap(row => row.roles))]) : '') +
       (data.globalAdmin ? activityPill('#administration', 'Academy administration', ['GLOBAL_ADMIN']) : '');
+    renderSubscriptions(activities);
     renderWorkshops();
     const personalSchedule = scheduleRows(data);
     $('schedule-title').textContent = data.signedIn ? 'My Academy timetable' : 'Academy timetable';
@@ -109,6 +110,12 @@
     $('preview-timetable-link').hidden = !data.signedIn;
     $('schedule-message').textContent = '';
     renderSchedule('academy-sessions', personalSchedule);
+  }
+
+  function renderSubscriptions(activities, current) {
+    $('activity-switcher').innerHTML = activities.map(item => activityPill(activityHref(item), item.name, item.roles,
+      Boolean(current && item.kind === current.kind && item.id === current.id))).join('');
+    $('activity-switcher').hidden = !activities.length;
   }
 
   function renderWorkshops() {
@@ -133,7 +140,7 @@
         const endDate = row.endTime <= row.startTime
           ? new Date(Date.parse(`${row.date}T12:00:00Z`) + 86400000).toISOString().slice(0, 10) : row.date;
         if (endDate < clock.date || endDate === clock.date && row.endTime <= clock.time) return false;
-        const identity = `${row.kind}:${row.activityId}`;
+        const identity = `${row.date}:${row.kind}:${row.activityId}`;
         if (seen.has(identity)) return false;
         seen.add(identity);
         return true;
@@ -147,29 +154,26 @@
   function renderSchedule(id, rows, detailed = false, compact = false) {
     state.information[id] = rows;
     if (!rows.length) { $(id).textContent = 'No published lessons in this date range.'; return; }
-    if (compact) {
+    const now = new Date().getTime();
+    const next = detailed ? rows.findIndex(row => row.status === 'SCHEDULED' && row.endsAt > now) : -1;
+    const personal = detailed || id === 'academy-sessions' && state.home?.signedIn;
+    if (compact || personal) {
       const days = new Map();
       rows.forEach((row, index) => {
         if (!days.has(row.date)) days.set(row.date, []);
         days.get(row.date).push({ row, index });
       });
       $(id).innerHTML = `<ol class="upcoming-days">${[...days].map(([date, lessons]) => `<li class="upcoming-day"><time datetime="${esc(date)}">${esc(formatDate(date))}</time><ul class="upcoming-items">${lessons.map(({ row, index }) => {
-        const label = esc(row.activityName || row.title);
-        const title = state.home?.signedIn ? `<a href="${activityHref({ kind: row.kind, id: row.activityId })}">${label}</a>` : label;
+        const label = esc(personal ? row.title : row.activityName || row.title);
+        const title = !detailed && state.home?.signedIn ? `<a href="${activityHref({ kind: row.kind, id: row.activityId })}">${label}</a>` : label;
         const info = state.home?.signedIn && row.information?.length ? `<button type="button" class="information-button" data-information="${id}:${index}" aria-label="More information about ${label}">i</button>` : '';
-        return `<li class="upcoming-item ${row.involvement === 'teacher' ? 'teacher' : row.involvement === 'student' ? 'student' : ''}"><div class="upcoming-name">${title}${info}</div><span class="upcoming-time">${esc(row.startTime)}–${esc(row.endTime)}</span></li>`;
+        const join = detailed && row.status === 'SCHEDULED' && now >= row.joinAvailableAt && now < row.endsAt && safeLink(row.joinUrl) ? `<a class="button small" href="${esc(row.joinUrl)}" target="_blank" rel="noopener noreferrer">Join lesson</a>` : '';
+        const nextLabel = index === next ? `<span class="next-lesson-label">${row.startsAt <= now ? 'In progress' : 'Next lesson'}</span>` : '';
+        return `<li class="upcoming-item ${index === next ? 'next-lesson ' : ''}${row.involvement === 'teacher' ? 'teacher' : row.involvement === 'student' ? 'student' : ''}">${nextLabel}<div class="upcoming-name">${title}${!personal ? info : ''}</div>${personal ? `<small>${esc(row.activityName)}</small>` : ''}<span class="upcoming-time">${esc(row.startTime)}–${esc(row.endTime)}</span>${personal ? `<small>${esc(row.timezone)}</small><div class="upcoming-actions">${info}${join}</div>` : ''}</li>`;
       }).join('')}</ul></li>`).join('')}</ol>`;
       return;
     }
-    const now = new Date().getTime();
-    const next = detailed ? rows.findIndex(row => row.status === 'SCHEDULED' && row.endsAt > now) : -1;
-    $(id).innerHTML = `<ol class="schedule-list">${rows.map((row, index) => {
-      const info = row.information?.length ? index : -1;
-      const title = detailed || !state.home?.signedIn ? esc(row.title) : `<a href="${activityHref({ kind: row.kind, id: row.activityId })}">${esc(row.title)}</a>`;
-      const join = detailed && row.status === 'SCHEDULED' && now >= row.joinAvailableAt && now < row.endsAt && safeLink(row.joinUrl) ? `<a class="button small" href="${esc(row.joinUrl)}" target="_blank" rel="noopener noreferrer">Join lesson</a>` : '';
-      const nextLabel = index === next ? `<span class="next-lesson-label">${row.startsAt <= now ? 'In progress' : 'Next lesson'}</span>` : '';
-      return `<li class="${index === next ? 'next-lesson ' : ''}${row.involvement === 'teacher' ? 'teacher' : row.involvement === 'student' ? 'student' : ''}"><time datetime="${esc(row.date)}">${esc(formatDate(row.date))}</time><div>${esc(row.startTime)}–${esc(row.endTime)}<small>${esc(row.timezone)}</small></div><div class="lesson-name">${nextLabel}${title}${detailed ? `<small>${esc(row.activityName)}</small>` : ''}</div><div class="lesson-actions">${info >= 0 ? `<button type="button" class="information-button" data-information="${id}:${info}" aria-label="More information about ${esc(row.title)}">i</button>` : ''}${join}</div></li>`;
-    }).join('')}</ol>`;
+    $(id).innerHTML = `<ol class="schedule-list">${rows.map(row => `<li><time datetime="${esc(row.date)}">${esc(formatDate(row.date))}</time><div>${esc(row.startTime)}–${esc(row.endTime)}<small>${esc(row.timezone)}</small></div><div class="lesson-name">${esc(row.title)}</div></li>`).join('')}</ol>`;
   }
 
   async function loadActivity(id, refresh = false) {
@@ -179,8 +183,7 @@
       $('activity-title').textContent = 'Opening activity…';
       $('activity-role').textContent = '';
       $('activity-status').textContent = '';
-      $('activity-switcher').hidden = true;
-      for (const target of ['activity-switcher', 'activity-menu', 'activity-sessions', 'activity-coming', 'activity-curriculum', 'activity-classes']) $(target).replaceChildren();
+      for (const target of ['activity-menu', 'activity-sessions', 'activity-coming', 'activity-curriculum', 'activity-classes']) $(target).replaceChildren();
       state.information['activity-sessions'] = [];
       $('activity-classes-section').hidden = true;
       $('activity-curriculum-section').hidden = true;
@@ -195,8 +198,7 @@
       $('activity-kind').textContent = row.kind === 'PROGRAM' ? 'Program' : 'Course';
       $('activity-role').textContent = roleName(row.roles);
       const subscriptions = result.signedIn ? result.personalActivities : [];
-      $('activity-switcher').innerHTML = subscriptions.map(item => activityPill(activityHref(item), item.name, item.roles, item.kind === row.kind && item.id === row.id)).join('');
-      $('activity-switcher').hidden = !subscriptions.length;
+      renderSubscriptions(subscriptions, row);
       $('current-view').textContent = row.name;
       const activityMessage = row.unavailable ? 'This activity is temporarily unavailable. Please try again.' :
         !row.roles.length ? 'Sign in with an authorised Academy account to open protected lessons and tools.' : '';
@@ -220,11 +222,11 @@
       $('activity-curriculum-section').hidden = true;
       $('activity-classes').replaceChildren();
       $('activity-curriculum').replaceChildren();
-      if (row.classes.length) {
+      if (staff && row.classes.length) {
         $('activity-classes-section').hidden = false;
         $('activity-classes').innerHTML = row.classes.map(item => `<li>${esc(item.name)}</li>`).join('');
       }
-      if (row.curriculum.length) {
+      if (staff && row.curriculum.length) {
         $('activity-curriculum-section').hidden = false;
         $('curriculum-title').textContent = row.kind === 'PROGRAM' ? 'Subjects and Modules' : 'Course Modules';
         $('activity-curriculum').innerHTML = row.curriculum.map(item => `<div class="curriculum-subject"><h3>${esc(item.name)}</h3>${item.modules?.length ? `<ul>${item.modules.map(module => `<li>${esc(module.name)}</li>`).join('')}</ul>` : ''}</div>`).join('');
@@ -243,8 +245,7 @@
     } catch (error) {
       if (generation === state.activityGeneration) {
         $('activity-title').textContent = 'Activity unavailable'; $('activity-status').textContent = error.message;
-        for (const target of ['activity-switcher', 'activity-menu', 'activity-sessions', 'activity-coming', 'activity-curriculum', 'activity-classes']) $(target).replaceChildren();
-        $('activity-switcher').hidden = true;
+        for (const target of ['activity-menu', 'activity-sessions', 'activity-coming', 'activity-curriculum', 'activity-classes']) $(target).replaceChildren();
         $('activity-classes-section').hidden = true;
         $('activity-curriculum-section').hidden = true;
         state.information['activity-sessions'] = [];
@@ -271,7 +272,7 @@
 
   function route() {
     const [requested, , encodedId] = location.hash.slice(1).split('/');
-    if (requested !== 'activity') { clearTimeout(state.activityTimer); state.activityGeneration++; }
+    if (requested !== 'activity') { clearTimeout(state.activityTimer); state.activityGeneration++; renderSubscriptions(state.home?.signedIn ? state.home.personalActivities : []); }
     const name = requested === 'learning' ? 'overview' : titles[requested] ? requested : 'overview';
     document.querySelectorAll('.view').forEach(view => view.classList.toggle('active', view.id === name));
     document.querySelectorAll('[data-nav]').forEach(button => {
@@ -346,7 +347,7 @@
     }
   });
   $('lesson-information-close').addEventListener('click', () => $('lesson-information').close());
-  for (const [id, direction, target] of [['upcoming-previous', -1, 'academy-preview-sessions'], ['upcoming-next', 1, 'academy-preview-sessions'], ['learning-previous', -1, 'learning-catalogue'], ['learning-next', 1, 'learning-catalogue']]) $(id).addEventListener('click', () => {
+  for (const [id, direction, target] of [['upcoming-previous', -1, 'academy-preview-sessions'], ['upcoming-next', 1, 'academy-preview-sessions'], ['learning-previous', -1, 'learning-catalogue'], ['learning-next', 1, 'learning-catalogue'], ['personal-previous', -1, 'activity-sessions'], ['personal-next', 1, 'activity-sessions']]) $(id).addEventListener('click', () => {
     const strip = $(target);
     strip.scrollBy({ left: direction * strip.clientWidth, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
   });
@@ -362,21 +363,6 @@
   window.addEventListener('storage', event => { if (event.key === 'm4l_account_token') { clearPersonal(); void loadHome(); } });
   window.addEventListener('pageshow', () => { clearPersonal(); void loadHome(); });
 
-  const film = $('film-track'), cards = [...film.querySelectorAll('.film-card')];
-  let filmIndex = 0, paused = true;
-  function moveFilm(index) {
-    filmIndex = (index + cards.length) % cards.length;
-    film.scrollTo({ left: cards[filmIndex].offsetLeft - cards[0].offsetLeft, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
-    $('film-status').textContent = `${filmIndex + 1} / ${cards.length}`;
-    document.querySelectorAll('[data-film-page]').forEach(button => button.setAttribute('aria-pressed', String(Number(button.dataset.filmPage) === Math.floor(filmIndex / 10))));
-  }
-  $('film-prev').addEventListener('click', () => moveFilm(filmIndex - 1));
-  $('film-next').addEventListener('click', () => moveFilm(filmIndex + 1));
-  $('film-toggle').textContent = 'Play';
-  $('film-toggle').setAttribute('aria-label', 'Play course strip');
-  $('film-toggle').addEventListener('click', () => { paused = !paused; $('film-toggle').textContent = paused ? 'Play' : 'Pause'; $('film-toggle').setAttribute('aria-label', `${paused ? 'Play' : 'Pause'} course strip`); });
-  document.querySelectorAll('[data-film-page]').forEach(button => button.addEventListener('click', () => moveFilm(Number(button.dataset.filmPage) * 10)));
-  setInterval(() => { if (!paused && document.visibilityState === 'visible' && $('overview').classList.contains('active') && !film.contains(document.activeElement)) moveFilm(filmIndex + 1); }, 4800);
   route();
   renderCatalogue();
   void loadHome();

@@ -29,3 +29,12 @@
 
 .activity-heading{display:flex;align-items:center;gap:24px}.activity-identity{flex:0 0 auto}.activity-heading .activity-switcher{display:flex;flex:1 1 0;min-width:0;flex-wrap:nowrap;gap:10px;overflow-x:auto;overscroll-behavior-x:contain;scroll-snap-type:x proximity;margin:0;padding:6px 2px 14px}.activity-switcher a{flex:0 0 auto;flex-direction:column;align-items:flex-start;gap:4px;scroll-snap-align:start}.activity-switcher a[aria-current="page"]{background:var(--rose);color:white}.activity-switcher a[aria-current="page"] small{color:inherit}.activity-switcher:empty{display:none}.schedule-list li.next-lesson{outline:2px solid var(--rose);outline-offset:1px}.next-lesson-label{display:block;color:var(--rose-dark);font-size:12px;margin-bottom:5px}
 @media(max-width:800px){.activity-heading{flex-direction:column;align-items:stretch;gap:8px}.activity-heading .activity-switcher{flex:auto;width:100%}}
+
+.film-track.is-playing,.film-track.is-moving{scroll-snap-type:none;scroll-behavior:auto}.film-track{overscroll-behavior-x:contain}.film-card{overflow-anchor:none}
+.personal-activities .activity-pills{grid-auto-rows:1fr}.personal-activities .activity-pills a{min-height:92px;height:100%;background:#783e87;border:1px solid #673274;color:#fff;box-shadow:0 4px 12px rgba(90,43,104,.14)}.personal-activities .activity-pills a:hover{background:#632e72}.personal-activities .activity-pills a>span{line-height:1.35}.personal-activities .activity-pills small{color:#fff}.activity-switcher a{flex:0 0 190px;width:190px;min-height:92px;white-space:normal;background:#ead6ef;border-color:#b78bc5}.activity-switcher a[aria-current="page"]{background:#783e87;border-color:#673274;color:#fff}
+.academy-global-strip{padding:0 clamp(20px,4vw,52px);max-width:1320px;margin:auto}.academy-global-strip .activity-switcher{display:flex;flex-wrap:nowrap;gap:10px;overflow-x:auto;overscroll-behavior-x:contain;scroll-snap-type:x proximity;padding:16px 2px;margin:0}.academy-global-strip .activity-switcher a{flex-direction:column;align-items:flex-start;justify-content:center;gap:4px;scroll-snap-align:start}
+
+.sidebar{overflow-y:auto}
+@media(max-width:700px){.sidebar{position:sticky;top:0;z-index:30;max-height:40vh;overflow-y:auto}}
+
+.upcoming-item.next-lesson{outline:2px solid var(--rose);outline-offset:1px}.upcoming-actions{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:8px;margin-top:10px}.upcoming-actions:empty{display:none}

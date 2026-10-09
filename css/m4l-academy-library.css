@@ -7,3 +7,9 @@
 .library-category-pills button[aria-pressed=true]{color:#fff;background:#714779;border-color:#714779}
 .library-category-pills button:focus-visible{outline:3px solid #a77cad;outline-offset:2px}
 @media(max-width:650px){.al-filters{grid-template-columns:1fr}.al-filters label:first-child{grid-column:auto}}
+
+.al-tabs a{display:inline-flex;align-items:center;justify-content:center;border:1px solid #d8c6dd;border-radius:999px;padding:12px 22px;color:#553a5b;background:#fff;text-decoration:none;font:inherit;min-height:44px}.al-tabs a[aria-current="page"]{background:#714779;border-color:#714779;color:#fff}.al-tabs a:focus-visible{outline:3px solid #a77cad;outline-offset:2px}.al-tabs [hidden]{display:none!important}
+#al-results{display:grid;grid-auto-flow:column;grid-auto-columns:clamp(190px,20vw,230px);align-items:start;gap:18px;overflow-x:auto;padding:2px 2px 18px;scroll-snap-type:x proximity;scrollbar-width:thin}.al-section{min-width:0;margin:0;scroll-snap-align:start}.al-section h2{margin:0 0 12px;font-size:1.2rem}.al-subject-books{display:grid;align-content:start;gap:10px}.al-subject-books .al-card{width:100%;min-height:375px;display:flex;flex-direction:column;font:inherit}.al-subject-books .al-art{width:100%;height:auto;aspect-ratio:2/3;flex:none}.al-subject-books .al-card strong{font-size:.95rem;overflow-wrap:anywhere}.al-subject-books .al-card small{font-size:.8rem;overflow-wrap:anywhere}.al-subject-books .al-volume-count{margin-top:auto;padding-top:8px}
+@media(max-width:650px){#al-results{grid-auto-columns:min(72vw,220px);gap:12px}.al-subject-books .al-card{min-height:340px;padding:10px}.al-subject-books .al-art{height:auto}}
+
+#al-results>.al-empty{grid-column:1/-1}

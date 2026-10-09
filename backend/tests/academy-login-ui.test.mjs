@@ -11,7 +11,7 @@ assert.match(html, /id="academy-sign-out" type="button" hidden/);
 assert.match(html, /id="academy-library-nav" href="\/academy\/open-library\/"/);
 assert.doesNotMatch(html, /academy-personal-library-nav|>My Library<\/a>/);
 assert.doesNotMatch(html, /Open Academy Library/);
-assert.match(html, /Website V105\.4\.3\.10/);
+assert.match(html, /Website V105\.4\.3\.11/);
 assert.doesNotMatch(html, /ABCDEFG/);
 assert.match(redirects, /^\/academy\/:uniqueid \/academy\/#overview 302$/m);
 

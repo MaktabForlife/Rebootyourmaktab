@@ -43,7 +43,7 @@ const fetch = async (url, options = {}) => {
       sourceName: 'Reboot', subject: 'Fiqh', type: 'EBOOK', forYou: true
     }, {
       id: 'PROGRAM:P2:AUDIO1', name: 'Second Program audio', source: 'PROGRAM',
-      sourceName: 'Hifz', subject: 'Quran', type: 'AUDIO', forYou: true
+      sourceName: 'Hifz', subject: 'Fiqh', type: 'AUDIO', forYou: true
     }, {
       id: 'GLOBAL:BOOK1', name: 'Course book', source: 'GLOBAL',
       sourceName: 'Courses', subject: 'Arabic', type: 'EBOOK', forYou: true
@@ -100,6 +100,8 @@ await new Promise(resolve => setImmediate(resolve));
 
 assert.match(nodes['al-results'].innerHTML, /Assigned book/);
 assert.match(nodes['al-results'].innerHTML, /Second Program audio/);
+assert.equal((nodes['al-results'].innerHTML.match(/<h2>Fiqh<\/h2>/g)||[]).length,1,'The same subject from two Programs shares one column');
+assert.match(nodes['al-results'].innerHTML, /al-subject-books/);
 assert.match(nodes['al-results'].innerHTML, /Course book/);
 assert.equal(nodes['al-source'].value, 'ALL');
 assert.deepEqual(JSON.parse(calls.find(call => call.url === '/api/academy/library/catalogue').options.body), {}, 'For You must not send a current Program filter');
@@ -111,7 +113,7 @@ assert.match(nodes['al-results'].innerHTML, /al-card-title"><img src="\/icons\/o
 assert.doesNotMatch(nodes['al-results'].innerHTML, /Ihya Ulum/);
 const personalHtml = await readFile(new URL('../../academy/library/index.html', import.meta.url), 'utf8');
 assert.match(personalHtml, /href="\/academy\/open-library\/">Explore/);
-assert.match(personalHtml, /data-view="you" role="tab" aria-selected="true">For You/);
+assert.match(personalHtml, /href="\/academy\/library\/" aria-current="page">For You/);
 chooseCategory('OTHER');
 assert.match(nodes['al-results'].innerHTML, /Useful website/);
 assert.doesNotMatch(nodes['al-results'].innerHTML, /Assigned book|Academy Quran book/);
@@ -121,7 +123,7 @@ assert.doesNotMatch(nodes['al-results'].innerHTML, /Useful website/);
 chooseCategory('ALL');
 assert.match(nodes['al-results'].innerHTML, /Introduction/);
 assert.match(nodes['al-results'].innerHTML, /https:\/\/example\.test\/cover\.png/);
-assert.match(nodes['al-results'].innerHTML, /Tafseer · Open Library/);
+assert.match(nodes['al-results'].innerHTML, /<h2>Tafseer<\/h2>/);
 clickResource(linkId);
 assert.deepEqual(opened, [['https://example.org/learning', '_blank', 'noopener,noreferrer']]);
 

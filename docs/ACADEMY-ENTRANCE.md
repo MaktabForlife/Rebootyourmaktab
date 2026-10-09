@@ -1,3 +1,19 @@
+# Academy home · V105.4.3.11
+
+The Academy side menu and the signed-in person's subscribed Program/Course row are available across Academy views, both Library pages and connected new Program setup, management, timetable, attendance, Library and user tools. The recorder receives this navigation only through its Academy entry point. Top-row pills retain actual authorised IDs, place roles beneath names and mark the current Program where applicable. Home activity pills have equal dimensions and a stronger plum background. Compact navigation stays visible on smaller screens. Failed account validation keeps public navigation available; sign-out and token changes clear private activity names and prevent delayed responses from restoring them.
+
+**Coming up** now includes future date columns within the upcoming seven-day window, with one next lesson per Program or Course **per day**. Personal integrated timetables use the same swipeable day-column format, retaining every personal lesson, lesson and activity labels, timezones, information popups, next-lesson highlighting and the existing server-enforced joining window. Student Program and Course pages omit the Classes and Subjects/Modules sections; authorised staff retain their available teaching sections.
+
+The free workshop catalogue uses frame-based continuous playback and a seamless end-to-start loop. Manual controls, keyboard and touch browsing remain, with motion paused for hover, focus, hidden/background pages and offscreen content. Reduced-motion users get direct manual navigation and spaced poster changes only after choosing Play. The marked Catalogue page label and four bottom pagination links are removed; the 35 original artwork cards, numbered controls, individual course and public lesson links remain.
+
+Both Library views retain matching **For You** and **Explore** pills for validated signed-in accounts of every role. Explore stays public without sign-in. Personal Library resources use the same subject-column arrangement as the Public Library, stacking cards vertically and retaining source/Module labels, category/search/source filtering and existing access checks. For You remains Academy-wide without a current Program filter.
+
+**106/106 test files passed on the final implementation.** Tests cover the continuous loop, manual controls, reduced motion, hover/background/offscreen pauses, public destinations, all-role Library navigation, actual activity IDs, delayed-response sign-out, personal day columns without lesson loss, student/staff section visibility and existing timetable joining boundaries. Static checks pass for unique IDs and local script/style targets across 13 pages, JavaScript syntax, synchronized release markers and all 42 remaining original Academy-site URLs. Only the four specifically marked catalogue pagination links were removed. The native specification Page and checked-in specification are synchronized.
+
+Push target: `feature/105.3.4.13`. Browser visual and physical iPhone checks remain pending because the preview tool could not verify the administrator-enforced browser policy. This feature push does not deploy the website or Worker. Legacy Reboot screens/data and the other chat's unfinished checkout remain untouched.
+
+---
+
 # Academy home · V105.4.3.10
 
 Every Program and Course landing page now shows the same **personal integrated Academy timetable**, including the account’s enrolled or assigned lessons across the new Program framework and shared Courses. Unassigned lessons and cancelled occurrences are excluded. Global administrative oversight alone does not make lessons personal. Subscribed Programs and Courses appear in one horizontally swipeable row beside the activity title, with roles below names and the current activity marked. The home still groups Courses under Workshops.

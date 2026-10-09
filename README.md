@@ -1,3 +1,7 @@
+# V105.4.3.11 — Shared Academy navigation and smoother browsing
+
+Keep the side menu and a swipeable subscribed Program/Course top row across Academy pages and connected new Program tools. Strengthen and equalise activity pills. For You and Explore remain matching navigation pills for signed-in accounts in both Library views, with Personal Library resources arranged in subject columns. Coming up includes later dates with one item per activity per day. Personal timetables use the same swipeable day-column format while retaining every lesson, information and timed joining controls. Hide Classes and Subjects/Modules sections on student landing pages. The free workshop strip plays smoothly in a continuous loop; remove the marked catalogue labels and bottom pagination links while preserving individual course and public lesson links. [Implementation and verification](docs/ACADEMY-ENTRANCE.md).
+
 # V105.4.3.10 — Personal timetable and Academy navigation
 
 Every Program page now displays the same personal Academy timetable across enrolled Programs and Courses, with subscribed activity pills in one swipeable row beside the title. Highlight the next lesson and activate authorised joining links five minutes before start, removing them at the end. Use one Library menu item that opens For You after sign-in and the Public Library for visitors. Move Dua and Surah Progress and Voice Recorder to the student menu; remove Programs and Courses from the menu.

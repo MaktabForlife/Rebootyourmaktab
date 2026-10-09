@@ -1,0 +1,23 @@
+/* Shared Academy navigation; tool workspaces retain their own layout and controls. */
+body.academy-connected{padding-left:246px;min-height:100vh}
+.academy-connected-sidebar{position:fixed;inset:0 auto 0 0;width:246px;z-index:20;display:flex;flex-direction:column;gap:28px;overflow-y:auto;padding:23px 17px;background:#fff;border-right:1px solid #ded0e2;color:#2f2933;font:14px/1.45 Arial,Helvetica,sans-serif}
+.academy-connected-brand{display:flex;align-items:center;gap:11px;padding:0 6px;text-decoration:none;color:inherit}
+.academy-connected-brand img{width:54px;height:54px;object-fit:contain;border-radius:50%}
+.academy-connected-brand strong{display:block;font:400 18px/1.08 Georgia,serif}
+.academy-connected-brand small{display:block;margin-top:4px;color:#5f5464;font-size:12px}
+.academy-connected-sidebar nav{display:grid;gap:5px}
+.academy-connected-sidebar nav a{display:block;padding:11px 13px;border-radius:11px;color:inherit;font-weight:600;text-decoration:none}
+.academy-connected-sidebar nav a:hover,.academy-connected-sidebar nav a[aria-current=page]{background:#efe2f1;color:#58305f}
+.academy-connected-footer{margin-top:auto;display:grid;gap:14px}
+.academy-connected-footer a{color:#58305f;font-weight:700;text-decoration:none}
+.academy-connected-footer button{justify-self:start;background:#efe2f1;border:1px solid #ded0e2;border-radius:999px;color:#58305f;padding:9px 16px;font:700 13px Arial,Helvetica,sans-serif;cursor:pointer}
+.academy-connected-activities{display:flex;flex-wrap:nowrap;gap:10px;overflow-x:auto;overscroll-behavior-x:contain;scroll-snap-type:x proximity;padding:16px 20px;background:#faf7fb;border-bottom:1px solid #ded0e2;font:14px/1.35 Arial,Helvetica,sans-serif}
+.academy-connected-activities a{flex:0 0 190px;width:190px;min-height:92px;display:flex;flex-direction:column;justify-content:center;gap:4px;scroll-snap-align:start;padding:14px 18px;border:1px solid #b78bc5;border-radius:20px;background:#ead6ef;color:#58305f;text-decoration:none;overflow-wrap:anywhere}
+.academy-connected-activities a span{font-weight:700}
+.academy-connected-activities a small{font-size:12px}
+.academy-connected-activities a:hover,.academy-connected-activities a[aria-current=page]{background:#783e87;border-color:#673274;color:#fff}
+.academy-connected-sidebar [hidden],.academy-connected-activities[hidden]{display:none!important}
+.academy-connected-sidebar :focus-visible,.academy-connected-activities a:focus-visible{outline:3px solid #783e87;outline-offset:2px}
+.academy-connected .al-header{padding:18px 20px;flex-wrap:wrap}
+@media(max-width:1000px) and (min-width:701px){body.academy-connected{padding-left:210px}.academy-connected-sidebar{width:210px}}
+@media(max-width:700px){body.academy-connected{padding-left:0}.academy-connected-sidebar{position:sticky;inset:auto;top:0;width:auto;padding:12px 17px;gap:12px;max-height:45vh}.academy-connected-brand img{width:42px;height:42px}.academy-connected-brand strong{font-size:16px}.academy-connected-sidebar nav{display:flex;gap:4px;overflow-x:auto;flex:none}.academy-connected-sidebar nav a{white-space:nowrap;padding:9px 10px;font-size:13px}.academy-connected-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:12px}.academy-connected-activities{padding:12px 18px}}

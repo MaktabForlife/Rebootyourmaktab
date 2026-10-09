@@ -2,7 +2,7 @@
 
 Update the existing Academy demo into a usable Academy entrance. Connect existing functionality where it supports the agreed behaviour. Show **Coming soon** for unavailable features or integrations.
 
-Preserve the Academy branding, soft lavender and plum design. Use the Academy logo in the navigation and as a subtle background behind the public announcements and upcoming timetable. Do not repeat the small logo above the Academy title beside sign-in. Make the website work comfortably on phones and computers.
+Preserve the Academy branding, soft lavender and plum design. Use the Academy logo in the navigation and as a subtle background behind the public announcements and upcoming timetable. Do not repeat the small logo above the Academy title beside sign-in. Make the website work comfortably on phones and computers. Keep the Academy side menu visible on every Academy page and connected new Program tool, including both Library views. On smaller screens keep the same navigation visible in a compact horizontal layout. Preserve the standalone recorder’s existing interface outside its Academy entry point and leave legacy Reboot untouched.
 
 ### Program framework and Reboot
 
@@ -60,7 +60,7 @@ Include:
 
 The public artwork row is display-only for now. Do not put links on its images, names or actions, either to ummabbadacademy.com or to internal Academy activity pages. Keep the row swipeable and retain its original artwork.
 
-The free workshop and course catalogue is headed **Immerse yourself in these free workshops and courses**.
+The free workshop and course catalogue is headed **Immerse yourself in these free workshops and courses**. Play moves the artwork strip smoothly in a continuous loop without a long rewind at the end. Retain Play/Pause, previous/next and the numbered controls, plus touch and keyboard browsing. Pause motion while a poster is hovered or focused and when the page or strip is not visible. Respect reduced-motion preferences with direct manual changes and discrete, spaced poster changes after explicit Play.
 
 Personal activity pills separately open the signed-in person’s actual new Program and Course records, with their existing permissions and tools. The public showcase must not depend on personal membership or availability of the account/timetable service.
 
@@ -68,9 +68,9 @@ Remove obsolete demo instructions, connection-plan content and sample completion
 
 ### Academy timetable
 
-On the main page, display the shortened Academy timetable as **Coming up**, beneath the enlarged announcements area. Group entries into horizontally swipeable date columns, with Program or Course names as compact cards and their published time visible. Omit the timezone from these Coming up cards; keep it in the full timetable. Provide arrow buttons and keyboard access as well as touch scrolling. Include only the next published item per Program or Course within the next seven days. Exclude ended and cancelled items, and combine Course offerings under their Course for this summary.
+On the main page, display the shortened Academy timetable as **Coming up**, beneath the enlarged announcements area. Group entries into horizontally swipeable date columns, including future dates within the next seven days. Show one next published item **per Program or Course per day**, so a later day is not removed because that activity also occurs earlier. Display Program or Course names as compact cards with their published time. Omit the timezone from these Coming up cards; keep it in the full timetable. Provide arrow buttons and keyboard access as well as touch scrolling. Exclude ended and cancelled items, and combine Course offerings under their Course for each date.
 
-Signed-in users see their **personal integrated Academy timetable**, combining their enrolled and assigned lessons across the Academy. Display the same personal timetable on every Program page and retain it when switching Programs or Courses. A staff or administrator role alone does not make every lesson personal. The full timetable remains accessible from the signed-in Coming up summary. Do not include Timetable in the main menu. Highlight participation using **colour**, supported by a simple colour key in the full timetable.
+Signed-in users see their **personal integrated Academy timetable**, combining their enrolled and assigned lessons across the Academy. Display the same personal timetable on every Program page and retain it when switching Programs or Courses. A staff or administrator role alone does not make every lesson personal. The full timetable remains accessible from the signed-in Coming up summary. Do not include Timetable in the main menu. Highlight participation using **colour**, supported by a simple colour key in the full timetable. Use the home page’s swipeable date-column format for the personal timetable, with lesson cards stacked under each day. Retain every personal lesson rather than applying the shortened Coming up summary, keep lesson and Program/Course labels, published times and timezones, and preserve the next-lesson highlight, information and authorised joining controls.
 
 Do not add “My class” or “Teaching” labels to highlight involvement.
 
@@ -114,7 +114,7 @@ Returning from a tool should provide a clear route back to the Academy home or r
 
 ## 3. Personal activity pills
 
-In the signed-in **My Academy** panel, show **Your activities** as pills directly beneath the welcome. Display the role beneath each activity name. Access personal Library through the menu rather than a prominent home-panel button. Visitors must not see this personal section.
+In the signed-in **My Academy** panel, show **Your activities** as uniform-size pills directly beneath the welcome. Use a stronger plum colour to make the activities stand out, and display the role beneath each activity name. Access personal Library through the menu rather than a prominent home-panel button. Visitors must not see this personal section.
 
 Populate activity pills from actual account access, including authorised access to the existing shared curriculum displayed as Courses. Show each Program separately. Group all Courses, including Barakah and Salaah, into one **Workshops** home pill. This opens a chooser containing only the person’s authorised Courses, with the individual role beneath each Course name. Bind each chooser entry to its actual underlying curriculum ID and any required offering context. Hide the Workshops pill when no Course access is assigned; clear the chooser on sign-out. Do not use the demo’s fixed list as personal membership data.
 
@@ -140,7 +140,7 @@ Use these learning structures:
 
 - **Courses:** The existing shared curriculum, organised into Modules, with linked scheduled lessons and offerings such as workshops, bootcamps and presentations where supported.
 
-Each activity opens an appropriate landing page containing its available tools. Display the person’s subscribed Program and Course pills in **one horizontally swipeable row beside the activity title**, with roles beneath names and the current activity indicated. Populate this row from actual authorised account access and retain every underlying ID. Students see their **personal integrated Academy timetable**, **Announcements**, **Calendar** and **Assignments** on every Program page, with **Library** in its menu. The timetable includes their enrolled or assigned lessons across all new Programs and Courses, rather than filtering to the displayed Program. Show **Coming soon** for announcements, calendar or assignments while their new Program integrations are unavailable.
+Each activity opens an appropriate landing page containing its available tools. Display the person’s subscribed Program and Course pills in **one horizontally swipeable top row on every Academy page**, including both Library views and connected new Program tools. Keep the pills a uniform size, place roles beneath names and clearly highlight the current Program or Course where applicable. Populate this row from actual authorised account access and retain every underlying ID. Students see their **personal integrated Academy timetable**, **Announcements**, **Calendar** and **Assignments** on every Program page, with **Library** in its menu. The timetable includes their enrolled or assigned lessons across all new Programs and Courses, rather than filtering to the displayed Program. Show **Coming soon** for announcements, calendar or assignments while their new Program integrations are unavailable. Omit the Classes and Subjects/Modules sections from student Program and Course pages. Authorised teaching and administration roles retain the available teaching sections.
 
 Reboot’s lessons within the personal integrated Academy timetable come from the new Pilot Program’s published timetable. Its Library resources, classes and available teaching tools use that same new Program and actual Program ID. Apply the same integration pattern to other Academy Programs; the timetable remains Academy-wide for the signed-in person when switching activity pages.
 
@@ -152,7 +152,7 @@ Reuse the existing curriculum, Modules, tasks, resources and authorised tools. R
 
 Keep scheduled offerings linked to their underlying curriculum, preserving each offering’s actual ID, dates, publication and access context. Do not duplicate curriculum records or merge distinct entitlements because both are presented under Courses.
 
-Course landing pages expose the available curriculum, timetable, Library and tools for the person’s authorised scope. Show **Coming soon** for unavailable functions or integrations.
+Course landing pages expose the available curriculum, timetable, Library and tools for the person’s authorised scope. Show **Coming soon** for unavailable functions or integrations. Do not display the curriculum or Module sections on student landing pages; authorised staff retain the available curriculum view.
 
 | Feature | Intended availability |
 |---|---|
@@ -199,13 +199,13 @@ The main Academy menu has one **Library** item. For a signed-in Academy account 
 
 **Library** is a menu item on each Program page. Course pages retain the same Academy-wide Library entry where available.
 
-It opens **For You** by default, without automatically filtering to the current Program or Course.
+It opens **For You** by default, without automatically filtering to the current Program or Course. Display **For You** and **Explore** as matching navigation pills. Both remain available in the Personal and Public Library for all validated signed-in Academy accounts, regardless of role, so users can move between the views. Indicate the selected view. Visitors retain Explore without needing to sign in.
 
 For Reboot, use the new Pilot Program’s Library and its authorised resources through the Academy Library integration. Carry the verified Program context where required, while preserving For You’s Academy-wide view. Do not connect legacy Reboot Library screens or data, or use them to fill gaps in the new Program Library integration.
 
 ### For You
 
-The Personal Library uses the existing Academy account and includes everything the person is entitled to access across the Academy, including authorised resources from the shared curriculum displayed as Courses, subject to the exclusion of legacy Reboot data from this website integration.
+The Personal Library uses the existing Academy account and includes everything the person is entitled to access across the Academy, including authorised resources from the shared curriculum displayed as Courses, subject to the exclusion of legacy Reboot data from this website integration. Use the Public Library’s subject-column layout: one column per subject, with its resource cards stacked vertically and columns browsable horizontally. Combine a subject’s authorised resources across sources in the same column while retaining source and Module labels on cards. Keep search, source and category filters.
 
 ### Explore
 
@@ -307,9 +307,9 @@ For unavailable features:
 
 - Do not use broken links or silently open an unrelated screen.
 
-Keep the existing links to [ummabbadacademy.com](https://ummabbadacademy.com), including the original-site and public course catalogue links. Historical catalogue entries must remain clearly identified as catalogue information and must not appear as current upcoming events.
+Keep the existing links to [ummabbadacademy.com](https://ummabbadacademy.com), including the original-site, individual public course and public lesson links. Remove only the specifically marked bottom catalogue pagination text links (page 1, page 2, page 3, page 4); retain the numbered in-page browsing controls. Historical catalogue entries must remain clearly identified as catalogue information and must not appear as current upcoming events.
 
-Remove the marked catalogue artwork caption, the descriptive paragraph beneath its heading, and the explanatory source sentence beneath its cards. Preserve the heading, artwork cards, controls and original-site links.
+Remove the marked catalogue artwork caption, descriptive paragraph beneath its heading and explanatory source sentence beneath its cards. Also remove the marked **Catalogue page** label and the bottom **page 1, page 2, page 3, page 4** text links. Preserve the heading, artwork cards, numbered controls, playback controls, individual course links and public lesson links.
 
 ## 10. Acceptance criteria
 
@@ -335,11 +335,11 @@ Verify:
 
 - Public Library and free-material access without sign-in; one Library menu item opens For You for a signed-in Academy account and the Public Library for visitors, with public Explore available independently.
 
-- For You showing authorised resources across the Academy within the agreed integration scope.
+- For You showing authorised resources across the Academy in subject columns, with persistent For You and Explore navigation pills in both Library views for all signed-in roles.
 
 - Protected content remaining protected when opened directly.
 
-- One upcoming timetable item per Program or Course on the main page; visitors see plain entries without links. Timetable and Programs and Courses are absent from the main menu. Every Program page shows the same integrated personal Academy timetable, with authorised information popups, next-lesson highlighting and server-enforced joining from five minutes before start until the lesson ends.
+- One upcoming timetable item per Program or Course per day on the main page, with future dates available by swipe; visitors see plain entries without links. Timetable and Programs and Courses are absent from the main menu. The Academy side menu and the signed-in subscribed activity top row persist across Academy pages and connected new Program tools. Every Program page shows the same integrated personal Academy timetable, with authorised information popups, next-lesson highlighting and server-enforced joining from five minutes before start until the lesson ends. Personal timetables use the home page’s swipeable day columns while retaining every authorised lesson.
 
 - Correct actual Program context for attendance and management links, a single swipeable subscribed-activity row, and assigned-level/class limits for preparation and Library management. Teacher and administrator actions remain Coming soon wherever their required backend integration or scope is unavailable.
 

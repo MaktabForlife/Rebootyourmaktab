@@ -128,7 +128,7 @@
         : `<img src="${esc(icons[row.type] || icons.OTHER)}" alt="" width="48" height="48">`;
     const partCount = row.volumes?.length ? `${row.volumes.length} volumes` :
       row.mediaFiles?.length > 1 ? `${row.mediaFiles.length} recordings` : '';
-    return `<button type="button" class="al-card" data-resource="${esc(row.id)}" aria-label="${row.locked ? 'Locked: ' : 'Open '}${esc(row.name)} (${esc(typeNames[row.type] || 'Resource')})"><span class="al-art">${art}</span><small>${esc(row.subject)}</small><span class="al-card-title"><img src="${esc(icons[row.type] || icons.OTHER)}" alt="" width="18" height="18"><strong>${esc(row.name)}</strong></span>${partCount ? `<span class="al-volume-count">${partCount}</span>` : ''}${row.locked ? '<span class="al-lock">Subscription required</span>' : ''}</button>`;
+    return `<button type="button" class="al-card" data-resource="${esc(row.id)}" aria-label="${row.locked ? 'Locked: ' : 'Open '}${esc(row.name)} (${esc(typeNames[row.type] || 'Resource')})"><span class="al-art">${art}</span><small>${esc(row.sourceName)}${row.module ? ` · ${esc(row.module)}` : ''}</small><span class="al-card-title"><img src="${esc(icons[row.type] || icons.OTHER)}" alt="" width="18" height="18"><strong>${esc(row.name)}</strong></span>${partCount ? `<span class="al-volume-count">${partCount}</span>` : ''}${row.locked ? '<span class="al-lock">Subscription required</span>' : ''}</button>`;
   }
 
   function render() {
@@ -138,16 +138,12 @@
       String(a.name || '').localeCompare(String(b.name || '')));
     const groups = new Map();
     for (const row of rows) {
-      const sourceName = row.sourceName;
-      const key = `${sourceName}|${row.subject}`;
-      if (!groups.has(key)) groups.set(key, { label: `${row.subject} · ${sourceName}`, modules: new Map() });
-      const modules = groups.get(key).modules;
-      const module = row.module || 'General';
-      if (!modules.has(module)) modules.set(module, []);
-      modules.get(module).push(row);
+      const subject = row.subject || 'Other';
+      if (!groups.has(subject)) groups.set(subject, []);
+      groups.get(subject).push(row);
     }
     $('al-results').innerHTML = groups.size
-      ? [...groups.values()].map(group => `<section class="al-section"><h2>${esc(group.label)}</h2>${[...group.modules.entries()].map(([module, entries]) => `<div class="al-module"><h3>${esc(module)}</h3><div class="al-ribbon" aria-label="${esc(module)} resources">${entries.map(card).join('')}</div></div>`).join('')}</section>`).join('')
+      ? [...groups].map(([subject, entries]) => `<section class="al-section"><h2>${esc(subject)}</h2><div class="al-subject-books">${entries.map(card).join('')}</div></section>`).join('')
       : `<p class="al-empty">${state.view === 'you' ? 'No resources are assigned to you yet.' : 'No resources match this selection.'}</p>`;
     state.observer?.disconnect();
     if ('IntersectionObserver' in window) {
