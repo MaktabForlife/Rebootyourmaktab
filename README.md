@@ -1,3 +1,9 @@
+# V106.4 — Compact editable user sheet
+
+User profiles uses the full page width, compact rows and frozen name/status columns. Names and Active/Inactive status can be edited directly, with changes retained until Save all. Large introductory and migration notices are replaced by collapsed editing help. Real conflicts remain visible for explicit review, and profile edits can continue while a role conflict is open.
+
+Read-only D1 access settings no longer display misleading review prompts. Restored, unsaved Program drafts translate the approved old Admin/Senior names into Program Admin/Teacher; uncertain pending operations retain their exact payload. No database upgrade or import is required. [Release details](docs/ACADEMY-USER-SHEET-106.4.md).
+
 # V106.3 — Course administration and clearer role conflict review
 
 Global Admins can open Course management and Course scheduling from Academy administration, Workshops and individual Course pages using their existing Academy sign-in. These destinations reuse the current D1 Course/Module and scheduling editors, with server-checked authority. Course means the continuing-education offering previously called a Global Subject; scheduling was previously under Global Curriculum.

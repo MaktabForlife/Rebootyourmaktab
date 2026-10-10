@@ -166,13 +166,14 @@ test('administrator authority removed after planning blocks the whole transactio
 test('the existing profile, Program setup and management screens work with the D1 HTTP contracts',()=>use(async({env,db})=>{
   const token=(await signIn(env)).body.token;
   const settle=async()=>{for(let i=0;i<20;i++)await new Promise(resolve=>setTimeout(resolve,2));};
-  function screen(markupPath,scriptPath,search='') {
+  function screen(markupPath,scriptPath,search='',initialState={}) {
     const markup=readFileSync(new URL(markupPath,import.meta.url),'utf8'),ids=new Set([...markup.matchAll(/id="([^"]+)"/g)].map(m=>m[1])),elements=new Map(),storage=new Map(),requests=[];
     function element(id) {
       assert.ok(ids.has(id),`Missing HTML element ${id}`);
       if(!elements.has(id))elements.set(id,{hidden:false,disabled:false,value:'',textContent:'',innerHTML:'',listeners:{},classList:{toggle(){}},focus(){},showModal(){},close(){},scrollIntoView(){},querySelectorAll:()=>[],querySelector:()=>null,addEventListener(type,fn){this.listeners[type]=fn;}});
       return elements.get(id);
     }
+    for(const [key,value] of Object.entries(initialState))storage.set(`m4l-user-profiles:localhost:${key}`,JSON.stringify(value));
     const context={console,URL,URLSearchParams,structuredClone,crypto,setTimeout,clearTimeout,
       location:{search,host:'localhost',origin:'http://localhost'},window:{M4L_CONFIG:{API_BASE:''},addEventListener(){},M4L_PROGRAM_OVERVIEW:{build:()=>[]}},
       localStorage:{getItem:()=>token},sessionStorage:{getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)},
@@ -184,7 +185,28 @@ test('the existing profile, Program setup and management screens work with the D
   }
   const profiles=screen('../../users/index.html','../../js/m4l-user-profiles.js');await settle();
   assert.match(profiles.element('up-users').innerHTML,/Program Admin/);
-  assert.match(profiles.element('up-head').innerHTML,/data-policy="PROGRAM:[^"]+" disabled/);
+  assert.ok(!profiles.element('up-head').innerHTML.includes('data-policy='),'D1 policy labels are informational');
+  assert.ok(!profiles.element('up-head').innerHTML.includes('Review setting'),'read-only policies must not request a review');
+  assert.match(profiles.element('up-users').innerHTML,/input data-name data-account="account-0002"/);
+  assert.match(profiles.element('up-users').innerHTML,/select data-active data-account="account-0002"/);
+  assert.equal(profiles.element('up-save-all').disabled,true,'opening the sheet must not stage profile writes');
+  // Existing cells can be edited immediately, without opening a separate editor.
+  const directName=(account,value)=>profiles.element('up-users').oninput({target:{dataset:{name:'',account},value}});
+  const directStatus=(account,value)=>profiles.element('up-users').onchange({target:{dataset:{active:'',account},value}});
+  const rolesBefore=db.prepare("SELECT * FROM role_assignments WHERE account_id='account-0002' ORDER BY assignment_id").all();
+  directName('account-0002','Directly edited learner');directStatus('account-0002','false');
+  assert.equal(profiles.element('up-save-all').disabled,false);
+  assert.equal(profiles.element('up-unsaved').textContent,'1 user with unsaved changes');
+  await profiles.element('up-save-all').onclick();await settle();
+  assert.equal(db.prepare("SELECT display_name FROM accounts WHERE account_id='account-0002'").get().display_name,'Directly edited learner');
+  assert.equal(db.prepare("SELECT active FROM accounts WHERE account_id='account-0002'").get().active,0);
+  assert.deepEqual(db.prepare("SELECT * FROM role_assignments WHERE account_id='account-0002' ORDER BY assignment_id").all(),rolesBefore,'inactivating a profile preserves roles');
+  directStatus('account-0002','true');await profiles.element('up-save-all').onclick();await settle();
+  assert.equal(profiles.element('up-conflict').hidden,true,'repeat profile save must use the latest revision');
+  directName('account-0002','Discarded name');directName('account-0003','Another discarded name');
+  profiles.element('up-cancel').onclick();
+  assert.equal(profiles.element('up-save-all').disabled,true,'Discard all clears every profile draft');
+  assert.ok(!profiles.element('up-users').innerHTML.includes('Discarded name'));
   profiles.element('up-add').onclick();
   profiles.element('up-users').oninput({target:{dataset:{name:''},value:'Screen-created learner'}});
   await profiles.element('up-save-all').onclick();await settle();
@@ -213,10 +235,25 @@ test('the existing profile, Program setup and management screens work with the D
   assert.equal(profiles.element('up-conflict').hidden,false,'refresh must retain the stale draft for explicit review');
   assert.match(profiles.element('up-comparison').innerHTML,/Student/);
   assert.match(profiles.element('up-comparison').innerHTML,/Teacher · Program Admin/);
+  // An open role conflict must not prevent editing a different profile cell.
+  directName('account-0003','Teacher edited during review');
+  await profiles.element('up-refresh').onclick();await settle();
+  assert.match(profiles.element('up-users').innerHTML,/Teacher edited during review/);
+  assert.equal(profiles.element('up-conflict').hidden,false);
   await profiles.element('up-save-all').onclick();await settle();
   assert.equal(profiles.element('up-conflict').hidden,true);
   const reviewed=(await post(env,profilePath+'get',{},token)).body.accounts.find(a=>a.accountId===learner.accountId).assignments.find(g=>g.scopeType==='PROGRAM'&&g.scopeId===scope.id);
   assert.deepEqual(reviewed.roles,['TEACHER','PROGRAM_ADMIN']);
+  assert.equal(db.prepare("SELECT display_name FROM accounts WHERE account_id='account-0003'").get().display_name,'Teacher edited during review');
+  const legacyDraft={mode:'matrix-roles',accountId:learner.accountId,scopeType:'PROGRAM',scopeId:scope.id,roles:['ADMIN','PROGRAM_ADMIN'],baseRevision:reviewed.revision,scopeRevision:scope.revision,originalValue:JSON.stringify(reviewed.roles)};
+  const restored=screen('../../users/index.html','../../js/m4l-user-profiles.js','',{edit:legacyDraft});await settle();
+  assert.match(restored.element('up-users').innerHTML,/data-role="PROGRAM_ADMIN" checked/);
+  await restored.element('up-save-all').onclick();await settle();
+  assert.deepEqual(restored.requests.find(r=>r.url.endsWith('/save')).body.roles,['PROGRAM_ADMIN'],'pre-migration unsaved Program drafts use the approved role names');
+  // Even an old invalid pending operation must be retried byte-for-byte, not translated.
+  const pending={...legacyDraft,operationId:crypto.randomUUID()};
+  const uncertain=screen('../../users/index.html','../../js/m4l-user-profiles.js','',{edit:legacyDraft,pending});await settle();
+  assert.deepEqual(uncertain.requests.find(r=>r.url.endsWith('/save')).body,pending);
   const builder=screen('../../programs/index.html','../../js/m4l-program-builder.js');await settle();
   assert.equal(builder.element('program-store-label').textContent,'Records');
   assert.match(builder.element('program-rows').innerHTML,/value="ACTIVE" selected/);

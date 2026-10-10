@@ -1,15 +1,46 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>User profiles · Maktabhelper</title><link rel="icon" href="/admin-favicon-32x32.png"><link rel="stylesheet" href="/css/m4l-program-builder.css?v=106.1"><link rel="stylesheet" href="/css/m4l-program-management.css?v=105.3.3.4"><link rel="stylesheet" href="/css/m4l-user-profiles.css?v=106.3"><link rel="stylesheet" href="/css/m4l-academy-navigation.css?v=106.1">
-</head><body>
-<header class="pb-header"><a class="pb-brand" href="/programs/"><img src="/logo.png" alt="">Maktabhelper <span>/ Academy</span></a><span class="pb-version">V106.3 · User profiles</span></header><p style="padding:0 18px"><a href="/academy/#overview">← Academy home</a></p>
-<main><div class="pb-heading"><div><p class="pb-eyebrow">﷽ &nbsp; Academy administration</p><h1>User profiles</h1><p>One user list across the academy, with roles for every program and Course.</p></div><a id="up-back" href="/programs/">← Programs</a></div>
-<p id="up-message" class="pb-message" role="status" aria-live="polite">Loading academy users…</p>
-<p id="up-wait" class="pb-refresh-warning" role="status" hidden></p>
-<div id="up-pending" class="pb-refresh-warning" hidden><span>Your change is kept until its save is confirmed.</span><button id="up-retry">Retry same change</button></div>
-<div id="up-draft-notice" class="pb-refresh-warning" hidden><span>Your unfinished entry is kept.</span><button id="up-return" class="pb-secondary">Return to entry</button></div>
-<section id="up-conflict" class="pb-refresh-warning" hidden><h2>Review a changed record</h2><p>The saved record no longer matches the version used by your entry. Compare both versions below. Select Save all to apply your proposed entry, or discard it to keep the saved version.</p><div id="up-comparison"></div><button id="up-use-saved" class="pb-secondary">Discard my entry and use saved version</button></section>
-<section class="pb-refresh-warning"><strong>Academy access · Setup</strong><p>Review the proposed roles and Free/Paid settings here. Courses and Reboot continue using their existing access rules until the later migration.</p><p id="up-review-count"></p><button id="up-setup" hidden>Set up / update matrix</button></section><p class="pb-grid-help">Free: every active user has access. Paid: Student, Teacher, Senior or Admin has access. Roles can be combined; User is the default. Admin in a column applies to that program/course only.</p><p id="up-link" class="pb-grid-help" hidden></p><section class="pm-card" aria-label="Academy users"><div class="pb-toolbar"><label class="pb-search">Find a user<input id="up-search" type="search" placeholder="Name or role…"></label><label>Status<select id="up-status-filter"><option value="">All users</option><option value="active">Active</option><option value="inactive">Inactive</option></select></label><span id="up-count" class="pb-count"></span><button id="up-refresh" class="pb-secondary">↻ Refresh</button><button id="up-add">＋ Add user</button></div>
-<div class="up-save-bar"><span id="up-unsaved">Choose cells to edit.</span><button id="up-save-all">Save all</button><button id="up-save" hidden>Save access setting</button><button id="up-cancel" class="pb-secondary" hidden>Cancel</button></div><div class="pm-scroll up-matrix-scroll"><table class="pm-grid up-matrix"><caption class="pb-sr-only">Academy users</caption><thead id="up-head"></thead><tbody id="up-users"></tbody></table></div></section>
-<p class="pb-note">Only academy administrators can change this matrix. Saved name and Active/Inactive edits update the central account. Inactive retains the account and roles; separate legacy Reboot logins are still managed in Reboot. Confirmed program Teacher, Senior and Admin roles supply timetable teacher lists. Existing Course and Reboot access migration remains separate.</p>
-<dialog id="up-profile-dialog"><h2 id="up-profile-title"></h2><div id="up-profile-body"></div><button id="up-profile-close" class="pb-secondary">Close</button></dialog></main><script src="/js/m4l-config.js?v=102.4"></script><script src="/js/m4l-user-profiles.js?v=106.3"></script><script src="/js/m4l-academy-navigation.js?v=106.1"></script>
-</body></html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>User profiles · Umm Abbad Academy</title>
+  <link rel="icon" href="/admin-favicon-32x32.png">
+  <link rel="stylesheet" href="/css/m4l-program-builder.css?v=106.1">
+  <link rel="stylesheet" href="/css/m4l-academy-navigation.css?v=106.1">
+  <link rel="stylesheet" href="/css/m4l-user-profiles.css?v=106.4">
+</head>
+<body class="user-profiles-sheet">
+<main>
+  <header class="up-titlebar"><h1>User profiles</h1><a id="up-back" href="/programs/">Programs</a><span class="pb-version">V106.4</span></header>
+  <p id="up-message" class="pb-message" role="status" aria-live="polite">Loading users…</p>
+  <p id="up-wait" class="up-notice" role="status" hidden></p>
+  <div id="up-pending" class="up-notice" hidden><span>Your change is kept until its save is confirmed.</span><button id="up-retry">Retry same change</button></div>
+  <section id="up-conflict" class="up-notice" hidden aria-label="Review a changed record">
+    <h2>Review a changed record</h2><p>Compare the saved and proposed entries. Save all applies your proposal; discard keeps the saved version.</p>
+    <div id="up-comparison"></div><button id="up-use-saved" class="pb-secondary">Discard my entry and use saved version</button>
+  </section>
+  <p id="up-link" hidden></p>
+  <section class="pm-card" aria-label="Academy users">
+    <div class="pb-toolbar">
+      <label class="pb-search"><span class="pb-sr-only">Find a user</span><input id="up-search" type="search" placeholder="Find a user…"></label>
+      <label><span class="pb-sr-only">Status</span><select id="up-status-filter"><option value="">All users</option><option value="active">Active</option><option value="inactive">Inactive</option></select></label>
+      <span id="up-count" class="pb-count"></span>
+      <button id="up-refresh" class="pb-secondary">↻ Refresh</button><button id="up-add">＋ Add user</button>
+      <div class="up-save-bar"><span id="up-unsaved"></span><button id="up-save-all">Save all</button><button id="up-save" hidden>Save access setting</button><button id="up-cancel" class="pb-secondary" hidden>Discard all</button></div>
+    </div>
+    <div class="pm-scroll up-matrix-scroll" tabindex="0" role="region" aria-label="User profile sheet. Scroll horizontally for more Programs and Courses.">
+      <table id="up-matrix" class="pm-grid up-matrix"><caption class="pb-sr-only">Academy users</caption><thead id="up-head"></thead><tbody id="up-users"></tbody></table>
+    </div>
+  </section>
+  <footer class="up-sheet-footer">
+    <div id="up-draft-notice" hidden><span>Your unfinished entry is kept.</span><button id="up-return" class="pb-secondary">Find edits</button></div>
+    <details class="up-help"><summary>Editing help</summary><p>Edit names and status directly in the sheet. Select a Program role cell to change roles. Save all or Ctrl/⌘ + Enter saves your changes.</p><p>Inactive keeps the account and its roles. Course access is managed separately in Course administration.</p><p id="up-review-count"></p><button id="up-setup" hidden>Set up / update matrix</button></details>
+  </footer>
+  <dialog id="up-profile-dialog"><h2 id="up-profile-title"></h2><div id="up-profile-body"></div><button id="up-profile-close" class="pb-secondary">Close</button></dialog>
+</main>
+<script src="/js/m4l-config.js?v=102.4"></script>
+<script src="/js/m4l-user-profiles.js?v=106.4"></script>
+<script src="/js/m4l-academy-navigation.js?v=106.1"></script>
+</body>
+</html>
