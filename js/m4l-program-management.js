@@ -198,7 +198,7 @@
     $('pm-save-all').hidden=state.overview||state.kind!=='profiles';
     $('pm-profiles-back').hidden=state.overview||state.kind!=='enrollments';
     $('pm-shared-profiles').hidden=state.overview||state.kind!=='profiles'||state.data.globalProfilesAvailable===false;$('pm-shared-profiles').href=`/users/?program=${encodeURIComponent(programId)}`;
-    $('pm-shared').hidden=state.overview||state.kind!=='subjects'||state.data.sharedSubjectsEditable===false;$('pm-legacy').hidden=state.overview||state.kind!=='subjects'||!state.data.sharedSubjects.some(s=>s.Legacy);
+    $('pm-shared').hidden=state.overview||state.kind!=='subjects'||state.data.sharedSubjectsEditable===false||state.data.sharedSubjectImportAvailable===false;$('pm-legacy').hidden=state.overview||state.kind!=='subjects'||!state.data.sharedSubjects.some(s=>s.Legacy);
     $('pm-section-note').hidden=true;
     if(state.overview){$('pm-add').textContent='＋ Add module';renderOverview();controls();return;}
     if(state.kind==='profiles'){renderProfiles();controls();return;}

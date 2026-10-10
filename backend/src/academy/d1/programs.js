@@ -1,3 +1,4 @@
+import {subjectView} from './subjects.js';
 import { definition,programId } from '../../programs/model.js';
 import { MANAGEMENT_KINDS,managementView,managementRowRevision,studentClassRevision,applyManagementChange } from '../../programs/management-model.js';
 import { payloadHash } from '../../programs/timetable-model.js';
@@ -117,7 +118,7 @@ export function d1Programs(repository,auth) {
       if(action==='manage-get') {
         const loaded=await loadManagement(input.id);
         const view=await managementView(loaded.viewData,{managementReferences:async()=>loaded.shared},loaded.program);
-        return {...view,store:'D1',coordinatorAvailable:true,managementEditable:loaded.a.lifecycle!=='ARCHIVED',sharedSubjectsEditable:false,globalProfilesAvailable:Boolean(auth.state.account.global_admin),overview:{timetable:null,preview:null,error:{error:'Timetable editing is awaiting migration.',retryable:false}}};
+        return {...await subjectView(view,auth.state.account.global_admin),store:'D1',coordinatorAvailable:true,managementEditable:loaded.a.lifecycle!=='ARCHIVED',globalProfilesAvailable:Boolean(auth.state.account.global_admin),overview:{timetable:null,preview:null,error:{error:'Timetable editing is awaiting migration.',retryable:false}}};
       }
       if(action!=='manage-save')throw managementError('This operation is awaiting migration.',501,'OPERATION_NOT_MIGRATED');
       const library=['resources','library-root'].includes(input.kind);

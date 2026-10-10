@@ -61,7 +61,7 @@ Private evidence is under ignored `.academy-migration/`: `d1-management-final-re
 
 ## Remaining before cutover
 
-Timetable authoring/publication, Library reads/writes/protected resource access and attendance are implemented in the subsequent local learning stage. Shared calendar, Global Course authoring and other dependent workflows still require consistent D1 support. New shared Academy subject creation/rename and legacy catalogue import are also outside this increment; existing catalogue names can be linked to Programs. Imported Library/timetable records remain preserved.
+Timetable authoring/publication, Library reads/writes/protected resource access and attendance are implemented in the subsequent local learning stage. The subsequent [Course/calendar stage](ACADEMY-D1-COURSES-CALENDAR.md) adds Global Course and calendar authoring; the [curriculum/account stage](ACADEMY-D1-CURRICULUM-ACCOUNT.md) adds shared subject creation/rename, Global Curriculum authoring and the older account timetable. Global Resource/Drive management remains pending. Legacy catalogue import stays excluded. Imported Library/timetable records remain preserved.
 
 Admission rules and Free/Paid entitlement decisions remain open. Global Admin grant administration is not exposed through the Program matrix. Refresh the source after remaining workflows are ready, reconcile post-snapshot changes, verify hosted complete flows and peak usage, and obtain approval of the concrete cutover. Keep the production-named legacy Worker separate.
 

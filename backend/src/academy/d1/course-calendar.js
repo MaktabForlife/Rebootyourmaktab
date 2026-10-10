@@ -1,6 +1,7 @@
 import {createGlobalDeliveryEndpoints} from '../../routes/platform-global-delivery.js';
 import {createGlobalTimetableEndpoints} from '../../routes/platform-global-timetable.js';
 import {createAcademyCalendarEndpoints} from '../../routes/platform-academy-calendar.js';
+import {createGlobalManagementEndpoints} from '../../routes/platform-global-management.js';
 import {PLATFORM_SHEET_HEADERS} from '../../lib/platform-schema.js';
 import {resolveCurrentPublishedGlobalTimetable} from '../../lib/global-timetable.js';
 import {validIsoDate} from '../../lib/global-course-scheduling.js';
@@ -40,8 +41,10 @@ function project(data) {
   const course=a=>a.kind==='COURSE',scope=r=>r.activity_key.slice(7);
   const tables={
     UserAccounts:data.accounts.map(a=>({AccountID:a.account_id,DisplayName:a.display_name,Active:Boolean(a.active)})),
+    UserGlobalSubjectAccess:[],
     GlobalSubjectList:data.activities.filter(course).map(a=>({SubjectID:a.activity_id,SubjectName:a.name,Active:Boolean(a.active&&a.lifecycle==='ACTIVE')})),
     GlobalModuleList:data.modules.filter(r=>r.activity_key.startsWith('COURSE:')).map(r=>({ModuleID:r.module_id,SubjectID:scope(r),ModuleName:r.name,SortOrder:r.sort_order,Active:Boolean(r.active)})),
+    GlobalTaskList:data.tasks.filter(r=>r.activity_key.startsWith('COURSE:')).map(r=>({TaskID:r.task_id,SubjectID:scope(r),ModuleID:r.module_id||'',TaskName:r.name,Active:Boolean(r.active)})),
     GlobalSubjectAccessPolicy:data.coursePolicies.map(r=>({SubjectPolicyID:r.activity_key,SubjectID:scope(r),AccessModel:r.legacy_access_model==='FREE'?'FREE':'SUBSCRIPTION',Active:true})),
     GlobalSubjectAccessMatrix:data.accounts.filter(a=>a.active).map(a=>({AccountID:a.account_id,
       _subjectAccess:Object.fromEntries(data.evidence.filter(e=>same(e.account_id,a.account_id)&&e.activity_key.startsWith('COURSE:')&&e.source_role==='LEGACY_SUBSCRIPTION'&&e.source_effective).map(e=>[scope(e).toUpperCase(),true]))})),
@@ -51,15 +54,17 @@ function project(data) {
     GlobalTimetablePublications:[],PublishedGlobalTimetableSessions:[],
     GlobalTimetableSessionLifecycle:[...data.lifecycles.map(r=>({SessionLifecycleID:r.lifecycle_id,SessionID:r.source_session_id,PublicationID:r.publication_id,Status:r.status,RescheduledFromSessionID:r.previous_source_session_id||'',RescheduledToSessionID:r.replacement_source_session_id||''})),
       ...data.draftLifecycle.map(r=>({SessionLifecycleID:r.lifecycle_id,SessionID:r.session_id,PublicationID:'',Status:r.status,RescheduledFromSessionID:r.previous_session_id||'',RescheduledToSessionID:r.replacement_session_id||''}))],
-    GlobalResources:data.resources.map(r=>({ResourceID:r.resource_id,SubjectID:scope(r),Active:Boolean(r.active)})),
+    GlobalResources:data.resources.map(r=>({ResourceID:r.resource_id,SubjectID:scope(r),ModuleID:r.module_id||'',TaskID:r.task_id||'',ResourceName:r.name,ResourceType:r.resource_type||'',ResourceFormat:r.resource_format||'',ResourceDescription:r.description||'',ResourceLink:r.resource_link||'',Active:Boolean(r.active)})),
     AcademyCalendar:calendarRows(data.calendar,data.suppressions),
-    PlatformConfig:[{ConfigKey:'PlatformTimezone',ConfigValue:data.settings.find(r=>r.setting_key==='PlatformTimezone')?.setting_value},
+    PlatformConfig:[{ConfigKey:'GlobalResourceDriveRootFolderID',ConfigValue:data.settings.find(r=>r.setting_key==='GlobalResourceDriveRootFolderID')?.setting_value||''},
+      {ConfigKey:'PlatformTimezone',ConfigValue:data.settings.find(r=>r.setting_key==='PlatformTimezone')?.setting_value},
       {ConfigKey:'PlatformSchemaVersion',ConfigValue:'102.0.12'},
       {ConfigKey:'GlobalCurriculumVersion',ConfigValue:data.version+1},
       {ConfigKey:'GlobalTimetableVersion',ConfigValue:data.version+1}],PlatformAuditLog:[]
   };
   for(const p of data.publications){const snap=JSON.parse(p.snapshot_json);tables.GlobalTimetablePublications.push(snap.publication);tables.PublishedGlobalTimetableSessions.push(...snap.sessions);}
   for(const name of Object.keys(tables))tables[name]=numbered(tables[name]);
+  tables.GlobalSubjectAccessMatrix._subjectColumns=tables.GlobalSubjectList.map((r,i)=>({subjectId:r.SubjectID,normalizedSubjectId:r.SubjectID.toUpperCase(),columnNumber:i+2}));
   for(const name of ['GlobalSubjectRuns','GlobalTimetableSessions','GlobalTimetableRunState','GlobalTimetablePublications','PublishedGlobalTimetableSessions']){
     tables[name]._courseAccessSchemaReady=true;tables[name]._courseScheduleSchemaReady=true;tables[name]._sessionDescriptionSchemaReady=true;tables[name]._draftPublishWindowSchemaReady=true;
   }
@@ -67,21 +72,35 @@ function project(data) {
 }
 
 const readEndpoints={
-  get:'getPlatformGlobalDeliveryEndpoint','delivery/get':'getPlatformGlobalDeliveryEndpoint','timetable/get':'getPlatformGlobalTimetableEndpoint','calendar/get':'getAcademyCalendarAdminEndpoint'
+  get:'getPlatformGlobalManagementEndpoint','delivery/get':'getPlatformGlobalDeliveryEndpoint','timetable/get':'getPlatformGlobalTimetableEndpoint','calendar/get':'getAcademyCalendarAdminEndpoint'
 };
 const writeEndpoints={
+  'subject/save':'savePlatformGlobalSubjectEndpoint','subjects/save-batch':'savePlatformGlobalSubjectsBatchEndpoint',
+  'module/save':'savePlatformGlobalModuleEndpoint','task/save':'savePlatformGlobalTaskEndpoint',
   'policy/save':'savePlatformGlobalSubjectPolicyEndpoint','run/save':'savePlatformGlobalSubjectRunEndpoint',
   'timetable/generate':'generatePlatformGlobalTimetableSessionsEndpoint','timetable/session/materialize':'materializePlatformGlobalTimetableExceptionEndpoint',
   'timetable/session/save':'savePlatformGlobalTimetableSessionEndpoint','timetable/session/batch-save':'savePlatformGlobalTimetableSessionBatchEndpoint',
   'timetable/session/reschedule':'reschedulePlatformGlobalTimetableSessionEndpoint','timetable/revise':'revisePlatformGlobalTimetableEndpoint',
   'timetable/publish':'publishPlatformGlobalTimetableEndpoint','calendar/save':'saveAcademyCalendarEventEndpoint','calendar/batch-save':'saveAcademyCalendarBatchEndpoint'
 };
-const writable=new Set(['GlobalSubjectAccessPolicy','GlobalSubjectRuns','GlobalTimetableSessions','GlobalTimetableRunState','GlobalTimetablePublications','PublishedGlobalTimetableSessions','GlobalTimetableSessionLifecycle','AcademyCalendar','PlatformConfig','PlatformAuditLog']);
+const writable=new Set(['GlobalSubjectList','GlobalModuleList','GlobalTaskList','GlobalSubjectAccessPolicy','GlobalSubjectRuns','GlobalTimetableSessions','GlobalTimetableRunState','GlobalTimetablePublications','PublishedGlobalTimetableSessions','GlobalTimetableSessionLifecycle','AcademyCalendar','PlatformConfig','PlatformAuditLog']);
 function plannedStorage(tables,auth,changes) {
+  const newMatrixColumns=new Set();
   return {getAuthUser:async()=>auth.user,getPlatformSpreadsheetId:()=>'',readPlatformSheet:async(_,name)=>{
     if(!Object.hasOwn(tables,name))throw Error('Unsupported Course storage read');return tables[name];
   },batchUpdateGoogleSheetValues:async(_,writes)=>{
     for(const write of writes){
+      // New Subjects get empty subscription columns in the old storage port.
+      // D1 represents that absence directly; an entitlement write is forbidden.
+      const matrix=/^'GlobalSubjectAccessMatrix'!([A-Z]+)(\d+)$/.exec(write.range);
+      if(matrix){
+        const row=Number(matrix[2]),values=write.values;
+        const subject=values?.[0]?.[0];
+        const added=[...(changes.get('GlobalSubjectList')?.values()||[])].some(r=>same(r.SubjectID,subject)&&!tables.GlobalSubjectList.some(s=>same(s.SubjectID,subject)));
+        if(write.majorDimension!=='ROWS'||values?.length!==1||values[0]?.length!==1||!(row===1&&added||row>1&&subject===false&&newMatrixColumns.has(matrix[1])&&tables.GlobalSubjectAccessMatrix.some(r=>r._rowNumber===row)))throw Error('Unsupported subscription storage write');
+        if(row===1)newMatrixColumns.add(matrix[1]);
+        continue;
+      }
       const match=/^'([A-Za-z]+)'!([A-Z]+)(\d+):([A-Z]+)(\d+)$/.exec(write.range);
       if(!match||!writable.has(match[1])||write.majorDimension!=='ROWS')throw Error('Unsupported Course storage write');
       const [,name,startColumn,startText]=match,headers=PLATFORM_SHEET_HEADERS[name],start=Number(startText);
@@ -131,9 +150,23 @@ function upsert(p,table,records,keys) {
 async function statementsFor(store,data,tables,changes,auth) {
   const p=store.p,statements=[];
   const records=name=>[...(changes.get(name)?.values()||[])];
-  const activity=subject=>{const found=data.activities.find(a=>a.kind==='COURSE'&&same(a.activity_id,subject));if(!found)throw managementError('Course subject is unavailable.',409);return found.activity_key;};
+  const activity=subject=>{const found=tables.GlobalSubjectList.find(a=>same(a.SubjectID,subject));if(!found)throw managementError('Course subject is unavailable.',409);return 'COURSE:'+found.SubjectID;};
   const run=id=>{const matches=tables.GlobalSubjectRuns.filter(r=>same(r.RunID,id));if(matches.length!==1)throw managementError('Course identifier is ambiguous.',409);return matches[0];};
-  for(const r of records('GlobalSubjectAccessPolicy'))statements.push(p('UPDATE course_settings SET legacy_access_model=?,policy_review_state=? WHERE activity_key=?',r.AccessModel==='FREE'?'FREE':'PAID','CONFIRMED',activity(r.SubjectID)));
+  const newSubjects=[],subjectRows=[],policyRows=new Map(),now=new Date().toISOString();
+  for(const r of records('GlobalSubjectList')){
+    const old=data.activities.find(a=>a.kind==='COURSE'&&same(a.activity_id,r.SubjectID)),key=activity(r.SubjectID);
+    subjectRows.push({activity_key:key,activity_id:r.SubjectID,kind:'COURSE',name:r.SubjectName,active:Number(r.Active),lifecycle:r.Active?'ACTIVE':'ARCHIVED',website_visible:old?.website_visible??1,created_at:old?old.created_at:now,updated_at:now,revision:(old?.revision||0)+1});
+    if(!old){newSubjects.push({dataset_key:'ACADEMY',scope_key:key,authoritative_store:'SHEETS',phase:'STAGING',revision:1});policyRows.set(key,{activity_key:key,legacy_access_model:'PAID',policy_review_state:'CONFIRMED'});}
+  }
+  for(const r of records('GlobalSubjectAccessPolicy')){const key=activity(r.SubjectID);policyRows.set(key,{activity_key:key,legacy_access_model:r.AccessModel==='FREE'?'FREE':'PAID',policy_review_state:'CONFIRMED'});}
+  statements.push(...upsert(p,'activities',subjectRows,['activity_key']),...upsert(p,'course_settings',[...policyRows.values()],['activity_key']),...insertRecords(p,'data_ownership',newSubjects));
+  if(subjectRows.length)statements.push(p("UPDATE subject_catalog AS s SET name=json_extract(j.value,'$.name'),active=json_extract(j.value,'$.active') FROM json_each(?) j WHERE s.source_namespace='GLOBAL_REFERENCE' AND s.subject_id=json_extract(j.value,'$.activity_id') COLLATE NOCASE",JSON.stringify(subjectRows)));
+  for(const [name,oldRows,id] of [['GlobalModuleList',data.modules,'module_id'],['GlobalTaskList',data.tasks,'task_id']])for(const r of records(name)){
+    const old=oldRows.find(s=>s.activity_key.startsWith('COURSE:')&&same(s[id],name==='GlobalModuleList'?r.ModuleID:r.TaskID));
+    if(old&&!same(old.activity_key,activity(r.SubjectID)))throw managementError('Create a new entry to move curriculum between Subjects.',409);
+  }
+  statements.push(...upsert(p,'modules',records('GlobalModuleList').map(r=>({activity_key:activity(r.SubjectID),module_id:r.ModuleID,program_subject_id:null,level_id:null,name:r.ModuleName,sort_order:r.SortOrder,active:Number(r.Active)})),['activity_key','module_id']));
+  statements.push(...upsert(p,'tasks',records('GlobalTaskList').map(r=>({activity_key:activity(r.SubjectID),task_id:r.TaskID,program_subject_id:null,module_id:nullable(r.ModuleID),name:r.TaskName,sort_order:0,active:Number(r.Active)})),['activity_key','task_id']));
   const runs=records('GlobalSubjectRuns');
   statements.push(...upsert(p,'course_runs',runs.map(r=>({activity_key:activity(r.SubjectID),run_id:r.RunID,name:r.RunName,timezone:r.Timezone,start_date:nullable(r.StartDate),end_date:nullable(r.EndDate),schedule_mode:r.ScheduleMode,schedule_definition:r.ScheduleDefinition,active:Number(r.Active)})),['activity_key','run_id']));
   statements.push(...upsert(p,'course_run_access',runs.map(r=>({activity_key:activity(r.SubjectID),run_id:r.RunID,access_model:r.AccessModel})),['activity_key','run_id']));
@@ -171,12 +204,12 @@ function cleanRecord(r){return Object.fromEntries(Object.entries(r).filter(([nam
 
 export function d1CourseCalendar(repository,auth) {
   const store=managementStore(repository,auth),p=store.p;
-  async function load(){return store.load(Object.fromEntries(Object.entries({runs:'course_runs',sessions:'course_draft_sessions',states:'course_run_state',publications:'timetable_publications WHERE pattern=\'COURSE\'',lifecycles:'lesson_lifecycle',modules:'modules',resources:'course_resources',access:'course_run_access',sessionState:'course_session_state',draftLifecycle:'course_draft_lifecycle',calendar:'academy_calendar_events',suppressions:'academy_calendar_suppressions',settings:'academy_settings',coursePolicies:'course_settings'}).map(([name,table])=>[name,p(`SELECT * FROM ${table}`)])));}
+  async function load(){return store.load(Object.fromEntries(Object.entries({runs:'course_runs',sessions:'course_draft_sessions',states:'course_run_state',publications:'timetable_publications WHERE pattern=\'COURSE\'',lifecycles:'lesson_lifecycle',modules:'modules',tasks:'tasks',resources:'course_resources',access:'course_run_access',sessionState:'course_session_state',draftLifecycle:'course_draft_lifecycle',calendar:'academy_calendar_events',suppressions:'academy_calendar_suppressions',settings:'academy_settings',coursePolicies:'course_settings'}).map(([name,table])=>[name,p(`SELECT * FROM ${table}`)])));}
   async function execute(action,input,data){
     const tables=project(data),changes=new Map(),storage=plannedStorage(tables,auth,changes);
     windowLimit(action,input,tables);
     validateCalendarInput(action,input,tables);
-    const endpoints={...createGlobalDeliveryEndpoints(storage),...createGlobalTimetableEndpoints(storage),...createAcademyCalendarEndpoints(storage)};
+    const endpoints={...createGlobalDeliveryEndpoints(storage),...createGlobalTimetableEndpoints(storage),...createAcademyCalendarEndpoints(storage),...createGlobalManagementEndpoints(storage)};
     const fn=endpoints[readEndpoints[action]||writeEndpoints[action]];
     if(!fn)throw managementError('This Course action is unavailable.',501,'OPERATION_NOT_MIGRATED');
     const response=await fn(new Request('https://academy.invalid/',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(input)}),{}),body=await response.json();
@@ -192,7 +225,7 @@ export function d1CourseCalendar(repository,auth) {
   return {async run(action,input={}){
     if(!auth.state.account.global_admin)throw managementError('This action requires a Global Admin.',403,'FORBIDDEN');
     await requireCourseCalendar(repository.db);
-    if(readEndpoints[action]){const data=await load();const {body}=await execute(action,input,data);return {...body,workflowStore:'D1',workflowRevision:String(data.version),...(action==='get'?{coursesOnly:true}:{})};}
+    if(readEndpoints[action]){const data=await load();const {body}=await execute(action,input,data);return {...body,workflowStore:'D1',workflowRevision:String(data.version),...(action==='get'?{capabilities:{curriculum:true,resourceManagement:false,subscriptionManagement:false}}:{})};}
     if(!writeEndpoints[action])throw managementError('This Course action is unavailable.',501,'OPERATION_NOT_MIGRATED');
     const dataset=action.startsWith('calendar/')?'ACADEMY_CALENDAR':'COURSE_MANAGEMENT';
     return store.change(dataset,'ACADEMY',action,input,async()=>{

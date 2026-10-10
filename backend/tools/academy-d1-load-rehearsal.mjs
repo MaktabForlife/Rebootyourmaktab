@@ -159,10 +159,28 @@ try {
   ensure(await post(courses+'timetable/get',{},scopedAdmin),403);
   const publishedCourseCount=await db.prepare('SELECT count(*) AS n FROM published_lessons WHERE publication_id=?').bind(coursePublication.publication.publicationid).first();
   if(publishedCourseCount.n!==8)throw Error('Normalized Course publication failed');
+  step='CURRICULUM_ACCOUNT_SMOKE';
+  const curriculum=ensure(await post(courses+'get',{},admin));
+  if(curriculum.service!=='platform-global-management'||curriculum.capabilities.subscriptionManagement!==false)throw Error('Curriculum contract failed');
+  ensure(await post(courses+'get',{},scopedAdmin),403);
+  const curriculumChange={subjects:[{clientKey:'runtime-subject',subjectName:'Runtime curriculum',active:true,accessModel:'SUBSCRIPTION'}],
+    modules:[{subjectClientKey:'runtime-subject',moduleName:'Runtime curriculum module',sortOrder:1,active:true}],workflowRevision:curriculum.workflowRevision,operationId:crypto.randomUUID()};
+  const curriculumSaved=ensure(await post(courses+'subjects/save-batch',curriculumChange,admin));
+  if(!ensure(await post(courses+'subjects/save-batch',curriculumChange,admin)).replayed)throw Error('Curriculum replay failed');
+  ensure(await post(courses+'task/save',{subjectId:curriculumSaved.subjects[0].subjectid,moduleId:curriculumSaved.modules[0].moduleid,taskName:'Runtime curriculum task',active:true,workflowRevision:curriculumSaved.workflowRevision,operationId:crypto.randomUUID()},admin));
+  const subjects='/api/admin/platform/academy-subjects/',shared=ensure(await post(subjects+'save',{mode:'create',subjectName:'Runtime shared subject',operationId:crypto.randomUUID()},admin));
+  const subjectRename={mode:'rename',subjectId:shared.subject.SubjectID,subjectName:'Renamed runtime shared subject',baseRevision:shared.subject.Revision,operationId:crypto.randomUUID()};
+  ensure(await post(subjects+'save',subjectRename,admin));
+  if(!ensure(await post(subjects+'save',subjectRename,admin)).replayed)throw Error('Shared subject replay failed');
+  ensure(await post(subjects+'save',{mode:'create',subjectName:'Denied shared subject',operationId:crypto.randomUUID()},scopedAdmin),403);
+  const accountTimetable=ensure(await post('/api/academy/timetable',{startDate:today,days:14},tokens[13]));
+  if(accountTimetable.viewDays!==14||!Array.isArray(accountTimetable.sessions))throw Error('Older account timetable contract failed');
+  const accountWorkspace=ensure(await post('/api/account/workspace',{},tokens[13]));
+  if(accountWorkspace.workspace.portalType!=='academy'||!accountWorkspace.workspace.path.startsWith('/academy/'))throw Error('D1 workspace navigation failed');
   if((await db.prepare('SELECT count(*) AS n FROM academy_write_guards').first()).n!==0)throw Error('Management guard left behind');
   if(outboundRequests!==0)throw Error('Unexpected external request');
   const report={success:true,runtime:'LOCAL_WORKERS_D1',workerEntrypoint:'backend/src/worker-runtime.js',compatibilityDate,syntheticAccounts:true,...burst,securitySmokeChecks:'PASS',externalRequests:outboundRequests,
-    managementSmokeChecks:'PASS',learningSmokeChecks:'PASS',courseCalendarSmokeChecks:'PASS',simultaneousLibraryReads:learningReadResults.length,cloudPerformanceMeasured:false,cutoverReady:false};
+    managementSmokeChecks:'PASS',learningSmokeChecks:'PASS',courseCalendarSmokeChecks:'PASS',curriculumAccountSmokeChecks:'PASS',simultaneousLibraryReads:learningReadResults.length,cloudPerformanceMeasured:false,cutoverReady:false};
   save('report.json',JSON.stringify(report,null,2));
   console.log(JSON.stringify({step:'COMPLETE',...report,privateReport:join(directory,'report.json')}));
 }catch(error){console.error(JSON.stringify({success:false,step,code:'LOCAL_D1_FLOW_REHEARSAL_FAILED',status:error.status || null,message:error.message}));process.exitCode=1;}

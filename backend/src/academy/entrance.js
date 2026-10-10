@@ -52,7 +52,7 @@ export function programRoles(user, accounts = []) {
   return matches.length === 1 ? matches[0].Roles.filter(role => ['PROGRAM_ADMIN', 'ADMIN', 'SENIOR', 'TEACHER', 'STUDENT'].includes(role)) : [];
 }
 
-export function programProjection(program, data, user, roles, start, end, now, detailed = false, groupZoom = () => '') {
+export function programProjection(program, data, user, roles, start, end, now, detailed = false, groupZoom = () => '', compatibilityDetails = false) {
   const name = programDisplayName(program);
   const snapshot = data.prepared ? managementState(data, program).snapshot : {};
   const classes = (snapshot.ProgramClasses || []).filter(row => row.CourseID === program.id && active(row.Active));
@@ -84,6 +84,7 @@ export function programProjection(program, data, user, roles, start, end, now, d
         event.meetingGroup = groupZoom(row.zoomLink);
         event.information = [row.subjectName, row.moduleName, row.levelName,
           ...(row.classNames || []), ...(row.teacherNames || [row.teacherName])].filter(Boolean);
+        if(compatibilityDetails){event.teacherName=(row.teacherNames||[row.teacherName]).filter(Boolean).join(', ');event.group=(row.classNames||[]).join(', ');}
       }
       if (detailed && mayView && (involved || oversight) && joinWindowOpen(event, now) && row.zoomLink)
         event.joinUrl = row.zoomLink;
@@ -109,11 +110,11 @@ export function programProjection(program, data, user, roles, start, end, now, d
       resources: globalAdmin(user) ? `/programs/library.html?program=${encodeURIComponent(program.id)}` : '' } };
 }
 
-export async function buildEntrance({ tables, programs, rolesByProgram, loadProgram, user, input = {}, now = new Date(), programLifecycle = 'DRAFT' }) {
+export async function buildEntrance({ tables, programs, rolesByProgram, loadProgram, user, input = {}, now = new Date(), programLifecycle = 'DRAFT', rangeDays = 7, detailedTimetable = false }) {
   const timezone = tables.PlatformConfig.find(row => key(row.ConfigKey) === 'PLATFORMTIMEZONE')?.ConfigValue || 'Africa/Johannesburg';
   const start = clean(input.startDate) || dateInTimezone(now, timezone);
   if (!validDate(start)) throw problem('Choose a valid timetable date.');
-  const end = addDays(start, 6);
+  const end = addDays(start, rangeDays - 1);
   const warnings = [], activities = [], timetable = [];
   // Request-local labels allow grouping without releasing a joining URL before its time window.
   const meetingGroups = new Map();
@@ -132,7 +133,7 @@ export async function buildEntrance({ tables, programs, rolesByProgram, loadProg
     const basic = { id: program.id, name: programDisplayName(program), kind: 'PROGRAM', roles };
     try {
       const data = await loadProgram(program, Boolean(user && roles.length));
-      return programProjection(program, data, user, roles, start, end, now, Boolean(requestedId), groupZoom);
+      return programProjection(program, data, user, roles, start, end, now, Boolean(requestedId)||detailedTimetable, groupZoom,detailedTimetable);
     } catch {
       warnings.push(`${basic.name} timetable is unavailable.`);
       return { ...basic, timetable: [], classes: [], curriculum: [], tools: {}, unavailable: true };
@@ -175,9 +176,10 @@ export async function buildEntrance({ tables, programs, rolesByProgram, loadProg
           projected.moduleName = event.moduleName || '';
           projected.meetingGroup = groupZoom(published[index]?.zoomlink);
           projected.information = [event.subjectName, event.moduleName, event.teacherName].filter(Boolean);
+          if(detailedTimetable)projected.teacherName=event.teacherName||'';
         }
         // Keep the shared/legacy timetable gate unchanged. The new website opens five minutes early.
-        if (requestedId && user && (relevant || globalAdmin(user)) && event.visibilityLevel === 'DETAIL' &&
+        if ((requestedId||detailedTimetable) && user && (relevant || globalAdmin(user)) && event.visibilityLevel === 'DETAIL' &&
           joinWindowOpen(projected, now) && published[index]?.zoomlink) projected.joinUrl = published[index].zoomlink;
         sessions.push(projected);
       }

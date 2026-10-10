@@ -1,8 +1,8 @@
 /* M4L V102.10 - Central global curriculum, policy-aware access and protected Drive resources. */
 
-import { getAuthUser } from "../lib/auth.js";
+import { getAuthUser as defaultGetAuthUser } from "../lib/auth.js";
 import { readAcademyLibraryPolicies, academyResourceDecision } from "../lib/academy-library-policy.js";
-import { batchUpdateGoogleSheetValues } from "../lib/google-sheets.js";
+import { batchUpdateGoogleSheetValues as defaultBatchUpdateGoogleSheetValues } from "../lib/google-sheets.js";
 import {
   GOOGLE_DRIVE_FOLDER_MIME,
   isGoogleDriveNativeMimeType,
@@ -18,8 +18,8 @@ import {
   resolveGlobalSubjectAccessPolicy
 } from "../lib/global-subject-delivery.js";
 import {
-  getPlatformSpreadsheetId,
-  readPlatformSheet
+  getPlatformSpreadsheetId as defaultGetPlatformSpreadsheetId,
+  readPlatformSheet as defaultReadPlatformSheet
 } from "../lib/platform-sheet.js";
 import {
   isActivePlatformValue,
@@ -48,7 +48,14 @@ const MAX_NAME_LENGTH = 160;
 const MAX_DESCRIPTION_LENGTH = 2000;
 const GLOBAL_RESOURCE_DRIVE_ROOT_KEY = "GlobalResourceDriveRootFolderID";
 
-export async function getPlatformGlobalManagementEndpoint(request, env) {
+// Each request supplies its own storage dependencies.
+export function createGlobalManagementEndpoints(storage = {}) {
+  const getAuthUser = storage.getAuthUser || defaultGetAuthUser;
+  const batchUpdateGoogleSheetValues = storage.batchUpdateGoogleSheetValues || defaultBatchUpdateGoogleSheetValues;
+  const getPlatformSpreadsheetId = storage.getPlatformSpreadsheetId || defaultGetPlatformSpreadsheetId;
+  const readPlatformSheet = storage.readPlatformSheet || defaultReadPlatformSheet;
+
+async function getPlatformGlobalManagementEndpoint(request, env) {
   const permission = await requireGlobalCurriculumAdmin(request, env);
   if (!permission.ok) return permission.response;
 
@@ -77,7 +84,7 @@ export async function getPlatformGlobalManagementEndpoint(request, env) {
   }
 }
 
-export async function savePlatformGlobalDriveRootEndpoint(request, env) {
+async function savePlatformGlobalDriveRootEndpoint(request, env) {
   const permission = await requirePlatformGlobalAdmin(request, env);
   if (!permission.ok) return permission.response;
 
@@ -168,7 +175,7 @@ export async function savePlatformGlobalDriveRootEndpoint(request, env) {
   }
 }
 
-export async function browsePlatformGlobalDriveFolderEndpoint(request, env) {
+async function browsePlatformGlobalDriveFolderEndpoint(request, env) {
   const permission = await requireGlobalCurriculumAdmin(request, env);
   if (!permission.ok) return permission.response;
 
@@ -220,7 +227,7 @@ export async function browsePlatformGlobalDriveFolderEndpoint(request, env) {
   }
 }
 
-export async function createPlatformGlobalDriveAccessEndpoint(request, env) {
+async function createPlatformGlobalDriveAccessEndpoint(request, env) {
   const user = await getAuthUser(request, env);
   if (!user || user.type !== "account") {
     return json({ success: false, error: "Unauthorized" }, 401);
@@ -291,7 +298,7 @@ export async function createPlatformGlobalDriveAccessEndpoint(request, env) {
   }
 }
 
-export async function savePlatformGlobalSubjectEndpoint(request, env) {
+async function savePlatformGlobalSubjectEndpoint(request, env) {
   const permission = await requireGlobalCurriculumAdmin(request, env);
   if (!permission.ok) return permission.response;
 
@@ -392,7 +399,7 @@ export async function savePlatformGlobalSubjectEndpoint(request, env) {
   }
 }
 
-export async function savePlatformGlobalSubjectsBatchEndpoint(request, env) {
+async function savePlatformGlobalSubjectsBatchEndpoint(request, env) {
   const permission = await requireGlobalCurriculumAdmin(request, env);
   if (!permission.ok) return permission.response;
 
@@ -700,7 +707,7 @@ export async function savePlatformGlobalSubjectsBatchEndpoint(request, env) {
   }
 }
 
-export async function savePlatformGlobalModuleEndpoint(request, env) {
+async function savePlatformGlobalModuleEndpoint(request, env) {
   const permission = await requireGlobalCurriculumAdmin(request, env);
   if (!permission.ok) return permission.response;
 
@@ -790,7 +797,7 @@ export async function savePlatformGlobalModuleEndpoint(request, env) {
   }
 }
 
-export async function savePlatformGlobalTaskEndpoint(request, env) {
+async function savePlatformGlobalTaskEndpoint(request, env) {
   const permission = await requireGlobalCurriculumAdmin(request, env);
   if (!permission.ok) return permission.response;
 
@@ -885,7 +892,7 @@ export async function savePlatformGlobalTaskEndpoint(request, env) {
   }
 }
 
-export async function savePlatformGlobalResourceEndpoint(request, env) {
+async function savePlatformGlobalResourceEndpoint(request, env) {
   const permission = await requireGlobalCurriculumAdmin(request, env);
   if (!permission.ok) return permission.response;
 
@@ -1038,7 +1045,7 @@ export async function savePlatformGlobalResourceEndpoint(request, env) {
 }
 
 
-export async function savePlatformGlobalResourcesBatchEndpoint(request, env) {
+async function savePlatformGlobalResourcesBatchEndpoint(request, env) {
   const permission = await requireGlobalCurriculumAdmin(request, env);
   if (!permission.ok) return permission.response;
 
@@ -1239,7 +1246,7 @@ export async function savePlatformGlobalResourcesBatchEndpoint(request, env) {
   }
 }
 
-export async function savePlatformGlobalSubjectAccessEndpoint(request, env) {
+async function savePlatformGlobalSubjectAccessEndpoint(request, env) {
   const permission = await requireGlobalCurriculumAdmin(request, env);
   if (!permission.ok) return permission.response;
 
@@ -1806,3 +1813,8 @@ function managementError(error, env) {
   }
   return json(response, 503);
 }
+
+  return { getPlatformGlobalManagementEndpoint, savePlatformGlobalDriveRootEndpoint, browsePlatformGlobalDriveFolderEndpoint, createPlatformGlobalDriveAccessEndpoint, savePlatformGlobalSubjectEndpoint, savePlatformGlobalSubjectsBatchEndpoint, savePlatformGlobalModuleEndpoint, savePlatformGlobalTaskEndpoint, savePlatformGlobalResourceEndpoint, savePlatformGlobalResourcesBatchEndpoint, savePlatformGlobalSubjectAccessEndpoint };
+}
+
+export const { getPlatformGlobalManagementEndpoint, savePlatformGlobalDriveRootEndpoint, browsePlatformGlobalDriveFolderEndpoint, createPlatformGlobalDriveAccessEndpoint, savePlatformGlobalSubjectEndpoint, savePlatformGlobalSubjectsBatchEndpoint, savePlatformGlobalModuleEndpoint, savePlatformGlobalTaskEndpoint, savePlatformGlobalResourceEndpoint, savePlatformGlobalResourcesBatchEndpoint, savePlatformGlobalSubjectAccessEndpoint } = createGlobalManagementEndpoints();

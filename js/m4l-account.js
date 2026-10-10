@@ -336,6 +336,11 @@
       const result = await api(endpoint, {}, state.token);
       const path = String(result.workspace?.path || "").trim();
       const portalType = String(result.workspace?.portalType || "").trim().toLowerCase();
+      if (result.sessionStore === "D1" && portalType === "academy") {
+        if (!/^\/academy\/(?:#activity\/PROGRAM\/[A-Za-z0-9._~%-]+)?$/.test(path)) throw new Error("The Academy route is invalid.");
+        window.location.assign(path);
+        return true;
+      }
       if (!/^\/(admin|student)\/[A-Za-z0-9._~%-]+\/?(?:\?[^\s]*)?$/.test(path)) {
         throw new Error("The selected workspace route is invalid.");
       }

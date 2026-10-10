@@ -53,3 +53,5 @@ The tool prints a loopback URL and synthetic account details. `login-0002` has t
 The earlier [main database preparation](ACADEMY-MAIN-D1-PREPARATION.md) remains valid. No cloud rows, migration checks or ownership state were changed by this integration. The website continues using Sheets, the candidate is not synchronized with subsequent edits, and `cutoverReady=false`.
 
 The subsequent [Course/calendar stage](ACADEMY-D1-COURSES-CALENDAR.md) adds run authoring/publication, explicit per-run access and shared calendar workflows locally, without changing the live store.
+
+The subsequent [curriculum/account stage](ACADEMY-D1-CURRICULUM-ACCOUNT.md) adds Academy-wide catalogue authoring, Global Curriculum editing and the older account timetable locally. It keeps live routing and imported subscription evidence unchanged.

@@ -180,10 +180,10 @@
     setMessage("Loading central global curriculum…", "");
     setContent('<p class="helper-text">Loading Global Curriculum...</p>');
     try {
-      const result = await apiPost("/api/admin/platform/global/get", {}, appState()?.token || "");
+      const result = await workflowPost("/api/admin/platform/global/get", {}, appState()?.token || "");
       if (!result.success) throw new Error(result.error || "Unable to load Global Curriculum");
-      if (result.coursesOnly && window.M4LGlobalCourseScheduler?.show) return await window.M4LGlobalCourseScheduler.show();
       model.data = {
+        capabilities: result.capabilities || {},
         globalCurriculumVersion: Number(result.globalCurriculumVersion) || 0,
         subjects: array(result.subjects),
         modules: array(result.modules),
@@ -368,6 +368,10 @@
   }
 
   function renderResources() {
+    if (model.data.capabilities?.resourceManagement === false) {
+      setContent('<section class="global-curriculum-panel"><h3>Global Resources</h3><p>Global Resource editing is not available yet. Existing resources are available in the Academy Library.</p><ul>'+model.data.resources.map(r=>'<li>'+html(r.resourcename)+'</li>').join('')+'</ul></section>');
+      return;
+    }
     if (model.drive.open) return renderDriveBrowser();
 
     const dirty = hasResourceScreenChanges();
@@ -471,7 +475,7 @@
     }
 
     setContent(`
-      <section class="global-curriculum-panel global-access-matrix-panel">
+      <section class="global-curriculum-panel global-access-matrix-panel">${model.data.capabilities?.subscriptionManagement === false ? "<p>Existing subscriptions are shown here. Subscription editing is not available yet.</p>" : ""}
         <div class="global-access-matrix-scroll">
           <table class="global-access-matrix">
             <thead>
@@ -496,8 +500,8 @@
                   ${subjects.map(subject => {
                     const policy = String(policies[subject.subjectid] || "SUBSCRIPTION").toUpperCase();
                     const subscribed = row.values?.[subject.subjectid] === true;
-                    const disabled = !account.active || !subject.active;
-                    const checkbox = `<label title="${disabled ? "Inactive account or subject" : "Saved subscription entitlement"}"><input class="global-access-toggle" type="checkbox" data-gcm-access-toggle data-account-id="${attr(account.accountid)}" data-subject-id="${attr(subject.subjectid)}" ${subscribed ? "checked" : ""} ${disabled ? "disabled" : ""} /></label>`;
+                    const disabled = model.data.capabilities?.subscriptionManagement === false || !account.active || !subject.active;
+                    const checkbox = `<label title="${model.data.capabilities?.subscriptionManagement === false ? "Subscription editing is not available yet" : disabled ? "Inactive account or subject" : "Saved subscription entitlement"}"><input class="global-access-toggle" type="checkbox" data-gcm-access-toggle data-account-id="${attr(account.accountid)}" data-subject-id="${attr(subject.subjectid)}" ${subscribed ? "checked" : ""} ${disabled ? "disabled" : ""} /></label>`;
                     return policy === "FREE"
                       ? `<td><div class="global-access-free-state"><span class="global-access-free">FREE</span>${checkbox}</div></td>`
                       : `<td>${checkbox}</td>`;
@@ -697,7 +701,7 @@
     setMessage("Saving Subjects and Modules…", "");
     try {
       const subjectByKey = new Map(model.subjectDrafts.map(subject => [subject.key, subject]));
-      const result = await apiPost("/api/admin/platform/global/subjects/save-batch", {
+      const result = await workflowPost("/api/admin/platform/global/subjects/save-batch", {
         globalCurriculumVersion: model.data.globalCurriculumVersion,
         subjects: dirtySubjects.map(subject => ({
           clientKey: subject.key,
@@ -786,7 +790,7 @@
     button.disabled = true;
     setMessage("Saving Global Resources…", "");
     try {
-      const result = await apiPost("/api/admin/platform/global/resources/save-batch", {
+      const result = await workflowPost("/api/admin/platform/global/resources/save-batch", {
         globalCurriculumVersion: model.data.globalCurriculumVersion,
         resources: dirtyResources.map(draft => ({
           clientKey: draft.key,
@@ -840,7 +844,7 @@
     const requested = input.checked === true;
     input.disabled = true;
     try {
-      const result = await apiPost("/api/admin/platform/global/access/save", {
+      const result = await workflowPost("/api/admin/platform/global/access/save", {
         accountId,
         subjectId,
         active: requested
@@ -868,7 +872,7 @@
     button.disabled = true;
     setMessage("Saving platform change…", "");
     try {
-      const result = await apiPost(path, payload, appState()?.token || "");
+      const result = await workflowPost(path, payload, appState()?.token || "");
       if (!result.success) throw new Error(result.error || "The platform change could not be saved");
       const dependencyText = result.dependencies ? formatDependencies(result.dependencies) : "";
       model.editing[model.tab] = "";
@@ -1128,7 +1132,7 @@
     model.drive.loading = true;
     render();
     try {
-      const result = await apiPost(
+      const result = await workflowPost(
         "/api/admin/platform/global/drive/browse",
         { folderId },
         appState()?.token || ""
@@ -1401,6 +1405,26 @@
   function attr(value) {
     return html(value);
   }
+
+  // D1 writes retain their identifier after an uncertain response. A changed
+  // draft gets a new identifier; successful steps advance the saved revision.
+  let workflowRevision = null;
+  const pendingWorkflowChanges = new Map();
+  async function workflowPost(path, body, token) {
+    const writing = !path.endsWith("/get");
+    let input = body;
+    let retryKey = "";
+    if (writing && workflowRevision !== null) {
+      retryKey = JSON.stringify([path, body, workflowRevision]);
+      if (!pendingWorkflowChanges.has(retryKey)) pendingWorkflowChanges.set(retryKey, crypto.randomUUID());
+      input = { ...body, workflowRevision, operationId: pendingWorkflowChanges.get(retryKey) };
+    }
+    const result = await apiPost(path, input, token);
+    if (result.success && result.workflowStore === "D1") workflowRevision = String(result.workflowRevision);
+    if (result.success && retryKey) pendingWorkflowChanges.delete(retryKey);
+    return result;
+  }
+
 
   window.M4LGlobalCurriculum = Object.freeze({ show, syncAccess, load, invalidate });
   window.showGlobalCurriculumManagement = show;

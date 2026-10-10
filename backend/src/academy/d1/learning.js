@@ -1,3 +1,4 @@
+import {subjectView} from './subjects.js';
 import {d1Programs} from './programs.js';
 import {managementStore,managementError,liveRoles,same} from './management-store.js';
 import {requireLearning} from './learning-state.js';
@@ -88,7 +89,7 @@ export function d1Learning(repository,auth,now=()=>new Date()) {
       if(action==='recover')return {recovered:false};
       if(!['get','history','published','preview','validate','manage-get'].includes(action))throw managementError('Unknown timetable action.',404);
       const result=await timetable(loaded).read(action,input);
-      return {...result,program:loaded.program,store:'D1',coordinatorAvailable:true,managementEditable:loaded.a.lifecycle!=='ARCHIVED',sharedSubjectsEditable:false,globalProfilesAvailable:Boolean(auth.state.account.global_admin),learningWorkflowsReady:true};
+      return {...(action==='manage-get'?await subjectView(result,auth.state.account.global_admin):result),program:loaded.program,store:'D1',coordinatorAvailable:true,managementEditable:loaded.a.lifecycle!=='ARCHIVED',globalProfilesAvailable:Boolean(auth.state.account.global_admin),learningWorkflowsReady:true};
     },
     async attendance(action,input) {
       await ready();

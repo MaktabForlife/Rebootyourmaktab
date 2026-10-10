@@ -1,3 +1,5 @@
+import {d1Subjects} from './subjects.js';
+import {d1AccountTimetable} from './account-timetable.js';
 import { createAuthRateLimitKey, createSaltedPinHash, createSessionToken, verifySessionToken, isValidFourDigitPin, verifyPin } from '../../lib/auth.js';
 import { academyD1Repository, rehearsalError } from './repository.js';
 import { d1Entrance } from './entrance.js';
@@ -88,7 +90,15 @@ async function dispatch(request,env) {
     return {success:true,...await d1Entrance(repository,auth?.state,auth?.user,input)};
   }
   const auth=await authenticated(request,env,repository);
-  const courseAction=path==='/api/admin/platform/global/get'?'get':path.match(/^\/api\/admin\/platform\/global\/((?:delivery|policy|run|timetable)(?:\/[a-z-]+){1,2})$/)?.[1];
+  if(path==='/api/academy/timetable')return {success:true,...await d1AccountTimetable(repository,auth,input)};
+  if(['/api/account/workspace','/api/account/global-workspace'].includes(path)){
+    const expected=path.endsWith('/global-workspace')?'GLOBAL':'COURSE';
+    if(auth.context.scope!==expected)throw rehearsalError('Choose an authorised Academy context.',403,'FORBIDDEN_CONTEXT');
+    return {success:true,sessionStore:'D1',workspace:{portalType:'academy',path:expected==='GLOBAL'?'/academy/':'/academy/#activity/PROGRAM/'+encodeURIComponent(auth.context.courseId)}};
+  }
+  const subjectAction=path.match(/^\/api\/admin\/platform\/academy-subjects\/(get|save|recover|import-preview)$/)?.[1];
+  if(subjectAction)return {success:true,...await d1Subjects(repository,auth).run(subjectAction,input)};
+  const courseAction=path==='/api/admin/platform/global/get'?'get':path.match(/^\/api\/admin\/platform\/global\/((?:subject|subjects|module|task|delivery|policy|run|timetable)(?:\/[a-z-]+){1,2})$/)?.[1];
   const calendarAction=path.match(/^\/api\/admin\/platform\/calendar\/(get|save|batch-save)$/)?.[1];
   if(courseAction||calendarAction)return {success:true,...await d1CourseCalendar(repository,auth).run(calendarAction?`calendar/${calendarAction}`:courseAction,input)};
   const timetableAction=path.match(/^\/api\/admin\/platform\/program-timetable\/(get|save|publish|history|published|preview|validate|prepare|prepare-library)$/)?.[1];
