@@ -10,14 +10,21 @@ export function academyD1Repository(env) {
     throw rehearsalError('Academy database rehearsal is not enabled.');
   const db=env.ACADEMY_DB.withSession('first-primary');
   const prepare=(sql,...values)=>db.prepare(sql).bind(...values);
-  let mappingSchema;
+  let schemas;
+  async function schemaNames(){
+    schemas??=prepare("SELECT name FROM sqlite_schema WHERE name IN ('role_mapping_decisions','effective_course_subscriptions') AND type IN ('table','view')").all();
+    return (await schemas).results.map(r=>r.name);
+  }
+  async function subscriptionSource(){
+    return (await schemaNames()).includes('effective_course_subscriptions')?'effective_course_subscriptions':"(SELECT account_id,activity_key FROM legacy_access_evidence WHERE source_role='LEGACY_SUBSCRIPTION' AND source_effective=1)";
+  }
   const accountSQL=`SELECT a.*,c.pin_hash,c.pin_setup,c.credential_epoch,
     EXISTS(SELECT 1 FROM global_role_assignments g WHERE g.account_id=a.account_id AND g.role='GLOBAL_ADMIN' AND g.active=1 AND g.review_state='CONFIRMED') AS global_admin
     FROM accounts a JOIN account_credentials c ON c.account_id=a.account_id`;
   async function stateFor(account) {
     if(!account)return null;
-    mappingSchema??=prepare("SELECT name FROM sqlite_schema WHERE type='table' AND name='role_mapping_decisions'").first();
-    const mapped=Boolean(await mappingSchema);
+    const mapped=(await schemaNames()).includes('role_mapping_decisions');
+    const subscriptionsTable=await subscriptionSource();
     const results=await db.batch([
       prepare(`SELECT a.*,cs.legacy_access_model FROM activities a LEFT JOIN course_settings cs USING(activity_key)
         WHERE a.active=1 AND a.lifecycle='ACTIVE' AND a.kind IN ('PROGRAM','COURSE')`),
@@ -27,7 +34,7 @@ export function academyD1Repository(env) {
         JOIN activities a USING(activity_key) JOIN role_import_reviews v ON v.account_id=e.account_id AND v.activity_key=e.activity_key AND v.source_value=e.source_role
         ${mapped?'JOIN role_mapping_decisions m ON m.source_role=e.source_role':''}
         WHERE e.account_id=? AND e.source_role IN ('ADMIN','SENIOR') AND e.source_effective=1 AND v.status='REQUIRED' AND a.active=1 AND a.lifecycle='ACTIVE'`,account.account_id,account.account_id),
-      prepare(`SELECT activity_key FROM legacy_access_evidence WHERE account_id=? AND source_role='LEGACY_SUBSCRIPTION' AND source_effective=1`,account.account_id)
+      prepare(`SELECT activity_key FROM ${subscriptionsTable} WHERE account_id=?`,account.account_id)
     ]);
     const [activities,roles,subscriptions]=results.map(r=>r.results);
     const contexts=[];
@@ -52,6 +59,7 @@ export function academyD1Repository(env) {
   }
   return {
     db,
+    subscriptionSource,
     publicAccount,
     async ready(){
       const result=await prepare(`SELECT run_id FROM migration_runs WHERE state='IMPORTED' AND environment IN ('LOCAL','DEVELOPMENT')

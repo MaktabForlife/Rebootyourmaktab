@@ -93,7 +93,7 @@ export function countActiveGlobalSubjectSubscriptions(matrixRows, subjectId) {
   const requestedSubjectId = normalizePlatformIdentifier(subjectId);
   if (!requestedSubjectId) return 0;
   return (Array.isArray(matrixRows) ? matrixRows : []).filter(row => (
-    isActivePlatformValue(row?._subjectAccess?.[requestedSubjectId])
+    row?._accountActive !== false && isActivePlatformValue(row?._subjectAccess?.[requestedSubjectId])
   )).length;
 }
 

@@ -32,6 +32,8 @@ Private evidence is under .academy-migration/d1-course-resources-20261010/, the 
 
 ## Remaining before enabling D1
 
+The subsequent [Course subscription stage](ACADEMY-D1-COURSE-SUBSCRIPTIONS.md) completes the existing per-Course grant/revoke controls locally. The following list records the boundary of this resource increment.
+
 Complete Course subscription/admission and Academy-wide Global Admin grant administration rules and any remaining dependent routes. Deploy/configure the updated upload bridge and missing Program destinations. Refresh/reconcile the source, verify complete hosted flows and peak usage, and review backup/rollback and the concrete ownership transition before enabling D1. Keep the production-named legacy Worker separate.
 
 A future feature push requires a fresh release version and updated URLs for changed assets. This increment does not enable live D1 routing.

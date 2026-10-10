@@ -43,6 +43,7 @@ try {
   run(save('synthetic-learning.sql',learningSQL(learning)),'LEARNING_IMPORT');
   run(resolve('backend/migrations/academy/0006_course_calendar_workflows.sql'),'COURSE_CALENDAR_EXTENSION');
   run(save('synthetic-course-calendar.sql',courseCalendarSQL(courseCalendar)),'COURSE_CALENDAR_IMPORT');
+  run(resolve('backend/migrations/academy/0007_course_subscriptions.sql'),'COURSE_SUBSCRIPTIONS_EXTENSION');
   const bundle=join(directory,'worker.js');
   await build({entryPoints:['backend/src/worker-runtime.js'],bundle:true,format:'esm',platform:'browser',target:'es2022',external:['cloudflare:workers'],outfile:bundle,logLevel:'silent'});
   let outboundRequests=0,mockedDriveRequests=0;
@@ -177,7 +178,7 @@ try {
   if(publishedCourseCount.n!==8)throw Error('Normalized Course publication failed');
   step='CURRICULUM_ACCOUNT_SMOKE';
   const curriculum=ensure(await post(courses+'get',{},admin));
-  if(curriculum.service!=='platform-global-management'||curriculum.capabilities.subscriptionManagement!==false)throw Error('Curriculum contract failed');
+  if(curriculum.service!=='platform-global-management'||curriculum.capabilities.subscriptionManagement!==true)throw Error('Curriculum contract failed');
   ensure(await post(courses+'get',{},scopedAdmin),403);
   const curriculumChange={subjects:[{clientKey:'runtime-subject',subjectName:'Runtime curriculum',active:true,accessModel:'SUBSCRIPTION'}],
     modules:[{subjectClientKey:'runtime-subject',moduleName:'Runtime curriculum module',sortOrder:1,active:true}],workflowRevision:curriculum.workflowRevision,operationId:crypto.randomUUID()};
@@ -211,10 +212,27 @@ try {
   const archive={...resourceChange.resources[0],fileId:'',resourceId,active:false,workflowRevision:resourcesSaved.workflowRevision,operationId:crypto.randomUUID()};
   ensure(await post(courses+'resource/save',archive,admin));
   if((await mf.dispatchFetch(fileAccess.url)).status!==403)throw Error('Archived Course resource ticket was accepted');
+  step='COURSE_SUBSCRIPTIONS_SMOKE';
+  let accessView=ensure(await post(courses+'get',{},admin));
+  accessView=ensure(await post(courses+'policy/save',{subjectId:'subject-1',accessModel:'SUBSCRIPTION',workflowRevision:accessView.workflowRevision,operationId:crypto.randomUUID()},admin));
+  accessView=ensure(await post(courses+'resource/save',{...archive,fileId:driveFile,active:true,workflowRevision:accessView.workflowRevision,operationId:crypto.randomUUID()},admin));
+  ensure(await post('/api/platform/global/resources/access',{resourceId},tokens[13]),403);
+  const subscription={accountId:'account-0014',subjectId:'subject-1',active:true,workflowRevision:accessView.workflowRevision,operationId:crypto.randomUUID()};
+  ensure(await post(courses+'access/save',subscription,scopedAdmin),403);
+  const subscribed=ensure(await post(courses+'access/save',subscription,admin));
+  if(!ensure(await post(courses+'access/save',subscription,admin)).replayed)throw Error('Course subscription replay failed');
+  const subscribedHome=ensure(await post('/api/academy/entrance',{startDate:'2026-10-10'},tokens[13]));
+  if(!subscribedHome.personalTimetable.some(s=>s.offeringId===courseView.run.runid))throw Error('Paid Course subscription did not reach Home');
+  const subscribedFile=ensure(await post('/api/platform/global/resources/access',{resourceId},tokens[13]));
+  if((await mf.dispatchFetch(subscribedFile.url)).status!==200)throw Error('Subscribed Course file was refused');
+  ensure(await post(courses+'access/save',{...subscription,active:false,workflowRevision:subscribed.workflowRevision,operationId:crypto.randomUUID()},admin));
+  if((await mf.dispatchFetch(subscribedFile.url)).status!==403)throw Error('Revoked Course subscription retained a file ticket');
+  const unsubscribedHome=ensure(await post('/api/academy/entrance',{startDate:'2026-10-10'},tokens[13]));
+  if(unsubscribedHome.personalTimetable.some(s=>s.offeringId===courseView.run.runid))throw Error('Revoked Course subscription retained lesson details');
   if((await db.prepare('SELECT count(*) AS n FROM academy_write_guards').first()).n!==0)throw Error('Management guard left behind');
   if(outboundRequests!==0)throw Error('Unexpected external request');
   const report={success:true,runtime:'LOCAL_WORKERS_D1',workerEntrypoint:'backend/src/worker-runtime.js',compatibilityDate,syntheticAccounts:true,...burst,securitySmokeChecks:'PASS',externalRequests:outboundRequests,
-    managementSmokeChecks:'PASS',learningSmokeChecks:'PASS',courseCalendarSmokeChecks:'PASS',curriculumAccountSmokeChecks:'PASS',courseResourceSmokeChecks:'PASS',mockedDriveRequests,simultaneousLibraryReads:learningReadResults.length,cloudPerformanceMeasured:false,cutoverReady:false};
+    managementSmokeChecks:'PASS',learningSmokeChecks:'PASS',courseCalendarSmokeChecks:'PASS',curriculumAccountSmokeChecks:'PASS',courseResourceSmokeChecks:'PASS',courseSubscriptionSmokeChecks:'PASS',mockedDriveRequests,simultaneousLibraryReads:learningReadResults.length,cloudPerformanceMeasured:false,cutoverReady:false};
   save('report.json',JSON.stringify(report,null,2));
   console.log(JSON.stringify({step:'COMPLETE',...report,privateReport:join(directory,'report.json')}));
 }catch(error){console.error(JSON.stringify({success:false,step,code:'LOCAL_D1_FLOW_REHEARSAL_FAILED',status:error.status || null,message:error.message}));process.exitCode=1;}

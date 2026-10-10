@@ -12,17 +12,19 @@ function assignment(data,account,a) {
 }
 async function assignmentDTO(data,account,a) {
   const result=assignment(data,account,a);
-  return {...result,revision:await payloadHash(result),accessAllowed:Boolean(account.active&&a.active&&(result.roles.length||data.policies.some(p=>same(p.activity_key,a.activity_key)&&p.source_access_model==='FREE')))};
+  const subscription=data.subscriptions.some(s=>same(s.account_id,account.account_id)&&same(s.activity_key,a.activity_key));
+  return {...result,revision:await payloadHash(result),accessAllowed:Boolean(account.active&&a.active&&a.lifecycle==='ACTIVE'&&(profileDTO(data,account).academyAdmin||result.roles.length||accessModel(data,a)==='FREE'||subscription))};
 }
+function accessModel(data,a){return (a.kind==='COURSE'?data.coursePolicies.find(p=>same(p.activity_key,a.activity_key))?.legacy_access_model:undefined)||data.policies.find(p=>same(p.activity_key,a.activity_key))?.source_access_model||'UNKNOWN';}
 async function scopeDTO(data,a) {
-  const policy=data.policies.find(p=>same(p.activity_key,a.activity_key));
   const result={...scopeOf(a),name:a.name,active:Boolean(a.active&&a.lifecycle==='ACTIVE'),prepared:true,
-    accessModel:policy?.source_access_model||'UNKNOWN',reviewStatus:'REQUIRED',stage:'SETUP',policyEditable:false,rolesEditable:a.kind==='PROGRAM'};
+    accessModel:accessModel(data,a),reviewStatus:'REQUIRED',stage:'SETUP',policyEditable:false,rolesEditable:a.kind==='PROGRAM'};
   return {...result,revision:await payloadHash(result)};
 }
 
 export function d1Profiles(repository,auth) {
   const store=managementStore(repository,auth),p=store.p;
+  const load=async()=>store.load({coursePolicies:p('SELECT * FROM course_settings'),subscriptions:p(`SELECT * FROM ${await repository.subscriptionSource()}`)});
   async function directory(data) {
     const activities=data.activities.filter(a=>['PROGRAM','COURSE'].includes(a.kind));
     return {accounts:await Promise.all(data.accounts.map(async a=>({...profileDTO(data,a),revision:await payloadHash(profileDTO(data,a)),assignments:await Promise.all(activities.map(activity=>assignmentDTO(data,a,activity)))}))),
@@ -47,7 +49,7 @@ export function d1Profiles(repository,auth) {
     return planned.result;
   }
   async function roles(data,input,statements) {
-    if(input.scopeType!=='PROGRAM')throw managementError('Global Course access changes await the access-policy review.',501,'ACCESS_POLICY_REVIEW_REQUIRED');
+    if(input.scopeType!=='PROGRAM')throw managementError('Manage Course subscriptions from the Course access controls.',501,'ACCESS_POLICY_REVIEW_REQUIRED');
     const a=data.activities.find(a=>a.kind==='PROGRAM'&&same(a.activity_id,input.scopeId));
     const account=data.accounts.find(a=>same(a.account_id,input.accountId));
     if(!a||!account)throw managementError('Choose an existing Program and account.',404);
@@ -70,7 +72,7 @@ export function d1Profiles(repository,auth) {
   return {
     async run(action,input) {
       if(action==='recover')return {recovered:false}; // Every D1 save is atomic.
-      if(action==='get')return directory(await store.load());
+      if(action==='get')return directory(await load());
       if(action==='link') {
         const account=(await store.load()).accounts.find(a=>same(a.account_id,input.accountId));
         if(!account)throw managementError('Choose an existing account.',404);
@@ -79,7 +81,7 @@ export function d1Profiles(repository,auth) {
       if(action!=='save')throw managementError('Unknown profile action.',404);
       if(['matrix-policy','matrix-prepare'].includes(input.mode))throw managementError('Access-policy decisions must be reviewed before they change D1 access.',501,'ACCESS_POLICY_REVIEW_REQUIRED');
       return store.change('USER_PROFILES','ACADEMY',action,input,async()=>{
-        const data=await store.load(),guardAccounts=data.accounts.map(a=>({...a})),statements=[],results=[];
+        const data=await load(),guardAccounts=data.accounts.map(a=>({...a})),statements=[],results=[];
         const entries=input.mode==='batch'?input.entries:[input];
         if(!Array.isArray(entries)||!entries.length||entries.length>80||entries.some(e=>!e||!['profile','matrix-roles'].includes(e.mode)))throw managementError('Save between 1 and 80 profile or role entries together.');
         const entryKey=e=>[e.mode,e.accountId||'',e.scopeType||'',e.scopeId||''].join(':');

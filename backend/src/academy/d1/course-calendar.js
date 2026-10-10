@@ -47,8 +47,8 @@ function project(data) {
     GlobalModuleList:data.modules.filter(r=>r.activity_key.startsWith('COURSE:')).map(r=>({ModuleID:r.module_id,SubjectID:scope(r),ModuleName:r.name,SortOrder:r.sort_order,Active:Boolean(r.active)})),
     GlobalTaskList:data.tasks.filter(r=>r.activity_key.startsWith('COURSE:')).map(r=>({TaskID:r.task_id,SubjectID:scope(r),ModuleID:r.module_id||'',TaskName:r.name,Active:Boolean(r.active)})),
     GlobalSubjectAccessPolicy:data.coursePolicies.map(r=>({SubjectPolicyID:r.activity_key,SubjectID:scope(r),AccessModel:r.legacy_access_model==='FREE'?'FREE':'SUBSCRIPTION',Active:true})),
-    GlobalSubjectAccessMatrix:data.accounts.filter(a=>a.active).map(a=>({AccountID:a.account_id,
-      _subjectAccess:Object.fromEntries(data.evidence.filter(e=>same(e.account_id,a.account_id)&&e.activity_key.startsWith('COURSE:')&&e.source_role==='LEGACY_SUBSCRIPTION'&&e.source_effective).map(e=>[scope(e).toUpperCase(),true]))})),
+    GlobalSubjectAccessMatrix:data.accounts.map(a=>({AccountID:a.account_id,_accountActive:Boolean(a.active),
+      _subjectAccess:Object.fromEntries(data.subscriptions.filter(e=>same(e.account_id,a.account_id)&&e.activity_key.startsWith('COURSE:')).map(e=>[scope(e).toUpperCase(),true]))})),
     GlobalSubjectRuns:data.runs.map(r=>({RunID:r.run_id,SubjectID:scope(r),RunName:r.name,Timezone:r.timezone,StartDate:r.start_date||'',EndDate:r.end_date||'',ScheduleMode:r.schedule_mode||'EXPLICIT',ScheduleDefinition:r.schedule_definition||'[]',AccessModel:data.access.find(a=>same(a.activity_key,r.activity_key)&&same(a.run_id,r.run_id))?.access_model||'PAID',Active:Boolean(r.active)})),
     GlobalTimetableSessions:data.sessions.map(r=>({SessionID:r.session_id,RunID:r.run_id,SubjectID:scope(r),ModuleID:r.module_id||'',TeacherAccountID:r.teacher_account_id||'',SessionDate:r.session_date,StartTime:r.start_time,EndTime:r.end_time,ZoomLink:r.zoom_link||'',SessionKind:r.session_kind==='LESSON'?'EXPLICIT':r.session_kind,ScheduleRuleKey:r.schedule_rule_key||'',OccurrenceDate:r.occurrence_date||'',SessionDescription:r.description||'',Active:Boolean(data.sessionState.find(s=>same(s.activity_key,r.activity_key)&&same(s.run_id,r.run_id)&&same(s.session_id,r.session_id))?.active)})),
     GlobalTimetableRunState:data.states.map(r=>({RunID:r.run_id,Stage:r.stage||'DEVELOPMENT',CurrentPublicationID:r.current_publication_id||'',DraftPublishStartDate:r.draft_publish_start_date||'',DraftPublishEndDate:r.draft_publish_end_date||''})),
@@ -223,7 +223,7 @@ function cleanRecord(r){return Object.fromEntries(Object.entries(r).filter(([nam
 
 export function d1CourseCalendar(repository,auth,env={}) {
   const store=managementStore(repository,auth),p=store.p;
-  async function load(){return store.load(Object.fromEntries(Object.entries({runs:'course_runs',sessions:'course_draft_sessions',states:'course_run_state',publications:'timetable_publications WHERE pattern=\'COURSE\'',lifecycles:'lesson_lifecycle',modules:'modules',tasks:'tasks',resources:'course_resources',access:'course_run_access',sessionState:'course_session_state',draftLifecycle:'course_draft_lifecycle',calendar:'academy_calendar_events',suppressions:'academy_calendar_suppressions',settings:'academy_settings',coursePolicies:'course_settings'}).map(([name,table])=>[name,p(`SELECT * FROM ${table}`)])));}
+  async function load(){return store.load(Object.fromEntries(Object.entries({subscriptions:await repository.subscriptionSource(),runs:'course_runs',sessions:'course_draft_sessions',states:'course_run_state',publications:'timetable_publications WHERE pattern=\'COURSE\'',lifecycles:'lesson_lifecycle',modules:'modules',tasks:'tasks',resources:'course_resources',access:'course_run_access',sessionState:'course_session_state',draftLifecycle:'course_draft_lifecycle',calendar:'academy_calendar_events',suppressions:'academy_calendar_suppressions',settings:'academy_settings',coursePolicies:'course_settings'}).map(([name,table])=>[name,p(`SELECT * FROM ${table}`)])));}
   async function execute(action,input,data,request){
     const tables=project(data),changes=new Map(),storage=plannedStorage(tables,auth,changes);
     windowLimit(action,input,tables);
@@ -244,7 +244,7 @@ export function d1CourseCalendar(repository,auth,env={}) {
   return {async run(action,input={},request){
     if(!auth.state.account.global_admin)throw managementError('This action requires a Global Admin.',403,'FORBIDDEN');
     await requireCourseCalendar(repository.db);
-    if(readEndpoints[action]){const data=await load();const {body}=await execute(action,input,data,request);return {...body,workflowStore:'D1',workflowRevision:String(data.version),...(action==='get'?{capabilities:{curriculum:true,resourceManagement:true,subscriptionManagement:false}}:{})};}
+    if(readEndpoints[action]){const data=await load();const {body}=await execute(action,input,data,request);return {...body,workflowStore:'D1',workflowRevision:String(data.version),...(action==='get'?{capabilities:{curriculum:true,resourceManagement:true,subscriptionManagement:await repository.subscriptionSource()==='effective_course_subscriptions'}}:{})};}
     if(!writeEndpoints[action])throw managementError('This Course action is unavailable.',501,'OPERATION_NOT_MIGRATED');
     const dataset=action.startsWith('calendar/')?'ACADEMY_CALENDAR':'COURSE_MANAGEMENT';
     return store.change(dataset,'ACADEMY',action,input,async()=>{

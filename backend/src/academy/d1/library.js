@@ -15,12 +15,12 @@ const clean=v=>String(v??'').trim(),TTL=300;
 const typeConfig=type=>{const config=getResourceConfig(type);if(!config)throw managementError('Choose a Library category.');return config;};
 export function d1Library(repository,auth,env) {
   const store=managementStore(repository,auth),p=store.p,programs=d1Programs(repository,auth);
-  let readiness;
-  const ready=()=>readiness??=requireLearning(repository.db);
+  let readiness,subscriptionsTable;
+  const ready=()=>readiness??=requireLearning(repository.db).then(async()=>{subscriptionsTable=await repository.subscriptionSource();});
   const accountPath=`/account/${encodeURIComponent(auth.user.uniqueid)}`;
   const extras=activity=>({destination:p('SELECT * FROM program_library_destinations WHERE activity_key=?',activity),
     accessPolicies:p('SELECT * FROM library_access_policies'),exclusions:p('SELECT * FROM library_exclusions'),courseSettings:p('SELECT * FROM course_settings'),
-    subscriptions:p("SELECT account_id,activity_key FROM legacy_access_evidence WHERE source_role='LEGACY_SUBSCRIPTION' AND source_effective=1")});
+    subscriptions:p(`SELECT account_id,activity_key FROM ${subscriptionsTable}`)});
   async function load(id) {await ready();return programs.load(id,extras(`PROGRAM:${id}`));}
   function programRole(data,activity) {
     const roles=liveRoles(data,auth.user.accountid,activity);

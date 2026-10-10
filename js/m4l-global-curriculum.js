@@ -500,8 +500,8 @@
                   ${subjects.map(subject => {
                     const policy = String(policies[subject.subjectid] || "SUBSCRIPTION").toUpperCase();
                     const subscribed = row.values?.[subject.subjectid] === true;
-                    const disabled = model.data.capabilities?.subscriptionManagement === false || !account.active || !subject.active;
-                    const checkbox = `<label title="${model.data.capabilities?.subscriptionManagement === false ? "Subscription editing is not available yet" : disabled ? "Inactive account or subject" : "Saved subscription entitlement"}"><input class="global-access-toggle" type="checkbox" data-gcm-access-toggle data-account-id="${attr(account.accountid)}" data-subject-id="${attr(subject.subjectid)}" ${subscribed ? "checked" : ""} ${disabled ? "disabled" : ""} /></label>`;
+                    const disabled = model.data.capabilities?.subscriptionManagement === false || policy === "FREE" || (!subscribed && (!account.active || !subject.active));
+                    const checkbox = `<label title="${model.data.capabilities?.subscriptionManagement === false ? "Subscription editing is not available yet" : policy === "FREE" ? "Free Courses use implicit access" : disabled ? "Inactive account or Course" : "Saved subscription entitlement"}"><input class="global-access-toggle" type="checkbox" data-gcm-access-toggle data-account-id="${attr(account.accountid)}" data-subject-id="${attr(subject.subjectid)}" ${subscribed ? "checked" : ""} ${disabled ? "disabled" : ""} /></label>`;
                     return policy === "FREE"
                       ? `<td><div class="global-access-free-state"><span class="global-access-free">FREE</span>${checkbox}</div></td>`
                       : `<td>${checkbox}</td>`;
@@ -849,20 +849,23 @@
         subjectId,
         active: requested
       }, appState()?.token || "");
-      if (!result.success) throw new Error(result.error || "Unable to update global-subject access");
+      if (!result.success) throw new Error(result.error || "Unable to update Course access");
       const row = array(model.data.subjectAccessMatrix?.rows).find(item => item.accountid === accountId);
       if (row) {
         if (!row.values || typeof row.values !== "object") row.values = {};
         row.values[subjectId] = requested;
       }
-      setMessage(result.message || "Global-subject access updated.", "success");
+      setMessage(result.message || "Course access updated.", "success");
       return true;
     } catch (error) {
       input.checked = !requested;
-      setMessage(error.message || "Unable to update global-subject access.", "error");
+      setMessage(error.message || "Unable to update Course access.", "error");
       return false;
     } finally {
-      input.disabled = false;
+      const account = array(model.data.accounts).find(item => item.accountid === accountId);
+      const subject = array(model.data.subjects).find(item => item.subjectid === subjectId);
+      const policy = String(model.data.subjectAccessMatrix?.policies?.[subjectId] || "SUBSCRIPTION").toUpperCase();
+      input.disabled = model.data.capabilities?.subscriptionManagement === false || policy === "FREE" || (!input.checked && (!account?.active || !subject?.active));
     }
   }
 

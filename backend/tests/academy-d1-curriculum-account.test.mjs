@@ -44,7 +44,7 @@ test('Global Curriculum creates subjects, modules and tasks atomically without c
   const current=ok(await post(env,base+'get',{},token));assert.ok(current.tasks.some(t=>t.taskid===saved.task.taskid));
   assert.equal((await write(env,base+'module/save',{moduleId:module,subjectId:'subject-1',moduleName:'Moved',sortOrder:1,active:true},token,current.workflowRevision)).status,409);
   assert.equal((await write(env,base+'subject/save',{subjectId:subject,subjectName:'Stale rename',active:true},token,initial.workflowRevision)).body.code,'WORKFLOW_CHANGED');
-  assert.equal((await post(env,base+'access/save',{accountId:'account-0002',subjectId:subject,active:true},token)).status,501);
+  assert.equal((await post(env,base+'access/save',{accountId:'account-0002',subjectId:subject,active:true},token)).body.code,'COURSE_ACCESS_SCHEMA_REQUIRED');
   assert.equal(initial.capabilities.resourceManagement,true);
   assert.equal((await post(env,base+'resources/save-batch',{},token)).body.code,'INVALID_MANAGEMENT_REQUEST');
   assert.equal(db.prepare('SELECT count(*) n FROM operation_receipts').get().n,2);
