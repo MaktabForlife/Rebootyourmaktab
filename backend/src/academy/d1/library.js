@@ -114,6 +114,12 @@ export function d1Library(repository,auth,env) {
     },
     async run(action,input,request,{admin=false,academy=false}={}) {
       if(action==='available')return this.available(admin);
+      if(action==='course-access'){
+        await ready();
+        const rows=(await p('SELECT activity_key,resource_type,resource_id FROM course_resources WHERE resource_id=? COLLATE NOCASE',clean(input.resourceId||input.resourceid)).all()).results;
+        if(rows.length!==1)throw managementError('Choose an available Course resource.',rows.length?409:404);
+        const r=rows[0];return access(`${r.activity_key}:${r.resource_type}:${r.resource_id}`,false,request);
+      }
       if(academy&&action==='catalogue')return {resources:(await catalogue()).map(r=>({id:r.key,source:r.source,sourceName:r.sourceName,type:r.type,name:r.name,description:r.description,subject:r.subject,module:r.module,author:r.author||'',publisher:r.publisher||'',hasCover:r.hasCover,accessState:r.decision.state,locked:Boolean(r.decision.locked),forYou:Boolean(r.decision.forYou||r.decision.open)})),warnings:[],learningAreaRefs:[],store:'D1'};
       if(['access','cover'].includes(action))return access(academy?input.resourceId:`PROGRAM:${input.id}:${input.resourceId}`,action==='cover',request,admin);
       const loaded=await load(input.id);

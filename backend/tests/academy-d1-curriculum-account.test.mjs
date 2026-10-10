@@ -45,7 +45,8 @@ test('Global Curriculum creates subjects, modules and tasks atomically without c
   assert.equal((await write(env,base+'module/save',{moduleId:module,subjectId:'subject-1',moduleName:'Moved',sortOrder:1,active:true},token,current.workflowRevision)).status,409);
   assert.equal((await write(env,base+'subject/save',{subjectId:subject,subjectName:'Stale rename',active:true},token,initial.workflowRevision)).body.code,'WORKFLOW_CHANGED');
   assert.equal((await post(env,base+'access/save',{accountId:'account-0002',subjectId:subject,active:true},token)).status,501);
-  assert.equal((await post(env,base+'resources/save-batch',{},token)).status,501);
+  assert.equal(initial.capabilities.resourceManagement,true);
+  assert.equal((await post(env,base+'resources/save-batch',{},token)).body.code,'INVALID_MANAGEMENT_REQUEST');
   assert.equal(db.prepare('SELECT count(*) n FROM operation_receipts').get().n,2);
   const publication=db.prepare("SELECT snapshot_json FROM timetable_publications WHERE pattern='COURSE'").get().snapshot_json;
   ok(await write(env,base+'subject/save',{subjectId:'subject-1',subjectName:'Archived Global Subject',active:false},token,current.workflowRevision));
@@ -131,5 +132,5 @@ test('existing Global Curriculum script loads D1 and reuses its retry identifier
   const writes=calls.filter(c=>c.path===base+'subjects/save-batch');assert.equal(writes[0].input.operationId,writes[1].input.operationId);
   assert.equal(db.prepare("SELECT count(*) n FROM activities WHERE name='Browser Subject'").get().n,1);
   window.testSelectTab('access');assert.ok([...elements.values()].some(e=>e.innerHTML.includes('Subscription editing is not available yet')));
-  window.testSelectTab('resources');assert.ok([...elements.values()].some(e=>e.innerHTML.includes('Global Resource editing is not available yet')));
+  window.testSelectTab('resources');assert.ok([...elements.values()].some(e=>e.innerHTML.includes('Add/Modify Global Resources')));
 }));

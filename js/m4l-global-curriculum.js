@@ -1411,7 +1411,7 @@
   let workflowRevision = null;
   const pendingWorkflowChanges = new Map();
   async function workflowPost(path, body, token) {
-    const writing = !path.endsWith("/get");
+    const writing = !path.endsWith("/get") && !path.endsWith("/browse");
     let input = body;
     let retryKey = "";
     if (writing && workflowRevision !== null) {
@@ -1420,7 +1420,7 @@
       input = { ...body, workflowRevision, operationId: pendingWorkflowChanges.get(retryKey) };
     }
     const result = await apiPost(path, input, token);
-    if (result.success && result.workflowStore === "D1") workflowRevision = String(result.workflowRevision);
+    if (result.success && result.workflowStore === "D1" && (writing || path.endsWith("/get"))) workflowRevision = String(result.workflowRevision);
     if (result.success && retryKey) pendingWorkflowChanges.delete(retryKey);
     return result;
   }

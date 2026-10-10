@@ -98,9 +98,10 @@ async function dispatch(request,env) {
   }
   const subjectAction=path.match(/^\/api\/admin\/platform\/academy-subjects\/(get|save|recover|import-preview)$/)?.[1];
   if(subjectAction)return {success:true,...await d1Subjects(repository,auth).run(subjectAction,input)};
-  const courseAction=path==='/api/admin/platform/global/get'?'get':path.match(/^\/api\/admin\/platform\/global\/((?:subject|subjects|module|task|delivery|policy|run|timetable)(?:\/[a-z-]+){1,2})$/)?.[1];
+  if(path==='/api/platform/global/resources/access')return {success:true,...await d1Library(repository,auth,env).run('course-access',input,request)};
+  const courseAction=path==='/api/admin/platform/global/get'?'get':path.match(/^\/api\/admin\/platform\/global\/((?:subject|subjects|module|task|resource|resources|drive-root|drive|delivery|policy|run|timetable)(?:\/[a-z-]+){1,2})$/)?.[1];
   const calendarAction=path.match(/^\/api\/admin\/platform\/calendar\/(get|save|batch-save)$/)?.[1];
-  if(courseAction||calendarAction)return {success:true,...await d1CourseCalendar(repository,auth).run(calendarAction?`calendar/${calendarAction}`:courseAction,input)};
+  if(courseAction||calendarAction)return {success:true,...await d1CourseCalendar(repository,auth,env).run(calendarAction?`calendar/${calendarAction}`:courseAction,input,request)};
   const timetableAction=path.match(/^\/api\/admin\/platform\/program-timetable\/(get|save|publish|history|published|preview|validate|prepare|prepare-library)$/)?.[1];
   const attendanceAction=path.match(/^\/api\/program-attendance\/(get|submit|prepare|recover)$/)?.[1];
   if(timetableAction||attendanceAction) {

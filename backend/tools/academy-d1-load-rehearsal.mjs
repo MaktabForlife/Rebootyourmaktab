@@ -12,7 +12,7 @@ import {buildLearningImport,learningSQL} from './academy-migration/learning.mjs'
 import {withLearningSource,subject,moduleId} from '../tests/fixtures/academy-d1-learning-fixture.mjs';
 import {WEEKLY_SCHEMA,programToday} from '../src/programs/weekly-timetable.js';
 
-// Synthetic accounts only, private local storage and no permitted network egress.
+// Synthetic accounts and mocked Drive only, private local storage and no network egress.
 // This measures the local Workers/D1 runtime, not Cloudflare edge performance.
 const options=Object.fromEntries(Array.from({length:(process.argv.length-2)/2},(_,i)=>[process.argv[2+i*2],process.argv[3+i*2]]));
 const runtime=resolve(options['--runtime-root'] || 'backend/node_modules');
@@ -45,13 +45,29 @@ try {
   run(save('synthetic-course-calendar.sql',courseCalendarSQL(courseCalendar)),'COURSE_CALENDAR_IMPORT');
   const bundle=join(directory,'worker.js');
   await build({entryPoints:['backend/src/worker-runtime.js'],bundle:true,format:'esm',platform:'browser',target:'es2022',external:['cloudflare:workers'],outfile:bundle,logLevel:'silent'});
-  let outboundRequests=0;
+  let outboundRequests=0,mockedDriveRequests=0;
+  const driveRoot='runtime_course_root',driveFile='runtime_course_file';
+  const driveKeys=await crypto.subtle.generateKey({name:'RSASSA-PKCS1-v1_5',modulusLength:2048,publicExponent:new Uint8Array([1,0,1]),hash:'SHA-256'},true,['sign','verify']);
+  const drivePem=`-----BEGIN PRIVATE KEY-----\n${Buffer.from(await crypto.subtle.exportKey('pkcs8',driveKeys.privateKey)).toString('base64')}\n-----END PRIVATE KEY-----`;
+  const driveCredentials=JSON.stringify({type:'service_account',client_email:'runtime-drive@example.invalid',private_key:drivePem,token_uri:'https://oauth2.googleapis.com/token'});
   step='START_LOCAL_WORKER';
   mf=new miniflare.Miniflare(miniflare.convertV4MiniflareOptions({name:'academy-d1-load-local',modules:true,scriptPath:bundle,compatibilityDate,
     resourcePersistencePath:join(state,'v3'),d1Databases:{ACADEMY_DB:'00000000-0000-4000-8000-000000000003'},
-    bindings:{ENVIRONMENT:'local',ACADEMY_D1_MODE:'REHEARSAL',PIN_SECRET:'synthetic-pin-secret',SESSION_SECRET:'synthetic-session-secret'},
+    bindings:{ENVIRONMENT:'local',ACADEMY_D1_MODE:'REHEARSAL',PIN_SECRET:'synthetic-pin-secret',SESSION_SECRET:'synthetic-session-secret',GOOGLE_SERVICE_ACCOUNT_JSON:driveCredentials},
     ratelimits:{AUTH_LOGIN_RATE_LIMITER:{namespace_id:'100102',simple:{limit:5,period:60}}},
-    outboundService:()=>{outboundRequests++;return new Response('External requests are disabled in this rehearsal.',{status:503});}}));
+    outboundService:request=>{
+      const url=new URL(request.url);
+      if(url.hostname==='oauth2.googleapis.com'){mockedDriveRequests++;return Response.json({access_token:'runtime-drive-token',expires_in:3600});}
+      if(url.hostname==='www.googleapis.com'&&url.pathname.startsWith('/drive/v3/files')){
+        mockedDriveRequests++;
+        const folder={id:driveRoot,name:'Runtime Course resources',mimeType:'application/vnd.google-apps.folder',parents:[],trashed:false};
+        const file={id:driveFile,name:'Course book.pdf',mimeType:'application/pdf',parents:[driveRoot],trashed:false,capabilities:{canDownload:true}};
+        if(url.pathname==='/drive/v3/files')return Response.json({files:[file]});
+        if(url.pathname.endsWith('/'+driveRoot))return Response.json(folder);
+        if(url.pathname.endsWith('/'+driveFile))return url.searchParams.get('alt')==='media'?new Response('PDF',{headers:{'Content-Type':'application/pdf','Content-Length':'3'}}):Response.json(file);
+      }
+      outboundRequests++;return new Response('External requests are disabled in this rehearsal.',{status:503});
+    }}));
   await mf.ready;
   async function post(path,body={},token='') {
     const response=await mf.dispatchFetch(`http://localhost${path}`,{method:'POST',headers:{'Content-Type':'application/json',...(token?{Authorization:`Bearer ${token}`}:{})},body:JSON.stringify(body)});
@@ -177,10 +193,28 @@ try {
   if(accountTimetable.viewDays!==14||!Array.isArray(accountTimetable.sessions))throw Error('Older account timetable contract failed');
   const accountWorkspace=ensure(await post('/api/account/workspace',{},tokens[13]));
   if(accountWorkspace.workspace.portalType!=='academy'||!accountWorkspace.workspace.path.startsWith('/academy/'))throw Error('D1 workspace navigation failed');
+  step='COURSE_RESOURCE_SMOKE';
+  let resourceView=ensure(await post(courses+'get',{},admin));
+  if(!resourceView.capabilities.resourceManagement)throw Error('Course resource capability is missing');
+  const folderChange={folderId:driveRoot,workflowRevision:resourceView.workflowRevision,operationId:crypto.randomUUID()};
+  resourceView=ensure(await post(courses+'drive-root/save',folderChange,admin));
+  if(!ensure(await post(courses+'drive-root/save',folderChange,admin)).replayed)throw Error('Course folder replay failed');
+  if(ensure(await post(courses+'drive/browse',{},admin)).items[0].id!==driveFile)throw Error('Mocked Course browsing failed');
+  const resourceChange={resources:[{subjectId:'subject-1',moduleId:'module-1',resourceName:'Runtime Course book',resourceType:'EBOOK',fileId:driveFile,active:true}],workflowRevision:resourceView.workflowRevision,operationId:crypto.randomUUID()};
+  const resourcesSaved=ensure(await post(courses+'resources/save-batch',resourceChange,admin));
+  if(!ensure(await post(courses+'resources/save-batch',resourceChange,admin)).replayed)throw Error('Course resource replay failed');
+  ensure(await post(courses+'resource/save',{},scopedAdmin),403);
+  const resourceId=resourcesSaved.resources[0].resourceid;
+  const fileAccess=ensure(await post('/api/platform/global/resources/access',{resourceId},admin));
+  const media=await mf.dispatchFetch(fileAccess.url);
+  if(media.status!==200||await media.text()!=='PDF')throw Error('Course resource stream failed');
+  const archive={...resourceChange.resources[0],fileId:'',resourceId,active:false,workflowRevision:resourcesSaved.workflowRevision,operationId:crypto.randomUUID()};
+  ensure(await post(courses+'resource/save',archive,admin));
+  if((await mf.dispatchFetch(fileAccess.url)).status!==403)throw Error('Archived Course resource ticket was accepted');
   if((await db.prepare('SELECT count(*) AS n FROM academy_write_guards').first()).n!==0)throw Error('Management guard left behind');
   if(outboundRequests!==0)throw Error('Unexpected external request');
   const report={success:true,runtime:'LOCAL_WORKERS_D1',workerEntrypoint:'backend/src/worker-runtime.js',compatibilityDate,syntheticAccounts:true,...burst,securitySmokeChecks:'PASS',externalRequests:outboundRequests,
-    managementSmokeChecks:'PASS',learningSmokeChecks:'PASS',courseCalendarSmokeChecks:'PASS',curriculumAccountSmokeChecks:'PASS',simultaneousLibraryReads:learningReadResults.length,cloudPerformanceMeasured:false,cutoverReady:false};
+    managementSmokeChecks:'PASS',learningSmokeChecks:'PASS',courseCalendarSmokeChecks:'PASS',curriculumAccountSmokeChecks:'PASS',courseResourceSmokeChecks:'PASS',mockedDriveRequests,simultaneousLibraryReads:learningReadResults.length,cloudPerformanceMeasured:false,cutoverReady:false};
   save('report.json',JSON.stringify(report,null,2));
   console.log(JSON.stringify({step:'COMPLETE',...report,privateReport:join(directory,'report.json')}));
 }catch(error){console.error(JSON.stringify({success:false,step,code:'LOCAL_D1_FLOW_REHEARSAL_FAILED',status:error.status || null,message:error.message}));process.exitCode=1;}

@@ -1,4 +1,4 @@
-# Unreleased — D1 management, learning and curriculum workflows
+# Unreleased — D1 management, learning and Course workflows
 
 Add atomic D1 account/profile, Program-role, registry, curriculum, class and enrolment management behind the isolated rehearsal mode. Apply the owner-approved Senior-to-Teacher and Admin-to-Program-Admin rules without changing original evidence or Global Admin grants. Preserve Student access.
 
@@ -6,9 +6,11 @@ Extend the rehearsal with timetable authoring/publication, assigned-teacher atte
 
 Add Course run management, explicit/derived scheduling and publication, per-run paid-access protection and shared Academic Calendar administration/context. Import 48 active calendar records locally, excluding inactive events while preserving removed-holiday dates.
 
-Add shared Academy subject creation/rename, Global Subject/Module/Task authoring and the older account timetable. Keep subscription evidence unchanged, protect paid details and timed meeting links, and retain published history.
+Add shared Academy subject creation/rename, Course/module/task authoring and the older account timetable. Keep subscription evidence unchanged, protect paid details and timed meeting links, and retain published history.
 
-Validate scoped permissions, stale saves, rollback, replay, current file access and the existing frontend scripts. All 116 regression test files pass; the local Workers/D1 runtime passes 200 simultaneous login/home flows and 196 concurrent Library reads with zero outbound requests. A private main-candidate copy preserves all four historical registers/21 marks and eight resources. Live Sheets routing remains unchanged. This work is not pushed or deployed. [Curriculum/account stage and pending work](docs/ACADEMY-D1-CURRICULUM-ACCOUNT.md) · [Course/calendar workflows](docs/ACADEMY-D1-COURSES-CALENDAR.md) · [Learning workflows](docs/ACADEMY-D1-LEARNING.md) · [Management stage](docs/ACADEMY-D1-MANAGEMENT.md).
+Add Course resource and Drive-folder administration, atomic batch saves and session-bound compatibility file access. Recheck containment and current subscription/authority on opening files. Preserve active Courses; only the Global Subject terminology is outdated. Drive verification uses local mocks in the runtime rehearsal.
+
+Validate scoped permissions, stale saves, rollback, replay, current file access and the existing frontend scripts. All 117 regression test files pass; the local Workers/D1 runtime passes 200 simultaneous login/home flows and 196 concurrent Library reads with zero external network requests. A private main-candidate copy preserves all four historical registers/21 marks and eight resources. Live Sheets routing remains unchanged. This work is not pushed or deployed. [Course resource stage and pending work](docs/ACADEMY-D1-COURSE-RESOURCES.md) · [Terminology](docs/ACADEMY-TERMINOLOGY.md) · [Curriculum/account stage](docs/ACADEMY-D1-CURRICULUM-ACCOUNT.md) · [Course/calendar workflows](docs/ACADEMY-D1-COURSES-CALENDAR.md) · [Learning workflows](docs/ACADEMY-D1-LEARNING.md) · [Management stage](docs/ACADEMY-D1-MANAGEMENT.md).
 
 ---
 

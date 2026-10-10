@@ -55,3 +55,5 @@ The earlier [main database preparation](ACADEMY-MAIN-D1-PREPARATION.md) remains 
 The subsequent [Course/calendar stage](ACADEMY-D1-COURSES-CALENDAR.md) adds run authoring/publication, explicit per-run access and shared calendar workflows locally, without changing the live store.
 
 The subsequent [curriculum/account stage](ACADEMY-D1-CURRICULUM-ACCOUNT.md) adds Academy-wide catalogue authoring, Global Curriculum editing and the older account timetable locally. It keeps live routing and imported subscription evidence unchanged.
+
+The subsequent [Course resource stage](ACADEMY-D1-COURSE-RESOURCES.md) adds resource/Drive administration and compatibility file access locally. [Academy terminology](ACADEMY-TERMINOLOGY.md) distinguishes current Courses from the outdated Global Subject name and confirms Global Admin authority across all Programs and Courses.
