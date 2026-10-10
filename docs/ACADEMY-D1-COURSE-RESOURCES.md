@@ -1,5 +1,7 @@
 # Academy D1 Course resources — unreleased
 
+**Subsequent owner decision:** This report describes the preceding folder-based implementation. The [agreed Library model](ACADEMY-LIBRARY-ACCESS-MODEL.md) uses public Archive.org material, one shared private store and individual Module media subscriptions. Those subscriptions and permanent completion grants have not been built. Program-specific folders and this earlier access model are not requirements or acceptance evidence for the new Library.
+
 Course resource administration now uses the isolated D1 application path. The [terminology guide](ACADEMY-TERMINOLOGY.md) records the owner's clarification: Courses/Continuing Education are current offerings, Global Subject is an outdated name, Course Scheduling was called Global Curriculum, and Global Admin covers every Program and Course.
 
 This stage is local and has not been pushed or deployed. Live traffic still uses Sheets. No main cloud records, settings, files or source snapshots changed.

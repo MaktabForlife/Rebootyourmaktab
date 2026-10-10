@@ -1,5 +1,7 @@
 # Academy D1 route review and Open Library — 10 October 2026
 
+**Subsequent scope change:** The [agreed Library model](ACADEMY-LIBRARY-ACCESS-MODEL.md) supersedes the Program-folder requirement and the earlier per-Course/Program private-media access model. Individual Module subscriptions and completion-based permanent entitlements remain unbuilt. Library coverage and tests below describe the preceding implementation.
+
 The review found two gaps in the current Academy journey: Open Library metadata routes were unavailable in D1 mode, and the shared sidebar cleared browser sign-in without requesting D1 server-session revocation. Both are now addressed locally. **V106.0 remains the deployed release; live storage remains Sheets.** No cloud migration, deployment or ownership change is part of this increment.
 
 ## Open Library storage and behaviour
@@ -54,7 +56,7 @@ Private evidence is under `.academy-migration/d1-open-library-20261010/`, its re
 ## Remaining work before live cutover
 
 1. Reconcile a refreshed active-data source with the verified candidate, including the latest accounts, roles, publications, attendance and resources. The October 9 snapshot does not automatically track later Sheets changes.
-2. Configure the updated Apps Script upload bridge and each Program's upload destination; verify a real upload end to end. Retain the existing Open Library object namespace/R2 binding and verify its hosted metadata/covers.
+2. Apply the revised Library migration boundary: retain and verify existing public Open Library metadata/covers, but keep protected media unavailable unless the new Module subscription/entitlement controls are built and verified. Program-specific upload destinations are no longer required; shared private storage remains to be selected.
 3. Exercise the complete hosted website with representative Teacher, Program Admin, Global Admin and Student accounts, including paid-access revocation, failed/retried writes and realistic simultaneous peak use. Complete native browser acceptance through an approved browser connection.
 4. Prepare and review backups, restore/rollback evidence, the source-write freeze/reconciliation procedure and explicit database ownership transition. The current `REHEARSAL` mode deliberately requires `SHEETS/STAGING` ownership; setting the flag alone is not a live cutover procedure.
 5. Release the reviewed changes with a fresh feature version and changed asset URLs, then perform the separately reviewed live ownership/routing transition. Keep the production-named legacy Worker separate.

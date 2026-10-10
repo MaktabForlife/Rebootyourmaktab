@@ -1,5 +1,7 @@
 # Unreleased — D1 management, learning and Course workflows
 
+**Library requirements updated:** Public material comes from Archive.org; Personal Library will use the existing Academy account, one shared private media store, individual Module subscriptions and permanent completion entitlements. This subscription model has not been built. Program-specific upload folders are no longer required. The Library implementation described below predates this decision. [Agreed model and migration boundary](docs/ACADEMY-LIBRARY-ACCESS-MODEL.md).
+
 Implement D1 profile and Program-role management, Program setup, curriculum, classes and enrolments. Follow the approved authority model: Teacher, Program Admin and Global Admin, with Seniors becoming Teachers and existing Admin assignments scoped to their Programs. Preserve Student access and imported source evidence.
 
 Add Course resource and Drive-folder administration, atomic batch saves and session-bound compatibility file access. Recheck containment and current subscription/authority on opening files. Preserve active Courses; only the Global Subject terminology is outdated. Drive verification uses local mocks in the runtime rehearsal.

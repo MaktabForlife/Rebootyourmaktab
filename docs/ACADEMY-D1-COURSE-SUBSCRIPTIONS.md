@@ -1,5 +1,7 @@
 # Academy D1 Course subscriptions — unreleased
 
+**Subsequent owner clarification:** Module media subscriptions and lifetime entitlements have not been built. The per-Course controls described here are a separate existing compatibility feature and must not be used to infer Module media grants. The [agreed Library model](ACADEMY-LIBRARY-ACCESS-MODEL.md) supersedes the earlier private-media policy and Program-folder requirement.
+
 Global Admins can now activate or deactivate the existing per-account, per-Course paid subscription through the Course access screen in D1 rehearsal mode. Free Courses retain implicit access. Program Admins and Teachers cannot grant paid Course access through their Program roles. The [terminology guide](ACADEMY-TERMINOLOGY.md) applies: Courses are current Continuing Education offerings, and only the older Global Subject name is outdated.
 
 This increment is local. It has not been pushed or deployed, and it does not enable D1 routing. The main cloud database and live Sheets records are unchanged.

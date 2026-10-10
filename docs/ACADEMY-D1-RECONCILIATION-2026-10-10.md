@@ -1,5 +1,7 @@
 # Academy source reconciliation and recovery check — 10 October 2026
 
+**Subsequent Library decision:** The owner replaced Program-specific upload folders with public Archive.org material and one shared private Academy media store. Module subscriptions and permanent completion entitlements have not been built. The four missing Program destinations recorded below are historical findings, not outstanding requirements for the new Library. See the [agreed Library model](ACADEMY-LIBRARY-ACCESS-MODEL.md).
+
 A fresh read-only source capture and a new private D1 candidate are verified. **No source records, main cloud database rows, deployment or live storage routing were changed.** Both public version endpoints still report V106.0, and the website still uses Sheets.
 
 ## Fresh source and candidate
@@ -40,7 +42,7 @@ This proves recovery of this main-database snapshot locally. It does not prove a
 
 The existing public Open Library API returns **18 public records**, including **eight uploaded covers**. A sampled uploaded cover loads with a valid image signature. This inventories the current live store, not hidden editor records, and does not claim hosted D1 acceptance. The existing Durable Object namespace and R2 binding remain unchanged.
 
-The refreshed candidate preserves **Alimiyah's one configured Program upload destination**. Hifz, Mothers of the Ummah, Reboot (Pilot) and Tafseer still need destinations selected. No folders were guessed or created. Folder links, or a parent folder for new Program folders, have been requested.
+At capture time, the candidate preserved **Alimiyah's one configured Program upload destination**, while Hifz, Mothers of the Ummah, Reboot (Pilot) and Tafseer had none. No folders were guessed or created. The subsequent Library decision supersedes the request for those four folder links; the new design uses one shared private store.
 
 The Apps Script cleanup and Library bridge checks pass. Repository `code.gs` supports the signed D1 upload purpose, but deployment of that version and a real upload have not been verified. Follow the [D1 upload deployment sequence](../apps-script/README.md#d1-device-uploads-unreleased) before enabling device uploads.
 
@@ -52,7 +54,7 @@ Keep `devrebootworker` as the current main application and keep the production-n
 | --- | --- |
 | Hosted peak login/Home | A dedicated disposable test database and Worker with synthetic accounts; never insert load fixtures into the main database. Exercise at least the existing 200 simultaneous complete flows, record latency/errors and verify no Sheets dependency on that path. Local results are not hosted capacity evidence. |
 | Full workflow and permissions | Representative Student, Teacher, Program Admin and Global Admin accounts in the isolated target; verify the current route matrix, scoped edits, PIN setup/reset/logout, stale saves, lost acknowledgements and revocation. Keep real credentials and private account data out of public test fixtures. |
-| Files and uploads | Test-only Drive destinations and appropriate isolated storage; deploy the updated bridge, verify folder containment, complete a file/cover upload and reject revoked or changed-folder tickets. Do not write synthetic files into live Program folders. |
+| Files and uploads | Follow the revised shared-store and Module-entitlement model when that feature is built. Test isolated storage, protected listing/opening and permanent grants. The earlier Program-folder bridge is not a requirement for the new Library. Keep protected media unavailable if the core migration precedes that feature. |
 | Open Library | Verify the D1 checks with the existing namespace design and a separate test object/bucket. Retain the main namespace/bucket in the reviewed live deployment, and recheck existing public metadata/covers afterward. |
 | Browser acceptance | Complete actual page navigation through an approved browser connection. The previous native browser tool security-policy failure remains unresolved; API and script tests do not replace that acceptance check. |
 | Live activation | Implement and test the explicit ownership/activation transition. The current `REHEARSAL` gate requires `SHEETS/STAGING` and rejects a database changed to D1 ownership; setting its flag alone is not the final switch. |

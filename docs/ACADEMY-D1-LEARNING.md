@@ -1,5 +1,7 @@
 # Academy D1 Program learning workflows — unreleased
 
+**Subsequent Library clarification:** The [agreed Library model](ACADEMY-LIBRARY-ACCESS-MODEL.md) replaces Program-specific folders with public Archive.org material and one shared private media store. Module subscriptions and permanent completion entitlements have not been built. Library behaviour and upload requirements below describe the preceding implementation; timetable and attendance work is unchanged.
+
 Timetable publishing, Program attendance and Library workflows now run on the isolated D1 path, alongside user and Program management. This increment is local: it has not been pushed, deployed or applied to the main cloud database. Live storage remains Sheets. `REHEARSAL` is still an integration boundary, not a live cutover mode.
 
 ## Implemented behavior

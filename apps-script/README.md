@@ -72,6 +72,8 @@ edit back into the repository before the next change.
 
 ## D1 device uploads (unreleased)
 
+**Superseded for the new Academy Library:** The owner now requires public Archive.org material and one shared private Academy media store. Program-specific upload folders are no longer required. Module media subscriptions and permanent completion entitlements have not been built. The sequence below documents the preceding compatibility bridge, not a prerequisite for the new design. See the [agreed Library model](../docs/ACADEMY-LIBRARY-ACCESS-MODEL.md).
+
 The repository bridge also accepts the signed `m4l-library-start-d1` purpose.
 For that purpose, the Worker supplies the destination verified against D1;
 Apps Script does not look it up in Sheets. The existing signed Sheets purpose

@@ -1,5 +1,7 @@
 # Unreleased — D1 management, learning and Course workflows
 
+Record the owner's revised Library model: public Archive.org material, one shared private Academy media store, individual Module subscriptions and permanent account entitlements at completion. These subscriptions and lifetime grants are not implemented; prior Program-folder requirements are superseded. Existing per-Course access must not be inferred as Module media access. No runtime or live data changes accompany this clarification. [Agreed model](docs/ACADEMY-LIBRARY-ACCESS-MODEL.md).
+
 Add atomic D1 account/profile, Program-role, registry, curriculum, class and enrolment management behind the isolated rehearsal mode. Apply the owner-approved Senior-to-Teacher and Admin-to-Program-Admin rules without changing original evidence or Global Admin grants. Preserve Student access.
 
 Extend the rehearsal with timetable authoring/publication, assigned-teacher attendance, Library metadata and session-bound protected Drive/R2 files. Reuse publishing and attendance rules, bulk-save learners and lessons, preserve supplemental active-Program history, and keep the main cloud import unchanged. Device upload support requires the updated Apps Script bridge deployment and its explicit D1 flag.
