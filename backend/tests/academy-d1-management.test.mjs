@@ -189,6 +189,34 @@ test('the existing profile, Program setup and management screens work with the D
   profiles.element('up-users').oninput({target:{dataset:{name:''},value:'Screen-created learner'}});
   await profiles.element('up-save-all').onclick();await settle();
   assert.equal(db.prepare("SELECT count(*) AS n FROM accounts WHERE display_name='Screen-created learner'").get().n,1);
+  // Real D1 role edits through the current UI: first save, repeat save and
+  // a genuinely stale edit retained across refresh must have distinct outcomes.
+  const directory=(await post(env,profilePath+'get',{},token)).body;
+  const learner=directory.accounts.find(a=>a.accountId==='account-0002');
+  const scope=directory.scopes.find(s=>s.type==='PROGRAM'&&s.id===PROGRAM_IDS[0]);
+  const editRole=()=>profiles.element('up-users').onclick({target:{closest:()=>({dataset:{editScope:`PROGRAM:${scope.id}`,account:learner.accountId}})}});
+  const chooseRole=(role,checked)=>profiles.element('up-users').onchange({target:{dataset:{role,account:learner.accountId,scope:`PROGRAM:${scope.id}`},checked}});
+  editRole();chooseRole('TEACHER',true);
+  await profiles.element('up-save-all').onclick();await settle();
+  assert.equal(profiles.element('up-conflict').hidden,true,'first role save must not report a conflict');
+  assert.match(profiles.element('up-users').innerHTML,/Student · Teacher/);
+  editRole();chooseRole('STUDENT',false);
+  await profiles.element('up-save-all').onclick();await settle();
+  assert.equal(profiles.element('up-conflict').hidden,true,'repeat role save must use the acknowledged revision');
+  const beforeConflict=(await post(env,profilePath+'get',{},token)).body;
+  const savedAssignment=beforeConflict.accounts.find(a=>a.accountId===learner.accountId).assignments.find(g=>g.scopeType==='PROGRAM'&&g.scopeId===scope.id);
+  editRole();chooseRole('PROGRAM_ADMIN',true);
+  const external=await post(env,profilePath+'save',{mode:'matrix-roles',accountId:learner.accountId,scopeType:'PROGRAM',scopeId:scope.id,roles:['STUDENT'],baseRevision:savedAssignment.revision,scopeRevision:scope.revision,operationId:crypto.randomUUID()},token);
+  assert.equal(external.status,200,JSON.stringify(external.body));
+  await profiles.element('up-refresh').onclick();await settle();
+  await profiles.element('up-save-all').onclick();await settle();
+  assert.equal(profiles.element('up-conflict').hidden,false,'refresh must retain the stale draft for explicit review');
+  assert.match(profiles.element('up-comparison').innerHTML,/Student/);
+  assert.match(profiles.element('up-comparison').innerHTML,/Teacher · Program Admin/);
+  await profiles.element('up-save-all').onclick();await settle();
+  assert.equal(profiles.element('up-conflict').hidden,true);
+  const reviewed=(await post(env,profilePath+'get',{},token)).body.accounts.find(a=>a.accountId===learner.accountId).assignments.find(g=>g.scopeType==='PROGRAM'&&g.scopeId===scope.id);
+  assert.deepEqual(reviewed.roles,['TEACHER','PROGRAM_ADMIN']);
   const builder=screen('../../programs/index.html','../../js/m4l-program-builder.js');await settle();
   assert.equal(builder.element('program-store-label').textContent,'Records');
   assert.match(builder.element('program-rows').innerHTML,/value="ACTIVE" selected/);

@@ -73,7 +73,7 @@ assert.equal(element('up-pending').hidden,true);
 assert.equal(f.tables.AcademyProfileOperations.filter(r=>r.OperationID===retryRequest.operationId).length,1);
 // An independently changed record needs an explicit choice and never silently overwrites.
 await editProfile();name('My proposed name');f.tables.UserAccounts[1].DisplayName='Other administrator name';
-await submit();assert.equal(element('up-conflict').hidden,false);assert.match(element('up-comparison').innerHTML,/My proposed name/);assert.match(element('up-comparison').innerHTML,/Other administrator name/);
+await submit();assert.equal(element('up-conflict').hidden,false);assert.match(element('up-comparison').innerHTML,/My proposed name/);assert.match(element('up-comparison').innerHTML,/Other administrator name/);assert.match(element('up-comparison').innerHTML,/Your proposed entry/);assert(!element('up-comparison').innerHTML.includes('<table'));
 assert(!ids.has('up-keep-mine'));assert.equal(element('up-save-all').disabled,false);
 await click('up-save-all');assert.equal(f.tables.UserAccounts[1].DisplayName,'My proposed name');
 // Separate status preserves all subject/program roles and subscriptions.

@@ -1429,6 +1429,6 @@
   }
 
 
-  window.M4LGlobalCurriculum = Object.freeze({ show, syncAccess, load, invalidate });
+  window.M4LGlobalCurriculum = Object.freeze({ show, syncAccess, load, invalidate, hasUnsavedChanges: () => hasSubjectScreenChanges() || hasResourceScreenChanges() });
   window.showGlobalCurriculumManagement = show;
 })();

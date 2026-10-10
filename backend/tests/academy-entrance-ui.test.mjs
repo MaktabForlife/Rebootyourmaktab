@@ -284,6 +284,7 @@ assert.equal($('academy-progress-nav').hidden,true);
 assert.equal($('academy-recorder-nav').hidden,true);
 assert.match($('personal-pills').innerHTML,/<span>Workshops<\/span><small>Global Admin<\/small>/);
 assert.match($('personal-pills').innerHTML,/<span>Academy administration<\/span><small>Global Admin<\/small>/);
+assert.equal($('workshop-management').hidden,false);
 assert.match($('academy-preview-sessions').innerHTML,/Reboot|Course item/,'Home Coming up remains the published Academy schedule for Global Admin');
 assert.equal(($('academy-preview-sessions').innerHTML.match(/<li class="upcoming-item /g)||[]).length,6,'Signed-in Home retains the complete personal timeline, including earlier lessons');
 assert.match($('academy-sessions').innerHTML,/Course item|Later Program item/,'Global Admin sees the whole Academy timetable');
@@ -300,7 +301,11 @@ assert.match($('activity-menu').innerHTML,/href="\/programs\/library\.html\?prog
 assert.match($('activity-menu').innerHTML,/href="\/users\/">User management<\/a>/);
 assert.match($('activity-menu').innerHTML,/href="\/programs\/manage\.html\?program=[^"]+">Program management<\/a>/);
 assert.doesNotMatch($('activity-coming').innerHTML,/<h3>Library management<\/h3>|<h3>Program management<\/h3>|<h3>User management<\/h3>/);
+location.hash='#activity/COURSE/COURSE-BARAKAH';handlers.get('hashchange')();await flush();
+assert.match($('activity-menu').innerHTML,/Course management/);
+assert.match($('activity-menu').innerHTML,/Course scheduling/);
 globalAdmin=false;window.dispatchEvent(new Event('m4l-academy-session'));await flush();
+assert.doesNotMatch($('activity-menu').innerHTML,/Course management|Course scheduling/);
 // A personal response that finishes after sign-out cannot restore protected content.
 deferNext=true;location.hash='#activity/PROGRAM/PRG-46c8576d-9fcf-4000-96b9-856b00a0218a';handlers.get('hashchange')();await flush();
 storage.clear();window.dispatchEvent(new Event('m4l-academy-session'));release();await flush();

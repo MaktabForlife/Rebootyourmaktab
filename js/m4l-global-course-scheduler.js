@@ -1271,5 +1271,5 @@
   }
 
   bind();
-  window.M4LGlobalCourseScheduler = Object.freeze({ show, load, invalidate: invalidateAll });
+  window.M4LGlobalCourseScheduler = Object.freeze({ show, load, invalidate: invalidateAll, hasUnsavedChanges });
 })();

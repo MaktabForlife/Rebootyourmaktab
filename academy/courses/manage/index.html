@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Course management · Umm Abbad Academy</title>
+  <link rel="icon" href="/admin-favicon-32x32.png">
+  <link rel="stylesheet" href="/css/m4l-program-builder.css?v=106.1">
+  <link rel="stylesheet" href="/css/m4l-24-global-curriculum.css?v=106.3">
+  <link rel="stylesheet" href="/css/m4l-28-global-course-scheduler.css?v=106.3">
+  <link rel="stylesheet" href="/css/m4l-academy-navigation.css?v=106.1">
+  <link rel="stylesheet" href="/css/m4l-academy-course-management.css?v=106.3">
+</head>
+<body>
+  <header class="pb-header"><a class="pb-brand" href="/academy/#overview"><img src="/ummabbadacademy.png" alt="">Umm Abbad Academy</a><span id="course-account-name"></span><span class="pb-version">V106.3</span></header>
+  <main>
+    <p><a href="/academy/#administration">← Academy administration</a></p>
+    <p id="course-access-message" class="pb-message" role="status" aria-live="polite">Checking your Academy account…</p>
+    <button id="course-access-retry" class="pb-secondary" type="button" hidden>Try again</button>
+    <section id="global-curriculum-screen" class="global-curriculum-screen" aria-labelledby="global-curriculum-title" hidden>
+      <header class="global-curriculum-header"><h1 id="global-curriculum-title">Course management</h1><button type="button" class="global-curriculum-secondary" data-gcm-action="reload">Refresh</button></header>
+      <nav class="global-curriculum-tabs" aria-label="Course administration">
+        <button type="button" class="is-active" data-gcm-action="show-tab" data-gcm-tab="subjects">Courses &amp; Modules</button>
+        <button type="button" data-gcm-action="show-tab" data-gcm-tab="tasks">Tasks</button>
+        <button type="button" data-gcm-course-action="show">Course scheduling</button>
+        <button type="button" data-gcm-action="show-tab" data-gcm-tab="access">Course access</button>
+      </nav>
+      <p id="global-curriculum-message" class="global-curriculum-message" role="status" aria-live="polite"></p>
+      <div id="global-curriculum-content" class="global-curriculum-content"></div>
+    </section>
+  </main>
+  <script src="/js/m4l-config.js?v=102.4"></script>
+  <script src="/js/m4l-academy-course-management.js?v=106.3"></script>
+  <script src="/js/m4l-global-curriculum.js?v=106.3"></script>
+  <script src="/js/m4l-global-course-scheduler.js?v=106.3"></script>
+  <script src="/js/m4l-academy-navigation.js?v=106.1"></script>
+</body>
+</html>

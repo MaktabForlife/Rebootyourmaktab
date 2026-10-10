@@ -1,3 +1,9 @@
+# V106.3 — Course administration and clearer role conflict review
+
+Global Admins can open Course management and Course scheduling from Academy administration, Workshops and individual Course pages using their existing Academy sign-in. These destinations reuse the current D1 Course/Module and scheduling editors, with server-checked authority. Course means the continuing-education offering previously called a Global Subject; scheduling was previously under Global Curriculum.
+
+User profiles now shows the affected user and Program and keeps the saved and proposed roles visible in a responsive comparison. A stale draft still requires explicit review before saving. First, repeat and conflicted Program-role saves are covered against the real D1 HTTP contracts. No database upgrade or data import is needed. [Release details](docs/ACADEMY-COURSE-MANAGEMENT-106.3.md).
+
 # V106.2 — Complete Academy timetables
 
 Keep the same complete, authorised Academy timetable on Home, the full timetable and every Program/Course page. Students and Teachers receive one card per directly involved lesson with its details shown inline. Program Admins receive their Programs’ full schedules grouped by meeting link and day; Global Admins receive the entire Academy grouped the same way. Accounts with mixed roles retain direct participation outside their administered Programs.

@@ -1,0 +1,12 @@
+/* The existing Course editors inside the account-based Academy shell. */
+main { max-width:1440px; }
+.global-curriculum-screen { min-height:0; border:1px solid var(--pb-line); border-radius:16px; }
+.global-curriculum-header h1 { margin:0; }
+.global-curriculum-header { flex-wrap:wrap; }
+.pb-header { flex-wrap:wrap; }
+#course-account-name { margin-left:auto; font-weight:600; }
+.global-curriculum-screen input,.global-curriculum-screen select,.global-curriculum-screen textarea { max-width:100%; font:inherit; }
+.global-curriculum-screen .helper-text { color:var(--pb-muted); }
+.global-curriculum-content { min-width:0; }
+.global-curriculum-tabs { flex-wrap:wrap; }
+@media(max-width:700px) { .global-curriculum-screen { padding:14px; } .pb-header { padding:14px 18px; } }

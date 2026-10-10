@@ -48,7 +48,11 @@
     $('up-cancel').hidden=!edit;$('up-save').disabled=!editable||state.waiting||Boolean(state.conflict);$('up-cancel').disabled=state.busy||Boolean(state.pending);
     $('up-conflict').hidden=!state.conflict||!edit;
     const describe=record=>edit?.mode==='profile'?`${record?.displayName||'Removed'} · ${record?.active?'Active':'Inactive'}`:edit?.mode==='matrix-policy'?record?.accessModel||'Unknown':roleNames(record?.roles||[])+(record?.accessModel?` · ${record.accessModel==='FREE'?'Free':'Paid'} setting`:'');
-    if(state.conflict&&edit)$('up-comparison').innerHTML=`<table class="pm-grid"><thead><tr><th>Saved version</th><th>Your entry</th></tr></thead><tbody><tr><td>${esc(describe(state.conflict.currentRecord))}</td><td>${esc(describe(edit))}</td></tr></tbody></table>`;
+    if(state.conflict&&edit){
+      const account=state.data?.accounts.find(a=>a.accountId===edit.accountId),scope=state.data?.scopes.find(s=>s.type===edit.scopeType&&s.id===edit.scopeId);
+      const identity=[account?.displayName,scope?.name].filter(Boolean).join(' · ');
+      $('up-comparison').innerHTML=`<p><strong>${esc(identity)}</strong></p><div class="up-conflict-versions"><div><strong>Saved version</strong><p>${esc(describe(state.conflict.currentRecord))}</p></div><div><strong>Your proposed entry</strong><p>${esc(describe(edit))}</p></div></div>`;
+    }
     $('up-use-saved').disabled=state.busy;
     updateSaveControls();
     if(!state.data)return;
@@ -130,7 +134,7 @@
       else if(error.code==='ROW_CHANGED'){const failed=entries().find(e=>editKey(e)===(error.entryKey||(state.pending.mode==='batch'?'':editKey(state.pending))))||state.edit||entries()[0];
         if(state.edit&&state.edit!==failed)state.edits.push(state.edit);
         state.edits=state.edits.filter(e=>e!==failed);state.edit=failed;
-        state.conflict={currentRecord:error.currentRecord,rowRevision:error.rowRevision,scopeRevision:error.currentRecord?.scopeRevision};state.pending=null;remember();message(error.message,true);}
+        state.conflict={currentRecord:error.currentRecord,rowRevision:error.rowRevision,scopeRevision:error.currentRecord?.scopeRevision};state.pending=null;remember();message(failed?.mode==='matrix-roles'?'The saved roles or Program settings changed since this entry was opened. Your proposed roles are kept for review.':error.message,true);}
       else if(error.status&&error.status<500&&error.code!=='RECOVERY_REQUIRED'){state.pending=null;remember();message(error.message,true);}
       else {message(error.message,true);if(error.code==='RECOVERY_REQUIRED'){$('up-wait').hidden=false;$('up-wait').textContent='An earlier academy change needs recovery. Retry will recover it before saving this entry.';state.pending.needsRecovery=true;remember();}else schedule(error,save,attempt,'Retrying the same save');}
     }finally{state.busy=false;render();}
