@@ -964,7 +964,7 @@
   function formatAcademyTime(value) {
     const match = /^(\d{1,2}):(\d{2})/.exec(String(value || "").trim());
     if (!match) return String(value || "").trim();
-    return `${String(Number(match[1])).padStart(2, "0")}h${match[2]}`;
+    return `${String(Number(match[1])).padStart(2, "0")}:${match[2]}`;
   }
 
   function formatAcademyTimeRange(start, end) {

@@ -8,8 +8,8 @@
   const timezone='Africa/Johannesburg';
   const days=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
   const state={data:null,draft:null,baseline:'',busy:false,pending:null,preview:null,history:[],calendarView:null,conversion:null,converted:false,effectiveFrom:'',audiences:{classes:[],teachers:[]}};
-  const inputTime=value=>value.trim().replace(/^(\d{1,2})(\d{2})$/,'$1:$2').replace(/[hH]/,':').replace(/^(\d):(\d{2})$/,'0$1:$2');
-  const time=value=>inputTime(String(value||'')).replace(':','h');
+  const inputTime=value=>window.M4L_TIME.parse(value)||String(value||'').trim();
+  const time=value=>inputTime(String(value||''));
   const dirty=()=>Boolean(state.draft)&&JSON.stringify(state.draft)!==state.baseline;
   const message=(text,error=false)=>{$('tt-message').textContent=text;$('tt-message').classList.toggle('is-error',error);};
   const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b),mergeValue=window.M4L_TIMETABLE_SYNC.merge;

@@ -10,6 +10,7 @@ import {learningAvailable} from './learning-state.js';
 import {d1Library,d1LibraryStream,d1LibraryAreaRefs} from './library.js';
 import {d1CourseCalendar} from './course-calendar.js';
 import {d1CourseManagement} from './course-management.js';
+import {d1CourseCatalogue} from './course-catalogue.js';
 import {d1CourseSubscriptions} from './course-subscriptions.js';
 import {managedCourseScopes} from './course-authority.js';
 import {authenticatedD1Account as authenticated,d1Audience as audience,d1ContextEqual as contextEqual} from './session.js';
@@ -47,7 +48,7 @@ async function dispatch(request,env) {
   const path=new URL(request.url).pathname;
   await repository.ready();
   const publicLibraryOnly=env.ACADEMY_LIBRARY_MODE==='PUBLIC_ONLY';
-  if(['/','/api/health'].includes(path)&&request.method==='GET')return {success:true,service:'rebootworker',version:'106.8',
+  if(['/','/api/health'].includes(path)&&request.method==='GET')return {success:true,service:'rebootworker',version:'106.9',
     store:env.ACADEMY_D1_MODE==='ACTIVE'?'D1_ACTIVE':'D1_REHEARSAL',cutoverReady:env.ACADEMY_D1_MODE==='ACTIVE',
     libraryMode:publicLibraryOnly?'PUBLIC_ONLY':'COMPATIBILITY',mediaSubscriptionsAvailable:false};
   const openLibraryAction=path.match(/^\/api\/academy\/open-library\/metadata\/(public|cover|list|save|options)$/)?.[1];
@@ -95,6 +96,7 @@ async function dispatch(request,env) {
     return {success:true,sessionStore:'D1',...await d1Entrance(repository,auth?.state,auth?.user,input)};
   }
   const auth=await authenticated(request,env,repository);
+  if(path==='/api/academy/courses/catalogue')return {success:true,...await d1CourseCatalogue(repository,auth)};
   if(publicLibraryOnly&&path==='/api/academy/library/catalogue')return {success:true,resources:[],
     warnings:['Private Academy media will appear when Module subscriptions are available.'],learningAreaRefs:d1LibraryAreaRefs(auth.state),
     libraryMode:'PUBLIC_ONLY',mediaSubscriptionsAvailable:false,store:'D1'};

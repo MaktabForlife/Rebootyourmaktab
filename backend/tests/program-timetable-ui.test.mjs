@@ -39,6 +39,7 @@ const context={console,URL,Image:class{constructor(){this.complete=false;}},URLS
 }};
 const settled=async()=>{for(let i=0;i<6;i++)await new Promise(r=>setTimeout(r,2));};
 const click=async id=>{await element(id).onclick();await settled();};
+vm.runInNewContext(await readFile(new URL('../../js/m4l-time.js',import.meta.url),'utf8'),context);
 vm.runInNewContext(presentationSource,context);
 context.window.M4L_TIMETABLE_BLOCKS={model:(result,options)=>{blockOptions.push(options);return {timetableName:options.teacherId?'Teacher A':'Year 1'};},html:model=>`<svg>${model.timetableName} block timetable</svg>`,canvases:()=>[]};
 vm.runInNewContext(syncSource,context);
@@ -52,7 +53,7 @@ assert.equal(element('tt-open-publish').disabled,true);
 assert.match(element('tt-board-tabs').innerHTML,/Class:/);
 await click('tt-preview');
 assert.match(element('tt-validation').innerHTML,/shared lesson Zoom link/);
-assert.match(element('tt-validation').innerHTML,/Monday, Wednesday 13h00–14h00/);
+assert.match(element('tt-validation').innerHTML,/Monday, Wednesday 13:00–14:00/);
 assert.match(element('tt-validation').innerHTML,/Open lesson on board/);
 element('tt-validation').onclick({target:{closest:selector=>selector==='[data-open-issue]'?{dataset:{openIssue:draft.rules[0].id}}:null}});
 assert.equal(element('tt-quick-lesson-dialog').open,true,'the issue opens the affected lesson on the board');

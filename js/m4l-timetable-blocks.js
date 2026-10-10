@@ -4,7 +4,7 @@
   const days=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
   const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const minutes=t=>{const [h,m]=String(t).split(':').map(Number);return h*60+m;};
-  const clock=n=>`${String(Math.floor(n/60)).padStart(2,'0')}h${String(n%60).padStart(2,'0')}`;
+  const clock=n=>`${String(Math.floor(n/60)).padStart(2,'0')}:${String(n%60).padStart(2,'0')}`;
   const font=(ctx,size,bold=false)=>{ctx.font=`${bold?'bold ':''}${size}px Arial, sans-serif`;};
   function wrap(ctx,text,width){
     const lines=[];let line='';

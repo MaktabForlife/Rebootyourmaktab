@@ -400,8 +400,8 @@
     const selectedDays = new Set(array(row.days).map(value => String(value).toUpperCase()));
     return `<div class="global-course-schedule-row ${row.dirty ? "is-dirty" : ""}" data-course-key="${attr(course.key)}" data-schedule-row-key="${attr(row.key)}">
       ${field("Days", `<div class="global-course-day-pills">${dayPills(selectedDays, course.key, row.key)}</div>`)}
-      ${field("Start", `<input data-course-schedule-field="start" data-course-key="${attr(course.key)}" data-row-key="${attr(row.key)}" data-time24 type="text" inputmode="numeric" value="${attr(formatUiTime(row.start))}" placeholder="--h--" />`)}
-      ${field("End", `<input data-course-schedule-field="end" data-course-key="${attr(course.key)}" data-row-key="${attr(row.key)}" data-time24 type="text" inputmode="numeric" value="${attr(formatUiTime(row.end))}" placeholder="--h--" />`)}
+      ${field("Start", `<input data-course-schedule-field="start" data-course-key="${attr(course.key)}" data-row-key="${attr(row.key)}" data-time24 type="text" value="${attr(formatUiTime(row.start))}" placeholder="HH:mm" />`)}
+      ${field("End", `<input data-course-schedule-field="end" data-course-key="${attr(course.key)}" data-row-key="${attr(row.key)}" data-time24 type="text" value="${attr(formatUiTime(row.end))}" placeholder="HH:mm" />`)}
       ${field("Module", `<select data-course-schedule-field="moduleid" data-course-key="${attr(course.key)}" data-row-key="${attr(row.key)}"><option value="">No module</option>${moduleOptions(course.subjectid, row.moduleid)}</select>`)}
       ${field("Teacher", `<select data-course-schedule-field="teacherid" data-course-key="${attr(course.key)}" data-row-key="${attr(row.key)}">${teacherOptions(row.teacherid)}</select>`)}
       ${field("Zoom link", `<input data-course-schedule-field="zoom" data-course-key="${attr(course.key)}" data-row-key="${attr(row.key)}" type="url" value="${attr(row.zoom)}" inputmode="url" placeholder="https://…" />`)}
@@ -801,7 +801,7 @@
       }
       for (const row of course.scheduleRows.filter(item => item.dirty && scheduleHasContent(item))) {
         if (!row.days.length || !parseUiTime(row.start) || !parseUiTime(row.end) || parseUiTime(row.end) <= parseUiTime(row.start)) {
-          setMessage(`${course.runname || "Course"}: every changed schedule row needs days and a valid increasing time such as 13h00–14h00.`, "error"); return false;
+          setMessage(`${course.runname || "Course"}: every changed schedule row needs days and a valid increasing time such as 13:00–14:00.`, "error"); return false;
         }
       }
     }
@@ -913,8 +913,8 @@
         ].join("")
       : [
           sessionCell("Date", `<input data-inline-session-field="date" type="date" value="${attr(values.date)}" aria-label="Session date" />${dateInfo.text ? `<small class="global-session-calendar-note ${attr(dateInfo.className)}">${html(dateInfo.text)}</small>` : ""}`),
-          sessionCell("Start", `<input data-inline-session-field="start" data-time24 type="text" inputmode="numeric" value="${attr(values.start)}" aria-label="Start time" />`),
-          sessionCell("End", `<input data-inline-session-field="end" data-time24 type="text" inputmode="numeric" value="${attr(values.end)}" aria-label="End time" />`),
+          sessionCell("Start", `<input data-inline-session-field="start" data-time24 type="text" value="${attr(values.start)}" aria-label="Start time" />`),
+          sessionCell("End", `<input data-inline-session-field="end" data-time24 type="text" value="${attr(values.end)}" aria-label="End time" />`),
           sessionCell("Module", `<select data-inline-session-field="moduleid" aria-label="Module"><option value="">No module</option>${moduleOptions(session.subjectid, values.moduleid)}</select>`),
           sessionCell("Teacher", `<select data-inline-session-field="teacherid" aria-label="Teacher">${teacherOptions(values.teacherid)}</select>`),
           sessionCell("Zoom link", `<input data-inline-session-field="zoom" type="url" value="${attr(values.zoom)}" aria-label="Zoom link" />`, "global-session-zoom-cell"),
@@ -967,7 +967,7 @@
         if (!session) continue;
         const startTime = parseUiTime(draft.start); const endTime = parseUiTime(draft.end);
         if (!isIsoDate(draft.date)) { setMessage("Every changed occurrence requires a valid date.", "error"); return false; }
-        if (!startTime || !endTime || endTime <= startTime) { setMessage("Use increasing 24-hour times such as 13h00–14h00.", "error"); return false; }
+        if (!startTime || !endTime || endTime <= startTime) { setMessage("Use increasing 24-hour times such as 13:00–14:00.", "error"); return false; }
         const change = {
           sessionDate: draft.date, startTime, endTime, moduleId: draft.moduleid,
           teacherAccountId: draft.teacherid, zoomLink: draft.zoom, sessionDescription: draft.description, status: draft.status
@@ -1218,9 +1218,9 @@
   function readOnlySessionCell(label, value, extraClass = "") { return `<div class="global-session-cell global-session-readonly-cell ${attr(extraClass)}"><span class="global-session-cell-label">${html(label)}</span><span>${html(value)}</span></div>`; }
   function field(label, control) { return `<label class="global-curriculum-field"><span>${html(label)}</span>${control}</label>`; }
   function formatDate(value) { const text = String(value || ""); const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(text); if (!m) return text; return `${m[3]} ${["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][Number(m[2])]} ${m[1]}`; }
-  function parseUiTime(value) { const text = String(value || "").trim().toLowerCase().replace(/\s+/g, ""); const match = /^(\d{1,2})(?:h|:)?(\d{2})$/.exec(text); if (!match) return ""; const hour = Number(match[1]); const minute = Number(match[2]); if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return ""; return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`; }
+  function parseUiTime(value) { return window.M4L_TIME.parse(value); }
   function normalizeTime(value) { return parseUiTime(value) || String(value || "").trim(); }
-  function formatUiTime(value) { const parsed = parseUiTime(value); return parsed ? parsed.replace(":", "h") : String(value || ""); }
+  function formatUiTime(value) { const parsed = parseUiTime(value); return parsed ? parsed : String(value || ""); }
   function normalizeTimeField(input) { const parsed = parseUiTime(input?.value); if (parsed) input.value = formatUiTime(parsed); }
 
   function nextLocalKey(prefix) { model.sequence += 1; return `${prefix}-${Date.now()}-${model.sequence}`; }

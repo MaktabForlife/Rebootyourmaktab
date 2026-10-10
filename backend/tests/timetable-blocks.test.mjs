@@ -38,7 +38,7 @@ assert(!blocks.canvases(coProgram,canvas)[0].canvas.text.some(row=>/Teacher A|Te
 const unsafe=blocks.html(blocks.model(source([item('<script>evil</script>',2,'08:00','09:00',{teacherName:'<b>x</b>',zoomLink:'javascript:alert(1)'})])),canvas);
 assert(!unsafe.includes('<script>'));assert(!unsafe.includes('href='));assert(unsafe.includes('&lt;script&gt;'));
 const cancelled=blocks.html(blocks.model(source([item('Cancelled',2,'08:00','09:00',{status:'CANCELLED'})])),canvas);assert(!cancelled.includes('href='));assert(cancelled.includes('line-through'));
-const html=blocks.html(m,canvas);assert.match(html,/UMM ABBAD ACADEMY/);assert.match(html,/Year 1 Weekly timetable/);assert.match(html,/08h10/);assert.match(html,/rx="16"/);assert.match(html,/href="https:\/\/zoom.us\/j\/123"/);assert.doesNotMatch(html,/>Year 1<\/text>/);assert.match(html,/DRAFT PREVIEW/);
+const html=blocks.html(m,canvas);assert.match(html,/UMM ABBAD ACADEMY/);assert.match(html,/Year 1 Weekly timetable/);assert.match(html,/08:10/);assert.match(html,/rx="16"/);assert.match(html,/href="https:\/\/zoom.us\/j\/123"/);assert.doesNotMatch(html,/>Year 1<\/text>/);assert.match(html,/DRAFT PREVIEW/);
 const seven=blocks.model(source([1,2,3,4,5,6,0].map(d=>item('Shared',d,'08:00','08:15'))));
 const pages=blocks.canvases(seven,canvas);assert.equal(pages.length,1);
 assert(pages[0].canvas.text.some(t=>t.value.includes('DRAFT PREVIEW')),'Version and effective date remain in the export footnote');
@@ -72,7 +72,7 @@ const morning=source([
 const compactModel=blocks.model(morning),compactScene=blocks.scene(compactModel,canvas),compactPages=blocks.canvases(compactModel,canvas);
 assert.equal(compactPages.length,1);assert(compactScene.height<600,'Compact morning scale');
 const tickLabels=Array.from(blocks.html(compactModel,canvas).matchAll(/<text x="112"[^>]*>([^<]+)<\/text>/g),m=>m[1]);
-assert.deepEqual(tickLabels,['07h30','08h00','08h30','09h00','09h30','10h00']);
+assert.deepEqual(tickLabels,['07:30','08:00','08:30','09:00','09:30','10:00']);
 for(const b of compactScene.blocks)for(const line of b.lines){assert(line.dx>=0&&line.dx+line.width<=b.width,'Text stays inside block width');assert(line.dy>=0&&line.dy+line.size<=b.needed-10,'Text stays inside content height');}
 assert.equal(compactScene.blocks.find(b=>b.title==='Assembly').lines.length,3,'A lesson without a teacher says No teacher on the class timetable');
 console.log('Compact blocks: 30-minute ticks, smaller spacing, audience-specific text bounds and one-page morning timetable passed.');

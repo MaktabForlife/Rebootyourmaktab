@@ -18,7 +18,7 @@ assert.match(js, /Prepare Scheduling/);
 assert.match(js, /\/api\/admin\/platform\/global\/courses\/migrate-scheduling/);
 assert.match(js, /Add another time slot/);
 assert.match(js, /data-course-schedule-day/);
-assert.match(js, /placeholder="--h--"/);
+assert.match(js, /placeholder="HH:mm"/);
 assert.match(js, /<option value=""[^>]*>TBA<\/option>/);
 assert.match(js, /DERIVED is the default; EXPLICIT creates exact dated sessions/);
 assert.match(js, /generationStartDate/);

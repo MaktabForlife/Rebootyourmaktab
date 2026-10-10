@@ -85,3 +85,60 @@
 .preview-name{min-width:0;font-size:12px;font-weight:700;line-height:1.3;overflow-wrap:anywhere}
 @media(max-width:1000px){.academy-intro{grid-template-columns:1fr}.academy-intro .intro-next{grid-column:1;grid-row:1}.academy-intro .intro-feature{grid-column:1;grid-row:2}.intro-feature>.academy-news{min-height:180px}}
 @media(max-width:700px){.academy-intro .intro-next,.academy-intro .intro-feature{padding:22px}.intro-feature .intro-greeting{margin-bottom:16px}#academy-preview{padding:20px 16px}.preview-days>.upcoming-day{flex:1 0 max(156px,calc((100% - 12px)/2))}}
+
+/* Program and Course pages share a compact header and timetable. */
+.activity-heading{margin:12px 0 8px;align-items:center}
+.activity-identity{min-width:0;flex:1}
+.academy-title-row{display:flex;align-items:center;flex-wrap:wrap;gap:14px}
+.academy-title-row h1{margin:4px 0;font-size:clamp(30px,3vw,42px)}
+.activity-identity>.eyebrow{font-size:10px}
+.activity-identity>p{font-size:12px;margin:2px 0;color:var(--muted)}
+.academy-admin-menu{position:relative;font-size:13px;color:var(--rose-dark)}
+.academy-admin-menu summary{display:flex;align-items:center;gap:10px;list-style:none;cursor:pointer;border:1px solid #bc99c6;border-radius:999px;padding:9px 15px;background:#f8f1fa;font-weight:700}
+.academy-admin-menu summary::-webkit-details-marker{display:none}
+.academy-admin-menu[open] summary{background:var(--rose-dark);color:#fff}
+.academy-admin-menu nav{position:absolute;left:0;top:calc(100% + 6px);z-index:15;display:grid;min-width:185px;padding:6px;background:var(--paper);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow)}
+.academy-admin-menu nav a,.academy-admin-menu nav button{display:block;padding:10px 12px;border:0;border-radius:9px;background:transparent;color:inherit;text-align:left;text-decoration:none;white-space:nowrap;font:700 13px/1.4 Arial,Helvetica,sans-serif}
+.academy-admin-menu nav a:hover,.academy-admin-menu nav button:hover{background:var(--rose-soft)}
+.academy-page-tools{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 20px}
+.academy-page-tools a,.academy-page-tools button{display:inline-flex;align-items:center;justify-content:center;min-height:38px;padding:7px 13px;border:1px solid var(--line);border-radius:999px;background:rgba(255,255,255,.8);color:var(--rose-dark);font:700 12px/1.3 Arial,Helvetica,sans-serif;text-decoration:none}
+.academy-page-tools a:hover,.academy-page-tools button:hover{background:#fff}
+.academy-personal-schedule{margin-bottom:20px;padding:22px}
+.academy-personal-schedule h2{font-size:25px}
+.timetable-days{gap:10px;align-items:stretch}
+.timetable-days>.upcoming-day{flex:1 0 max(160px,calc((100% - 60px)/7))}
+.timetable-days .upcoming-day>time{text-align:left;padding:0 6px;font-size:12px;color:var(--muted)}
+.timetable-days .upcoming-items{gap:8px}
+.preview-pill.timetable-pill{padding:3px 6px 3px 3px;gap:4px;min-height:58px;border-radius:28px}
+.timetable-pill-details{display:flex;align-items:center;flex:1;gap:8px;min-width:0;min-height:48px;padding:3px;border:0;border-radius:24px;background:transparent;color:inherit;text-align:left;cursor:pointer}
+.timetable-pill-copy{display:flex;flex-direction:column;gap:2px;min-width:0;padding:3px 4px 3px 0}
+.timetable-pill-copy>.preview-name{display:block;font-size:12px;line-height:1.25}
+.timetable-pill-copy>small{font-size:10px;line-height:1.25;overflow-wrap:anywhere}
+.timetable-pill-copy>.timetable-pill-status{font-size:9px;font-weight:700}
+.timetable-pill .preview-clock{min-width:43px;padding:5px}
+.timetable-pill .preview-clock>span{font-size:22px}
+.timetable-pill.next-lesson{outline:2px solid var(--rose);outline-offset:1px}
+.timetable-pill.teacher,.timetable-pill.mixed{border-width:2px;border-color:var(--rose-dark)}
+.timetable-pill.join-open{background:var(--rose-dark);border-color:var(--rose-dark);color:#fff}
+.timetable-pill.join-open .preview-clock{color:var(--rose-dark)}
+.timetable-join{flex:none;display:flex;align-items:center;justify-content:center;max-width:40px;min-height:38px;padding:4px 6px;border-radius:18px;background:#fff;color:var(--rose-dark);font-size:10px;line-height:1.15;font-weight:700;text-decoration:none;text-align:center}
+.timetable-join:hover{background:var(--rose-soft)}
+.course-catalogue{margin:20px 0}
+.course-list-filters{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.course-list-filters input,.course-list-filters select,.course-list-filters button{min-height:36px;max-width:100%;padding:7px 10px;border:1px solid var(--line);border-radius:9px;background:#fff;color:var(--ink);font:12px Arial,Helvetica,sans-serif}
+.course-list-filters input{width:190px}
+.course-list{display:grid;gap:0}
+.course-list-row{display:grid;grid-template-columns:minmax(150px,1fr) 80px minmax(140px,.7fr) auto;gap:12px;align-items:center;padding:14px 0;border-top:1px solid var(--line);font-size:12px}
+.course-list-name{font-size:14px;color:var(--rose-dark);font-weight:700;text-decoration:none;overflow-wrap:anywhere}
+.course-list-name:hover{text-decoration:underline}
+.course-stage{font-size:11px;color:var(--rose-dark);background:var(--rose-soft);border-radius:999px;padding:5px 8px;text-align:center}
+.course-list-dates{color:var(--muted)}
+.course-list-actions{display:flex;align-items:center;flex-wrap:wrap;justify-content:flex-end;gap:8px}
+.course-list-actions a,.course-list-actions button{font:700 11px/1.3 Arial,Helvetica,sans-serif;border:1px solid var(--line);background:#fff;border-radius:9px;padding:8px 10px;color:var(--rose-dark);text-decoration:none}
+.course-list-actions button:disabled{background:#f7f4f8;color:#6f6374;cursor:default}
+.activity-grid>article[id]{scroll-margin-top:24px}
+.activity-calendar-list{padding-left:16px;font-size:13px}
+@media(max-width:800px){.course-list-row{grid-template-columns:minmax(0,1fr) 80px}.course-list-actions{grid-column:2;grid-row:2;justify-content:flex-end}.course-list-dates{grid-column:1;grid-row:2}.course-list-filters{width:100%}.academy-page-tools{gap:6px}.academy-personal-schedule{padding:20px 16px}}
+@media(max-width:700px){.timetable-days>.upcoming-day{flex:1 0 max(166px,calc((100% - 10px)/2))}.academy-admin-menu nav{left:auto;right:0}.academy-title-row{gap:10px}.academy-page-tools a,.academy-page-tools button{min-height:40px;padding:8px 11px}.course-list-filters input{flex:1;min-width:140px}.course-list-row{gap:8px}.course-list-actions{flex-direction:column;align-items:flex-end}}
+
+.academy-page-tools:empty{display:none}

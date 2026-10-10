@@ -521,8 +521,8 @@ function renderTimetableBuilderCourses() {
         ${courseId ? `
           <div class="timetable-builder-inline-form">
             <input id="ttb-slot-id" type="hidden" value="${ttbAttr(slot?.timeslotid || "")}" />
-            <label class="timetable-builder-field"><span>Start</span><input id="ttb-slot-start" type="time" lang="en-GB" step="60" value="${ttbAttr(slot?.starttime || "")}" /></label>
-            <label class="timetable-builder-field"><span>End</span><input id="ttb-slot-end" type="time" lang="en-GB" step="60" value="${ttbAttr(slot?.endtime || "")}" /></label>
+            <label class="timetable-builder-field"><span>Start</span><input id="ttb-slot-start" type="text" data-time24 placeholder="HH:mm" autocomplete="off" maxlength="8" lang="en-GB" step="60" value="${ttbAttr(slot?.starttime || "")}" /></label>
+            <label class="timetable-builder-field"><span>End</span><input id="ttb-slot-end" type="text" data-time24 placeholder="HH:mm" autocomplete="off" maxlength="8" lang="en-GB" step="60" value="${ttbAttr(slot?.endtime || "")}" /></label>
             <label class="timetable-builder-check"><input id="ttb-slot-active" type="checkbox" ${slot ? (slot.active ? "checked" : "") : "checked"} /><span>Active</span></label>
             <button type="button" class="timetable-builder-primary" data-ttb-action="save-slot">${slot ? "Save Time Slot" : "Add Time Slot"}</button>
           </div>

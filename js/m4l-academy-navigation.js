@@ -56,8 +56,8 @@
       const programs = activities.filter(row => row.kind === 'PROGRAM');
       const courses = activities.filter(row => row.kind === 'COURSE');
       strip.innerHTML = programs.map(row => `<a href="/academy/#activity/${row.kind}/${encodeURIComponent(row.id)}"${row.kind === 'PROGRAM' && row.id === currentProgram ? ' aria-current="page"' : ''}><span>${esc(row.name)}</span><small>${esc(roles(row.roles))}</small></a>`).join('') +
-        (courses.length ? `<a href="/academy/#workshops"><span>Courses</span><small>${esc(roles([...new Set(courses.flatMap(row => row.roles))]))}</small></a>` : '');
-      strip.hidden = !activities.length;
+        (result.signedIn ? `<a href="/academy/#workshops"><span>Courses</span><small>${esc(roles(result.globalAdmin ? ['GLOBAL_ADMIN','PROGRAM_ADMIN'] : [...new Set(courses.flatMap(row => row.roles))]) || 'None')}</small></a>` : '');
+      strip.hidden = !result.signedIn;
     } catch { /* Public navigation stays available while account information is unavailable. */ }
   }
 

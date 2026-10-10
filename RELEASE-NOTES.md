@@ -1,3 +1,9 @@
+# V106.9 — Shared Academy headers and compact timetables
+
+Program and Course schedules accept compact and AM/PM clock entries and convert them to 24-hour `HH:mm`. Timetable pills, session reviews and timetable exports use the same 24-hour display. Saved Course links retain the selected draft when reopening; regeneration uses its newly saved schedule after confirming replacement.
+
+Program and Course pages use a compact header with all authorised staff tools under Admin. Personal and full Academy timetables use the homepage pill style, with full lesson details on selection, room/day roll-ups for administrators and the existing five-minute joining window. Courses now shows the complete Academy timetable above searchable scheduled, active, completed and archived Course records; Global Admin can switch between My Courses and All Courses. The read-only Course catalogue checks current assignments and retains history without enabling private media. No database migration is needed.
+
 # V106.8 — Teaching directory and reviewed Course sessions
 
 Designate Global Teachers in User profiles. Course teacher selectors include active teaching staff and existing active Program/Course Teachers, while lesson access continues to follow assignments. Global Teacher grants no administrator authority or blanket teaching access. Global Admin remains a separate existing designation.

@@ -7,7 +7,7 @@ const a={moduleName:'<script>bad</script>',teacherName:'Teacher',classIds:['A'],
 const b={...a,moduleName:'Fiqh',classIds:['B'],classNames:['Year 2'],weekday:3,zoomLink:'javascript:alert(1)'};
 const source={pattern:'WEEKLY',version:3,effectiveFrom:'2026-10-01',snapshot:{programName:'Program',timezone:'Asia/Riyadh'},occurrences:[a,b]};
 const m=presentation.model(source,{history:true});assert.equal(m.rows.length,1);assert.equal(m.columns.length,2);assert.match(m.stamp,/Published version 3/);
-let html=presentation.html(m);assert(!html.includes('<script>'));assert(html.includes('&lt;script&gt;'));assert(html.includes('href="https://zoom.us/j/123?pwd=example"'));assert(!html.includes('href="javascript:'));assert(html.includes('Tuesday'));assert(html.includes('08h45 - 10h15'));
+let html=presentation.html(m);assert(!html.includes('<script>'));assert(html.includes('&lt;script&gt;'));assert(html.includes('href="https://zoom.us/j/123?pwd=example"'));assert(!html.includes('href="javascript:'));assert(html.includes('Tuesday'));assert(html.includes('08:45 - 10:15'));
 assert.equal(m.timezone,'Asia/Riyadh','Display policy does not remove publication timezone data');
 assert.doesNotMatch(html,/Asia\/Riyadh/,'Timezone is hidden by default');
 assert.match(presentation.html(presentation.model(source,{showTimezone:true})),/Asia\/Riyadh/,'An explicit request can include the timezone');
@@ -30,7 +30,7 @@ const double=[item('Quduri',2,'07:45','09:15'),item('Mishkaat',3,'07:45','09:15'
 const breakRows=[2,3,4].map(day=>item('Break',day,'09:15','09:30',{kind:'BREAK',classIds:[],classNames:[],teacherName:'',zoomLink:''}));
 const screenshot={...source,occurrences:[...assembly,...double,...breakRows,item('Mishkaat',2,'09:30','10:00')]};
 const sm=presentation.model(screenshot),sg=presentation.grid(sm);
-assert.deepEqual(Array.from(sm.rows,r=>r.label),['07h30 - 07h45','07h45 - 08h30','08h30 - 09h15','09h15 - 09h30','09h30 - 10h00']);
+assert.deepEqual(Array.from(sm.rows,r=>r.label),['07:30 - 07:45','07:45 - 08:30','08:30 - 09:15','09:15 - 09:30','09:30 - 10:00']);
 assert.equal(sg.find(c=>c.row===0).colSpan,3);assert.equal(sg.filter(c=>c.rowSpan===2).length,2);
 assert.equal(sg.find(c=>c.items[0]?.kind==='BREAK').colSpan,3);
 for(let y=0;y<sm.rows.length;y++)for(let x=0;x<sm.columns.length;x++)assert.equal(sg.filter(c=>c.row<=y&&y<c.row+c.rowSpan&&c.col<=x&&x<c.col+c.colSpan).length,1,'No holes or overlapping spans');

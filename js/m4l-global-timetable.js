@@ -142,8 +142,8 @@
               ${field("Module (optional)", `<select id="gcm-timetable-generate-module"><option value="">No module</option>${moduleOptions(run?.subjectid, "")}</select>`)}
               <fieldset class="global-timetable-weekdays"><legend>Repeat on</legend>${weekdayChecks()}</fieldset>
               <div class="global-timetable-two-col">
-                ${field("Start time", '<input id="gcm-timetable-generate-start" type="time" />')}
-                ${field("End time", '<input id="gcm-timetable-generate-end" type="time" />')}
+                ${field("Start time", '<input id="gcm-timetable-generate-start" type="text" data-time24 placeholder="HH:mm" autocomplete="off" maxlength="8" />')}
+                ${field("End time", '<input id="gcm-timetable-generate-end" type="text" data-time24 placeholder="HH:mm" autocomplete="off" maxlength="8" />')}
               </div>
               ${field("Teacher", `<select id="gcm-timetable-generate-teacher">${teacherOptions("")}</select>`)}
               ${field("Zoom override (optional)", '<input id="gcm-timetable-generate-zoom" type="url" inputmode="url" placeholder="https://…" />')}
@@ -178,8 +178,8 @@
       <input id="gcm-timetable-edit-id" type="hidden" value="${attr(session.sessionid)}" />
       ${field("Date", `<input id="gcm-timetable-edit-date" type="date" value="${attr(session.sessiondate)}" />`)}
       <div class="global-timetable-two-col">
-        ${field("Start time", `<input id="gcm-timetable-edit-start" type="time" value="${attr(session.starttime)}" />`)}
-        ${field("End time", `<input id="gcm-timetable-edit-end" type="time" value="${attr(session.endtime)}" />`)}
+        ${field("Start time", `<input id="gcm-timetable-edit-start" type="text" data-time24 placeholder="HH:mm" autocomplete="off" maxlength="8" value="${attr(session.starttime)}" />`)}
+        ${field("End time", `<input id="gcm-timetable-edit-end" type="text" data-time24 placeholder="HH:mm" autocomplete="off" maxlength="8" value="${attr(session.endtime)}" />`)}
       </div>
       ${field("Module (optional)", `<select id="gcm-timetable-edit-module"><option value="">No module</option>${moduleOptions(session.subjectid, session.moduleid)}</select>`)}
       ${field("Teacher", `<select id="gcm-timetable-edit-teacher">${teacherOptions(session.teacheraccountid)}</select>`)}

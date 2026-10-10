@@ -13,7 +13,7 @@ assert.match(schedulerJs, /course\.schedulemode === "DERIVED" \? "Exception" : "
 assert.doesNotMatch(schedulerJs, /course\.schedulemode === "DERIVED" \? "Exceptions" : "Sessions"/);
 
 // A new recurring time slot starts genuinely blank and communicates that time entry is required.
-assert.equal((schedulerJs.match(/placeholder="--h--"/g) || []).length >= 2, true, "Start and End must use --h-- placeholders");
+assert.equal((schedulerJs.match(/placeholder="HH:mm"/g) || []).length >= 2, true, "Start and End must use HH:mm placeholders");
 assert.doesNotMatch(schedulerJs, /placeholder="04h00"|placeholder="05h00"/);
 
 // Time-slot creation is a lightweight action below the rows; the old large heading action is gone.
