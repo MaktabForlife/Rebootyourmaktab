@@ -1,5 +1,7 @@
 # Core D1 activation preparation — 10 October 2026
 
+**Later hosted verification:** The owner supplied a new empty test database. The separate test Worker passed 200/200 and 100/100 complete hosted flows plus representative core saves and permissions. Peak latency needs profiling; the test Worker is now paused. The initial creation failure described below no longer prevents testing with that owner-created target. No main application switch occurred. See [hosted results and remaining work](ACADEMY-D1-HOSTED-CORE-2026-10-10.md).
+
 The core application now has a tested activation contract and a public-only Library mode. **This is local preparation, not a completed live switch.** No feature push, Worker deployment, main database migration or storage flag change was performed. The current application remains `devrebootworker`; `rebootworker` remains legacy.
 
 The working sequence is to finish the core migration separately from the new Module media subscription feature. That feature is still unbuilt. The [agreed Library model](ACADEMY-LIBRARY-ACCESS-MODEL.md) remains the specification; existing Course access and Program enrolments do not create Module media entitlements.
@@ -59,7 +61,7 @@ The local runtime uses the current application's `2026-06-01` compatibility date
 
 Private reports, the pending activation review and build artifacts are in `.academy-migration/core-activation-20261010-a01264a4/`. The successful local fixture and runtime report are in `.academy-migration/core-active-local-s8yGBA/`. Synthetic secret files have restricted permissions and are ignored by Git. They must never replace the current application's real credential secrets.
 
-## Hosted test blocker and prepared tooling
+## Initial hosted test blocker and prepared tooling
 
 Creation of the dedicated disposable test database `academy-d1-core-test-20261010-a01264a4` failed with **Cloudflare API authentication error 10000**. This is a server authentication failure, not an automatic approval rejection. It resembles the earlier standard SQL-export failure; ordinary read-only D1 queries still work. The underlying permission/authentication issue remains unresolved.
 
