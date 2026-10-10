@@ -1,3 +1,9 @@
+# V106.6 — Course delivery workspace
+
+Manage fixed-duration Courses in a compact searchable workspace with Details, Sessions, Participants, Media and publication review. Save a draft with only its name, generate or edit individual sessions, review Academy holidays and teacher clashes, and validate the saved draft before publishing. Subject/Module links classify the Course without changing its content or access.
+
+Course Admins manage their assigned Courses; Global Admins can create Courses and inherit Program Admin authority everywhere. Add existing learners or new accounts, retain participants at completion/archive, and repeat as a new Course ID with optional reuse of existing media records. Private uploads and learner media access remain disabled until private storage is connected. Additive D1 migration 0008 stores drafts and lifecycle; existing publications and account records are preserved. [Release details](docs/ACADEMY-COURSE-WORKSPACE-106.6.md).
+
 # V106.5 — Course roles and automatic Academy administration
 
 Edit Course roles in User profiles using the same None, Student, Teacher and Program Admin choices as Programs. Course Teachers see their assigned lessons; Course Program Admins can manage and schedule their assigned Courses. Navigation, permissions and revocation follow the saved roles.

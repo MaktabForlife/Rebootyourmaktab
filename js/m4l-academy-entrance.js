@@ -6,7 +6,7 @@
   const state = { home: null, activity: null, personalTimetable: [], scheduleTimetable: [], personalStartDate: '', activityTimer: null, generation: 0, scheduleGeneration: 0, activityGeneration: 0, information: {}, startDate: '' };
   const pageCache = { epoch: 0, snapshot: null, pending: new Map() };
   const PAGE_CACHE_MS = 60000;
-  const titles = { overview: 'Academy home', timetable: 'Academy timetable', learning: 'Programs and Courses', workshops: 'Workshops', activity: 'Activity',
+  const titles = { overview: 'Academy home', timetable: 'Academy timetable', learning: 'Programs and Courses', workshops: 'Courses', activity: 'Activity',
     prospectus: '2026 Prospectus', about: 'About', contact: 'Contact', progress: 'Dua and Surah Progress', recorder: 'Voice Recorder', administration: 'Academy administration' };
   const activityHref = row => `#activity/${row.kind}/${encodeURIComponent(row.id)}`;
   const roleName = roles => roles.map(role => ({ GLOBAL_ADMIN: 'Global Admin', PROGRAM_ADMIN: 'Program Admin', ADMIN: 'Program Admin', SENIOR: 'Senior', TEACHER: 'Teacher', STUDENT: 'Student' })[role]).filter(Boolean).join(' · ') || 'Visitor';
@@ -154,7 +154,7 @@
     $('personal-empty').hidden = Boolean(activities.length || data.globalAdmin);
     $('personal-pills').innerHTML = activities.filter(row => row.kind === 'PROGRAM')
       .map(row => activityPill(activityHref(row), row.name, row.roles)).join('') +
-      (courses.length ? activityPill('#workshops', 'Workshops', [...new Set(courses.flatMap(row => row.roles))]) : '') +
+      (courses.length ? activityPill('#workshops', 'Courses', [...new Set(courses.flatMap(row => row.roles))]) : '') +
       (data.globalAdmin ? activityPill('#administration', 'Academy administration', ['GLOBAL_ADMIN']) : '');
     renderSubscriptions(activities);
     renderWorkshops();
@@ -182,7 +182,7 @@
     const courses = activities.filter(item => item.kind === 'COURSE');
     strip.innerHTML = programs.map(item => activityPill(activityHref(item), item.name, item.roles,
       Boolean(current && item.id === current.id && current.kind === 'PROGRAM'))).join('') +
-      (courses.length ? activityPill('#workshops', 'Workshops', [...new Set(courses.flatMap(item => item.roles))],
+      (courses.length ? activityPill('#workshops', 'Courses', [...new Set(courses.flatMap(item => item.roles))],
         view === 'workshops' || current?.kind === 'COURSE') : '');
     strip.hidden = !activities.length;
   }
@@ -328,7 +328,7 @@
       const row = state.activity = result.activity;
       $('personal-refresh').hidden = !result.signedIn;
       $('activity-back-link').href = row.kind === 'COURSE' ? '#workshops' : '#overview';
-      $('activity-back-link').textContent = row.kind === 'COURSE' ? '← Workshops' : '← My Academy';
+      $('activity-back-link').textContent = row.kind === 'COURSE' ? '← Courses' : '← My Academy';
       $('activity-title').textContent = row.name;
       $('activity-kind').textContent = row.kind === 'PROGRAM' ? 'Program' : 'Course';
       $('activity-role').textContent = roleName(row.roles);
@@ -345,8 +345,8 @@
       const manage = administrator ? row.tools?.manage : '';
       const users = globalAdmin ? row.tools?.users : '';
       const menu = [['Library', row.tools?.library], ['Mark attendance', staff && row.tools?.attendance], ['Program management', manage],
-        ['Course management', administrator && row.kind === 'COURSE' && '/academy/courses/manage/'],
-        ['Course scheduling', administrator && row.kind === 'COURSE' && '/academy/courses/manage/?view=scheduling'],
+        ['Course management', administrator && row.kind === 'COURSE' && '/academy/courses/manage/?course=' + encodeURIComponent(row.id)],
+        ['Course scheduling', administrator && row.kind === 'COURSE' && '/academy/courses/manage/?view=scheduling&course=' + encodeURIComponent(row.id)],
         ['User management', users], ['Timetable builder', globalAdmin && row.tools?.timetableBuilder], ['Library management', resources]];
       $('activity-menu').innerHTML = menu.filter(([, href]) => safeLink(href)).map(([label, href]) => `<a href="${esc(href)}">${label}</a>`).join('') + '<a href="/academy/open-library/">Explore the Public Library</a>';
       $('activity-timetable-title').textContent = result.globalAdmin ? 'Academy timetable' : 'My Academy timetable';

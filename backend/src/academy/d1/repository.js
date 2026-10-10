@@ -150,7 +150,7 @@ export function academyD1Repository(env) {
     },
     async homeData(state,start,end,courseWorkflows=false) {
       const queries=[
-        `SELECT a.*,p.timezone,p.duration_years,cs.legacy_access_model FROM activities a LEFT JOIN program_settings p USING(activity_key) LEFT JOIN course_settings cs USING(activity_key) WHERE a.active=1 AND a.lifecycle='ACTIVE'`,
+        `SELECT a.*,p.timezone,p.duration_years,cs.legacy_access_model FROM activities a LEFT JOIN program_settings p USING(activity_key) LEFT JOIN course_settings cs USING(activity_key) WHERE a.active=1 AND a.lifecycle='ACTIVE' AND a.website_visible=1`,
         `SELECT p.* FROM timetable_publications p JOIN activities a USING(activity_key) WHERE a.active=1 AND a.lifecycle='ACTIVE' AND (p.pattern='COURSE' OR ((p.effective_from IS NULL OR p.effective_from<=?) AND (p.effective_until IS NULL OR p.effective_until>=?)))`,
         `SELECT p.*,s.subject_id,s.name AS subject_name FROM program_subjects p JOIN subject_catalog s USING(subject_key) WHERE p.active=1 AND s.active=1`,
         `SELECT * FROM modules WHERE active=1`, `SELECT * FROM classes WHERE active=1`,

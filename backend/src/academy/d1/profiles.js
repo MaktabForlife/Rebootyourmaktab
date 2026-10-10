@@ -11,7 +11,7 @@ function assignment(data,account,a) {
     roles:editableRoles.filter(r=>liveRoles(data,account.account_id,a.activity_key).includes(r)||r==='STUDENT'&&inheritedStudent),
     reviewStatus:pending.length?'REQUIRED':'CONFIRMED',pendingRoles:pending};
 }
-async function assignmentDTO(data,account,a) {
+export async function assignmentDTO(data,account,a) {
   const result=assignment(data,account,a);
   const subscription=data.subscriptions.some(s=>same(s.account_id,account.account_id)&&same(s.activity_key,a.activity_key));
   const academyAdmin=profileDTO(data,account).academyAdmin;
@@ -22,7 +22,7 @@ async function assignmentDTO(data,account,a) {
   return {...result,inheritedRoles,displayRoles,revision:await payloadHash(result),accessAllowed:Boolean(account.active&&a.active&&a.lifecycle==='ACTIVE'&&(academyAdmin||result.roles.length||accessModel(data,a)==='FREE'||subscription))};
 }
 function accessModel(data,a){return (a.kind==='COURSE'?data.coursePolicies.find(p=>same(p.activity_key,a.activity_key))?.legacy_access_model:undefined)||data.policies.find(p=>same(p.activity_key,a.activity_key))?.source_access_model||'UNKNOWN';}
-async function scopeDTO(data,a) {
+export async function scopeDTO(data,a) {
   const result={...scopeOf(a),name:a.name,active:Boolean(a.active&&a.lifecycle==='ACTIVE'),prepared:true,
     accessModel:accessModel(data,a),reviewStatus:'REQUIRED',stage:'SETUP',policyEditable:false,rolesEditable:true};
   return {...result,revision:await payloadHash(result)};
@@ -95,9 +95,13 @@ export function d1Profiles(repository,auth) {
         if(!account)throw managementError('Choose an existing account.',404);
         return {loginPath:`/account/${encodeURIComponent(account.login_link_id)}`};
       }
-      if(action!=='save')throw managementError('Unknown profile action.',404);
+      const courseRoles=action==='course-roles';
+      if(courseRoles) {
+        const key='COURSE:'+String(input.scopeId||'');
+        if(input.mode!=='matrix-roles'||input.scopeType!=='SUBJECT'||!auth.state.account.global_admin&&!auth.state.roles.some(r=>same(r.activity_key,key)&&r.role==='PROGRAM_ADMIN'))throw managementError('Choose a Course you administer.',403,'FORBIDDEN');
+      } else if(action!=='save')throw managementError('Unknown profile action.',404);
       if(['matrix-policy','matrix-prepare'].includes(input.mode))throw managementError('Access-policy decisions must be reviewed before they change D1 access.',501,'ACCESS_POLICY_REVIEW_REQUIRED');
-      return store.change('USER_PROFILES','ACADEMY',action,input,async()=>{
+      return store.change(courseRoles?'COURSE_MANAGEMENT':'USER_PROFILES',courseRoles?'COURSE:'+input.scopeId:'ACADEMY',action,input,async()=>{
         const data=await load(),guardAccounts=data.accounts.map(a=>({...a})),statements=[],results=[];
         const entries=input.mode==='batch'?input.entries:[input];
         if(!Array.isArray(entries)||!entries.length||entries.length>80||entries.some(e=>!e||!['profile','matrix-roles'].includes(e.mode)))throw managementError('Save between 1 and 80 profile or role entries together.');

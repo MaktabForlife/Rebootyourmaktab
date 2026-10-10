@@ -40,7 +40,7 @@ export async function d1CalendarEvents(db,start,end) {
 
 // Adapt normalized records to the established, independently tested domain
 // services. Their storage port only plans record changes; it never calls Sheets.
-function project(data) {
+export function projectCourseCalendar(data) {
   const course=a=>a.kind==='COURSE',scope=r=>r.activity_key.slice(7);
   const tables={
     UserAccounts:data.accounts.map(a=>({AccountID:a.account_id,DisplayName:a.display_name,Active:Boolean(a.active)})),
@@ -153,7 +153,7 @@ function upsert(p,table,records,keys) {
   return [p(`INSERT INTO ${table}(${columns.join(',')}) SELECT ${columns.map(c=>`json_extract(value,'$.${c}')`).join(',')} FROM json_each(?) WHERE true
     ON CONFLICT(${keys.join(',')}) DO UPDATE SET ${columns.filter(c=>!keys.includes(c)).map(c=>`${c}=excluded.${c}`).join(',')}`,JSON.stringify(records))];
 }
-async function statementsFor(store,data,tables,changes,auth,env) {
+export async function courseCalendarStatements(store,data,tables,changes,auth,env) {
   const p=store.p,statements=[];
   const records=name=>[...(changes.get(name)?.values()||[])];
   const activity=subject=>{const found=tables.GlobalSubjectList.find(a=>same(a.SubjectID,subject));if(!found)throw managementError('Course subject is unavailable.',409);return 'COURSE:'+found.SubjectID;};
@@ -225,14 +225,47 @@ async function statementsFor(store,data,tables,changes,auth,env) {
 }
 function cleanRecord(r){return Object.fromEntries(Object.entries(r).filter(([name])=>!name.startsWith('_')));}
 
+export async function loadCourseCalendarData(store,repository,extra={}) {
+  return store.load({...Object.fromEntries(Object.entries({subscriptions:await repository.subscriptionSource(),runs:'course_runs',sessions:'course_draft_sessions',states:'course_run_state',publications:"timetable_publications WHERE pattern='COURSE'",lifecycles:'lesson_lifecycle',modules:'modules',tasks:'tasks',resources:'course_resources',access:'course_run_access',sessionState:'course_session_state',draftLifecycle:'course_draft_lifecycle',calendar:'academy_calendar_events',suppressions:'academy_calendar_suppressions',settings:'academy_settings',coursePolicies:'course_settings'}).map(([name,table])=>[name,store.p(`SELECT * FROM ${table}`)])),...extra});
+}
+
+// Build the new editor's explicit timetable in memory, then use the same
+// publication validator and normalized SQL writer as the established scheduler.
+// The caller commits this plan, its draft revision and receipt in one batch.
+export async function planCoursePublication(store,data,auth,env,courseId,runId,details) {
+  const tables=projectCourseCalendar(data),changes=new Map();
+  const stage=(name,record,match)=>{
+    const old=tables[name].find(match),rowNumber=old?old._rowNumber:Math.max(1,...tables[name].map(r=>r._rowNumber))+1;
+    const row={...old,...record,_rowNumber:rowNumber};
+    if(!changes.has(name))changes.set(name,new Map());changes.get(name).set(rowNumber,row);
+    if(old)tables[name][tables[name].indexOf(old)]=row;else tables[name].push(row);
+  };
+  const oldActivity=data.activities.find(a=>same(a.activity_id,courseId)&&a.kind==='COURSE');
+  const sharedLegacyScope=data.runs.filter(r=>same(r.activity_key,'COURSE:'+courseId)).length>1;
+  stage('GlobalSubjectList',{SubjectID:courseId,SubjectName:sharedLegacyScope?oldActivity.name:details.name,Active:true},r=>same(r.SubjectID,courseId));
+  stage('GlobalSubjectRuns',{RunID:runId,SubjectID:courseId,RunName:details.name,Timezone:details.timezone,StartDate:details.startDate,EndDate:details.endDate,AccessModel:details.accessModel,ScheduleMode:'EXPLICIT',ScheduleDefinition:'[]',Active:true},r=>same(r.RunID,runId));
+  stage('GlobalTimetableRunState',{RunID:runId,Stage:'DEVELOPMENT'},r=>same(r.RunID,runId));
+  for(const s of [...tables.GlobalTimetableSessions].filter(s=>same(s.RunID,runId)))stage('GlobalTimetableSessions',{...s,Active:false},r=>same(r.SessionID,s.SessionID));
+  for(const s of details.sessions){
+    stage('GlobalTimetableSessions',{SessionID:s.id,RunID:runId,SubjectID:courseId,ModuleID:'',TeacherAccountID:s.teacherId,SessionDate:s.date,StartTime:s.startTime,EndTime:s.endTime,ZoomLink:s.zoomLink,SessionDescription:s.title||details.name,SessionKind:'EXPLICIT',ScheduleRuleKey:'',OccurrenceDate:'',Active:true},r=>same(r.SessionID,s.id));
+    stage('GlobalTimetableSessionLifecycle',{SessionLifecycleID:'CMLIFE-'+s.id,SessionID:s.id,PublicationID:'',Status:s.status,RescheduledFromSessionID:'',RescheduledToSessionID:''},r=>same(r.SessionID,s.id)&&!r.PublicationID);
+  }
+  const domainAuth=auth.state.account.global_admin?auth:{...auth,user:{...auth.user,role:'ADMIN'}};
+  const endpoint=createGlobalTimetableEndpoints(plannedStorage(tables,domainAuth,changes)).publishPlatformGlobalTimetableEndpoint;
+  const response=await endpoint(new Request('https://academy.invalid/',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({runId})}),env),body=await response.json();
+  if(!response.ok||body.success===false)throw managementError(body.error||'The Course timetable could not be published.',response.status,'COURSE_PUBLICATION_INVALID');
+  for(const [name,rows] of changes)for(const [rowNumber,record] of rows){const at=tables[name].findIndex(r=>r._rowNumber===rowNumber);if(at<0)tables[name].push(record);else tables[name][at]=record;}
+  return {statements:await courseCalendarStatements(store,data,tables,changes,auth,env),publication:body.publication};
+}
+
 export function d1CourseCalendar(repository,auth,env={}) {
   const store=managementStore(repository,auth),p=store.p;
-  async function load(){return store.load(Object.fromEntries(Object.entries({subscriptions:await repository.subscriptionSource(),runs:'course_runs',sessions:'course_draft_sessions',states:'course_run_state',publications:'timetable_publications WHERE pattern=\'COURSE\'',lifecycles:'lesson_lifecycle',modules:'modules',tasks:'tasks',resources:'course_resources',access:'course_run_access',sessionState:'course_session_state',draftLifecycle:'course_draft_lifecycle',calendar:'academy_calendar_events',suppressions:'academy_calendar_suppressions',settings:'academy_settings',coursePolicies:'course_settings'}).map(([name,table])=>[name,p(`SELECT * FROM ${table}`)])));}
+  async function load(){return loadCourseCalendarData(store,repository);}
   async function execute(action,input,data,request){
     // ADMIN is the older domain service's scoped-admin name. The D1 boundary
     // supplies filtered records and checks each Course again in its transaction.
     const domainAuth=auth.state.account.global_admin?auth:{...auth,user:{...auth.user,role:'ADMIN'}};
-    const tables=project(data),changes=new Map(),storage=plannedStorage(tables,domainAuth,changes);
+    const tables=projectCourseCalendar(data),changes=new Map(),storage=plannedStorage(tables,domainAuth,changes);
     windowLimit(action,input,tables);
     validateCalendarInput(action,input,tables);
     const endpoints={...createGlobalDeliveryEndpoints(storage),...createGlobalTimetableEndpoints(storage),...createAcademyCalendarEndpoints(storage),...createGlobalManagementEndpoints(storage)};
@@ -259,13 +292,22 @@ export function d1CourseCalendar(repository,auth,env={}) {
       const data=await load();
       if(input.workflowRevision!==String(data.version))throw managementError('Courses or calendar records changed elsewhere. Your draft is kept; refresh and review the saved records.',409,'WORKFLOW_CHANGED');
       const scoped=courseManagementData(data,auth),{tables,changes,body}=await execute(action,input,scoped,request);
+      // Once a delivery has been adopted by the new editor, older scheduling
+      // clients must not overwrite its independently saved draft/lifecycle.
+      if(await p("SELECT 1 FROM sqlite_schema WHERE name='course_management_drafts' AND type='table'").first()) {
+        const managed=(await p('SELECT activity_key FROM course_management_drafts').all()).results;
+        const affected=new Set();
+        for(const name of ['GlobalSubjectList','GlobalSubjectAccessPolicy','GlobalSubjectRuns','GlobalTimetableSessions','GlobalTimetablePublications'])for(const row of changes.get(name)?.values()||[])if(row.SubjectID)affected.add('COURSE:'+row.SubjectID);
+        for(const row of changes.get('GlobalTimetableRunState')?.values()||[]){const run=tables.GlobalSubjectRuns.find(r=>same(r.RunID,row.RunID));if(run)affected.add('COURSE:'+run.SubjectID);}
+        if(managed.some(m=>[...affected].some(a=>same(a,m.activity_key))))throw managementError('Use Course management to update this Course. Its saved draft and timetable are managed there.',409,'COURSE_EDITOR_REQUIRED');
+      }
       if(!auth.state.account.global_admin) {
         for(const r of changes.get('GlobalSubjectList')?.values()||[])if(!scoped.activities.some(a=>a.kind==='COURSE'&&same(a.activity_id,r.SubjectID)))
           throw managementError('Only a Global Admin can create Courses.',403,'FORBIDDEN');
         if(changes.has('AcademyCalendar')||[...(changes.get('PlatformConfig')?.values()||[])].some(r=>!['GlobalCurriculumVersion','GlobalTimetableVersion'].includes(r.ConfigKey)))
           throw managementError('Academy settings require a Global Admin.',403,'FORBIDDEN');
       }
-      return {data,authorityScopes:scoped.activities.filter(a=>a.kind==='COURSE').map(a=>a.activity_key),statements:await statementsFor(store,data,tables,changes,auth,env),result:{...body,workflowStore:'D1',workflowRevision:String(data.version+1)},fields:[...changes.keys()].filter(n=>!['PlatformAuditLog','PlatformConfig'].includes(n))};
+      return {data,authorityScopes:scoped.activities.filter(a=>a.kind==='COURSE').map(a=>a.activity_key),statements:await courseCalendarStatements(store,data,tables,changes,auth,env),result:{...body,workflowStore:'D1',workflowRevision:String(data.version+1)},fields:[...changes.keys()].filter(n=>!['PlatformAuditLog','PlatformConfig'].includes(n))};
     });
   }};
 }

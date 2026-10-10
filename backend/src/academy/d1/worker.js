@@ -9,6 +9,7 @@ import {d1Learning} from './learning.js';
 import {learningAvailable} from './learning-state.js';
 import {d1Library,d1LibraryStream,d1LibraryAreaRefs} from './library.js';
 import {d1CourseCalendar} from './course-calendar.js';
+import {d1CourseManagement} from './course-management.js';
 import {d1CourseSubscriptions} from './course-subscriptions.js';
 import {managedCourseScopes} from './course-authority.js';
 import {authenticatedD1Account as authenticated,d1Audience as audience,d1ContextEqual as contextEqual} from './session.js';
@@ -46,7 +47,7 @@ async function dispatch(request,env) {
   const path=new URL(request.url).pathname;
   await repository.ready();
   const publicLibraryOnly=env.ACADEMY_LIBRARY_MODE==='PUBLIC_ONLY';
-  if(['/','/api/health'].includes(path)&&request.method==='GET')return {success:true,service:'rebootworker',version:'106.5',
+  if(['/','/api/health'].includes(path)&&request.method==='GET')return {success:true,service:'rebootworker',version:'106.6',
     store:env.ACADEMY_D1_MODE==='ACTIVE'?'D1_ACTIVE':'D1_REHEARSAL',cutoverReady:env.ACADEMY_D1_MODE==='ACTIVE',
     libraryMode:publicLibraryOnly?'PUBLIC_ONLY':'COMPATIBILITY',mediaSubscriptionsAvailable:false};
   const openLibraryAction=path.match(/^\/api\/academy\/open-library\/metadata\/(public|cover|list|save|options)$/)?.[1];
@@ -107,6 +108,8 @@ async function dispatch(request,env) {
   if(subjectAction)return {success:true,...await d1Subjects(repository,auth).run(subjectAction,input)};
   if(path==='/api/admin/platform/global/access/save')return {success:true,...await d1CourseSubscriptions(repository,auth).save(input)};
   if(path==='/api/platform/global/resources/access')return {success:true,...await d1Library(repository,auth,env).run('course-access',input,request)};
+  const courseEditorAction=path.match(/^\/api\/admin\/platform\/courses\/(list|get|save|validate|publish|status|repeat|participants|participants-save|participant-create)$/)?.[1];
+  if(courseEditorAction)return {success:true,...await d1CourseManagement(repository,auth,env).run(courseEditorAction,input)};
   const courseAction=path==='/api/admin/platform/global/get'?'get':path.match(/^\/api\/admin\/platform\/global\/((?:subject|subjects|module|task|resource|resources|drive-root|drive|delivery|policy|run|timetable)(?:\/[a-z-]+){1,2})$/)?.[1];
   const calendarAction=path.match(/^\/api\/admin\/platform\/calendar\/(get|save|batch-save)$/)?.[1];
   if(courseAction||calendarAction)return {success:true,...await d1CourseCalendar(repository,auth,env).run(calendarAction?`calendar/${calendarAction}`:courseAction,input,request)};
@@ -174,7 +177,7 @@ export default {
       const unavailable=status>=500&&status!==501;
       if(status===429)headers['Retry-After']='60';
       return new Response(JSON.stringify({success:false,error:unavailable?'Academy information is temporarily unavailable. Please try again.':error.message,
-        code:unavailable?(['ACTIVATION_REQUIRED','MANAGEMENT_SCHEMA_REQUIRED','LEARNING_IMPORT_REQUIRED','COURSE_IMPORT_REQUIRED','COURSE_ACCESS_SCHEMA_REQUIRED','UPLOAD_BRIDGE_REQUIRED'].includes(error.code)?error.code:'ACADEMY_D1_UNAVAILABLE'):error.code,retryable:unavailable||status===429,...(status===429?{retryAfterMs:60000}:{}),
+        code:unavailable?(['ACTIVATION_REQUIRED','MANAGEMENT_SCHEMA_REQUIRED','LEARNING_IMPORT_REQUIRED','COURSE_IMPORT_REQUIRED','COURSE_ACCESS_SCHEMA_REQUIRED','COURSE_MANAGEMENT_SCHEMA_REQUIRED','UPLOAD_BRIDGE_REQUIRED'].includes(error.code)?error.code:'ACADEMY_D1_UNAVAILABLE'):error.code,retryable:unavailable||status===429,...(status===429?{retryAfterMs:60000}:{}),
         ...(status===409?Object.fromEntries(['currentRecord','rowRevision','entryKey'].filter(k=>error[k]!==undefined).map(k=>[k,error[k]])):{} )}),{status,headers});}
   }
 };
