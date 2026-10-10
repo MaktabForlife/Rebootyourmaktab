@@ -6,7 +6,7 @@ import worker from '../src/worker.js';
 import {courseFixture} from './fixtures/academy-d1-course-fixture.mjs';
 const source=readFileSync(new URL('../../js/m4l-academy-course-management.js',import.meta.url),'utf8');
 const markup=readFileSync(new URL('../../academy/courses/manage/index.html',import.meta.url),'utf8');
-async function fixture(){const f=await courseFixture();f.env.ACADEMY_LIBRARY_MODE='PUBLIC_ONLY';for(const m of ['0007_course_subscriptions.sql','0008_course_management.sql'])f.db.exec(readFileSync(new URL('../migrations/academy/'+m,import.meta.url),'utf8'));return f;}
+async function fixture(){const f=await courseFixture();f.env.ACADEMY_LIBRARY_MODE='PUBLIC_ONLY';for(const m of ['0007_course_subscriptions.sql','0008_course_management.sql','0009_course_review_and_teachers.sql'])f.db.exec(readFileSync(new URL('../migrations/academy/'+m,import.meta.url),'utf8'));return f;}
 async function screen(env,identity='0001',search='') {
  const login=await worker.fetch(new Request('http://localhost/api/account/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({uniqueid:'login-'+identity,pin:'1234'})}),env);let token=(await login.json()).token;
  const elements=new Map(),events=new Map(),documentEvents=new Map(),requests=[];
@@ -14,7 +14,7 @@ async function screen(env,identity='0001',search='') {
  const context={console,URLSearchParams,crypto,Date,Map,Set,WeakMap,location:{search,origin:'http://localhost'},localStorage:{getItem:()=>token},document:{getElementById:element,querySelectorAll:()=>[],querySelector:()=>null,addEventListener:(type,fn)=>documentEvents.set(type,[...(documentEvents.get(type)||[]),fn])},window:{M4L_CONFIG:{API_BASE:''},addEventListener:(type,fn)=>events.set(type,fn)},fetch:async(path,options)=>{requests.push(path);return worker.fetch(new Request('http://localhost'+path,options),env);}};
  vm.createContext(context);vm.runInContext(source,context);await documentEvents.get('DOMContentLoaded')[0]();
  const settle=async()=>{for(let i=0;i<30;i++)await new Promise(r=>setTimeout(r,2));};await settle();
- return {element,requests,context,events,settle,enter:(field,value)=>documentEvents.get('input')[0]({target:{dataset:{field},value,type:'text'}}),changeToken:value=>{token=value;events.get('storage')({key:'m4l_account_token'});}};
+ return {element,requests,context,events,settle,enter:(field,value)=>documentEvents.get('input')[0]({target:{dataset:{field},value,type:'text'}}),chooseDay:day=>documentEvents.get('change')[0]({target:{dataset:{day:String(day)},checked:true,type:'checkbox'}}),click:async(action,dataset={})=>{documentEvents.get('click')[0]({target:{closest:()=>({dataset:{cmAction:action,...dataset}})},preventDefault(){}});await settle();},changeToken:value=>{token=value;events.get('storage')({key:'m4l_account_token'});}};
 }
 
 test('Course workspace opens a compact editor, saves name-only drafts and presents publication validation',async()=>{
@@ -38,4 +38,20 @@ test('assigned Course Admins get their Course editor and no create action; sched
 
 test('new Course page uses delivery terminology and an honest private-media placeholder',()=>{
  assert.ok(!markup.includes('m4l-global-curriculum.js'));assert.ok(!markup.includes('m4l-global-course-scheduler.js'));assert.match(markup,/course-status-filter/);assert.match(markup,/CANCELLED/);assert.match(source,/Private Academy media storage is still to be connected/);assert.match(source,/Categorisation|categorisation/);assert.ok(!source.includes('data-gcm-tab="tasks"'));
+});
+
+
+test('schedule validation fills sessions, opens review, requires acceptance and retains that acceptance after reopening',async()=>{
+ const f=await fixture();try{
+  const page=await screen(f.env);page.context.window.M4LCourses.newCourse();
+  for(const [field,value] of Object.entries({name:'Auto workshop',accessModel:'FREE',startDate:'2026-10-12',endDate:'2026-10-25',startTime:'12:00',endTime:'13:00',teacherId:'account-0003',zoomLink:'https://zoom.us/j/12345678901'}))page.enter(field,value);
+  page.chooseDay(1);page.chooseDay(3);await page.context.window.M4LCourses.validate();
+  let html=page.element('course-editor').innerHTML;assert.match(html,/cm-workflow/);assert.match(html,/Sessions · 4/);assert.match(html,/value="2026-10-12"/);assert.match(html,/value="2026-10-21"/);assert.match(html,/value="12:00"/);assert.ok(!html.includes('Synthetic learner 8'));
+  assert.match(html,/Review &amp; accept sessions|Review & accept sessions/);assert.ok(!html.includes('data-cm-action="publish"'));
+  await page.click('tab',{tab:'review'});assert.match(page.element('course-editor').innerHTML,/Accept reviewed sessions/);await page.click('accept');
+  assert.match(page.element('course-editor').innerHTML,/Review accepted/);assert.match(page.element('course-editor').innerHTML,/data-cm-action="publish"/);
+  const saved=f.db.prepare("SELECT a.activity_id,m.run_id FROM course_management_drafts m JOIN activities a USING(activity_key) WHERE a.name='Auto workshop'").get();
+  await page.context.window.M4LCourses.select(saved.activity_id,saved.run_id,'review');assert.match(page.element('course-editor').innerHTML,/Review accepted/);
+  await page.click('publish');assert.match(page.element('course-message').textContent,/published/);assert.equal(f.db.prepare('SELECT count(*) n FROM published_lessons WHERE activity_key=?').get('COURSE:'+saved.activity_id).n,4);
+ }finally{f.db.close();}
 });

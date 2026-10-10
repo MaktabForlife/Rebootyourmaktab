@@ -40,6 +40,8 @@ body.user-profiles-sheet.academy-connected { padding-left:0; }
 .up-matrix th button:disabled { opacity:1; color:var(--pb-muted); }
 .up-matrix .up-cell { width:100%; text-align:left; border:1px solid transparent; background:transparent; color:var(--pb-ink); font-size:12px; padding:3px 2px; min-height:28px; font-weight:400; }
 .up-role-label { display:block; padding:3px; font-size:12px; }
+.up-matrix .up-global-teacher { display:flex; align-items:center; gap:4px; margin:1px 0; color:var(--pb-purple); font-size:10px; font-weight:400; }
+.up-global-teacher input { width:12px; height:12px; margin:0; }
 .up-matrix .up-inherited { color:var(--pb-purple); }
 .up-matrix input:not([type=checkbox]),.up-matrix select { display:block; width:100%; min-width:0; max-width:100%; border:1px solid transparent; border-radius:3px; padding:4px 3px; background:transparent; color:inherit; font:inherit; height:28px; }
 .up-matrix .up-cell:not(:disabled):hover,.up-matrix input:not([type=checkbox]):hover,.up-matrix select:hover { border-color:#c9b6cf; background:#fbf7fc; }

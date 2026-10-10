@@ -8,6 +8,7 @@ import {dateInTimezone} from '../../lib/global-subject-delivery.js';
 import {payloadHash} from '../../programs/timetable-model.js';
 import {lessonTimes} from '../entrance.js';
 import {insertRecords} from './insert-records.js';
+import {teacherDesignations,teacherDirectory,eligibleTeacher} from './teachers.js';
 
 const clean=v=>String(v??'').trim();
 const id=v=>/^[a-z0-9][a-z0-9_-]{0,119}$/i.test(v);
@@ -46,6 +47,24 @@ function holidayWarnings(data,d) {
 }
 const clock=v=>/^([01]\d|2[0-3]):[0-5]\d$/.test(v);
 function zoom(v){try{const u=new URL(v);return u.protocol==='https:'&&(u.hostname==='zoom.us'||u.hostname.endsWith('.zoom.us')||u.hostname==='zoom.com'||u.hostname.endsWith('.zoom.com'))&&!u.username&&!u.password;}catch{return false;}}
+const scheduleHash=d=>payloadHash(Object.fromEntries(['name','timezone','weekdays','startDate','endDate','startTime','endTime','teacherId','zoomLink'].map(key=>[key,d[key]])));
+function generateSchedule(data,d) {
+  const errors=[],error=(field,message)=>errors.push({field,message});
+  if(!['FREE','PAID'].includes(d.accessModel))error('accessModel','Choose Free or Paid.');
+  if(d.categoryKey&&!categories(data).some(c=>c.key===d.categoryKey))error('categoryKey','Choose an available Subject or Module category, or clear the category.');
+  try{new Intl.DateTimeFormat('en',{timeZone:d.timezone});}catch{error('timezone','Choose a valid timezone.');}
+  if(!validIsoDate(d.startDate)||!validIsoDate(d.endDate)||d.endDate<d.startDate||Date.parse(d.endDate)-Date.parse(d.startDate)>366*86400000)error('startDate','Choose valid Course start and end dates, no more than one year apart.');
+  if(!d.weekdays.length)error('weekdays','Choose at least one schedule day.');
+  if(!clock(d.startTime)||!clock(d.endTime)||d.endTime<=d.startTime)error('endTime','Set a finish time later than the start time in the Course schedule.');
+  if(!eligibleTeacher(data,d.teacherId))error('teacherId','Choose an active designated teacher in the Course schedule.');
+  if(!zoom(d.zoomLink))error('zoomLink','Enter a secure Zoom meeting link in the Course schedule.');
+  if(errors.length)return {errors,sessions:[]};
+  const sessions=[];
+  for(let day=new Date(d.startDate+'T12:00:00Z'),last=Date.parse(d.endDate+'T12:00:00Z');day.getTime()<=last;day.setUTCDate(day.getUTCDate()+1))
+    if(d.weekdays.includes(day.getUTCDay()))sessions.push({id:'CMSESSION-'+crypto.randomUUID(),date:day.toISOString().slice(0,10),startTime:d.startTime,endTime:d.endTime,teacherId:d.teacherId,zoomLink:d.zoomLink,title:d.name,status:'SCHEDULED'});
+  if(!sessions.length)error('weekdays','The selected schedule days do not occur within the Course dates.');
+  return {errors,sessions};
+}
 async function validate(data,course,d) {
   const errors=[],warnings=holidayWarnings(data,d),error=(field,message,sessionId)=>errors.push({field,message,...(sessionId?{sessionId}:{})});
   if(!['FREE','PAID'].includes(d.accessModel))error('accessModel','Choose Free or Paid.');
@@ -59,7 +78,7 @@ async function validate(data,course,d) {
     if(!validIsoDate(s.date)||s.date<d.startDate||s.date>d.endDate)error('date','Session date must fall within the Course dates.',s.id);
     if(!clock(s.startTime)||!clock(s.endTime)||s.endTime<=s.startTime)error('startTime','Enter a session finish time later than its start time.',s.id);
     if(s.status==='CANCELLED')continue;
-    if(!data.accounts.some(a=>same(a.account_id,s.teacherId)&&a.active))error('teacherId','Choose an active teacher for this session.',s.id);
+    if(!eligibleTeacher(data,s.teacherId))error('teacherId','Choose an active designated teacher for this session.',s.id);
     if(!zoom(s.zoomLink))error('zoomLink','Enter a secure Zoom meeting link for this session.',s.id);
     if(data.sessions.some(r=>same(r.session_id,s.id)&&(!same(r.activity_key,course.activityKey)||!same(r.run_id,course.runId))))error('sessions','A session identifier belongs to another Course.',s.id);
     if(!timezoneValid||!validIsoDate(s.date)||!clock(s.startTime)||!clock(s.endTime))continue;
@@ -77,7 +96,7 @@ async function validate(data,course,d) {
     });
     if(conflict)warnings.push({code:'TEACHER_CLASH',sessionId:s.id,date:s.date,message:`${s.date}: this teacher has another published Academy lesson at this time.`});
   }
-  return {valid:!errors.length,errors,warnings,token:await payloadHash({details:d,calendar:data.calendar,suppressions:data.suppressions,teachers:data.accounts.map(a=>[a.account_id,a.active,a.revision]),teaching:data.teaching})};
+  return {valid:!errors.length,errors,warnings,token:await payloadHash({details:d,calendar:data.calendar,suppressions:data.suppressions,teachers:data.accounts.map(a=>[a.account_id,a.active,a.revision]),eligibleTeachers:teacherDirectory(data).map(t=>t.accountId),teaching:data.teaching})};
 }
 function effectiveStage(course,now=new Date()) {
   const d=course.details;
@@ -106,14 +125,15 @@ async function courseRecord(data,a,runId) {
   // Legacy session IDs are regenerated only when a draft is adopted. Its
   // concurrency revision depends on persisted source records, not those IDs.
   const revision=meta?String(meta.revision):await payloadHash({a,run:run||null,state:data.states.filter(s=>same(s.activity_key,a.activity_key)&&same(s.run_id,runId)),sessions:data.sessions.filter(s=>same(s.activity_key,a.activity_key)&&same(s.run_id,runId))});
-  return {courseId:a.activity_id,activityKey:a.activity_key,runId,details,stage,displayStage:effectiveStage({details,stage}),revision,hasDraft:Boolean(meta),currentPublication,completedAt:meta?.completed_at||null,repeatedFrom:meta?.repeated_from_activity_key||null,validationToken:meta?.validation_sha256||'',legacySharedAccess:data.runs.filter(r=>same(r.activity_key,a.activity_key)).length>1};
+  return {courseId:a.activity_id,activityKey:a.activity_key,runId,details,stage,displayStage:effectiveStage({details,stage}),revision,hasDraft:Boolean(meta),currentPublication,completedAt:meta?.completed_at||null,repeatedFrom:meta?.repeated_from_activity_key||null,validationToken:meta?.validation_sha256||'',scheduleToken:meta?.schedule_sha256||'',acceptedToken:meta?.accepted_sha256||'',legacySharedAccess:data.runs.filter(r=>same(r.activity_key,a.activity_key)).length>1};
 }
 export function d1CourseManagement(repository,auth,env={}) {
   const store=managementStore(repository,auth),p=store.p;
   async function load(){
     await requireCourseCalendar(repository.db);
-    if(!await p("SELECT 1 FROM sqlite_schema WHERE name='course_management_drafts' AND type='table'").first())throw managementError('Course management needs its database upgrade.',503,'COURSE_MANAGEMENT_SCHEMA_REQUIRED');
-    return loadCourseCalendarData(store,repository,{editor:p('SELECT * FROM course_management_drafts'),catalog:p('SELECT * FROM subject_catalog'),teaching:p(`SELECT l.*,t.account_id,p.scope_key,p.effective_from,p.effective_until FROM published_lessons l JOIN published_lesson_teachers t USING(activity_key,publication_id,lesson_anchor) JOIN timetable_publications p USING(activity_key,publication_id) JOIN activities a USING(activity_key) WHERE a.active=1 AND a.lifecycle='ACTIVE' AND (p.pattern='COURSE' AND EXISTS(SELECT 1 FROM course_run_state s JOIN course_runs r USING(activity_key,run_id) WHERE s.activity_key=p.activity_key AND s.current_publication_id=p.publication_id AND r.active=1) OR p.pattern<>'COURSE' AND p.version_no=(SELECT max(x.version_no) FROM timetable_publications x WHERE x.activity_key=p.activity_key AND x.scope_key=p.scope_key))`)});
+    if(!await p("SELECT 1 FROM pragma_table_info('course_management_drafts') WHERE name='accepted_sha256'").first())throw managementError('Course management needs its database upgrade.',503,'COURSE_MANAGEMENT_SCHEMA_REQUIRED');
+    const teachers=await teacherDesignations(repository);
+    return loadCourseCalendarData(store,repository,{teachers:teachers.statement,editor:p('SELECT * FROM course_management_drafts'),catalog:p('SELECT * FROM subject_catalog'),teaching:p(`SELECT l.*,t.account_id,p.scope_key,p.effective_from,p.effective_until FROM published_lessons l JOIN published_lesson_teachers t USING(activity_key,publication_id,lesson_anchor) JOIN timetable_publications p USING(activity_key,publication_id) JOIN activities a USING(activity_key) WHERE a.active=1 AND a.lifecycle='ACTIVE' AND (p.pattern='COURSE' AND EXISTS(SELECT 1 FROM course_run_state s JOIN course_runs r USING(activity_key,run_id) WHERE s.activity_key=p.activity_key AND s.current_publication_id=p.publication_id AND r.active=1) OR p.pattern<>'COURSE' AND p.version_no=(SELECT max(x.version_no) FROM timetable_publications x WHERE x.activity_key=p.activity_key AND x.scope_key=p.scope_key))`)});
   }
   async function selected(data,input) {
     const a=data.activities.find(a=>a.kind==='COURSE'&&same(a.activity_id,input.courseId));
@@ -124,9 +144,9 @@ export function d1CourseManagement(repository,auth,env={}) {
     return courseRecord(data,a,runId);
   }
   const checkRevision=(c,input)=>{if(input.baseRevision!==c.revision)throw rowChanged({courseId:c.courseId,runId:c.runId,name:c.details.name,stage:c.displayStage},c.revision);};
-  function saveMeta(statements,c,details,stage,validation=null,completedAt=c.completedAt) {
+  function saveMeta(statements,c,details,stage,validation=null,completedAt=c.completedAt,schedule=c.scheduleToken||null,accepted=null) {
     const next=/^\d+$/.test(c.revision)?Number(c.revision)+1:1;
-    statements.push(p(`INSERT INTO course_management_drafts(activity_key,run_id,details_json,stage,completed_at,repeated_from_activity_key,validation_sha256,revision,updated_at,updated_by_account_id) VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(activity_key,run_id) DO UPDATE SET details_json=excluded.details_json,stage=excluded.stage,completed_at=excluded.completed_at,validation_sha256=excluded.validation_sha256,revision=excluded.revision,updated_at=excluded.updated_at,updated_by_account_id=excluded.updated_by_account_id`,c.activityKey,c.runId,JSON.stringify(details),stage,completedAt,c.repeatedFrom,validation,next,new Date().toISOString(),auth.user.accountid));
+    statements.push(p(`INSERT INTO course_management_drafts(activity_key,run_id,details_json,stage,completed_at,repeated_from_activity_key,validation_sha256,revision,updated_at,updated_by_account_id,schedule_sha256,accepted_sha256) VALUES(?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(activity_key,run_id) DO UPDATE SET details_json=excluded.details_json,stage=excluded.stage,completed_at=excluded.completed_at,validation_sha256=excluded.validation_sha256,revision=excluded.revision,updated_at=excluded.updated_at,updated_by_account_id=excluded.updated_by_account_id,schedule_sha256=excluded.schedule_sha256,accepted_sha256=excluded.accepted_sha256`,c.activityKey,c.runId,JSON.stringify(details),stage,completedAt,c.repeatedFrom,validation,next,new Date().toISOString(),auth.user.accountid,schedule,accepted));
     return String(next);
   }
   return {async run(action,input={}) {
@@ -144,14 +164,17 @@ export function d1CourseManagement(repository,auth,env={}) {
           if(!runIds.length)runIds.push('CMRUN-'+a.activity_id);
           for(const runId of runIds){const c=await courseRecord(data,a,runId);courses.push({courseId:c.courseId,runId,name:c.details.name,stage:c.displayStage,accessModel:c.details.accessModel,startDate:c.details.startDate,endDate:c.details.endDate,sessionCount:c.details.sessions.length,legacySharedAccess:c.legacySharedAccess});}
         }
-        return {courses,capabilities:{create:Boolean(auth.state.account.global_admin),privateMedia:false},timezone:data.settings.find(s=>s.setting_key==='PlatformTimezone')?.setting_value||'Africa/Johannesburg',categories:categories(data),teachers:data.accounts.filter(a=>a.active).map(a=>({accountId:a.account_id,name:a.display_name})),store:'D1'};
+        return {courses,capabilities:{create:Boolean(auth.state.account.global_admin),privateMedia:false},timezone:data.settings.find(s=>s.setting_key==='PlatformTimezone')?.setting_value||'Africa/Johannesburg',categories:categories(data),teachers:teacherDirectory(data),store:'D1'};
       }
       const course=await selected(data,input);
-      if(action==='get')return {course,calendarWarnings:holidayWarnings(data,course.details),media:data.resources.filter(r=>same(r.activity_key,course.activityKey)&&r.active).map(r=>({id:r.resource_id,name:r.name,type:r.resource_type||'Media'})),privateMedia:false};
+      if(action==='get'){
+        const checked=course.stage==='DRAFT'&&course.validationToken?await validate(data,course,course.details):null;
+        return {course,validation:checked?.valid&&checked.token===course.validationToken?checked:null,calendarWarnings:holidayWarnings(data,course.details),media:data.resources.filter(r=>same(r.activity_key,course.activityKey)&&r.active).map(r=>({id:r.resource_id,name:r.name,type:r.resource_type||'Media'})),privateMedia:false};
+      }
       const a=data.activities.find(a=>same(a.activity_key,course.activityKey));
       return {scope:await scopeDTO(data,a),accounts:await Promise.all(data.accounts.map(async account=>({...profileDTO(data,account),assignment:await assignmentDTO(data,account,a)}))),roles:editableRoles};
     }
-    if(!['save','validate','publish','status','repeat','participant-create'].includes(action))throw managementError('Unknown Course action.',404);
+    if(!['save','validate','accept','publish','status','repeat','participant-create'].includes(action))throw managementError('Unknown Course action.',404);
     return store.change('COURSE_MANAGEMENT',input.courseId?'COURSE:'+input.courseId:'ACADEMY','course-editor/'+action,input,async()=>{
       const data=await load(),guardData={...data,accounts:data.accounts.map(a=>({...a}))},statements=[];
       let c;
@@ -171,20 +194,38 @@ export function d1CourseManagement(repository,auth,env={}) {
         if(creating)createActivity(d.name,d.accessModel);
         const revision=saveMeta(statements,c,d,'DRAFT');
         result={courseId:c.courseId,runId:c.runId,revision,message:'Draft saved.'};
-      }else if(action==='validate'||action==='publish'){
+      }else if(['validate','accept','publish'].includes(action)){
         if(c.stage!=='DRAFT')throw managementError('Only a saved draft can be validated and published.',409);
         if(!data.editor.some(m=>same(m.activity_key,c.activityKey)&&same(m.run_id,c.runId)))throw managementError('Save this Course as a draft before validating.',409);
-        const d=normalize(c.details,c.details.timezone),review=await validate(data,c,d);
+        const d=normalize(c.details,c.details.timezone);
+        let generated=0,schedule=c.scheduleToken||null,generationErrors=[];
         if(action==='validate'){
-          const revision=saveMeta(statements,c,d,'DRAFT',review.valid?review.token:null);
-          result={validation:review,revision,message:review.valid?'Validation complete. Review the sessions and warnings before publishing.':'Resolve the listed issues, save your draft and validate again.'};
+          if(typeof input.regenerate!=='undefined'&&typeof input.regenerate!=='boolean')throw managementError('Choose whether to regenerate the sessions.');
+          const nextSchedule=await scheduleHash(d);
+          if(d.sessions.length&&schedule&&schedule!==nextSchedule&&!input.regenerate)throw managementError('The Course schedule changed. Regenerate its sessions after reviewing the replacement notice.',409,'SCHEDULE_CHANGED');
+          if(!d.sessions.length||input.regenerate){
+            const plan=generateSchedule(data,d);generationErrors=plan.errors;
+            if(!generationErrors.length){d.sessions=plan.sessions;generated=d.sessions.length;schedule=nextSchedule;}
+          }
+        }
+        const review=await validate(data,c,d);
+        if(generationErrors.length){review.errors=review.errors.filter(e=>e.field!=='sessions'&&!generationErrors.some(g=>g.field===e.field));review.errors.push(...generationErrors);review.valid=false;}
+        if(action==='validate'){
+          const revision=saveMeta(statements,c,d,'DRAFT',review.valid?review.token:null,c.completedAt,schedule);
+          result={validation:review,details:d,generated,revision,message:review.valid?`${generated?generated+' sessions generated. ':''}Review the sessions, then accept your review before publishing.`:'Resolve the listed schedule or session issues and validate again.'};
         }else{
           if(!review.valid||!c.validationToken||input.validationToken!==c.validationToken||review.token!==c.validationToken)throw managementError('Validate the current saved draft before publishing. Course details, the calendar or teacher availability may have changed.',409,'VALIDATION_REQUIRED');
-          if(review.warnings.length&&input.acknowledgeWarnings!==true)throw managementError('Review and acknowledge the publication warnings.',409,'WARNINGS_REQUIRED');
-          const plan=await planCoursePublication(store,data,auth,env,c.courseId,c.runId,d);statements.push(...plan.statements,p('UPDATE activities SET website_visible=1 WHERE activity_key=?',c.activityKey));
-          if(!c.legacySharedAccess)statements.push(p("UPDATE course_settings SET legacy_access_model=?,policy_review_state='CONFIRMED' WHERE activity_key=?",d.accessModel,c.activityKey));
-          for(const teacher of [...new Set(d.sessions.filter(s=>s.status==='SCHEDULED').map(s=>s.teacherId))])statements.push(p("INSERT INTO role_assignments(assignment_id,account_id,activity_key,role,active,review_state,granted_at,granted_by_account_id,revision) SELECT ?,?,?,'TEACHER',1,'CONFIRMED',?,?,1 WHERE NOT EXISTS(SELECT 1 FROM effective_activity_roles WHERE account_id=? AND activity_key=? AND role='TEACHER')",crypto.randomUUID(),teacher,c.activityKey,new Date().toISOString(),auth.user.accountid,teacher,c.activityKey));
-          const revision=saveMeta(statements,c,d,'PUBLISHED');result={courseId:c.courseId,runId:c.runId,revision,publication:plan.publication,message:'Course published to the Academy timetable.'};
+          if(action==='accept'){
+            if(review.warnings.length&&input.acknowledgeWarnings!==true)throw managementError('Review and acknowledge the publication warnings.',409,'WARNINGS_REQUIRED');
+            const revision=saveMeta(statements,c,d,'DRAFT',review.token,c.completedAt,schedule,review.token);
+            result={revision,acceptedToken:review.token,message:'Session review accepted. The Course is ready to publish.'};
+          }else{
+            if(c.acceptedToken!==review.token)throw managementError('Review and accept the current sessions before publishing.',409,'REVIEW_ACCEPTANCE_REQUIRED');
+            const plan=await planCoursePublication(store,data,auth,env,c.courseId,c.runId,d);statements.push(...plan.statements,p('UPDATE activities SET website_visible=1 WHERE activity_key=?',c.activityKey));
+            if(!c.legacySharedAccess)statements.push(p("UPDATE course_settings SET legacy_access_model=?,policy_review_state='CONFIRMED' WHERE activity_key=?",d.accessModel,c.activityKey));
+            for(const teacher of [...new Set(d.sessions.filter(s=>s.status==='SCHEDULED').map(s=>s.teacherId))])statements.push(p("INSERT INTO role_assignments(assignment_id,account_id,activity_key,role,active,review_state,granted_at,granted_by_account_id,revision) SELECT ?,?,?,'TEACHER',1,'CONFIRMED',?,?,1 WHERE NOT EXISTS(SELECT 1 FROM effective_activity_roles WHERE account_id=? AND activity_key=? AND role='TEACHER')",crypto.randomUUID(),teacher,c.activityKey,new Date().toISOString(),auth.user.accountid,teacher,c.activityKey));
+            const revision=saveMeta(statements,c,d,'PUBLISHED');result={courseId:c.courseId,runId:c.runId,revision,publication:plan.publication,message:'Course published to the Academy timetable.'};
+          }
         }
       }else if(action==='status'){
         const target=clean(input.stage),allowed={DRAFT:['CANCELLED','ARCHIVED'],PUBLISHED:['DRAFT','COMPLETE','CANCELLED'],COMPLETE:['ARCHIVED'],CANCELLED:['ARCHIVED'],ARCHIVED:[]};

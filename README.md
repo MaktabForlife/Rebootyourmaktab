@@ -1,3 +1,9 @@
+# V106.8 — Teaching directory and reviewed Course sessions
+
+Designate Global Teachers in User profiles. Course teacher selectors include active teaching staff and existing active Program/Course Teachers, while lesson access continues to follow assignments. Global Teacher grants no administrator authority or blanket teaching access. Global Admin remains a separate existing designation.
+
+Validate a Course schedule to generate its dated sessions with times, teacher and Zoom link already filled in. Review holidays and teacher clashes, edit exceptions, accept the checked sessions, then publish. Later edits invalidate acceptance; regenerating requires confirmation before replacing individual session edits. Additive D1 migration 0009 stores teaching designations and session-review fingerprints without changing existing publications or roles. [Implementation and release checks](docs/ACADEMY-COURSE-REVIEW-106.8.md).
+
 # V106.7 — Sign-in first and compact public timetable
 
 Place sign-in at the top of Academy home, ahead of announcements on smaller screens. Give the public timetable its own full-width strip with compact pills showing only a stylised start time and Program/Course title. Show five days across where space permits and keep swipe/arrow browsing on smaller screens. Whole hours display as 4am; non-hour times retain their minutes, such as 7:30am.

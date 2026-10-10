@@ -1,6 +1,7 @@
 import { payloadHash } from '../../programs/timetable-model.js';
 import { planProfileChange } from '../../profiles/model.js';
 import { managementStore,managementError,rowChanged,same,liveRoles,pendingRoles,profileDTO } from './management-store.js';
+import {teacherDesignations,academyTeacher} from './teachers.js';
 
 const editableRoles=['STUDENT','TEACHER','PROGRAM_ADMIN'];
 const scopeOf=a=>({type:a.kind==='PROGRAM'?'PROGRAM':'SUBJECT',id:a.activity_id});
@@ -30,16 +31,28 @@ export async function scopeDTO(data,a) {
 
 export function d1Profiles(repository,auth) {
   const store=managementStore(repository,auth),p=store.p;
-  const load=async()=>store.load({coursePolicies:p('SELECT * FROM course_settings'),subscriptions:p(`SELECT * FROM ${await repository.subscriptionSource()}`)});
+  const load=async()=>{
+    const teachers=await teacherDesignations(repository);
+    return {...await store.load({teachers:teachers.statement,coursePolicies:p('SELECT * FROM course_settings'),subscriptions:p(`SELECT * FROM ${await repository.subscriptionSource()}`)}),teacherDesignationsAvailable:teachers.available};
+  };
+  const accountProfile=(data,a)=>({...profileDTO(data,a),...(a&&data.teacherDesignationsAvailable?{academyTeacher:academyTeacher(data,a.account_id)}:{})});
   async function directory(data) {
     const activities=data.activities.filter(a=>['PROGRAM','COURSE'].includes(a.kind));
-    return {accounts:await Promise.all(data.accounts.map(async a=>({...profileDTO(data,a),revision:await payloadHash(profileDTO(data,a)),assignments:await Promise.all(activities.map(activity=>assignmentDTO(data,a,activity)))}))),
+    return {accounts:await Promise.all(data.accounts.map(async a=>({...accountProfile(data,a),revision:await payloadHash(accountProfile(data,a)),assignments:await Promise.all(activities.map(activity=>assignmentDTO(data,a,activity)))}))),
       scopes:await Promise.all(activities.map(a=>scopeDTO(data,a))),roles:editableRoles,prepared:true,needsSync:false,
-      stage:'SETUP',reviewCount:data.reviews.filter(r=>r.status==='REQUIRED'&&!data.mappings.some(m=>m.source_role===r.source_value)).length,policyEditable:false,store:'D1',emptyRevision:await payloadHash(null)};
+      stage:'SETUP',reviewCount:data.reviews.filter(r=>r.status==='REQUIRED'&&!data.mappings.some(m=>m.source_role===r.source_value)).length,policyEditable:false,teacherDesignationEditable:data.teacherDesignationsAvailable,store:'D1',emptyRevision:await payloadHash(null)};
   }
   async function profile(data,input,statements) {
     const source=data.accounts.map(a=>({AccountID:a.account_id,DisplayName:a.display_name,UniqueID:a.login_link_id,Active:Boolean(a.active),PlatformRole:profileDTO(data,a).academyAdmin?'GLOBAL_ADMIN':''}));
-    const planned=await planProfileChange({tables:{UserAccounts:source}},input,auth.user);
+    const current=data.accounts.find(a=>same(a.account_id,input.accountId));
+    const currentProfile=current?accountProfile(data,current):null,revision=await payloadHash(currentProfile);
+    if(input.baseRevision!==revision)throw rowChanged(currentProfile,revision);
+    if(input.academyTeacher!==undefined){
+      if(typeof input.academyTeacher!=='boolean')throw managementError('Choose whether this user is a Global Teacher.');
+      if(!data.teacherDesignationsAvailable)throw managementError('Global Teacher designation needs its database upgrade.',503,'TEACHER_SCHEMA_REQUIRED');
+      if(input.academyTeacher&&!input.active&&!academyTeacher(data,input.accountId))throw managementError('Reactivate this account before designating it a Global Teacher.');
+    }
+    const planned=await planProfileChange({tables:{UserAccounts:source}},{...input,baseRevision:await payloadHash(current?profileDTO(data,current):null)},auth.user);
     const record=planned.changes.find(c=>c.table==='UserAccounts').record,now=new Date().toISOString();
     if(input.creating) {
       statements.push(p('INSERT INTO accounts(account_id,display_name,login_link_id,active,created_at,updated_at,created_by_source_id,modified_by_source_id,revision) VALUES(?,?,?,?,?,?,?,?,1)',record.AccountID,record.DisplayName,record.UniqueID,Number(record.Active),now,now,auth.user.accountid,auth.user.accountid),
@@ -52,6 +65,13 @@ export function d1Profiles(repository,auth) {
       if(!record.Active)statements.push(p('UPDATE account_sessions SET revoked_at=? WHERE account_id=? AND revoked_at IS NULL',now,account.account_id));
       Object.assign(account,{display_name:record.DisplayName,active:Number(record.Active),revision:account.revision+1});
     }
+    if(input.academyTeacher!==undefined&&input.academyTeacher!==academyTeacher(data,record.AccountID)){
+      statements.push(p(`INSERT INTO academy_teacher_designations(account_id,active,updated_at,updated_by_account_id) VALUES(?,?,?,?) ON CONFLICT(account_id) DO UPDATE SET active=excluded.active,revision=academy_teacher_designations.revision+1,updated_at=excluded.updated_at,updated_by_account_id=excluded.updated_by_account_id`,record.AccountID,Number(input.academyTeacher),now,auth.user.accountid));
+      data.teachers=data.teachers.filter(t=>!same(t.account_id,record.AccountID));
+      data.teachers.push({account_id:record.AccountID,active:Number(input.academyTeacher)});
+    }
+    const saved=accountProfile(data,data.accounts.find(a=>same(a.account_id,record.AccountID)));
+    planned.result.profile={...planned.result.profile,...saved,revision:await payloadHash(saved)};
     return planned.result;
   }
   async function roles(data,input,statements) {
@@ -111,7 +131,7 @@ export function d1Profiles(repository,auth) {
           try {results.push({entryKey:entryKey(entry),...await (entry.mode==='profile'?profile:roles)(data,entry,statements)});}
           catch(error){error.entryKey=entryKey(entry);throw error;}
         }
-        return {data:{...data,accounts:guardAccounts},statements,result:input.mode==='batch'?{results}:Object.fromEntries(Object.entries(results[0]).filter(([key])=>key!=='entryKey')),fields:['DisplayName','Active','ActivityRoleAssignments']};
+        return {data:{...data,accounts:guardAccounts},statements,result:input.mode==='batch'?{results}:Object.fromEntries(Object.entries(results[0]).filter(([key])=>key!=='entryKey')),fields:['DisplayName','Active','GlobalTeacher','ActivityRoleAssignments']};
       });
     }
   };

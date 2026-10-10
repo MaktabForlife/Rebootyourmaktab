@@ -47,7 +47,7 @@ async function dispatch(request,env) {
   const path=new URL(request.url).pathname;
   await repository.ready();
   const publicLibraryOnly=env.ACADEMY_LIBRARY_MODE==='PUBLIC_ONLY';
-  if(['/','/api/health'].includes(path)&&request.method==='GET')return {success:true,service:'rebootworker',version:'106.7',
+  if(['/','/api/health'].includes(path)&&request.method==='GET')return {success:true,service:'rebootworker',version:'106.8',
     store:env.ACADEMY_D1_MODE==='ACTIVE'?'D1_ACTIVE':'D1_REHEARSAL',cutoverReady:env.ACADEMY_D1_MODE==='ACTIVE',
     libraryMode:publicLibraryOnly?'PUBLIC_ONLY':'COMPATIBILITY',mediaSubscriptionsAvailable:false};
   const openLibraryAction=path.match(/^\/api\/academy\/open-library\/metadata\/(public|cover|list|save|options)$/)?.[1];
@@ -108,7 +108,7 @@ async function dispatch(request,env) {
   if(subjectAction)return {success:true,...await d1Subjects(repository,auth).run(subjectAction,input)};
   if(path==='/api/admin/platform/global/access/save')return {success:true,...await d1CourseSubscriptions(repository,auth).save(input)};
   if(path==='/api/platform/global/resources/access')return {success:true,...await d1Library(repository,auth,env).run('course-access',input,request)};
-  const courseEditorAction=path.match(/^\/api\/admin\/platform\/courses\/(list|get|save|validate|publish|status|repeat|participants|participants-save|participant-create)$/)?.[1];
+  const courseEditorAction=path.match(/^\/api\/admin\/platform\/courses\/(list|get|save|validate|accept|publish|status|repeat|participants|participants-save|participant-create)$/)?.[1];
   if(courseEditorAction)return {success:true,...await d1CourseManagement(repository,auth,env).run(courseEditorAction,input)};
   const courseAction=path==='/api/admin/platform/global/get'?'get':path.match(/^\/api\/admin\/platform\/global\/((?:subject|subjects|module|task|resource|resources|drive-root|drive|delivery|policy|run|timetable)(?:\/[a-z-]+){1,2})$/)?.[1];
   const calendarAction=path.match(/^\/api\/admin\/platform\/calendar\/(get|save|batch-save)$/)?.[1];

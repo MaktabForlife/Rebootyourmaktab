@@ -10,7 +10,7 @@
   const currentEdit=()=>state.edit;
   const editKey=edit=>[edit.mode,edit.accountId||'',edit.scopeType||'',edit.scopeId||''].join(':');
   const entries=()=>[...state.edits,...(state.edit?[state.edit]:[])];
-  const editValue=e=>e.mode==='profile'?JSON.stringify([e.displayName,e.active]):e.mode==='matrix-roles'?JSON.stringify([...e.roles].sort()):'';
+  const editValue=e=>e.mode==='profile'?JSON.stringify([e.displayName,e.active,...(e.academyTeacher===undefined?[]:[e.academyTeacher])]):e.mode==='matrix-roles'?JSON.stringify([...e.roles].sort()):'';
   const changed=e=>!['profile','matrix-roles'].includes(e.mode)||e.creating||e.needsConfirmation||e.originalValue===undefined||editValue(e)!==e.originalValue;
   const changedEntries=()=>entries().filter(changed);
   function updateSaveControls(){
@@ -30,7 +30,7 @@
     if(state.busy||state.pending||!state.data?.prepared)return null;
     const existing=findEdit('profile',accountId);if(existing)return existing;
     const account=state.data.accounts.find(a=>a.accountId===accountId);if(!account)return null;
-    const edit={mode:'profile',accountId,creating:false,displayName:account.displayName,active:account.active,baseRevision:account.revision};
+    const edit={mode:'profile',accountId,creating:false,displayName:account.displayName,active:account.active,...(state.data.teacherDesignationEditable?{academyTeacher:Boolean(account.academyTeacher)}:{}),baseRevision:account.revision};
     edit.originalValue=editValue(edit);state.edits.push(edit);return edit;
   }
   function removeEdits(keys){state.edits=state.edits.filter(e=>!keys.includes(editKey(e)));if(state.edit&&keys.includes(editKey(state.edit)))state.edit=null;}
@@ -55,7 +55,7 @@
     $('up-draft-notice').hidden=!entries().length;$('up-return').disabled=state.busy;
     $('up-cancel').hidden=!edit;$('up-save').disabled=!editable||state.waiting||Boolean(state.conflict);$('up-cancel').disabled=state.busy||Boolean(state.pending);
     $('up-conflict').hidden=!state.conflict||!edit;
-    const describe=record=>edit?.mode==='profile'?`${record?.displayName||'Removed'} · ${record?.active?'Active':'Inactive'}`:edit?.mode==='matrix-policy'?record?.accessModel||'Unknown':roleNames(record?.roles||[])+(record?.accessModel?` · ${record.accessModel==='FREE'?'Free':'Paid'} setting`:'');
+    const describe=record=>edit?.mode==='profile'?`${record?.displayName||'Removed'} · ${record?.active?'Active':'Inactive'}${record?.academyTeacher?' · Global Teacher':''}`:edit?.mode==='matrix-policy'?record?.accessModel||'Unknown':roleNames(record?.roles||[])+(record?.accessModel?` · ${record.accessModel==='FREE'?'Free':'Paid'} setting`:'');
     if(state.conflict&&edit){
       const account=state.data?.accounts.find(a=>a.accountId===edit.accountId),scope=state.data?.scopes.find(s=>s.type===edit.scopeType&&s.id===edit.scopeId);
       const identity=[account?.displayName,scope?.name].filter(Boolean).join(' · ');
@@ -73,14 +73,14 @@
       const editing=edit?.mode==='matrix-policy'&&edit.scopeType===scope.type&&edit.scopeId===scope.id;
       return `<th scope="col"><strong>${esc(scope.name)}</strong><small>${scope.active?'':'Inactive'}</small>${editing?`<label>Access<select data-access-model aria-label="Access for ${esc(scope.name)}" ${!editable?'disabled':''}><option value="FREE" ${edit.accessModel==='FREE'?'selected':''}>Free</option><option value="PAID" ${edit.accessModel==='PAID'?'selected':''}>Paid</option></select></label><label class="up-confirm"><input type="checkbox" data-policy-confirm ${edit.policyConfirmed?'checked':''} ${!editable?'disabled':''}>Applies to this entire program/course</label>`:scope.policyEditable===false?`<small>${scope.accessModel==='FREE'?'Free':scope.accessModel==='PAID'?'Paid':''}</small>`:`<button type="button" class="pb-secondary" data-policy="${esc(scopeKey(scope))}" ${blocked||!scope.prepared?'disabled':''}>${scope.accessModel==='FREE'?'Free':scope.accessModel==='PAID'?'Paid':'Review'} ▾</button>`}${scope.policyEditable!==false&&scope.reviewStatus==='REQUIRED'?'<small class="up-review">Review setting</small>':''}</th>`;
     }).join('')}<th scope="col">Actions</th></tr>`;
-    const accounts=state.data.accounts.filter(a=>(!state.filter||a.active===(state.filter==='active'))&&[a.displayName,a.academyAdmin?'Global Admin':'',...a.assignments.map(g=>roleNames(g.displayRoles||g.roles))].some(v=>v.toLowerCase().includes(state.search.toLowerCase())));
+    const accounts=state.data.accounts.filter(a=>(!state.filter||a.active===(state.filter==='active'))&&[a.displayName,a.academyAdmin?'Global Admin':'',a.academyTeacher?'Global Teacher':'',...a.assignments.map(g=>roleNames(g.displayRoles||g.roles))].some(v=>v.toLowerCase().includes(state.search.toLowerCase())));
     accounts.sort((a,b)=>{const ai=state.pinned.indexOf(a.accountId),bi=state.pinned.indexOf(b.accountId);return (ai<0?Infinity:ai)-(bi<0?Infinity:bi);});
     for(const draft of entries().filter(e=>e.mode==='profile'&&e.creating))accounts.unshift({accountId:draft.accountId,displayName:draft.displayName,active:draft.active,assignments:[]});
     $('up-count').textContent=`${accounts.length} shown · ${state.data.accounts.length} users`;
     $('up-users').innerHTML=accounts.map(a=>{
       const profileEdit=findEdit('profile',a.accountId),rowDirty=changedEntries().some(e=>e.accountId===a.accountId);
       const displayName=profileEdit?.displayName??a.displayName,active=profileEdit?.active??a.active;
-      return `<tr data-user="${esc(a.accountId)}" class="${active?'':'up-account-inactive'} ${rowDirty?'is-editing':''} ${state.selected===a.accountId?'up-selected':''}"><td data-label="User name"><input data-name data-account="${esc(a.accountId)}" maxlength="160" aria-label="User name" value="${esc(displayName)}" ${blocked||!state.data.prepared?'disabled':''}>${a.academyAdmin?'<small>Global Admin</small>':''}</td><td data-label="Status"><select data-active data-account="${esc(a.accountId)}" aria-label="Account status" ${blocked||!state.data.prepared?'disabled':''}><option value="true" ${active?'selected':''}>Active</option><option value="false" ${!active?'selected':''}>Inactive</option></select></td>${scopes.map(scope=>{
+      return `<tr data-user="${esc(a.accountId)}" class="${active?'':'up-account-inactive'} ${rowDirty?'is-editing':''} ${state.selected===a.accountId?'up-selected':''}"><td data-label="User name"><input data-name data-account="${esc(a.accountId)}" maxlength="160" aria-label="User name" value="${esc(displayName)}" ${blocked||!state.data.prepared?'disabled':''}>${a.academyAdmin?'<small>Global Admin</small>':''}${state.data.teacherDesignationEditable?`<label class="up-global-teacher" title="Academy teaching staff. Course and lesson access follows assignments."><input type="checkbox" data-global-teacher data-account="${esc(a.accountId)}" aria-label="Global Teacher for ${esc(displayName)}" ${(profileEdit?.academyTeacher??a.academyTeacher)?'checked':''} ${blocked?'disabled':''}>Global Teacher</label>`:''}</td><td data-label="Status"><select data-active data-account="${esc(a.accountId)}" aria-label="Account status" ${blocked||!state.data.prepared?'disabled':''}><option value="true" ${active?'selected':''}>Active</option><option value="false" ${!active?'selected':''}>Inactive</option></select></td>${scopes.map(scope=>{
         const grant=a.assignments.find(g=>g.scopeType===scope.type&&g.scopeId===scope.id),editing=findEdit('matrix-roles',a.accountId,scope),roles=editing?editing.roles:grant?.roles||[];
         const displayed=a.academyAdmin?[...new Set(['PROGRAM_ADMIN',...roles])]:grant?.displayRoles||roles,inherited=a.academyAdmin?'Program Admin is automatic for Global Admins in every Program and Course. This cell changes only additional roles.':'';
         const roleCell=scope.rolesEditable===false?`<span class="up-role-label ${a.academyAdmin?'up-inherited':''}" title="${esc(a.academyAdmin?inherited:'Course subscriptions are managed in Course administration. None means no assigned role or subscription. Free Course access is separate.')}">${esc(roleNames(displayed))}</span>`:`<button type="button" class="up-cell ${a.academyAdmin?'up-inherited':''}" title="${esc(inherited)}" data-edit-scope="${esc(scopeKey(scope))}" data-account="${esc(a.accountId)}" ${blocked||!scope.prepared||!grant?'disabled':''}>${esc(roleNames(displayed))} ▾</button>`;
@@ -165,7 +165,7 @@
     if(state.edit&&state.edit!==existing)state.edits.push(state.edit);
     state.edits=state.edits.filter(e=>e!==existing);state.edit=existing||{...edit,originalValue:editValue(edit)};state.conflict=null;$('up-link').hidden=true;render();}
   $('up-return').onclick=()=>{state.search='';state.filter='';$('up-search').value='';$('up-status-filter').value='';render();document.querySelector?.('.is-editing input, [data-access-model]')?.focus();};
-  $('up-add').onclick=()=>{if(!state.data?.prepared||state.busy||state.pending||state.conflict)return;state.search='';state.filter='';$('up-search').value='';$('up-status-filter').value='';startEdit({mode:'profile',accountId:crypto.randomUUID(),creating:true,displayName:'',active:true,baseRevision:state.data.emptyRevision});const input=document.querySelector?.('[data-name]');input?.focus();input?.scrollIntoView?.({block:'nearest'});};
+  $('up-add').onclick=()=>{if(!state.data?.prepared||state.busy||state.pending||state.conflict)return;state.search='';state.filter='';$('up-search').value='';$('up-status-filter').value='';startEdit({mode:'profile',accountId:crypto.randomUUID(),creating:true,displayName:'',active:true,...(state.data.teacherDesignationEditable?{academyTeacher:false}:{}),baseRevision:state.data.emptyRevision});const input=document.querySelector?.('[data-name]');input?.focus();input?.scrollIntoView?.({block:'nearest'});};
   $('up-setup').onclick=()=>{startEdit({mode:'matrix-prepare'});void save();};
   $('up-users').onclick=async e=>{
     const button=e.target.closest('button');if(!button||state.busy||state.pending)return;
@@ -174,11 +174,12 @@
     if(view){if(state.waiting){message('Wait for the spreadsheet service to recover before retrieving a sign-in link.',true);return;}await userLink(view,false,true);return;}
     if(share||copy){if(state.waiting){message('Wait for the spreadsheet service to recover before retrieving a sign-in link.',true);return;}await userLink(share||copy,Boolean(share));return;}
     if(link){state.busy=true;render();try{showLink((await api('link',{accountId:link})).loginPath);}catch(error){message(error.message,true);}finally{state.busy=false;render();}return;}
-    if(profile){const a=state.data.accounts.find(a=>a.accountId===profile);if(a)startEdit({mode:'profile',accountId:a.accountId,creating:false,displayName:a.displayName,active:a.active,baseRevision:a.revision});}
+    if(profile){const a=state.data.accounts.find(a=>a.accountId===profile);if(a)startEdit({mode:'profile',accountId:a.accountId,creating:false,displayName:a.displayName,active:a.active,...(state.data.teacherDesignationEditable?{academyTeacher:Boolean(a.academyTeacher)}:{}),baseRevision:a.revision});}
     if(editScope){const scope=state.data.scopes.find(s=>scopeKey(s)===editScope),a=state.data.accounts.find(a=>a.accountId===account),grant=a?.assignments.find(g=>g.scopeType===scope?.type&&g.scopeId===scope?.id);if(grant)startEdit({mode:'matrix-roles',accountId:account,scopeType:scope.type,scopeId:scope.id,roles:[...grant.roles],needsConfirmation:grant.reviewStatus==='REQUIRED',baseRevision:grant.revision,scopeRevision:scope.revision});}
   };
   $('up-users').oninput=e=>{if(state.busy||state.pending||!Object.hasOwn(e.target.dataset,'name'))return;const edit=e.target.dataset.account?profileDraft(e.target.dataset.account):state.edit;if(edit?.mode==='profile'){edit.displayName=e.target.value;remember();updateSaveControls();}};
   $('up-users').onchange=e=>{const d=e.target.dataset,edit=d.account?(d.scope?entries().find(e=>e.accountId===d.account&&`${e.scopeType}:${e.scopeId}`===d.scope):profileDraft(d.account)):state.edit;if(!edit||state.busy||state.pending)return;
+    if(edit.mode==='profile'&&Object.hasOwn(d,'globalTeacher')){edit.academyTeacher=e.target.checked;remember();updateSaveControls();return;}
     if(edit.mode==='profile'&&Object.hasOwn(d,'active')){edit.active=e.target.value==='true';remember();updateSaveControls();return;}
     if(edit.mode==='matrix-roles'){const {role,defaultUser}=e.target.dataset;if(role){edit.roles=edit.roles.filter(r=>r!==role);if(e.target.checked)edit.roles.push(role);}if(defaultUser!==undefined&&e.target.checked)edit.roles=[];}
     render();
