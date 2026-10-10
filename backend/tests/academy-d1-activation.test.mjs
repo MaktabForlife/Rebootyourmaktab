@@ -93,6 +93,22 @@ test('core Library mode exposes only public material and rejects every compatibi
   assert.equal(db.prepare('SELECT count(*) n FROM course_subscription_decisions').get().n,0);
 }));
 
+test('public-only Library mode retains the authenticated Program selector used by account and attendance screens',()=>use(async({env,db})=>{
+  applyCoreActivationLocally(db,buildCoreActivationPlan(db,review(db)));const live=active(env,db);
+  const teacher=await login(live,'0003'),student=await login(live,'0002');
+  for(const token of [teacher,student]) {
+    const selector=ok(await post(live,'/api/program-library/available',{},token));
+    assert.ok(selector.programs.length);assert.equal(selector.store,'D1');
+    for(const program of selector.programs)assert.deepEqual(Object.keys(program).sort(),['id','name','role']);
+    assert.doesNotMatch(JSON.stringify(selector),/folder|fileId|resource|https:\/\//i);
+  }
+  assert.equal((await post(live,'/api/program-library/available')).status,401);
+  const selector=ok(await post(live,'/api/program-library/available',{},teacher));
+  const program=selector.programs.find(p=>p.role==='TEACHER');assert.ok(program);
+  const attendance=ok(await post(live,'/api/program-attendance/get',{id:program.id},teacher));assert.ok(Array.isArray(attendance.classes));
+  assert.equal((await post(live,'/api/program-library/catalogue',{id:program.id},teacher)).body.code,'PRIVATE_MEDIA_NOT_ENABLED');
+}));
+
 test('new Programs and Courses inherit the active database ownership',()=>use(async({env,db})=>{
   applyCoreActivationLocally(db,buildCoreActivationPlan(db,review(db)));const live=active(env,db),admin=await login(live);
   const id='PRG-'+crypto.randomUUID(),input={id,name:'Synthetic active-store Program',durationYears:1,timezone:'Africa/Johannesburg',status:'DRAFT',operationId:crypto.randomUUID()};

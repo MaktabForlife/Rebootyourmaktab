@@ -50,7 +50,10 @@ async function dispatch(request,env) {
     libraryMode:publicLibraryOnly?'PUBLIC_ONLY':'COMPATIBILITY',mediaSubscriptionsAvailable:false};
   const openLibraryAction=path.match(/^\/api\/academy\/open-library\/metadata\/(public|cover|list|save|options)$/)?.[1];
   if(openLibraryAction)return openLibraryMetadataEndpoint(openLibraryAction)(request,env);
-  if(publicLibraryOnly&&path!=='/api/academy/library/catalogue'&&(
+  // Account/attendance screens reuse this authenticated Program selector. It
+  // returns only assigned Program names/roles, never media or file access.
+  const programSelector=path==='/api/program-library/available'||path==='/api/admin/platform/program-library/available';
+  if(publicLibraryOnly&&!programSelector&&path!=='/api/academy/library/catalogue'&&(
     /^\/api\/(?:admin\/platform\/program-library|program-library|academy\/library|academy\/d1\/library)\//.test(path)||
     path==='/api/platform/global/resources/access'||path==='/api/admin/platform/program-timetable/prepare-library'||
     /^\/api\/admin\/platform\/global\/(?:resources?|drive(?:-root)?)\//.test(path)))
