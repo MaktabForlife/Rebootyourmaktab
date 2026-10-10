@@ -1,0 +1,38 @@
+# Academy D1 Course and calendar workflows — unreleased
+
+Course delivery management, timetable authoring/publication and the shared Academic Calendar now use the isolated D1 rehearsal. This increment is local and has not been pushed, deployed or applied to the main cloud database. The current development website continues using Sheets. The production-named legacy Worker remains separate.
+
+## Implemented behavior
+
+- Global Admins create/update/archive Course runs for the existing active Global Subjects, set each run’s Free/Paid access, maintain recurring rules or exact sessions and save an ongoing Course’s publication window. Program Admins and Teachers cannot administer Academy-wide Courses or calendar events.
+- Course timetable generation, materialised exceptions, cancellation, rescheduling, revision and publication reuse the established delivery/timetable validation. Revisions retain the previous immutable publication until publishing again. Publication snapshots, normalized lessons/teachers, lifecycle records, the current pointer, detailed audit and the operation receipt commit together.
+- Each write requires the saved `workflowRevision` and a UUID retry identifier. Competing edits fail with `WORKFLOW_CHANGED`; the draft remains available for review. The current implementation uses the Academy write sequence, so an unrelated Academy management write can also require a refresh. Browser scripts retain an identifier after uncertain responses and advance their revision after successful steps. Replays are actor-bound.
+- Free/Paid is imported and stored **per Course run**. Home uses this explicit value: a paid Course cannot inherit a free Subject’s learner access. Existing explicit subscription evidence and teaching participation continue through the shared projection. This does not introduce new admission/subscription grant administration.
+- Global Admins maintain Terms, Islamic reference dates and Holiday overrides. Moving/removing a generated holiday preserves its suppression. Active source calendar records are imported; inactive records are excluded. Only removed holiday dates are kept as configuration, without their inactive source record contents. The Academy timetable displays the shared calendar context, including informational Islamic dates and No teaching labels. These labels do not silently cancel published lessons.
+- The existing Global Curriculum entry opens the Course screen in this rehearsal. Other Global Curriculum authoring remains pending. Unsupported actions fail explicitly and never fall back to Sheets.
+
+The three existing Sheets route modules now expose request-local storage factories. Their normal exports retain the existing Sheets provider. The D1 provider supplies a consistent normalized snapshot and accepts only a fixed set of planned table/range writes. The plan becomes parameter-bound, bulk SQL inside the existing guarded D1 transaction. No storage dependency, account permission or database session is stored in mutable global request state.
+
+Course generation/publication is limited to a window of at most 366 days; a publication may normalize at most 1,500 occurrences. An oversized acknowledgement is also rejected before committing. Longer fixed deliveries need smaller delivery windows; ongoing Courses can publish successive bounded windows. This bounds work on the request path.
+
+## Schema and source verification
+
+The frozen base remains **0001–0003 / 45 tables**. Extensions 0004 and 0005 remain separate. Extension **0006** adds six tables, giving **61 tables locally**: a matching source-import marker, per-run access, draft session activation/lifecycle and calendar events/suppressions. Course/calendar administration requires the verified learning import and a Course marker matching the original migration run and snapshot hash. If 0006 exists but its import is incomplete, Home also fails closed. Older base-only parity rehearsals remain a historical boundary and do not validate per-run access.
+
+`backend/tools/academy-d1-course-calendar-rehearsal.mjs` verifies the untouched base candidate, copies it to a new private local database, applies 0004–0006, imports/verifies the learning history, then imports/verifies Course/calendar supplements. It refuses remote/in-place operation, repeated imports, mismatched source markers and imports after application writes. Exact content, foreign keys and integrity are checked before commit. Source snapshots, SQL and databases remain ignored by Git.
+
+The 9 October snapshot passes with **one Course run, one draft session and 48 active calendar records**. Two inactive calendar records are excluded; their two removed-holiday dates are retained. Two active Global Subject/Course namespaces, five Programs, eight resources and all four historical attendance registers remain available. The main cloud database and its frozen snapshot have not been changed by this work. Later Sheets edits still require a fresh capture and reconciliation before cutover.
+
+## Verification
+
+- **115/115 regression test files pass**; nine focused Course/calendar scenarios cover reads, role boundaries, explicit and derived scheduling, immutable history, paid access, calendar overrides, conflicting edits, rollback, revocation during save and lost-acknowledgement recovery.
+- The existing four Course/calendar browser scripts load D1 HTTP contracts in the VM harness. Their uncertain-response retry is verified against real SQLite commits; Academy timetable calendar labels are escaped and tested. Native browser click-through remains unverified because the browser tool could not verify its administrator security policy; no workaround was used.
+- The real local Workers/D1 emulator passes **200 simultaneous login/home flows (800 requests)**, 196 concurrent Library reads and user/Program/learning/Course/calendar security and write checks, with **zero outbound requests**. Its local burst took **2,792 ms** using the installed emulator’s supported compatibility date `2026-09-28`. This is not hosted capacity evidence.
+- The affected HTTP tests check that the tested Course publication stays within the normal per-request query budget. Records are bulk inserted rather than issuing a statement per occurrence or teacher.
+- A private copy of the main candidate passes Course/calendar read contracts and the previous Program, Library and attendance checks. No real PIN is used and the main database is not modified. The actual development deployment dry run passes with its configuration unchanged.
+
+Private evidence: `.academy-migration/d1-course-calendar-20261010/{candidate.sqlite,course-calendar-import.sql,report.json,read-report.json}`, `.academy-migration/d1-load-yQ8ZRE/report.json`, `.academy-migration/d1-course-calendar-worker-dryrun/` and copied regression/build logs.
+
+## Remaining before live migration
+
+Complete shared Academy/Global curriculum authoring and remaining dependent screens/routes, including the older account-page timetable contract. Finalize new admission/subscription and Global Admin grant administration rules. Deploy/configure the updated upload bridge and any missing Program destinations. Refresh/reconcile the source, exercise the complete hosted flows and peak load, and review backup/rollback with a concrete ownership transition before enabling D1 for live traffic. A future feature push needs a new version and updated URLs for every changed asset.

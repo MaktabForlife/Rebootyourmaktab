@@ -49,6 +49,6 @@ Private evidence: `.academy-migration/d1-learning-20261009/{report.json,read-rep
 
 ## Remaining before live migration
 
-Complete Global Course authoring, shared-calendar and other remaining dependent routes. Shared Academy subject creation/rename and legacy subject import remain separate work. Existing Free/Paid evidence is preserved; new admission, subscription and Academy-wide Global Admin grant administration still need their final rules.
+Course run authoring/publication and the shared-calendar extension are implemented in the subsequent [Course/calendar stage](ACADEMY-D1-COURSES-CALENDAR.md); its local candidate has 61 tables. Complete the other remaining dependent routes. Shared Academy subject creation/rename and legacy subject import remain separate work. Existing Free/Paid evidence is preserved; new admission, subscription and Academy-wide Global Admin grant administration still need their final rules.
 
 Deploy the updated Apps Script bridge before enabling D1 device uploads, and select any missing Program Drive destinations. Before cutover, refresh/reconcile the source, verify the complete hosted flows and peak load, review backup/rollback and approve a concrete ownership transition. A future feature push needs a new version and changed asset URLs. The production-named legacy Worker remains separate.

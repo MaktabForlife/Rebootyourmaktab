@@ -1,6 +1,6 @@
 /* M4L V102.12.8 - Academic Calendar responsive batch administration and editable Holiday overrides. */
 
-import { getAuthUser } from "../lib/auth.js";
+import { getAuthUser as defaultGetAuthUser } from "../lib/auth.js";
 import {
   ACADEMY_CALENDAR_EVENT_TYPES,
   buildAcademyCalendarEvents,
@@ -9,15 +9,22 @@ import {
   normalizeTeachingImpact,
   validateAcademyCalendarRecord
 } from "../lib/academy-calendar.js";
-import { batchUpdateGoogleSheetValues } from "../lib/google-sheets.js";
+import { batchUpdateGoogleSheetValues as defaultBatchUpdateGoogleSheetValues } from "../lib/google-sheets.js";
 import { json } from "../lib/http.js";
-import { getPlatformSpreadsheetId, readPlatformSheet } from "../lib/platform-sheet.js";
+import { getPlatformSpreadsheetId as defaultGetPlatformSpreadsheetId, readPlatformSheet as defaultReadPlatformSheet } from "../lib/platform-sheet.js";
 import { isActivePlatformValue, normalizePlatformIdentifier, PLATFORM_SHEET_HEADERS } from "../lib/platform-schema.js";
 
 const CALENDAR_SCHEMA_VERSIONS = new Set(["102.0.8", "102.0.9", "102.0.10", "102.0.11", "102.0.12"]);
 const GENERATED_PUBLIC_HOLIDAY_PREFIX = "SA-PUBLIC-HOLIDAY-";
 
-export async function getAcademyCalendarAdminEndpoint(request, env) {
+// Storage dependencies are scoped to this service instance, never shared between requests.
+export function createAcademyCalendarEndpoints(storage = {}) {
+  const getAuthUser = storage.getAuthUser || defaultGetAuthUser;
+  const batchUpdateGoogleSheetValues = storage.batchUpdateGoogleSheetValues || defaultBatchUpdateGoogleSheetValues;
+  const getPlatformSpreadsheetId = storage.getPlatformSpreadsheetId || defaultGetPlatformSpreadsheetId;
+  const readPlatformSheet = storage.readPlatformSheet || defaultReadPlatformSheet;
+
+async function getAcademyCalendarAdminEndpoint(request, env) {
   const permission = await requireCalendarAdmin(request, env);
   if (!permission.ok) return permission.response;
   try {
@@ -42,7 +49,7 @@ export async function getAcademyCalendarAdminEndpoint(request, env) {
   }
 }
 
-export async function saveAcademyCalendarBatchEndpoint(request, env) {
+async function saveAcademyCalendarBatchEndpoint(request, env) {
   const permission = await requireCalendarAdmin(request, env);
   if (!permission.ok) return permission.response;
   try {
@@ -199,7 +206,7 @@ export async function saveAcademyCalendarBatchEndpoint(request, env) {
   }
 }
 
-export async function saveAcademyCalendarEventEndpoint(request, env) {
+async function saveAcademyCalendarEventEndpoint(request, env) {
   const permission = await requireCalendarAdmin(request, env);
   if (!permission.ok) return permission.response;
   try {
@@ -466,3 +473,8 @@ function valueWrite(sheetName, rowNumber, row) { return { range: `'${sheetName}'
 function columnName(number) { let n = Number(number), out = ""; while (n > 0) { const r = (n - 1) % 26; out = String.fromCharCode(65 + r) + out; n = Math.floor((n - 1) / 26); } return out; }
 function createId(prefix) { return `${prefix}-${crypto.randomUUID()}`; }
 async function readBody(request) { try { return await request.json(); } catch { return {}; } }
+
+  return { getAcademyCalendarAdminEndpoint, saveAcademyCalendarBatchEndpoint, saveAcademyCalendarEventEndpoint };
+}
+
+export const { getAcademyCalendarAdminEndpoint, saveAcademyCalendarBatchEndpoint, saveAcademyCalendarEventEndpoint } = createAcademyCalendarEndpoints();

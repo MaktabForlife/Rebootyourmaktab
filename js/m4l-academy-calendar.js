@@ -132,7 +132,7 @@
     setMessage("Loading Academic Calendar…", "");
     setContent('<p class="helper-text">Loading Academic Calendar…</p>');
     try {
-      const result = await apiPost("/api/admin/platform/calendar/get", { year: model.year });
+      const result = await workflowPost("/api/admin/platform/calendar/get", { year: model.year });
       if (!result.success) throw new Error(result.detail || result.error || "Unable to load Academic Calendar");
       model.events = array(result.events);
       model.storedEvents = array(result.storedEvents);
@@ -404,7 +404,7 @@
     button.disabled = true;
     button.classList.add("is-saving");
     try {
-      const result = await apiPost("/api/admin/platform/calendar/batch-save", { changes });
+      const result = await workflowPost("/api/admin/platform/calendar/batch-save", { changes });
       if (!result.success) throw new Error(result.detail || result.error || "Unable to save Academic Calendar changes");
       clearSectionDrafts(type);
       model.loaded = false;
@@ -539,6 +539,26 @@
   function todayIso() { const d = new Date(); return iso(d.getFullYear(), d.getMonth()+1, d.getDate()); }
   function html(value) { return String(value ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;"); }
   function attr(value) { return html(value); }
+
+
+  // D1 writes retain their identifier after an uncertain response. A changed
+  // draft gets a new identifier; successful steps advance the saved revision.
+  let workflowRevision = null;
+  const pendingWorkflowChanges = new Map();
+  async function workflowPost(path, body, token) {
+    const writing = !path.endsWith("/get");
+    let input = body;
+    let retryKey = "";
+    if (writing && workflowRevision !== null) {
+      retryKey = JSON.stringify([path, body, workflowRevision]);
+      if (!pendingWorkflowChanges.has(retryKey)) pendingWorkflowChanges.set(retryKey, crypto.randomUUID());
+      input = { ...body, workflowRevision, operationId: pendingWorkflowChanges.get(retryKey) };
+    }
+    const result = await apiPost(path, input, token);
+    if (result.success && result.workflowStore === "D1") workflowRevision = String(result.workflowRevision);
+    if (result.success && retryKey) pendingWorkflowChanges.delete(retryKey);
+    return result;
+  }
 
   bind();
   window.M4LAcademyCalendar = Object.freeze({ show, load, syncAccess });

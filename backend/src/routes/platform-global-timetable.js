@@ -1,6 +1,6 @@
 /* M4L V104.5.4 - Derived-by-default Courses with explicit sessions and materialised exceptions. */
 
-import { getAuthUser } from "../lib/auth.js";
+import { getAuthUser as defaultGetAuthUser } from "../lib/auth.js";
 import { buildAcademyCalendarEvents, noTeachingEventsOnDates } from "../lib/academy-calendar.js";
 import {
   COURSE_SCHEDULE_MODE_DERIVED,
@@ -40,9 +40,9 @@ import {
   normalizeGlobalSessionStatus,
   resolveCurrentSessionLifecycle
 } from "../lib/global-timetable-lifecycle.js";
-import { batchUpdateGoogleSheetValues } from "../lib/google-sheets.js";
+import { batchUpdateGoogleSheetValues as defaultBatchUpdateGoogleSheetValues } from "../lib/google-sheets.js";
 import { json } from "../lib/http.js";
-import { getPlatformSpreadsheetId, readPlatformSheet } from "../lib/platform-sheet.js";
+import { getPlatformSpreadsheetId as defaultGetPlatformSpreadsheetId, readPlatformSheet as defaultReadPlatformSheet } from "../lib/platform-sheet.js";
 import {
   isActivePlatformValue,
   normalizePlatformIdentifier,
@@ -54,7 +54,14 @@ const MAX_SESSION_DESCRIPTION_LENGTH = 400;
 const HTTPS_URL_PATTERN = /^https:\/\//i;
 const TIMETABLE_SCHEMA_VERSIONS = new Set(["102.0.7", "102.0.8", "102.0.9", "102.0.10", "102.0.11", "102.0.12"]);
 
-export async function getPlatformGlobalTimetableEndpoint(request, env) {
+// Storage dependencies are scoped to this service instance, never shared between requests.
+export function createGlobalTimetableEndpoints(storage = {}) {
+  const getAuthUser = storage.getAuthUser || defaultGetAuthUser;
+  const batchUpdateGoogleSheetValues = storage.batchUpdateGoogleSheetValues || defaultBatchUpdateGoogleSheetValues;
+  const getPlatformSpreadsheetId = storage.getPlatformSpreadsheetId || defaultGetPlatformSpreadsheetId;
+  const readPlatformSheet = storage.readPlatformSheet || defaultReadPlatformSheet;
+
+async function getPlatformGlobalTimetableEndpoint(request, env) {
   const permission = await requireGlobalTimetableAdmin(request, env);
   if (!permission.ok) return permission.response;
 
@@ -90,7 +97,7 @@ export async function getPlatformGlobalTimetableEndpoint(request, env) {
   }
 }
 
-export async function generatePlatformGlobalTimetableSessionsEndpoint(request, env) {
+async function generatePlatformGlobalTimetableSessionsEndpoint(request, env) {
   const permission = await requireGlobalTimetableAdmin(request, env);
   if (!permission.ok) return permission.response;
 
@@ -199,7 +206,7 @@ export async function generatePlatformGlobalTimetableSessionsEndpoint(request, e
   }
 }
 
-export async function materializePlatformGlobalTimetableExceptionEndpoint(request, env) {
+async function materializePlatformGlobalTimetableExceptionEndpoint(request, env) {
   const permission = await requireGlobalTimetableAdmin(request, env);
   if (!permission.ok) return permission.response;
 
@@ -315,7 +322,7 @@ export async function materializePlatformGlobalTimetableExceptionEndpoint(reques
   }
 }
 
-export async function savePlatformGlobalTimetableSessionEndpoint(request, env) {
+async function savePlatformGlobalTimetableSessionEndpoint(request, env) {
   const permission = await requireGlobalTimetableAdmin(request, env);
   if (!permission.ok) return permission.response;
 
@@ -417,7 +424,7 @@ export async function savePlatformGlobalTimetableSessionEndpoint(request, env) {
   }
 }
 
-export async function savePlatformGlobalTimetableSessionBatchEndpoint(request, env) {
+async function savePlatformGlobalTimetableSessionBatchEndpoint(request, env) {
   const permission = await requireGlobalTimetableAdmin(request, env);
   if (!permission.ok) return permission.response;
 
@@ -594,7 +601,7 @@ export async function savePlatformGlobalTimetableSessionBatchEndpoint(request, e
   }
 }
 
-export async function revisePlatformGlobalTimetableEndpoint(request, env) {
+async function revisePlatformGlobalTimetableEndpoint(request, env) {
   const permission = await requireGlobalTimetableAdmin(request, env);
   if (!permission.ok) return permission.response;
   try {
@@ -626,7 +633,7 @@ export async function revisePlatformGlobalTimetableEndpoint(request, env) {
   }
 }
 
-export async function reschedulePlatformGlobalTimetableSessionEndpoint(request, env) {
+async function reschedulePlatformGlobalTimetableSessionEndpoint(request, env) {
   const permission = await requireGlobalTimetableAdmin(request, env);
   if (!permission.ok) return permission.response;
   try {
@@ -698,7 +705,7 @@ export async function reschedulePlatformGlobalTimetableSessionEndpoint(request, 
   }
 }
 
-export async function publishPlatformGlobalTimetableEndpoint(request, env) {
+async function publishPlatformGlobalTimetableEndpoint(request, env) {
   const permission = await requireGlobalTimetableAdmin(request, env);
   if (!permission.ok) return permission.response;
 
@@ -1586,3 +1593,8 @@ function globalTimetableError(error, env) {
 function clean(value) {
   return String(value ?? "").trim();
 }
+
+  return { getPlatformGlobalTimetableEndpoint, generatePlatformGlobalTimetableSessionsEndpoint, materializePlatformGlobalTimetableExceptionEndpoint, savePlatformGlobalTimetableSessionEndpoint, savePlatformGlobalTimetableSessionBatchEndpoint, revisePlatformGlobalTimetableEndpoint, reschedulePlatformGlobalTimetableSessionEndpoint, publishPlatformGlobalTimetableEndpoint };
+}
+
+export const { getPlatformGlobalTimetableEndpoint, generatePlatformGlobalTimetableSessionsEndpoint, materializePlatformGlobalTimetableExceptionEndpoint, savePlatformGlobalTimetableSessionEndpoint, savePlatformGlobalTimetableSessionBatchEndpoint, revisePlatformGlobalTimetableEndpoint, reschedulePlatformGlobalTimetableSessionEndpoint, publishPlatformGlobalTimetableEndpoint } = createGlobalTimetableEndpoints();

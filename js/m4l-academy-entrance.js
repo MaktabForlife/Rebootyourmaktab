@@ -87,6 +87,7 @@
       state.startDate = result.startDate;
       $('schedule-date').value = result.startDate;
       $('schedule-range').textContent = `${formatDate(result.startDate)} – ${formatDate(result.endDate)}`;
+      renderCalendar(result);
       $('entrance-message').textContent = result.warnings.join(' ');
       $('entrance-retry').hidden = !result.warnings.length;
       renderHome();
@@ -111,14 +112,27 @@
       state.startDate = result.startDate;
       $('schedule-date').value = result.startDate;
       $('schedule-range').textContent = `${formatDate(result.startDate)} – ${formatDate(result.endDate)}`;
+      renderCalendar(result);
       $('schedule-message').textContent = result.warnings.join(' ');
       renderSchedule('academy-sessions', scheduleRows(result));
     } catch (error) {
       if (generation !== state.scheduleGeneration) return;
       $('schedule-message').textContent = error.message;
       $('academy-sessions').replaceChildren();
+      renderCalendar({});
       state.information['academy-sessions'] = [];
     }
+  }
+
+  function renderCalendar(data) {
+    const target = $('academy-calendar-context');
+    if (!target) return;
+    const events = Array.isArray(data.calendarEvents) ? data.calendarEvents : [];
+    target.hidden = !events.length;
+    target.innerHTML = events.map(event => {
+      const dates = event.startDate === event.endDate ? formatDate(event.startDate) : `${formatDate(event.startDate)} – ${formatDate(event.endDate)}`;
+      return `<li><strong>${esc(event.description)}</strong> · ${esc(dates)}${event.islamicDate ? ` · ${esc(event.islamicDate)}` : ''}${event.teachingImpact === 'NO_TEACHING' ? ' · No teaching' : ''}</li>`;
+    }).join('');
   }
 
   function renderHome() {

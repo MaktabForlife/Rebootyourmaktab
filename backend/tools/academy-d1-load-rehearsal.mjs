@@ -7,6 +7,7 @@ import {DatabaseSync} from 'node:sqlite';
 import {performance} from 'node:perf_hooks';
 import {flowFixture} from '../tests/fixtures/academy-d1-fixture.mjs';
 import {buildOperationalImport,importOperationalPlan,operationalSQL,migrations} from './academy-migration/operational.mjs';
+import {buildCourseCalendarImport,courseCalendarSQL} from './academy-migration/course-calendar.mjs';
 import {buildLearningImport,learningSQL} from './academy-migration/learning.mjs';
 import {withLearningSource,subject,moduleId} from '../tests/fixtures/academy-d1-learning-fixture.mjs';
 import {WEEKLY_SCHEMA,programToday} from '../src/programs/weekly-timetable.js';
@@ -25,7 +26,7 @@ try {
   const {build}=await import(pathToFileURL(join(runtime,'esbuild/lib/main.js')));
   const miniflare=await import(pathToFileURL(join(runtime,'miniflare/dist/src/index.js')));
   const {snapshot,policy}=await flowFixture(200);withLearningSource(snapshot);
-  const plan=await buildOperationalImport(snapshot,policy),learning=buildLearningImport(snapshot,plan);
+  const plan=await buildOperationalImport(snapshot,policy),learning=buildLearningImport(snapshot,plan),courseCalendar=buildCourseCalendarImport(snapshot,plan);
   const native=new DatabaseSync(':memory:');try{importOperationalPlan(native,plan);}finally{native.close();}
   const config=save('wrangler.json',JSON.stringify({name:'academy-d1-load-local',compatibility_date:compatibilityDate,d1_databases:[{binding:'ACADEMY_DB',database_name:'academy-load-local',database_id:'00000000-0000-4000-8000-000000000003'}]}));
   const state=join(directory,'state');
@@ -40,6 +41,8 @@ try {
   run(resolve('backend/migrations/academy/0004_management_transactions.sql'),'MANAGEMENT_RUNTIME_EXTENSION');
   run(resolve('backend/migrations/academy/0005_learning_workflows.sql'),'LEARNING_RUNTIME_EXTENSION');
   run(save('synthetic-learning.sql',learningSQL(learning)),'LEARNING_IMPORT');
+  run(resolve('backend/migrations/academy/0006_course_calendar_workflows.sql'),'COURSE_CALENDAR_EXTENSION');
+  run(save('synthetic-course-calendar.sql',courseCalendarSQL(courseCalendar)),'COURSE_CALENDAR_IMPORT');
   const bundle=join(directory,'worker.js');
   await build({entryPoints:['backend/src/worker-runtime.js'],bundle:true,format:'esm',platform:'browser',target:'es2022',external:['cloudflare:workers'],outfile:bundle,logLevel:'silent'});
   let outboundRequests=0;
@@ -138,10 +141,28 @@ try {
     const response=await post('/api/academy/library/catalogue',{},token);ensure(response);return response.status;
   }));
   if((await db.prepare('SELECT count(*) AS n FROM attendance_marks').first()).n<90)throw Error('Large attendance batch failed');
+  step='COURSE_CALENDAR_SMOKE';
+  const courses='/api/admin/platform/global/',calendar='/api/admin/platform/calendar/';
+  let courseView=ensure(await post(courses+'delivery/get',{},admin));
+  const courseSave={subjectId:'subject-1',runName:'Runtime course',startDate:'2026-10-10',endDate:'2026-10-17',active:true,accessModel:'PAID',scheduleMode:'DERIVED',
+    scheduleDefinition:[{rulekey:'runtime-course-rule',days:['MON','TUE','WED','THU','FRI','SAT','SUN'],starttime:'12:00',endtime:'13:00',moduleid:'module-1',teacheraccountid:'account-0003',zoomlink:''}],workflowRevision:courseView.workflowRevision,operationId:crypto.randomUUID()};
+  courseView=ensure(await post(courses+'run/save',courseSave,admin));
+  const coursePublish={runId:courseView.run.runid,workflowRevision:courseView.workflowRevision,operationId:crypto.randomUUID()};
+  const coursePublication=ensure(await post(courses+'timetable/publish',coursePublish,admin));
+  if(!ensure(await post(courses+'timetable/publish',coursePublish,admin)).replayed)throw Error('Course publication replay failed');
+  const courseHome=ensure(await post('/api/academy/entrance',{startDate:'2026-10-10'},tokens[13]));
+  if(courseHome.personalTimetable.some(s=>s.offeringId===courseView.run.runid))throw Error('Paid Course leaked through free subject');
+  const calendarView=ensure(await post(calendar+'get',{year:2026},admin));
+  const calendarChanges=['First','Second'].map(description=>post(calendar+'batch-save',{changes:[{eventType:'TERM',description,startDate:'2026-10-10',endDate:'2026-10-17',active:true}],workflowRevision:calendarView.workflowRevision,operationId:crypto.randomUUID()},admin));
+  const calendarResults=await Promise.all(calendarChanges);
+  if(calendarResults.map(r=>r.status).sort().join(',')!=='200,409')throw Error('Calendar concurrency guard failed');
+  ensure(await post(courses+'timetable/get',{},scopedAdmin),403);
+  const publishedCourseCount=await db.prepare('SELECT count(*) AS n FROM published_lessons WHERE publication_id=?').bind(coursePublication.publication.publicationid).first();
+  if(publishedCourseCount.n!==8)throw Error('Normalized Course publication failed');
   if((await db.prepare('SELECT count(*) AS n FROM academy_write_guards').first()).n!==0)throw Error('Management guard left behind');
   if(outboundRequests!==0)throw Error('Unexpected external request');
   const report={success:true,runtime:'LOCAL_WORKERS_D1',workerEntrypoint:'backend/src/worker-runtime.js',compatibilityDate,syntheticAccounts:true,...burst,securitySmokeChecks:'PASS',externalRequests:outboundRequests,
-    managementSmokeChecks:'PASS',learningSmokeChecks:'PASS',simultaneousLibraryReads:learningReadResults.length,cloudPerformanceMeasured:false,cutoverReady:false};
+    managementSmokeChecks:'PASS',learningSmokeChecks:'PASS',courseCalendarSmokeChecks:'PASS',simultaneousLibraryReads:learningReadResults.length,cloudPerformanceMeasured:false,cutoverReady:false};
   save('report.json',JSON.stringify(report,null,2));
   console.log(JSON.stringify({step:'COMPLETE',...report,privateReport:join(directory,'report.json')}));
 }catch(error){console.error(JSON.stringify({success:false,step,code:'LOCAL_D1_FLOW_REHEARSAL_FAILED',status:error.status || null,message:error.message}));process.exitCode=1;}

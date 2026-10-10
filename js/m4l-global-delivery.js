@@ -90,7 +90,7 @@
     setMessage("Loading global-subject delivery settings…", "");
     setContent('<p class="helper-text">Loading Delivery…</p>');
     try {
-      const result = await apiPost("/api/admin/platform/global/delivery/get", {}, appState()?.token || "");
+      const result = await workflowPost("/api/admin/platform/global/delivery/get", {}, appState()?.token || "");
       if (!result.success) throw new Error(result.error || "Unable to load Delivery settings");
       model.data = {
         globalCurriculumVersion: Number(result.globalCurriculumVersion) || 0,
@@ -207,7 +207,7 @@
     button.disabled = true;
     model.loading = true;
     try {
-      const result = await apiPost("/api/admin/platform/global/policy/save", {
+      const result = await workflowPost("/api/admin/platform/global/policy/save", {
         subjectId: model.selectedSubjectId,
         accessModel: value("gcm-delivery-access-model")
       }, appState()?.token || "");
@@ -231,7 +231,7 @@
     button.disabled = true;
     model.loading = true;
     try {
-      const result = await apiPost("/api/admin/platform/global/run/save", {
+      const result = await workflowPost("/api/admin/platform/global/run/save", {
         runId: value("gcm-delivery-run-id"),
         subjectId: model.selectedSubjectId,
         runName: value("gcm-delivery-run-name"),
@@ -352,6 +352,26 @@
 
   function attr(value) {
     return html(value);
+  }
+
+
+  // D1 writes retain their identifier after an uncertain response. A changed
+  // draft gets a new identifier; successful steps advance the saved revision.
+  let workflowRevision = null;
+  const pendingWorkflowChanges = new Map();
+  async function workflowPost(path, body, token) {
+    const writing = !path.endsWith("/get");
+    let input = body;
+    let retryKey = "";
+    if (writing && workflowRevision !== null) {
+      retryKey = JSON.stringify([path, body, workflowRevision]);
+      if (!pendingWorkflowChanges.has(retryKey)) pendingWorkflowChanges.set(retryKey, crypto.randomUUID());
+      input = { ...body, workflowRevision, operationId: pendingWorkflowChanges.get(retryKey) };
+    }
+    const result = await apiPost(path, input, token);
+    if (result.success && result.workflowStore === "D1") workflowRevision = String(result.workflowRevision);
+    if (result.success && retryKey) pendingWorkflowChanges.delete(retryKey);
+    return result;
   }
 
   bind();

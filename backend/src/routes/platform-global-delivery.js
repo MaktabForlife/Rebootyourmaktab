@@ -1,6 +1,6 @@
 /* M4L V104.5.3 - Global Courses metadata, access, derived scheduling and staged schema migrations. */
 
-import { getAuthUser } from "../lib/auth.js";
+import { getAuthUser as defaultGetAuthUser } from "../lib/auth.js";
 import {
   countActiveGlobalSubjectSubscriptions,
   deriveGlobalSubjectRunStatus,
@@ -11,7 +11,7 @@ import {
   strongestGlobalSubjectDeliveryStatus,
   validateIsoDate
 } from "../lib/global-subject-delivery.js";
-import { batchUpdateGoogleSheetValues } from "../lib/google-sheets.js";
+import { batchUpdateGoogleSheetValues as defaultBatchUpdateGoogleSheetValues } from "../lib/google-sheets.js";
 import {
   COURSE_SCHEDULE_MODE_DERIVED,
   COURSE_SCHEDULE_MODE_EXPLICIT,
@@ -23,8 +23,8 @@ import {
 } from "../lib/global-course-scheduling.js";
 import { json } from "../lib/http.js";
 import {
-  getPlatformSpreadsheetId,
-  readPlatformSheet
+  getPlatformSpreadsheetId as defaultGetPlatformSpreadsheetId,
+  readPlatformSheet as defaultReadPlatformSheet
 } from "../lib/platform-sheet.js";
 import {
   isActivePlatformValue,
@@ -43,7 +43,14 @@ const LEGACY_COURSE_SCHEDULE_SCHEMA_VERSIONS = new Set(["102.0.9", "102.0.10", "
 const COURSE_SCHEDULE_MODE_SET = new Set(COURSE_SCHEDULE_MODES);
 const HTTPS_URL_PATTERN = /^https:\/\//i;
 
-export async function getPlatformGlobalDeliveryEndpoint(request, env) {
+// Storage dependencies are scoped to this service instance, never shared between requests.
+export function createGlobalDeliveryEndpoints(storage = {}) {
+  const getAuthUser = storage.getAuthUser || defaultGetAuthUser;
+  const batchUpdateGoogleSheetValues = storage.batchUpdateGoogleSheetValues || defaultBatchUpdateGoogleSheetValues;
+  const getPlatformSpreadsheetId = storage.getPlatformSpreadsheetId || defaultGetPlatformSpreadsheetId;
+  const readPlatformSheet = storage.readPlatformSheet || defaultReadPlatformSheet;
+
+async function getPlatformGlobalDeliveryEndpoint(request, env) {
   const permission = await requireDeliveryAdmin(request, env);
   if (!permission.ok) return permission.response;
 
@@ -67,7 +74,7 @@ export async function getPlatformGlobalDeliveryEndpoint(request, env) {
   }
 }
 
-export async function savePlatformGlobalSubjectPolicyEndpoint(request, env) {
+async function savePlatformGlobalSubjectPolicyEndpoint(request, env) {
   const permission = await requireDeliveryAdmin(request, env);
   if (!permission.ok) return permission.response;
 
@@ -143,7 +150,7 @@ export async function savePlatformGlobalSubjectPolicyEndpoint(request, env) {
   }
 }
 
-export async function savePlatformGlobalSubjectRunEndpoint(request, env) {
+async function savePlatformGlobalSubjectRunEndpoint(request, env) {
   const permission = await requireDeliveryAdmin(request, env);
   if (!permission.ok) return permission.response;
 
@@ -340,7 +347,7 @@ export async function savePlatformGlobalSubjectRunEndpoint(request, env) {
   }
 }
 
-export async function migratePlatformGlobalCourseAccessEndpoint(request, env) {
+async function migratePlatformGlobalCourseAccessEndpoint(request, env) {
   const permission = await requireDeliveryAdmin(request, env);
   if (!permission.ok) return permission.response;
   if (permission.user.role !== "GLOBAL_ADMIN") {
@@ -410,7 +417,7 @@ export async function migratePlatformGlobalCourseAccessEndpoint(request, env) {
   }
 }
 
-export async function migratePlatformGlobalCourseSchedulingEndpoint(request, env) {
+async function migratePlatformGlobalCourseSchedulingEndpoint(request, env) {
   const permission = await requireDeliveryAdmin(request, env);
   if (!permission.ok) return permission.response;
   if (permission.user.role !== "GLOBAL_ADMIN") {
@@ -900,3 +907,8 @@ function deliveryError(error, env) {
 function clean(value) {
   return String(value ?? "").trim();
 }
+
+  return { getPlatformGlobalDeliveryEndpoint, savePlatformGlobalSubjectPolicyEndpoint, savePlatformGlobalSubjectRunEndpoint, migratePlatformGlobalCourseAccessEndpoint, migratePlatformGlobalCourseSchedulingEndpoint };
+}
+
+export const { getPlatformGlobalDeliveryEndpoint, savePlatformGlobalSubjectPolicyEndpoint, savePlatformGlobalSubjectRunEndpoint, migratePlatformGlobalCourseAccessEndpoint, migratePlatformGlobalCourseSchedulingEndpoint } = createGlobalDeliveryEndpoints();

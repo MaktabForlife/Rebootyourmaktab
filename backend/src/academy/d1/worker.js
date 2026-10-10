@@ -6,6 +6,7 @@ import { d1Programs } from './programs.js';
 import {d1Learning} from './learning.js';
 import {learningAvailable} from './learning-state.js';
 import {d1Library,d1LibraryStream} from './library.js';
+import {d1CourseCalendar} from './course-calendar.js';
 
 const audience='academy-d1-rehearsal';
 const contextEqual=(a,b)=>a.scope===b.scope&&a.courseId.toUpperCase()===b.courseId.toUpperCase()&&a.role===b.role;
@@ -87,6 +88,9 @@ async function dispatch(request,env) {
     return {success:true,...await d1Entrance(repository,auth?.state,auth?.user,input)};
   }
   const auth=await authenticated(request,env,repository);
+  const courseAction=path==='/api/admin/platform/global/get'?'get':path.match(/^\/api\/admin\/platform\/global\/((?:delivery|policy|run|timetable)(?:\/[a-z-]+){1,2})$/)?.[1];
+  const calendarAction=path.match(/^\/api\/admin\/platform\/calendar\/(get|save|batch-save)$/)?.[1];
+  if(courseAction||calendarAction)return {success:true,...await d1CourseCalendar(repository,auth).run(calendarAction?`calendar/${calendarAction}`:courseAction,input)};
   const timetableAction=path.match(/^\/api\/admin\/platform\/program-timetable\/(get|save|publish|history|published|preview|validate|prepare|prepare-library)$/)?.[1];
   const attendanceAction=path.match(/^\/api\/program-attendance\/(get|submit|prepare|recover)$/)?.[1];
   if(timetableAction||attendanceAction) {
@@ -149,7 +153,7 @@ export default {
       const unavailable=status>=500&&status!==501;
       if(status===429)headers['Retry-After']='60';
       return new Response(JSON.stringify({success:false,error:unavailable?'Academy information is temporarily unavailable. Please try again.':error.message,
-        code:unavailable?(['MANAGEMENT_SCHEMA_REQUIRED','LEARNING_IMPORT_REQUIRED','UPLOAD_BRIDGE_REQUIRED'].includes(error.code)?error.code:'ACADEMY_D1_UNAVAILABLE'):error.code,retryable:unavailable||status===429,...(status===429?{retryAfterMs:60000}:{}),
+        code:unavailable?(['MANAGEMENT_SCHEMA_REQUIRED','LEARNING_IMPORT_REQUIRED','COURSE_IMPORT_REQUIRED','UPLOAD_BRIDGE_REQUIRED'].includes(error.code)?error.code:'ACADEMY_D1_UNAVAILABLE'):error.code,retryable:unavailable||status===429,...(status===429?{retryAfterMs:60000}:{}),
         ...(status===409?Object.fromEntries(['currentRecord','rowRevision','entryKey'].filter(k=>error[k]!==undefined).map(k=>[k,error[k]])):{} )}),{status,headers});}
   }
 };

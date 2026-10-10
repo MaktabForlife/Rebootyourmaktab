@@ -69,6 +69,7 @@ const fetch = async (_url, options) => {
     {...base,activityId:'CANCELLED',title:'Cancelled item',status:'CANCELLED'}];
   const result = { success:true,signedIn,globalAdmin:signedIn&&globalAdmin,student:signedIn&&activities.some(item=>item.roles.includes('STUDENT')),startDate:body.startDate||'2026-10-05',endDate:'2026-10-11',warnings:[],
     activities,personalActivities:signedIn?activities.filter(item=>item.roles.length):[],timetable:homeTimetable.map(event=>{const publicEvent={...event};delete publicEvent.joinUrl;return publicEvent;}),activity:body.id?activities.find(item=>item.id===body.id):null };
+  result.calendarEvents=[{description:'Holiday <script>',startDate:'2026-10-07',endDate:'2026-10-07',teachingImpact:'NO_TEACHING'}];
   result.personalTimetable=signedIn ? (globalAdmin ? result.timetable.filter(event=>event.status!=='CANCELLED').map(stamp) : body.id ? [
     ...row.timetable.map(stamp),
     ...row.timetable.map(event=>stamp({...event,date:'2026-10-06',title:'Tomorrow Program lesson'})),
@@ -123,6 +124,10 @@ class FixtureDate extends RealDate { constructor(...args) { super(...(args.lengt
 vm.runInNewContext(script, { window, document, location, localStorage:{getItem:key=>storage.get(key)||null}, fetch, Event,
   Intl, Date:FixtureDate, setInterval() {}, setTimeout(fn,delay) { const id=++nextTimer;timers.set(id,{fn,delay});return id; }, clearTimeout(id) {timers.delete(id);}, matchMedia:()=>({matches:false}) });
 await flush();
+assert.equal($('academy-calendar-context').hidden,false);
+assert.match($('academy-calendar-context').innerHTML,/Holiday &lt;script&gt;/);
+assert.match($('academy-calendar-context').innerHTML,/No teaching/);
+assert.doesNotMatch($('academy-calendar-context').innerHTML,/<script>/);
 assert.equal($('personal-activities').hidden,true);
 assert.equal($('academy-progress-nav').hidden,true);
 assert.equal($('academy-recorder-nav').hidden,true);

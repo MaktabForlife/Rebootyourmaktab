@@ -51,3 +51,5 @@ node backend/tools/academy-d1-browser-preview.mjs \
 The tool prints a loopback URL and synthetic account details. `login-0002` has test PIN `1234`; `login-0012` starts without a PIN for setup/return-to-home testing. No real account PIN should be entered. Only the Academy/account pages and their approved static assets are served; private files and symlinks are refused. The browser API targets the local Worker, and the cloud database is not bound. The server listens on `127.0.0.1` and rejects unexpected Host headers. Stop it with Ctrl+C. An optional local `/__preview/report` returns only API paths/statuses and aggregate session counts, and saves that evidence privately.
 
 The earlier [main database preparation](ACADEMY-MAIN-D1-PREPARATION.md) remains valid. No cloud rows, migration checks or ownership state were changed by this integration. The website continues using Sheets, the candidate is not synchronized with subsequent edits, and `cutoverReady=false`.
+
+The subsequent [Course/calendar stage](ACADEMY-D1-COURSES-CALENDAR.md) adds run authoring/publication, explicit per-run access and shared calendar workflows locally, without changing the live store.

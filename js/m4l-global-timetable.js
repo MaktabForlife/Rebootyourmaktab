@@ -70,7 +70,7 @@
     setMessage("Loading exact-dated global timetable…", "");
     setContent('<p class="helper-text">Loading Schedule…</p>');
     try {
-      const result = await apiPost("/api/admin/platform/global/timetable/get", {}, appState()?.token || "");
+      const result = await workflowPost("/api/admin/platform/global/timetable/get", {}, appState()?.token || "");
       if (!result.success) throw new Error(result.detail || result.error || "Unable to load global timetable");
       model.data = {
         globalTimetableVersion: Number(result.globalTimetableVersion) || 0,
@@ -210,7 +210,7 @@
     if (!run) return setMessage("Select an active run first.", "error");
     const weekdays = [...document.querySelectorAll('[name="gcm-timetable-weekday"]:checked')].map(input => input.value);
     await withBusy(button, "Generating…", async () => {
-      const result = await apiPost("/api/admin/platform/global/timetable/generate", {
+      const result = await workflowPost("/api/admin/platform/global/timetable/generate", {
         runId: run.runid,
         moduleId: value("gcm-timetable-generate-module"),
         weekdays,
@@ -233,7 +233,7 @@
 
   async function saveSession(button) {
     await withBusy(button, "Saving…", async () => {
-      const result = await apiPost("/api/admin/platform/global/timetable/session/save", {
+      const result = await workflowPost("/api/admin/platform/global/timetable/session/save", {
         sessionId: value("gcm-timetable-edit-id"),
         sessionDate: value("gcm-timetable-edit-date"),
         startTime: value("gcm-timetable-edit-start"),
@@ -257,7 +257,7 @@
     const count = sessionsForRun(run.runid).filter(item => item.active).length;
     if (!window.confirm(`Publish ${count} active exact-dated session${count === 1 ? "" : "s"}? This snapshot will be immutable.`)) return;
     await withBusy(button, "Publishing…", async () => {
-      const result = await apiPost("/api/admin/platform/global/timetable/publish", { runId: run.runid }, appState()?.token || "");
+      const result = await workflowPost("/api/admin/platform/global/timetable/publish", { runId: run.runid }, appState()?.token || "");
       if (!result.success) throw new Error(result.error || result.detail || "Unable to publish timetable");
       model.loaded = false;
       setMessage(result.message || "Global timetable published.", "success");
@@ -319,6 +319,26 @@
   function appState() { return typeof state !== "undefined" && state ? state : null; }
   function html(value) { return String(value ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;"); }
   function attr(value) { return html(value); }
+
+
+  // D1 writes retain their identifier after an uncertain response. A changed
+  // draft gets a new identifier; successful steps advance the saved revision.
+  let workflowRevision = null;
+  const pendingWorkflowChanges = new Map();
+  async function workflowPost(path, body, token) {
+    const writing = !path.endsWith("/get");
+    let input = body;
+    let retryKey = "";
+    if (writing && workflowRevision !== null) {
+      retryKey = JSON.stringify([path, body, workflowRevision]);
+      if (!pendingWorkflowChanges.has(retryKey)) pendingWorkflowChanges.set(retryKey, crypto.randomUUID());
+      input = { ...body, workflowRevision, operationId: pendingWorkflowChanges.get(retryKey) };
+    }
+    const result = await apiPost(path, input, token);
+    if (result.success && result.workflowStore === "D1") workflowRevision = String(result.workflowRevision);
+    if (result.success && retryKey) pendingWorkflowChanges.delete(retryKey);
+    return result;
+  }
 
   bind();
   window.M4LGlobalTimetable = Object.freeze({ show, load });

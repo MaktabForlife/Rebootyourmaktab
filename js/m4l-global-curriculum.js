@@ -182,6 +182,7 @@
     try {
       const result = await apiPost("/api/admin/platform/global/get", {}, appState()?.token || "");
       if (!result.success) throw new Error(result.error || "Unable to load Global Curriculum");
+      if (result.coursesOnly && window.M4LGlobalCourseScheduler?.show) return await window.M4LGlobalCourseScheduler.show();
       model.data = {
         globalCurriculumVersion: Number(result.globalCurriculumVersion) || 0,
         subjects: array(result.subjects),

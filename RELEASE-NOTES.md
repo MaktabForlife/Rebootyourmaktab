@@ -1,10 +1,12 @@
-# Unreleased — D1 user, Program and learning workflows
+# Unreleased — D1 user, Program, learning, Course and calendar workflows
 
 Add atomic D1 account/profile, Program-role, registry, curriculum, class and enrolment management behind the isolated rehearsal mode. Apply the owner-approved Senior-to-Teacher and Admin-to-Program-Admin rules without changing original evidence or Global Admin grants. Preserve Student access.
 
 Extend the rehearsal with timetable authoring/publication, assigned-teacher attendance, Library metadata and session-bound protected Drive/R2 files. Reuse publishing and attendance rules, bulk-save learners and lessons, preserve supplemental active-Program history, and keep the main cloud import unchanged. Device upload support requires the updated Apps Script bridge deployment and its explicit D1 flag.
 
-Validate scoped permissions, stale saves, rollback, replay, current file access and the existing frontend scripts. All 114 regression test files pass; the local Workers/D1 runtime passes 200 simultaneous login/home flows and 196 concurrent Library reads with zero outbound requests. A private main-candidate copy preserves all four historical registers/21 marks and eight resources. Live Sheets routing remains unchanged. This work is not pushed or deployed. [Learning workflows and pending work](docs/ACADEMY-D1-LEARNING.md) · [Management stage](docs/ACADEMY-D1-MANAGEMENT.md).
+Add Course run management, explicit/derived scheduling and publication, per-run paid-access protection and shared Academic Calendar administration/context. Import 48 active calendar records locally, excluding inactive events while preserving removed-holiday dates.
+
+Validate scoped permissions, stale saves, rollback, replay, current file access and the existing frontend scripts. All 115 regression test files pass; the local Workers/D1 runtime passes 200 simultaneous login/home flows and 196 concurrent Library reads with zero outbound requests. A private main-candidate copy preserves all four historical registers/21 marks and eight resources. Live Sheets routing remains unchanged. This work is not pushed or deployed. [Course/calendar workflows and pending work](docs/ACADEMY-D1-COURSES-CALENDAR.md) · [Learning workflows](docs/ACADEMY-D1-LEARNING.md) · [Management stage](docs/ACADEMY-D1-MANAGEMENT.md).
 
 ---
 

@@ -101,14 +101,14 @@ export function academyD1Repository(env) {
       if(result[0].meta.changes!==1)throw rehearsalError('Account changed. Please refresh and try again.',409,'ACCOUNT_CHANGED');
       return this.byId(target.account.account_id);
     },
-    async homeData(state,start,end) {
+    async homeData(state,start,end,courseWorkflows=false) {
       const queries=[
         `SELECT a.*,p.timezone,p.duration_years,cs.legacy_access_model FROM activities a LEFT JOIN program_settings p USING(activity_key) LEFT JOIN course_settings cs USING(activity_key) WHERE a.active=1 AND a.lifecycle='ACTIVE'`,
         `SELECT p.* FROM timetable_publications p JOIN activities a USING(activity_key) WHERE a.active=1 AND a.lifecycle='ACTIVE' AND (p.pattern='COURSE' OR ((p.effective_from IS NULL OR p.effective_from<=?) AND (p.effective_until IS NULL OR p.effective_until>=?)))`,
         `SELECT p.*,s.subject_id,s.name AS subject_name FROM program_subjects p JOIN subject_catalog s USING(subject_key) WHERE p.active=1 AND s.active=1`,
         `SELECT * FROM modules WHERE active=1`, `SELECT * FROM classes WHERE active=1`,
         `SELECT * FROM class_memberships WHERE active=1 AND account_id=?`,
-        `SELECT r.* FROM course_runs r JOIN activities a USING(activity_key) WHERE r.active=1 AND a.active=1 AND a.lifecycle='ACTIVE'`,
+        `SELECT r.*${courseWorkflows?',ca.access_model AS run_access_model':''} FROM course_runs r JOIN activities a USING(activity_key) ${courseWorkflows?'JOIN course_run_access ca USING(activity_key,run_id)':''} WHERE r.active=1 AND a.active=1 AND a.lifecycle='ACTIVE'`,
         `SELECT s.* FROM course_run_state s JOIN course_runs r USING(activity_key,run_id) WHERE r.active=1`,
         `SELECT * FROM lesson_lifecycle`
       ];
