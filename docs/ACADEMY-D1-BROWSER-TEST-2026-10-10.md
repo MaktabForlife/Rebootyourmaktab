@@ -2,7 +2,7 @@
 
 The synthetic Academy now has a separate [test website](https://academy-d1-browser-test-20261010-a01264a4.maktab4life.workers.dev/academy/). The approved in-app browser can open this address. Desktop checks cover all four roles, attendance and profile saves surviving refresh, Program scope enforcement, sign-out, and an anonymous public PDF. **123/123 regression test files pass. Main V106.0 remains on Sheets.**
 
-This is desktop smoke-test evidence, not owner acceptance, complete device coverage or approval to activate the main database. No live migration review has been marked passed automatically.
+The owner subsequently confirmed that the logins work and deferred wording updates to ongoing website development. The desktop workflow evidence and owner login confirmation are available for final release review; they do not claim complete device/feature coverage or approve main activation. No live migration review has been marked passed automatically. See [main switch preparation](ACADEMY-D1-MAIN-SWITCH-PREPARATION-2026-10-10.md).
 
 ## Isolation and deployment
 
@@ -55,10 +55,10 @@ Four synthetic sign-in links and PINs are in the private `.academy-migration/bro
 
 Review Home, each role's permitted actions, one saved test edit after refresh, sign-out, and anonymous Library access on the browsers/devices actually used by learners and staff. Report the role, screen, action and visible failure for anything unexpected.
 
-Some management-screen text still describes setup or a later migration and mentions the preceding Senior/Admin vocabulary. The Program setup introduction also refers to spreadsheets. These need a separate display-copy review before release; this stage does not claim that every management label or every feature has been accepted. Synthetic fixture access-policy review messages are preserved rather than silently approving them.
+Some management-screen text still describes setup or a later migration and mentions the preceding Senior/Admin vocabulary. The Program setup introduction also refers to spreadsheets. The owner has deferred these wording updates to ongoing website development; they are not a migration prerequisite. This stage does not claim that every management label or every feature has been accepted. Synthetic fixture access-policy review messages are preserved rather than silently approving them.
 
 Private snapshots, deployment/build logs, test links, API results and browser observations are retained with restricted permissions under `.academy-migration/browser-site-20261010-c5b96e84/`. Do not publish that directory. The baseline snapshot predates the browser edits; ordinary active-state readback is not presented as a consistent full backup of those later writes.
 
-Before a main switch: complete owner/device acceptance and remaining display review; freeze all source writers and reconcile a fresh capture; verify final authority and backup; regenerate the concrete activation review against final code/data; obtain owner release approval; then perform the controlled deployment/activation. The [eight-check contract](ACADEMY-D1-CORE-ACTIVATION.md) remains mandatory. The new Module subscription/lifetime-media model remains unbuilt.
+Before a main switch: finalize browser acceptance using the desktop checks and owner-confirmed logins, with additional device coverage if required for release; freeze all source writers and reconcile the final capture; verify final authority and backup; regenerate the concrete activation review against final code/data; obtain owner release approval; then perform the controlled deployment/activation. Wording cleanup is deferred. The [eight-check contract](ACADEMY-D1-CORE-ACTIVATION.md) remains mandatory. The new Module subscription/lifetime-media model remains unbuilt.
 
 No feature push, main deployment, main schema/data/ownership change, main storage flag change or version bump occurred. A later feature push requires a synchronized new release version under `AGENTS.md`.
