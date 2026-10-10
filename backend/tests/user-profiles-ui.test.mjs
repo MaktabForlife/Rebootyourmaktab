@@ -145,7 +145,7 @@ console.log('Profiles UI: one Save all resolves a shared policy revision for mul
       {type:'SUBJECT',id:'C',name:'Course',prepared:true,rolesEditable:true,policyEditable:false,active:true,revision:'scope-c'}],
     accounts:[{accountId:'GLOBAL',displayName:'Synthetic Global Admin',active:true,academyAdmin:true,academyTeacher:false,revision:'profile',
       assignments:['PROGRAM','SUBJECT'].map((scopeType,i)=>({accountId:'GLOBAL',scopeType,scopeId:i?'C':'P',roles:[],inheritedRoles:['PROGRAM_ADMIN'],displayRoles:['PROGRAM_ADMIN'],revision:'grant-'+i}))}]};
-  const element=id=>{if(!elements.has(id))elements.set(id,{hidden:false,disabled:false,value:'',textContent:'',innerHTML:'',classList:{toggle(){}}});return elements.get(id);};
+  const element=id=>{if(!elements.has(id))elements.set(id,{hidden:false,disabled:false,value:'',textContent:'',innerHTML:'',classList:{toggle(){}},focus(){},showModal(){this.open=true;},close(){this.open=false;}});return elements.get(id);};
   vm.runInNewContext(source,{...context,document:{getElementById:element},sessionStorage:{getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)},fetch:async(url,options)=>{
     const action=url.split('/').at(-1),body=JSON.parse(options.body);requests.push({action,body});
     if(action==='save'&&body.mode==='profile'){data.accounts[0].academyTeacher=body.academyTeacher;return {ok:true,status:200,json:async()=>({success:true,profile:data.accounts[0]})};}
@@ -164,11 +164,14 @@ console.log('Profiles UI: one Save all resolves a shared policy revision for mul
     assert.deepEqual(requests.filter(r=>r.action==='save').at(-1).body.roles,['TEACHER']);
     assert.match(element('up-users').innerHTML,/>Program Admin · Teacher ▾/);
   }
-  assert.match(element('up-users').innerHTML,/Global Teacher for Synthetic Global Admin/);
+  assert.doesNotMatch(element('up-users').innerHTML,/data-global-teacher/);
+  element('up-global-status').onclick();
+  element('up-global-results').onclick({target:{closest:()=>({dataset:{globalUser:'GLOBAL'}})}});
+  assert.equal(element('up-global-name').textContent,'Synthetic Global Admin');
   const assignments=JSON.stringify(data.accounts[0].assignments);
-  element('up-users').onchange({target:{dataset:{globalTeacher:'',account:'GLOBAL'},checked:true}});
+  element('up-global-teacher').onchange({target:{checked:true}});
   element('up-save-all').onclick();await settled();
   const designation=requests.filter(r=>r.action==='save').at(-1).body;assert.equal(designation.mode,'profile');assert.equal(designation.academyTeacher,true);assert.equal(designation.academyAdmin,undefined);assert.equal(data.accounts[0].academyAdmin,true);assert.equal(JSON.stringify(data.accounts[0].assignments),assignments);
-  assert.match(element('up-users').innerHTML,/data-global-teacher[^>]*checked/);
+  assert.equal(element('up-global-teacher').checked,true);
 }
 console.log('Profiles UI: automatic Program Admin for Global Admins survives additional Program and Course role edits.');

@@ -57,7 +57,7 @@
 .upcoming-status.next-lesson-label{margin:0;font-size:10px}
 .timetable-empty{text-align:center;font-size:11px;color:var(--muted);padding:8px 4px}
 
-.combined-lesson+.combined-lesson{border-top:1px solid var(--line);margin-top:16px;padding-top:12px}.combined-lesson h3{font-size:16px;margin:0 0 6px}
+.combined-lesson+.combined-lesson{border-top:1px solid var(--line);margin-top:16px;padding-top:16px}.combined-lesson h3{font-size:17px;margin:0 0 7px;overflow-wrap:anywhere}.lesson-info-meta{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:4px 16px}#lesson-information-body .lesson-info-meta p{margin:0}.lesson-info-class{flex:1;min-width:0;overflow-wrap:anywhere}.lesson-info-time{flex-shrink:0;white-space:nowrap;font-variant-numeric:tabular-nums;color:var(--rose-dark);font-weight:700}#lesson-information-body .lesson-info-teacher{margin:6px 0 0;color:var(--muted);font-size:14px;overflow-wrap:anywhere}
 
 .academy-calendar-context{display:flex;flex-wrap:wrap;gap:.5rem 1rem;list-style:none;margin:0 0 1rem;padding:0}
 .academy-calendar-context[hidden]{display:none}
@@ -121,7 +121,7 @@
 .timetable-pill.teacher,.timetable-pill.mixed{border-width:2px;border-color:var(--rose-dark)}
 .timetable-pill.join-open{background:var(--rose-dark);border-color:var(--rose-dark);color:#fff}
 .timetable-pill.join-open .preview-clock{color:var(--rose-dark)}
-.timetable-join{flex:none;display:flex;align-items:center;justify-content:center;max-width:40px;min-height:38px;padding:4px 6px;border-radius:18px;background:#fff;color:var(--rose-dark);font-size:10px;line-height:1.15;font-weight:700;text-decoration:none;text-align:center}
+.timetable-join{border:0;cursor:pointer;font-family:inherit;flex:none;display:flex;align-items:center;justify-content:center;max-width:40px;min-height:38px;padding:4px 6px;border-radius:18px;background:#fff;color:var(--rose-dark);font-size:10px;line-height:1.15;font-weight:700;text-decoration:none;text-align:center}
 .timetable-join:hover{background:var(--rose-soft)}
 .course-catalogue{margin:20px 0}
 .course-list-filters{display:flex;flex-wrap:wrap;align-items:center;gap:8px}

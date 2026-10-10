@@ -8,11 +8,11 @@
   <link rel="icon" href="/admin-favicon-32x32.png">
   <link rel="stylesheet" href="/css/m4l-program-builder.css?v=106.1">
   <link rel="stylesheet" href="/css/m4l-academy-navigation.css?v=106.1">
-  <link rel="stylesheet" href="/css/m4l-user-profiles.css?v=106.8">
+  <link rel="stylesheet" href="/css/m4l-user-profiles.css?v=106.10">
 </head>
 <body class="user-profiles-sheet">
 <main>
-  <header class="up-titlebar"><h1>User profiles</h1><a id="up-back" href="/programs/">Programs</a><span class="pb-version">V106.9</span></header>
+  <header class="up-titlebar"><h1>User profiles</h1><a href="/academy/subjects/">Subjects &amp; Modules</a><a id="up-back" href="/programs/">Programs</a><span class="pb-version">V106.10</span></header>
   <p id="up-message" class="pb-message" role="status" aria-live="polite">Loading users…</p>
   <p id="up-wait" class="up-notice" role="status" hidden></p>
   <div id="up-pending" class="up-notice" hidden><span>Your change is kept until its save is confirmed.</span><button id="up-retry">Retry same change</button></div>
@@ -26,7 +26,7 @@
       <label class="pb-search"><span class="pb-sr-only">Find a user</span><input id="up-search" type="search" placeholder="Find a user…"></label>
       <label><span class="pb-sr-only">Status</span><select id="up-status-filter"><option value="">All users</option><option value="active">Active</option><option value="inactive">Inactive</option></select></label>
       <span id="up-count" class="pb-count"></span>
-      <button id="up-refresh" class="pb-secondary">↻ Refresh</button><button id="up-add">＋ Add user</button>
+      <button id="up-global-status" class="pb-secondary up-status-pill" hidden>Global status</button><button id="up-refresh" class="pb-secondary">↻ Refresh</button><button id="up-add">＋ Add user</button>
       <div class="up-save-bar"><span id="up-unsaved"></span><button id="up-save-all">Save all</button><button id="up-save" hidden>Save access setting</button><button id="up-cancel" class="pb-secondary" hidden>Discard all</button></div>
     </div>
     <div class="pm-scroll up-matrix-scroll" tabindex="0" role="region" aria-label="User profile sheet. Scroll horizontally for more Programs and Courses.">
@@ -35,12 +35,25 @@
   </section>
   <footer class="up-sheet-footer">
     <div id="up-draft-notice" hidden><span>Your unfinished entry is kept.</span><button id="up-return" class="pb-secondary">Find edits</button></div>
-    <details class="up-help"><summary>Editing help</summary><p>Edit names and status directly in the sheet. Select a Program or Course role cell to change Student, Teacher and Program Admin roles. Save all or Ctrl/⌘ + Enter saves your changes.</p><p>Global Admin applies to every Program and Course. Role cells edit additional scoped roles; they cannot remove Academy-wide authority. Existing Course subscribers appear as Students. None means no assigned role or Course subscription; access to a Free Course is separate.</p><p>Inactive keeps the account and its roles. Course Student changes also update the existing Course access control. Module media subscriptions are separate and are not available yet.</p><p id="up-review-count"></p><button id="up-setup" hidden>Set up / update matrix</button></details>
+    <details class="up-help"><summary>Editing help</summary><p>Edit names and status directly in the sheet. Select a Program or Course role cell to change Student, Teacher and Program Admin roles. Save all or Ctrl/⌘ + Enter saves your changes.</p><p>Select Global status, search for a user, and edit their Global Admin or Global Teacher designation. Select Save global status to apply the change. Another Global Admin must remove your own designation. Global Admin applies to every Program and Course. Role cells edit additional scoped roles; they cannot remove Academy-wide authority. Existing Course subscribers appear as Students. None means no assigned role or Course subscription; access to a Free Course is separate.</p><p>Inactive keeps the account and its roles. Course Student changes also update the existing Course access control. Module media subscriptions are separate and are not available yet.</p><p id="up-review-count"></p><button id="up-setup" hidden>Set up / update matrix</button></details>
   </footer>
   <dialog id="up-profile-dialog"><h2 id="up-profile-title"></h2><div id="up-profile-body"></div><button id="up-profile-close" class="pb-secondary">Close</button></dialog>
+  <dialog id="up-global-dialog" aria-labelledby="up-global-title">
+    <div class="up-global-heading"><h2 id="up-global-title">Global status</h2><button id="up-global-close" class="pb-secondary" type="button">Close</button></div>
+    <label class="up-global-search">Find a user<input id="up-global-search" type="search" placeholder="Search by name…" autocomplete="off"></label>
+    <div id="up-global-results" class="up-global-results" aria-label="Matching users"></div>
+    <section id="up-global-selection" hidden aria-label="Selected user's global roles">
+      <h3 id="up-global-name"></h3>
+      <label id="up-global-admin-option" class="up-global-option"><input id="up-global-admin" type="checkbox"><span><strong>Global Admin</strong><small>Admin access to every Program, Course and Academy record.</small></span></label>
+      <label id="up-global-teacher-option" class="up-global-option"><input id="up-global-teacher" type="checkbox"><span><strong>Global Teacher</strong><small>Academy teaching staff. Lesson access follows assignments.</small></span></label>
+      <p id="up-global-note" class="up-global-note"></p>
+    </section>
+    <p id="up-global-message" class="pb-message" role="status" aria-live="polite"></p>
+    <div class="up-global-actions"><button id="up-global-discard" class="pb-secondary" type="button" disabled>Discard changes</button><button id="up-global-save" type="button" disabled>Save global status</button></div>
+  </dialog>
 </main>
 <script src="/js/m4l-config.js?v=102.4"></script>
-<script src="/js/m4l-user-profiles.js?v=106.8"></script>
+<script src="/js/m4l-user-profiles.js?v=106.10"></script>
 <script src="/js/m4l-academy-navigation.js?v=106.9"></script>
 </body>
 </html>

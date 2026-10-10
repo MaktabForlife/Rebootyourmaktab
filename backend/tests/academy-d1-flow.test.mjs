@@ -6,6 +6,9 @@ import {createSessionToken,hashPin,isSaltedPinHash} from '../src/lib/auth.js';
 import {fixtureDatabase} from './fixtures/academy-d1-fixture.mjs';
 import {compareSnapshotFlow} from '../tools/academy-d1-parity.mjs';
 import {readFileSync} from 'node:fs';
+import {d1LessonJoin} from '../src/academy/d1/lesson-join.js';
+import {d1Entrance} from '../src/academy/d1/entrance.js';
+import {authenticatedD1Account} from '../src/academy/d1/session.js';
 
 async function call(env,path,body={},token='',extra={}) {
   const r=await worker.fetch(new Request(`http://localhost${path}`,{method:'POST',headers:{'Content-Type':'application/json',...(token?{Authorization:`Bearer ${token}`}:{ }),...extra},body:JSON.stringify(body)}),env);
@@ -13,6 +16,49 @@ async function call(env,path,body={},token='',extra={}) {
 }
 const login=(env,id='0002')=>call(env,'/api/account/login',{uniqueid:`login-${id}`,pin:'1234'});
 const use=async fn=>{const f=await fixtureDatabase();try{await fn(f);}finally{f.db.close();}};
+
+test('daily cached lessons expose no meeting URL and joining rechecks time, publication and current access',()=>use(async({env,db})=>{
+  const signed=await login(env),token=signed.body.token,repository=academyD1Repository(env);
+  await repository.ready();
+  const request=new Request('http://localhost/api/academy/lesson/join',{headers:{Authorization:`Bearer ${token}`}});
+  const auth=await authenticatedD1Account(request,env,repository);
+  const before=new Date('2026-10-09T07:54:59Z'),open=new Date('2026-10-09T07:55:00Z');
+  const timetable=await d1Entrance(repository,auth.state,auth.user,{startDate:'2026-10-09'},before);
+  const lesson=timetable.personalTimetable.find(row=>row.kind==='PROGRAM'&&row.joinKey);
+  assert.ok(lesson);assert.equal(lesson.joinUrl,undefined);
+  const input={date:lesson.date,joinKey:lesson.joinKey};
+  await assert.rejects(d1LessonJoin(repository,auth,input,before),error=>error.code==='LESSON_NOT_OPEN');
+  assert.match((await d1LessonJoin(repository,auth,input,open)).joinUrl,/zoom\.us/);
+  await assert.rejects(d1LessonJoin(repository,auth,input,new Date('2026-10-09T09:00:00Z')),error=>error.code==='LESSON_NOT_OPEN');
+  await assert.rejects(d1LessonJoin(repository,auth,{...input,joinKey:input.joinKey+'changed'},open),error=>error.code==='LESSON_UNAVAILABLE');
+  const publicResult=await call(env,'/api/academy/entrance',{startDate:'2026-10-09'});
+  assert.doesNotMatch(JSON.stringify(publicResult.body),/joinKey|joinUrl|zoom\.us/);
+  const website=await call(env,'/api/academy/entrance',{startDate:'2026-10-09'},token);
+  assert.doesNotMatch(JSON.stringify(website.body),/joinUrl|zoom\.us/);
+  assert.ok(website.body.personalTimetable.some(row=>row.joinKey));
+  assert.equal((await call(env,'/api/academy/lesson/join',input)).status,401);
+  db.prepare("UPDATE class_memberships SET active=0 WHERE account_id='account-0002'").run();
+  await assert.rejects(d1LessonJoin(repository,auth,input,open),error=>error.code==='LESSON_UNAVAILABLE');
+  db.prepare("UPDATE accounts SET active=0 WHERE account_id='account-0002'").run();
+  assert.equal((await call(env,'/api/academy/lesson/join',input,token)).status,401);
+}));
+
+test('a Course cancelled after caching cannot be joined',async()=>{
+  const {setCell}=await import('./fixtures/academy-d1-fixture.mjs');
+  const f=await fixtureDatabase(12,s=>setCell(s,'PublishedGlobalTimetableSessions',1,'ZoomLink','https://zoom.us/j/12345678901'));
+  try {
+    const signed=await login(f.env,'0003'),repository=academyD1Repository(f.env);await repository.ready();
+    const auth=await authenticatedD1Account(new Request('http://localhost',{headers:{Authorization:`Bearer ${signed.body.token}`}}),f.env,repository);
+    const now=new Date('2026-10-09T07:55:00Z');
+    const home=await d1Entrance(repository,auth.state,auth.user,{startDate:'2026-10-09'},now);
+    const lesson=home.personalTimetable.find(row=>row.kind==='COURSE'&&row.joinKey);assert.ok(lesson);
+    const input={date:lesson.date,joinKey:lesson.joinKey};
+    assert.match((await d1LessonJoin(repository,auth,input,now)).joinUrl,/12345678901/);
+    const [,course,,publication,source]=JSON.parse(lesson.joinKey);
+    f.db.prepare("INSERT INTO lesson_lifecycle(activity_key,lifecycle_id,publication_id,source_session_id,status) VALUES(?,'cancel-after-cache',?,?,'CANCELLED')").run(`COURSE:${course}`,publication,source);
+    await assert.rejects(d1LessonJoin(repository,auth,input,now),error=>error.code==='LESSON_UNAVAILABLE');
+  } finally {f.db.close();}
+});
 
 test('D1 timetables retain direct lessons across pages and scope administrator rollups to current roles',()=>use(async({env,db})=>{
   const admin=await login(env,'0001'),student=await login(env,'0002'),teacher=await login(env,'0003');
@@ -101,6 +147,8 @@ test('incorrect PIN, throttling, invalid sessions and unavailable D1 remain dist
   assert.equal((await call(env,'/api/account/session',{},oldToken)).status,401);
   const fail={...env,ACADEMY_DB:{withSession:()=>{throw Error('PRIVATE_DATABASE_DETAILS');}}};
   const r=await call(fail,'/api/account/login',{uniqueid:'login-0003',pin:'1234'});assert.equal(r.status,503);assert.ok(!JSON.stringify(r.body).includes('PRIVATE_DATABASE_DETAILS'));
+  const quota={...env,ALLOWED_ORIGINS:'https://academy.invalid',ACADEMY_DB:{withSession:()=>{throw Error("D1_ERROR: Your account has exceeded D1's free tier daily row read limit. PRIVATE_DATABASE_DETAILS");}}};
+  const exhausted=await call(quota,'/api/academy/entrance',{},'',{Origin:'https://academy.invalid'});assert.equal(exhausted.status,503);assert.equal(exhausted.body.code,'ACADEMY_D1_DAILY_READ_LIMIT');assert.match(exhausted.body.error,/service allowance/);assert.ok(Number(exhausted.headers.get('Retry-After'))>0);assert.ok(exhausted.body.retryAfterMs>0);assert.equal(exhausted.headers.get('Access-Control-Allow-Origin'),'https://academy.invalid');assert.ok(!JSON.stringify(exhausted.body).includes('PRIVATE_DATABASE_DETAILS'));
   assert.equal((await call({...env,ENVIRONMENT:'production'},'/api/account/check',{uniqueid:'login-0002'})).status,503);
   assert.equal((await call(env,'/api/account/check',{uniqueid:'login-0002'},'',{Origin:'https://untrusted.invalid'})).status,403);
   const admin=await login(env,'0001');
@@ -145,6 +193,13 @@ test('derived Course schedules retain immutable labels and recurrence after impo
     const response=await call(f.env,'/api/academy/entrance',{id:'subject-1',startDate:'2026-10-09'},signed.body.token);
     assert.equal(response.status,200);assert.ok(response.body.activity.timetable.some(e=>e.moduleName==='Published synthetic module'));
     assert.ok(!response.body.warnings.some(w=>w.includes('Synthetic subject timetable')));
+    const repository=academyD1Repository(f.env);await repository.ready();
+    const auth=await authenticatedD1Account(new Request('http://localhost',{headers:{Authorization:`Bearer ${signed.body.token}`}}),f.env,repository);
+    const lesson=response.body.personalTimetable.find(row=>row.kind==='COURSE'&&row.joinKey);
+    assert.ok(lesson);assert.match(lesson.joinKey,/RULE-derived/,'Derived occurrences have stable source references');
+    const input={date:lesson.date,joinKey:lesson.joinKey};
+    assert.match((await d1LessonJoin(repository,auth,input,new Date('2026-10-09T07:55:00Z'))).joinUrl,/11111111111/,'A seven-day cached Course reference resolves in the one-day joining query');
+
   }finally{f.db.close();}
 });
 

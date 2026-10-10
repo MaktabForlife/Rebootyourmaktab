@@ -1,8 +1,9 @@
 import {liveRoles,same} from './management-store.js';
+import {optionalSchema} from './schema-probe.js';
 
 export async function teacherDesignations(repository) {
   const db=repository.db;
-  const available=Boolean(await db.prepare("SELECT 1 FROM sqlite_schema WHERE type='table' AND name='academy_teacher_designations'").first());
+  const available=await optionalSchema(db,'SELECT account_id FROM academy_teacher_designations WHERE 0');
   return {available,statement:db.prepare(available?'SELECT * FROM academy_teacher_designations':'SELECT account_id FROM accounts WHERE 0')};
 }
 

@@ -10,15 +10,21 @@ import {payloadHash} from '../../programs/timetable-model.js';
 import {managementStore,managementError,same} from './management-store.js';
 import {insertRecords} from './insert-records.js';
 import {requireLearning} from './learning-state.js';
+import {optionalSchema} from './schema-probe.js';
 import {newActivityOwnership} from './activation-policy.js';
 import {extractDriveFileId,requireItemInsideRoot,validateFileForResourceType,getResourceConfig} from '../../routes/drive-library.js';
 import {courseManagementData,managedCourseScopes} from './course-authority.js';
 
 export async function courseCalendarAvailable(db,failIncomplete=false) {
-  if(!await db.prepare("SELECT 1 FROM sqlite_schema WHERE type='table' AND name='course_workflow_imports'").first())return false;
-  const ready=Boolean(await db.prepare(`SELECT 1 FROM course_workflow_imports c JOIN learning_imports l ON l.base_run_id=c.base_run_id
-    JOIN migration_runs m ON m.run_id=c.base_run_id WHERE c.singleton=1 AND m.state IN ('IMPORTED','VERIFIED','CUTOVER')
-    AND m.source_snapshot_sha256=c.source_sha256 AND l.source_sha256=c.source_sha256`).first());
+  let ready;
+  try {
+    ready=Boolean(await db.prepare(`SELECT 1 FROM course_workflow_imports c JOIN learning_imports l ON l.base_run_id=c.base_run_id
+      JOIN migration_runs m ON m.run_id=c.base_run_id WHERE c.singleton=1 AND m.state IN ('IMPORTED','VERIFIED','CUTOVER')
+      AND m.source_snapshot_sha256=c.source_sha256 AND l.source_sha256=c.source_sha256`).first());
+  } catch(error) {
+    if(/no such table:\s*(?:main\.)?course_workflow_imports\b/i.test(error.message))return false;
+    throw error;
+  }
   if(!ready&&failIncomplete)throw managementError('Course and calendar records need their verified database import.',503,'COURSE_IMPORT_REQUIRED');
   return ready;
 }
@@ -294,7 +300,7 @@ export function d1CourseCalendar(repository,auth,env={}) {
       const scoped=courseManagementData(data,auth),{tables,changes,body}=await execute(action,input,scoped,request);
       // Once a delivery has been adopted by the new editor, older scheduling
       // clients must not overwrite its independently saved draft/lifecycle.
-      if(await p("SELECT 1 FROM sqlite_schema WHERE name='course_management_drafts' AND type='table'").first()) {
+      if(await optionalSchema(repository.db,'SELECT activity_key FROM course_management_drafts WHERE 0')) {
         const managed=(await p('SELECT activity_key FROM course_management_drafts').all()).results;
         const affected=new Set();
         for(const name of ['GlobalSubjectList','GlobalSubjectAccessPolicy','GlobalSubjectRuns','GlobalTimetableSessions','GlobalTimetablePublications'])for(const row of changes.get(name)?.values()||[])if(row.SubjectID)affected.add('COURSE:'+row.SubjectID);

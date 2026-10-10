@@ -18,6 +18,17 @@ const designate=async(env,token,accountId,active=true)=>{const account=(await pr
 async function publish(env,token,selection){const c=await get(env,token,selection),review=ok(await write(env,token,'validate',{...selection,baseRevision:c.revision}));assert.equal(review.validation.valid,true,JSON.stringify(review));const accepted=ok(await write(env,token,'accept',{...selection,baseRevision:review.revision,validationToken:review.validation.token,acknowledgeWarnings:true}));return ok(await write(env,token,'publish',{...selection,baseRevision:accepted.revision,validationToken:review.validation.token}));}
 async function use(fn){const f=await editorFixture(),original=globalThis.fetch;let outbound=0;globalThis.fetch=async()=>{outbound++;throw Error('Unexpected external request');};try{await fn(f);assert.equal(outbound,0);assert.deepEqual(f.db.prepare('PRAGMA foreign_key_check').all(),[]);assert.equal(f.db.prepare('SELECT count(*) n FROM academy_write_guards').get().n,0);}finally{globalThis.fetch=original;f.db.close();}}
 
+test('ordinary Course editing avoids clash scans but validation still detects another published Course',()=>use(async({env,queries})=>{
+ const token=await login(env),first=await create(env,token,details('Published workshop'));await publish(env,token,first);
+ queries.length=0;
+ ok(await post(env,base+'list',{},token));
+ const second=await create(env,token,details('Overlapping workshop')),draft=await get(env,token,second);
+ assert.ok(!queries.some(q=>q.includes('SELECT l.*,t.account_id')),'Listing, saving and an unvalidated draft do not load Academy teaching lessons');
+ const review=ok(await write(env,token,'validate',{...second,baseRevision:draft.revision}));
+ assert.ok(queries.some(q=>q.includes('SELECT l.*,t.account_id')));
+ assert.ok(review.validation.warnings.some(w=>w.code==='TEACHER_CLASH'),'Publication review retains teacher-clash detection');
+}));
+
 test('name-only Course drafts persist, remain private and do not mutate existing publications',()=>use(async({env,db})=>{
  const token=await login(env),before=db.prepare('SELECT snapshot_json FROM timetable_publications').all();
  const d=details();for(const f of ['accessModel','startDate','endDate','startTime','endTime','teacherId','zoomLink'])d[f]='';d.sessions=[];

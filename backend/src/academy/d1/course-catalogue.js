@@ -1,11 +1,12 @@
 import {same} from './management-store.js';
+import {optionalSchema} from './schema-probe.js';
 import {dateInTimezone} from '../../lib/global-subject-delivery.js';
 
 // Read-only, account-scoped Course history. Never return editor drafts, meeting
 // links or file locations to learners, or use this list as a media entitlement.
 export async function d1CourseCatalogue(repository,auth,now=new Date()) {
   const db=repository.db,p=(sql,...values)=>db.prepare(sql).bind(...values);
-  const editor=Boolean(await p("SELECT 1 FROM sqlite_schema WHERE type='table' AND name='course_management_drafts'").first());
+  const editor=await optionalSchema(db,'SELECT activity_key FROM course_management_drafts WHERE 0');
   const subscriptions=await repository.subscriptionSource();
   const results=await db.batch([
     p(`SELECT a.activity_key,a.activity_id,a.name,a.active,a.lifecycle,a.website_visible,

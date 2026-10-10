@@ -1,8 +1,11 @@
 import {d1Subjects} from './subjects.js';
+import {d1LearningCatalogue,saveLearningModule} from './learning-catalogue.js';
 import {d1AccountTimetable} from './account-timetable.js';
 import { createAuthRateLimitKey, createSaltedPinHash, createSessionToken, isValidFourDigitPin, verifyPin } from '../../lib/auth.js';
 import { academyD1Repository, rehearsalError } from './repository.js';
 import { d1Entrance } from './entrance.js';
+import {d1LessonJoin,websiteEntrance} from './lesson-join.js';
+import {publicTimetable} from './public-timetable.js';
 import { d1Profiles } from './profiles.js';
 import { d1Programs } from './programs.js';
 import {d1Learning} from './learning.js';
@@ -48,7 +51,7 @@ async function dispatch(request,env) {
   const path=new URL(request.url).pathname;
   await repository.ready();
   const publicLibraryOnly=env.ACADEMY_LIBRARY_MODE==='PUBLIC_ONLY';
-  if(['/','/api/health'].includes(path)&&request.method==='GET')return {success:true,service:'rebootworker',version:'106.9',
+  if(['/','/api/health'].includes(path)&&request.method==='GET')return {success:true,service:'rebootworker',version:'106.10',
     store:env.ACADEMY_D1_MODE==='ACTIVE'?'D1_ACTIVE':'D1_REHEARSAL',cutoverReady:env.ACADEMY_D1_MODE==='ACTIVE',
     libraryMode:publicLibraryOnly?'PUBLIC_ONLY':'COMPATIBILITY',mediaSubscriptionsAvailable:false};
   const openLibraryAction=path.match(/^\/api\/academy\/open-library\/metadata\/(public|cover|list|save|options)$/)?.[1];
@@ -93,9 +96,10 @@ async function dispatch(request,env) {
   }
   if(path==='/api/academy/entrance') {
     const auth=request.headers.has('Authorization')?await authenticated(request,env,repository):null;
-    return {success:true,sessionStore:'D1',...await d1Entrance(repository,auth?.state,auth?.user,input)};
+    return {success:true,sessionStore:'D1',...websiteEntrance(await d1Entrance(repository,auth?.state,auth?.user,input))};
   }
   const auth=await authenticated(request,env,repository);
+  if(path==='/api/academy/lesson/join')return {success:true,...await d1LessonJoin(repository,auth,input)};
   if(path==='/api/academy/courses/catalogue')return {success:true,...await d1CourseCatalogue(repository,auth)};
   if(publicLibraryOnly&&path==='/api/academy/library/catalogue')return {success:true,resources:[],
     warnings:['Private Academy media will appear when Module subscriptions are available.'],learningAreaRefs:d1LibraryAreaRefs(auth.state),
@@ -108,6 +112,8 @@ async function dispatch(request,env) {
   }
   const subjectAction=path.match(/^\/api\/admin\/platform\/academy-subjects\/(get|save|recover|import-preview)$/)?.[1];
   if(subjectAction)return {success:true,...await d1Subjects(repository,auth).run(subjectAction,input)};
+  if(path==='/api/admin/platform/learning-catalogue/module/save')return {success:true,...await saveLearningModule(repository,auth,input)};
+  if(path==='/api/admin/platform/learning-catalogue/get')return {success:true,...await d1LearningCatalogue(repository,auth)};
   if(path==='/api/admin/platform/global/access/save')return {success:true,...await d1CourseSubscriptions(repository,auth).save(input)};
   if(path==='/api/platform/global/resources/access')return {success:true,...await d1Library(repository,auth,env).run('course-access',input,request)};
   const courseEditorAction=path.match(/^\/api\/admin\/platform\/courses\/(list|get|save|validate|accept|publish|status|repeat|participants|participants-save|participant-create)$/)?.[1];
@@ -169,7 +175,7 @@ export default {
     if(origin&&allowed.includes(origin))headers['Access-Control-Allow-Origin']=origin;
     if(origin&&!allowed.includes(origin))return new Response(JSON.stringify({success:false,error:'Origin is not allowed.'}),{status:403,headers});
     if(request.method==='OPTIONS')return new Response(null,{status:204,headers});
-    try{const result=await dispatch(request,env);
+    try{const result=await (new URL(request.url).pathname==='/api/academy/entrance/public-snapshot'?publicTimetable(request,env):dispatch(request,env));
       if(result instanceof Response){const mediaHeaders=new Headers(result.headers);for(const name of ['Vary','Access-Control-Allow-Methods','Access-Control-Allow-Headers'])mediaHeaders.set(name,headers[name]);
         mediaHeaders.set('X-Content-Type-Options','nosniff');
         mediaHeaders.delete('Access-Control-Allow-Origin');if(headers['Access-Control-Allow-Origin'])mediaHeaders.set('Access-Control-Allow-Origin',headers['Access-Control-Allow-Origin']);
@@ -177,9 +183,13 @@ export default {
       return new Response(JSON.stringify(result),{headers});}
     catch(error){const status=Number.isInteger(error.status)?error.status:503;
       const unavailable=status>=500&&status!==501;
+      const dailyReadLimit=/exceeded D1.s free tier daily row read limit/i.test(String(error.message));
+      const reset=new Date();reset.setUTCHours(24,0,0,0);
+      const retryAfterMs=Math.max(1000,reset.getTime()-Date.now());
+      if(dailyReadLimit)headers['Retry-After']=String(Math.ceil(retryAfterMs/1000));
       if(status===429)headers['Retry-After']='60';
-      return new Response(JSON.stringify({success:false,error:unavailable?'Academy information is temporarily unavailable. Please try again.':error.message,
-        code:unavailable?(['ACTIVATION_REQUIRED','MANAGEMENT_SCHEMA_REQUIRED','LEARNING_IMPORT_REQUIRED','COURSE_IMPORT_REQUIRED','COURSE_ACCESS_SCHEMA_REQUIRED','COURSE_MANAGEMENT_SCHEMA_REQUIRED','UPLOAD_BRIDGE_REQUIRED'].includes(error.code)?error.code:'ACADEMY_D1_UNAVAILABLE'):error.code,retryable:unavailable||status===429,...(status===429?{retryAfterMs:60000}:{}),
+      return new Response(JSON.stringify({success:false,error:dailyReadLimit?'Academy access has reached today’s service allowance. Please try again after 00:00 UTC (03:00 Riyadh), or contact an administrator.':unavailable?'Academy information is temporarily unavailable. Please try again.':error.message,
+        code:dailyReadLimit?'ACADEMY_D1_DAILY_READ_LIMIT':unavailable?(['ACTIVATION_REQUIRED','MANAGEMENT_SCHEMA_REQUIRED','LEARNING_IMPORT_REQUIRED','COURSE_IMPORT_REQUIRED','COURSE_ACCESS_SCHEMA_REQUIRED','COURSE_MANAGEMENT_SCHEMA_REQUIRED','UPLOAD_BRIDGE_REQUIRED'].includes(error.code)?error.code:'ACADEMY_D1_UNAVAILABLE'):error.code,retryable:unavailable||status===429,...(dailyReadLimit?{retryAfterMs,resetAt:reset.toISOString()}:{}),...(status===429?{retryAfterMs:60000}:{}),
         ...(status===409?Object.fromEntries(['currentRecord','rowRevision','entryKey'].filter(k=>error[k]!==undefined).map(k=>[k,error[k]])):{} )}),{status,headers});}
   }
 };

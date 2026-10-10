@@ -3,14 +3,14 @@
   const $=id=>document.getElementById(id),esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const params=new URLSearchParams(location.search),program=params.get('program'),base=window.M4L_CONFIG?.API_BASE||'',storageKey=`m4l-user-profiles:${location.host}`;
   const labels={USER:'None',STUDENT:'Student',TEACHER:'Teacher',PROGRAM_ADMIN:'Program Admin',GLOBAL_ADMIN:'Global Admin',SENIOR:'Senior',ADMIN:'Admin'};
-  const state={data:null,selected:params.get('account')||'',edit:null,edits:[],pinned:[],pending:null,busy:false,waiting:false,timer:null,search:'',filter:'',conflict:null,loaded:false};
+  const state={data:null,selected:params.get('account')||'',edit:null,edits:[],pinned:[],pending:null,busy:false,waiting:false,timer:null,search:'',filter:'',conflict:null,loaded:false,globalAccount:'',globalSearch:''};
   const message=(text,error=false)=>{$('up-message').textContent=text;$('up-message').classList.toggle('is-error',error);};
   const roleNames=roles=>(roles.length?roles:['USER']).map(role=>labels[role]).join(' · ');
   const scopeKey=scope=>`${scope.type}:${scope.id}`;
   const currentEdit=()=>state.edit;
   const editKey=edit=>[edit.mode,edit.accountId||'',edit.scopeType||'',edit.scopeId||''].join(':');
   const entries=()=>[...state.edits,...(state.edit?[state.edit]:[])];
-  const editValue=e=>e.mode==='profile'?JSON.stringify([e.displayName,e.active,...(e.academyTeacher===undefined?[]:[e.academyTeacher])]):e.mode==='matrix-roles'?JSON.stringify([...e.roles].sort()):'';
+  const editValue=e=>e.mode==='profile'?JSON.stringify([e.displayName,e.active,...(e.academyTeacher===undefined?[]:[e.academyTeacher]),...(e.academyAdmin===undefined?[]:[e.academyAdmin])]):e.mode==='matrix-roles'?JSON.stringify([...e.roles].sort()):'';
   const changed=e=>!['profile','matrix-roles'].includes(e.mode)||e.creating||e.needsConfirmation||e.originalValue===undefined||editValue(e)!==e.originalValue;
   const changedEntries=()=>entries().filter(changed);
   function updateSaveControls(){
@@ -30,7 +30,7 @@
     if(state.busy||state.pending||!state.data?.prepared)return null;
     const existing=findEdit('profile',accountId);if(existing)return existing;
     const account=state.data.accounts.find(a=>a.accountId===accountId);if(!account)return null;
-    const edit={mode:'profile',accountId,creating:false,displayName:account.displayName,active:account.active,...(state.data.teacherDesignationEditable?{academyTeacher:Boolean(account.academyTeacher)}:{}),baseRevision:account.revision};
+    const edit={mode:'profile',accountId,creating:false,displayName:account.displayName,active:account.active,...(state.data.teacherDesignationEditable?{academyTeacher:Boolean(account.academyTeacher)}:{}),...(state.data.adminDesignationEditable?{academyAdmin:Boolean(account.academyAdmin)}:{}),baseRevision:account.revision};
     edit.originalValue=editValue(edit);state.edits.push(edit);return edit;
   }
   function removeEdits(keys){state.edits=state.edits.filter(e=>!keys.includes(editKey(e)));if(state.edit&&keys.includes(editKey(state.edit)))state.edit=null;}
@@ -49,13 +49,14 @@
     if(!response.ok||!result.success)throw Object.assign(new Error(result.error||'The change could not be confirmed.'),result,{status:response.status});return result;
   }
   function render(){
+    renderGlobalStatus();
     if(state.loaded)remember();const editable=Boolean(state.data)&&!state.busy&&!state.pending,edit=currentEdit();
     $('up-refresh').disabled=state.busy||state.waiting;$('up-add').disabled=!editable||!state.data?.prepared;
     $('up-retry').disabled=state.busy||state.waiting;$('up-pending').hidden=!state.pending;
     $('up-draft-notice').hidden=!entries().length;$('up-return').disabled=state.busy;
     $('up-cancel').hidden=!edit;$('up-save').disabled=!editable||state.waiting||Boolean(state.conflict);$('up-cancel').disabled=state.busy||Boolean(state.pending);
     $('up-conflict').hidden=!state.conflict||!edit;
-    const describe=record=>edit?.mode==='profile'?`${record?.displayName||'Removed'} · ${record?.active?'Active':'Inactive'}${record?.academyTeacher?' · Global Teacher':''}`:edit?.mode==='matrix-policy'?record?.accessModel||'Unknown':roleNames(record?.roles||[])+(record?.accessModel?` · ${record.accessModel==='FREE'?'Free':'Paid'} setting`:'');
+    const describe=record=>edit?.mode==='profile'?`${record?.displayName||'Removed'} · ${record?.active?'Active':'Inactive'}${record?.academyAdmin?' · Global Admin':''}${record?.academyTeacher?' · Global Teacher':''}`:edit?.mode==='matrix-policy'?record?.accessModel||'Unknown':roleNames(record?.roles||[])+(record?.accessModel?` · ${record.accessModel==='FREE'?'Free':'Paid'} setting`:'');
     if(state.conflict&&edit){
       const account=state.data?.accounts.find(a=>a.accountId===edit.accountId),scope=state.data?.scopes.find(s=>s.type===edit.scopeType&&s.id===edit.scopeId);
       const identity=[account?.displayName,scope?.name].filter(Boolean).join(' · ');
@@ -80,7 +81,7 @@
     $('up-users').innerHTML=accounts.map(a=>{
       const profileEdit=findEdit('profile',a.accountId),rowDirty=changedEntries().some(e=>e.accountId===a.accountId);
       const displayName=profileEdit?.displayName??a.displayName,active=profileEdit?.active??a.active;
-      return `<tr data-user="${esc(a.accountId)}" class="${active?'':'up-account-inactive'} ${rowDirty?'is-editing':''} ${state.selected===a.accountId?'up-selected':''}"><td data-label="User name"><input data-name data-account="${esc(a.accountId)}" maxlength="160" aria-label="User name" value="${esc(displayName)}" ${blocked||!state.data.prepared?'disabled':''}>${a.academyAdmin?'<small>Global Admin</small>':''}${state.data.teacherDesignationEditable?`<label class="up-global-teacher" title="Academy teaching staff. Course and lesson access follows assignments."><input type="checkbox" data-global-teacher data-account="${esc(a.accountId)}" aria-label="Global Teacher for ${esc(displayName)}" ${(profileEdit?.academyTeacher??a.academyTeacher)?'checked':''} ${blocked?'disabled':''}>Global Teacher</label>`:''}</td><td data-label="Status"><select data-active data-account="${esc(a.accountId)}" aria-label="Account status" ${blocked||!state.data.prepared?'disabled':''}><option value="true" ${active?'selected':''}>Active</option><option value="false" ${!active?'selected':''}>Inactive</option></select></td>${scopes.map(scope=>{
+      return `<tr data-user="${esc(a.accountId)}" class="${active?'':'up-account-inactive'} ${rowDirty?'is-editing':''} ${state.selected===a.accountId?'up-selected':''}"><td data-label="User name"><input data-name data-account="${esc(a.accountId)}" maxlength="160" aria-label="User name" value="${esc(displayName)}" ${blocked||!state.data.prepared?'disabled':''}>${a.academyAdmin?'<small>Global Admin</small>':''}${a.academyTeacher?'<small>Global Teacher</small>':''}</td><td data-label="Status"><select data-active data-account="${esc(a.accountId)}" aria-label="Account status" ${blocked||!state.data.prepared?'disabled':''}><option value="true" ${active?'selected':''}>Active</option><option value="false" ${!active?'selected':''}>Inactive</option></select></td>${scopes.map(scope=>{
         const grant=a.assignments.find(g=>g.scopeType===scope.type&&g.scopeId===scope.id),editing=findEdit('matrix-roles',a.accountId,scope),roles=editing?editing.roles:grant?.roles||[];
         const displayed=a.academyAdmin?[...new Set(['PROGRAM_ADMIN',...roles])]:grant?.displayRoles||roles,inherited=a.academyAdmin?'Program Admin is automatic for Global Admins in every Program and Course. This cell changes only additional roles.':'';
         const roleCell=scope.rolesEditable===false?`<span class="up-role-label ${a.academyAdmin?'up-inherited':''}" title="${esc(a.academyAdmin?inherited:'Course subscriptions are managed in Course administration. None means no assigned role or subscription. Free Course access is separate.')}">${esc(roleNames(displayed))}</span>`:`<button type="button" class="up-cell ${a.academyAdmin?'up-inherited':''}" title="${esc(inherited)}" data-edit-scope="${esc(scopeKey(scope))}" data-account="${esc(a.accountId)}" ${blocked||!scope.prepared||!grant?'disabled':''}>${esc(roleNames(displayed))} ▾</button>`;
@@ -165,7 +166,7 @@
     if(state.edit&&state.edit!==existing)state.edits.push(state.edit);
     state.edits=state.edits.filter(e=>e!==existing);state.edit=existing||{...edit,originalValue:editValue(edit)};state.conflict=null;$('up-link').hidden=true;render();}
   $('up-return').onclick=()=>{state.search='';state.filter='';$('up-search').value='';$('up-status-filter').value='';render();document.querySelector?.('.is-editing input, [data-access-model]')?.focus();};
-  $('up-add').onclick=()=>{if(!state.data?.prepared||state.busy||state.pending||state.conflict)return;state.search='';state.filter='';$('up-search').value='';$('up-status-filter').value='';startEdit({mode:'profile',accountId:crypto.randomUUID(),creating:true,displayName:'',active:true,...(state.data.teacherDesignationEditable?{academyTeacher:false}:{}),baseRevision:state.data.emptyRevision});const input=document.querySelector?.('[data-name]');input?.focus();input?.scrollIntoView?.({block:'nearest'});};
+  $('up-add').onclick=()=>{if(!state.data?.prepared||state.busy||state.pending||state.conflict)return;state.search='';state.filter='';$('up-search').value='';$('up-status-filter').value='';startEdit({mode:'profile',accountId:crypto.randomUUID(),creating:true,displayName:'',active:true,...(state.data.teacherDesignationEditable?{academyTeacher:false}:{}),...(state.data.adminDesignationEditable?{academyAdmin:false}:{}),baseRevision:state.data.emptyRevision});const input=document.querySelector?.('[data-name]');input?.focus();input?.scrollIntoView?.({block:'nearest'});};
   $('up-setup').onclick=()=>{startEdit({mode:'matrix-prepare'});void save();};
   $('up-users').onclick=async e=>{
     const button=e.target.closest('button');if(!button||state.busy||state.pending)return;
@@ -174,12 +175,11 @@
     if(view){if(state.waiting){message('Wait for the spreadsheet service to recover before retrieving a sign-in link.',true);return;}await userLink(view,false,true);return;}
     if(share||copy){if(state.waiting){message('Wait for the spreadsheet service to recover before retrieving a sign-in link.',true);return;}await userLink(share||copy,Boolean(share));return;}
     if(link){state.busy=true;render();try{showLink((await api('link',{accountId:link})).loginPath);}catch(error){message(error.message,true);}finally{state.busy=false;render();}return;}
-    if(profile){const a=state.data.accounts.find(a=>a.accountId===profile);if(a)startEdit({mode:'profile',accountId:a.accountId,creating:false,displayName:a.displayName,active:a.active,...(state.data.teacherDesignationEditable?{academyTeacher:Boolean(a.academyTeacher)}:{}),baseRevision:a.revision});}
+    if(profile){const a=state.data.accounts.find(a=>a.accountId===profile);if(a)startEdit({mode:'profile',accountId:a.accountId,creating:false,displayName:a.displayName,active:a.active,...(state.data.teacherDesignationEditable?{academyTeacher:Boolean(a.academyTeacher)}:{}),...(state.data.adminDesignationEditable?{academyAdmin:Boolean(a.academyAdmin)}:{}),baseRevision:a.revision});}
     if(editScope){const scope=state.data.scopes.find(s=>scopeKey(s)===editScope),a=state.data.accounts.find(a=>a.accountId===account),grant=a?.assignments.find(g=>g.scopeType===scope?.type&&g.scopeId===scope?.id);if(grant)startEdit({mode:'matrix-roles',accountId:account,scopeType:scope.type,scopeId:scope.id,roles:[...grant.roles],needsConfirmation:grant.reviewStatus==='REQUIRED',baseRevision:grant.revision,scopeRevision:scope.revision});}
   };
   $('up-users').oninput=e=>{if(state.busy||state.pending||!Object.hasOwn(e.target.dataset,'name'))return;const edit=e.target.dataset.account?profileDraft(e.target.dataset.account):state.edit;if(edit?.mode==='profile'){edit.displayName=e.target.value;remember();updateSaveControls();}};
   $('up-users').onchange=e=>{const d=e.target.dataset,edit=d.account?(d.scope?entries().find(e=>e.accountId===d.account&&`${e.scopeType}:${e.scopeId}`===d.scope):profileDraft(d.account)):state.edit;if(!edit||state.busy||state.pending)return;
-    if(edit.mode==='profile'&&Object.hasOwn(d,'globalTeacher')){edit.academyTeacher=e.target.checked;remember();updateSaveControls();return;}
     if(edit.mode==='profile'&&Object.hasOwn(d,'active')){edit.active=e.target.value==='true';remember();updateSaveControls();return;}
     if(edit.mode==='matrix-roles'){const {role,defaultUser}=e.target.dataset;if(role){edit.roles=edit.roles.filter(r=>r!==role);if(e.target.checked)edit.roles.push(role);}if(defaultUser!==undefined&&e.target.checked)edit.roles=[];}
     render();
@@ -204,6 +204,37 @@
     closeCleanEditors();render();
   }
   $('up-save-all').onclick=()=>void saveAll();
+  function renderGlobalStatus(){
+    const available=Boolean(state.data?.adminDesignationEditable||state.data?.teacherDesignationEditable);
+    const locked=state.busy||state.waiting||Boolean(state.pending),account=state.data?.accounts.find(a=>a.accountId===state.globalAccount);
+    $('up-global-status').hidden=!available;$('up-global-status').disabled=!available||locked||Boolean(state.conflict);
+    $('up-global-search').disabled=locked;$('up-global-selection').hidden=!account;
+    const edit=account&&findEdit('profile',account.accountId),admin=edit?.academyAdmin??account?.academyAdmin,teacher=edit?.academyTeacher??account?.academyTeacher;
+    const globalDirty=account&&(Boolean(admin)!==Boolean(account.academyAdmin)||Boolean(teacher)!==Boolean(account.academyTeacher));
+    const canSave=Boolean(account)&&!state.busy&&!state.waiting&&!state.conflict&&(Boolean(state.pending)||globalDirty);
+    $('up-global-save').disabled=!canSave;
+    $('up-global-save').textContent=state.pending?'Retry same change':'Save global status';
+    $('up-global-discard').disabled=locked||!globalDirty;
+    $('up-global-message').textContent=$('up-global-dialog').open?$('up-message').textContent:'';
+    if(!available){$('up-global-results').innerHTML='';if($('up-global-dialog').open)$('up-global-dialog').close();return;}
+    const search=state.globalSearch.trim().toLocaleLowerCase(),matches=state.data.accounts.filter(a=>search?a.displayName.toLocaleLowerCase().includes(search):a.academyAdmin||a.academyTeacher).sort((a,b)=>a.displayName.localeCompare(b.displayName)).slice(0,12);
+    $('up-global-results').innerHTML=matches.map(a=>`<button type="button" class="pb-secondary" data-global-user="${esc(a.accountId)}" aria-pressed="${a.accountId===state.globalAccount}" ${locked?'disabled':''}><span>${esc(a.displayName)}</span><small>${[a.academyAdmin?'Global Admin':'',a.academyTeacher?'Global Teacher':'',!a.active?'Inactive':''].filter(Boolean).join(' · ')||'None'}</small></button>`).join('')||'<p>'+(search?'No matching users.':'Search for a user to set their global status.')+'</p>';
+    if(!account)return;
+    $('up-global-name').textContent=edit?.displayName??account.displayName;
+    $('up-global-admin-option').hidden=!state.data.adminDesignationEditable;$('up-global-teacher-option').hidden=!state.data.teacherDesignationEditable;
+    $('up-global-admin').checked=Boolean(admin);$('up-global-teacher').checked=Boolean(teacher);
+    $('up-global-admin').disabled=locked||!state.data.adminDesignationEditable||account.accountId===state.data.currentAccountId&&account.academyAdmin||!(edit?.active??account.active)&&!account.academyAdmin;
+    $('up-global-teacher').disabled=locked||!state.data.teacherDesignationEditable||!(edit?.active??account.active)&&!account.academyTeacher;
+    $('up-global-note').textContent=[account.accountId===state.data.currentAccountId&&account.academyAdmin?'Another Global Admin must remove your own Admin designation.':'',!(edit?.active??account.active)?'Activate this account in the sheet before granting a global role.':'',edit&&(edit.displayName!==account.displayName||edit.active!==account.active)?'Saving also includes the unfinished name or account status changes for this user.':''].filter(Boolean).join(' ');
+  }
+  $('up-global-status').onclick=()=>{if($('up-global-status').disabled)return;state.globalAccount='';state.globalSearch='';$('up-global-search').value='';message('');$('up-global-dialog').showModal();renderGlobalStatus();$('up-global-search').focus();};
+  $('up-global-close').onclick=()=>$('up-global-dialog').close();
+  $('up-global-search').oninput=e=>{state.globalSearch=e.target.value;renderGlobalStatus();};
+  $('up-global-results').onclick=e=>{const id=e.target.closest('button')?.dataset.globalUser;if(!id||state.busy||state.waiting||state.pending)return;state.globalAccount=id;message('');renderGlobalStatus();};
+  for(const [id,field] of [['up-global-admin','academyAdmin'],['up-global-teacher','academyTeacher']])$(id).onchange=e=>{
+    if($(id).disabled)return;const edit=profileDraft(state.globalAccount);if(!edit)return;edit[field]=e.target.checked;remember();message('Global status changes are kept until saved.');render();};
+  $('up-global-discard').onclick=()=>{if($('up-global-discard').disabled)return;const account=state.data.accounts.find(a=>a.accountId===state.globalAccount),edit=findEdit('profile',state.globalAccount);if(!account||!edit)return;if(edit.academyAdmin!==undefined)edit.academyAdmin=Boolean(account.academyAdmin);if(edit.academyTeacher!==undefined)edit.academyTeacher=Boolean(account.academyTeacher);closeCleanEditors(new Set([account.accountId]));message('Global status changes discarded.');render();};
+  $('up-global-save').onclick=async()=>{if($('up-global-save').disabled)return;const edit=findEdit('profile',state.globalAccount);await save(0,edit?[edit]:null);if(state.conflict)$('up-global-dialog').close();};
   $('up-profile-close').onclick=()=>$('up-profile-dialog').close();
   async function userLink(accountId,share,view=false){
     state.busy=true;render();

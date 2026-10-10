@@ -77,14 +77,17 @@ export function academyD1Repository(env) {
     },
     async ready(){
       if(env.ACADEMY_D1_MODE==='ACTIVE') {
+        // WHERE 0 validates that required schema objects compile without scanning
+        // sqlite_schema or subscription rows. All live ownership/evidence guards remain.
         const result=await prepare(`SELECT m.run_id,
-          EXISTS(SELECT 1 FROM sqlite_schema WHERE name='role_mapping_decisions' AND type='table') AS mapped_roles,
+          1 AS mapped_roles,
           (SELECT setting_value FROM academy_settings WHERE setting_key='PlatformTimezone') AS timezone FROM migration_runs m
           JOIN learning_imports l ON l.base_run_id=m.run_id AND l.singleton=1 AND l.source_sha256=m.source_snapshot_sha256
           JOIN course_workflow_imports c ON c.base_run_id=m.run_id AND c.singleton=1 AND c.source_sha256=m.source_snapshot_sha256
           WHERE m.run_id=? AND m.state='CUTOVER' AND m.environment IN ('LOCAL','DEVELOPMENT')
             AND EXISTS(SELECT 1 FROM academy_write_state WHERE singleton=1)
-            AND EXISTS(SELECT 1 FROM sqlite_schema WHERE name='effective_course_subscriptions' AND type='view')
+            AND (SELECT count(*) FROM role_mapping_decisions WHERE 0)=0
+            AND (SELECT count(*) FROM effective_course_subscriptions WHERE 0)=0
             AND (SELECT count(*) FROM migration_checks WHERE run_id=m.run_id AND dataset_key='ACTIVATION' AND scope_key='ACADEMY'
               AND check_name IN (SELECT value FROM json_each(?)) AND status='PASS' AND findings_count=0 AND checked_at IS NOT NULL)=?
             AND NOT EXISTS(SELECT 1 FROM migration_checks WHERE run_id=m.run_id AND status='FAIL')

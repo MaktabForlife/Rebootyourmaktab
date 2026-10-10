@@ -40,13 +40,19 @@ export function d1Profiles(repository,auth) {
     const activities=data.activities.filter(a=>['PROGRAM','COURSE'].includes(a.kind));
     return {accounts:await Promise.all(data.accounts.map(async a=>({...accountProfile(data,a),revision:await payloadHash(accountProfile(data,a)),assignments:await Promise.all(activities.map(activity=>assignmentDTO(data,a,activity)))}))),
       scopes:await Promise.all(activities.map(a=>scopeDTO(data,a))),roles:editableRoles,prepared:true,needsSync:false,
-      stage:'SETUP',reviewCount:data.reviews.filter(r=>r.status==='REQUIRED'&&!data.mappings.some(m=>m.source_role===r.source_value)).length,policyEditable:false,teacherDesignationEditable:data.teacherDesignationsAvailable,store:'D1',emptyRevision:await payloadHash(null)};
+      stage:'SETUP',reviewCount:data.reviews.filter(r=>r.status==='REQUIRED'&&!data.mappings.some(m=>m.source_role===r.source_value)).length,policyEditable:false,teacherDesignationEditable:data.teacherDesignationsAvailable,adminDesignationEditable:Boolean(auth.state.account.global_admin),currentAccountId:auth.user.accountid,store:'D1',emptyRevision:await payloadHash(null)};
   }
   async function profile(data,input,statements) {
     const source=data.accounts.map(a=>({AccountID:a.account_id,DisplayName:a.display_name,UniqueID:a.login_link_id,Active:Boolean(a.active),PlatformRole:profileDTO(data,a).academyAdmin?'GLOBAL_ADMIN':''}));
     const current=data.accounts.find(a=>same(a.account_id,input.accountId));
     const currentProfile=current?accountProfile(data,current):null,revision=await payloadHash(currentProfile);
     if(input.baseRevision!==revision)throw rowChanged(currentProfile,revision);
+    if(input.academyAdmin!==undefined){
+      if(!auth.state.account.global_admin)throw managementError('Only a Global Admin can change Academy-wide authority.',403,'FORBIDDEN');
+      if(typeof input.academyAdmin!=='boolean')throw managementError('Choose whether this user is a Global Admin.');
+      if(input.academyAdmin&&!input.active)throw managementError('Reactivate this account before designating it a Global Admin.');
+      if(currentProfile?.academyAdmin&&!input.academyAdmin&&same(input.accountId,auth.user.accountid))throw managementError('Another Global Admin must remove your Global Admin designation.',409,'OWN_ADMIN_CHANGE');
+    }
     if(input.academyTeacher!==undefined){
       if(typeof input.academyTeacher!=='boolean')throw managementError('Choose whether this user is a Global Teacher.');
       if(!data.teacherDesignationsAvailable)throw managementError('Global Teacher designation needs its database upgrade.',503,'TEACHER_SCHEMA_REQUIRED');
@@ -70,8 +76,18 @@ export function d1Profiles(repository,auth) {
       data.teachers=data.teachers.filter(t=>!same(t.account_id,record.AccountID));
       data.teachers.push({account_id:record.AccountID,active:Number(input.academyTeacher)});
     }
+    if(input.academyAdmin!==undefined&&input.academyAdmin!==Boolean(currentProfile?.academyAdmin)){
+      statements.push(p('UPDATE global_role_assignments SET active=0 WHERE account_id=? AND active=1',record.AccountID));
+      for(const grant of data.admins.filter(g=>same(g.account_id,record.AccountID)))grant.active=0;
+      if(input.academyAdmin){
+        const grant={assignment_id:crypto.randomUUID(),account_id:record.AccountID,role:'GLOBAL_ADMIN',active:1,review_state:'CONFIRMED',granted_at:now,granted_by_account_id:auth.user.accountid};
+        statements.push(p("INSERT INTO global_role_assignments(assignment_id,account_id,role,active,review_state,granted_at,granted_by_account_id) VALUES(?,?,'GLOBAL_ADMIN',1,'CONFIRMED',?,?)",grant.assignment_id,record.AccountID,now,auth.user.accountid));
+        data.admins.push(grant);
+      }
+    }
     const saved=accountProfile(data,data.accounts.find(a=>same(a.account_id,record.AccountID)));
     planned.result.profile={...planned.result.profile,...saved,revision:await payloadHash(saved)};
+    if(input.academyAdmin!==undefined)planned.result.profile.assignments=await Promise.all(data.activities.filter(a=>['PROGRAM','COURSE'].includes(a.kind)).map(a=>assignmentDTO(data,data.accounts.find(a=>same(a.account_id,record.AccountID)),a)));
     return planned.result;
   }
   async function roles(data,input,statements) {
@@ -131,7 +147,8 @@ export function d1Profiles(repository,auth) {
           try {results.push({entryKey:entryKey(entry),...await (entry.mode==='profile'?profile:roles)(data,entry,statements)});}
           catch(error){error.entryKey=entryKey(entry);throw error;}
         }
-        return {data:{...data,accounts:guardAccounts},statements,result:input.mode==='batch'?{results}:Object.fromEntries(Object.entries(results[0]).filter(([key])=>key!=='entryKey')),fields:['DisplayName','Active','GlobalTeacher','ActivityRoleAssignments']};
+        if(!data.accounts.some(a=>a.active&&profileDTO(data,a).academyAdmin))throw managementError('Keep at least one active Global Admin.',409,'LAST_ADMIN');
+        return {data:{...data,accounts:guardAccounts},statements,result:input.mode==='batch'?{results}:Object.fromEntries(Object.entries(results[0]).filter(([key])=>key!=='entryKey')),fields:['DisplayName','Active','GlobalAdmin','GlobalTeacher','ActivityRoleAssignments']};
       });
     }
   };

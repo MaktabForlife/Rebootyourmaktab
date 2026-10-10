@@ -58,7 +58,7 @@ assert.deepEqual(visitor.personalTimetable, []);
 assert.deepEqual(visitor.activityPages, [], 'Visitors receive no protected page cache metadata');
 assert(visitor.timetable.length > 0);
 assert(visitor.timetable.every(row => !row.information && !row.joinUrl && !row.relevant));
-assert(visitor.timetable.every(row => !row.meetingGroup && !row.subjectName && !row.moduleName), 'Visitors receive no protected room or lesson metadata');
+assert(visitor.timetable.every(row => !row.meetingGroup && !row.subjectName && !row.moduleName && !row.classNames && !row.teacherNames), 'Visitors receive no protected room or lesson metadata');
 assert(!JSON.stringify(visitor).includes('LEARNER-DEMO'));
 assert(!JSON.stringify(visitor).includes('Course teacher'));
 assert(!loaded.includes('COURSE1'), 'The gateway never loads legacy Reboot');
@@ -72,6 +72,9 @@ assert(student.timetable.some(row => row.kind === 'PROGRAM' && row.involvement =
 assert(student.timetable.every(row => !row.joinUrl || row.relevant), 'Home joining links require direct involvement and the server opening window');
 assert(student.personalTimetable.some(row => row.kind === 'PROGRAM'));
 assert(student.personalTimetable.some(row => row.kind === 'COURSE'));
+assert(student.personalTimetable.filter(row => row.kind === 'PROGRAM').every(row => row.classNames.length && row.teacherNames.length),'Protected lesson details have separate class and teacher fields');
+assert.deepEqual(student.personalTimetable.find(row => row.kind === 'COURSE').teacherNames,['Course teacher']);
+assert.deepEqual(student.personalTimetable.find(row => row.kind === 'COURSE').classNames,[]);
 assert(student.personalTimetable.every(row => row.relevant && row.status === 'SCHEDULED' && !row.summarize));
 assert(!student.personalTimetable.some(row => row.activityId === second.program.id), 'An unassigned teaching role does not make every lesson personal');
 for (let i = 1; i < student.personalTimetable.length; i++) assert(student.personalTimetable[i - 1].startsAt <= student.personalTimetable[i].startsAt);
@@ -151,7 +154,7 @@ for (const view of [teacherView, hod, admin]) {
 const outsider = await buildEntrance({ ...args, user: account('OUTSIDER'), input: { id: first.program.id } });
 assert.equal(outsider.activity.curriculum.length, 0);
 assert.equal(outsider.activity.classes.length, 0);
-assert(outsider.activity.timetable.every(row => !row.joinUrl && !row.information));
+assert(outsider.activity.timetable.every(row => !row.joinUrl && !row.information && !row.classNames && !row.teacherNames));
 assert.deepEqual(outsider.personalTimetable, []);
 assert.deepEqual(outsider.activityPages, [], 'Unauthorised accounts receive no protected page metadata');
 assert(outsider.activity.timetable.every(row => !row.meetingGroup), 'An unauthorised account receives no room grouping metadata');

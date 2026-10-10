@@ -65,8 +65,9 @@ export function programProjection(program, data, user, roles, start, end, now, d
     if (!publication) continue;
     const publishedTimezone = publication.snapshot.timezone || program.timezone;
     const weekday = new Date(`${date}T12:00:00Z`).getUTCDay();
-    for (const row of publication.occurrences.filter(row => row.kind !== 'BREAK' && row.status !== 'CANCELLED' &&
-      (publication.pattern === 'WEEKLY' ? row.weekday === weekday : row.date === date))) {
+    for (const [occurrenceIndex, row] of publication.occurrences.entries()) {
+      if (row.kind === 'BREAK' || row.status === 'CANCELLED' ||
+        !(publication.pattern === 'WEEKLY' ? row.weekday === weekday : row.date === date)) continue;
       const classIds = row.classIds || [];
       const teaching = staff(roles) && (row.teacherIds || [row.teacherId]).some(id => key(id) === key(user?.accountid));
       const enrolled = roles.includes('STUDENT') && enrolments.some(item => participant(item, user?.accountid, date, classIds));
@@ -81,13 +82,17 @@ export function programProjection(program, data, user, roles, start, end, now, d
       if (mayView) {
         event.subjectName = row.subjectName || '';
         event.moduleName = row.moduleName || '';
+        event.classNames = (row.classNames || []).filter(Boolean);
+        event.teacherNames = (row.teacherNames || [row.teacherName]).filter(Boolean);
         event.meetingGroup = groupZoom(row.zoomLink);
         event.information = [row.subjectName, row.moduleName, row.levelName,
           ...(row.classNames || []), ...(row.teacherNames || [row.teacherName])].filter(Boolean);
         if(compatibilityDetails){event.teacherName=(row.teacherNames||[row.teacherName]).filter(Boolean).join(', ');event.group=(row.classNames||[]).join(', ');}
       }
-      if (mayView && (involved || oversight) && joinWindowOpen(event, now) && row.zoomLink)
-        event.joinUrl = row.zoomLink;
+      if (mayView && (involved || oversight) && row.zoomLink) {
+        event.joinKey = JSON.stringify(['PROGRAM', program.id, publication.id, occurrenceIndex, date]);
+        if (joinWindowOpen(event, now)) event.joinUrl = row.zoomLink;
+      }
       timetable.push(event);
     }
   }
@@ -177,13 +182,19 @@ export async function buildEntrance({ tables, programs, rolesByProgram, rolesByC
         if (user && event.visibilityLevel === 'DETAIL') {
           projected.subjectName = event.subjectName || subject.SubjectName;
           projected.moduleName = event.moduleName || '';
+          projected.classNames = [];
+          projected.teacherNames = [event.teacherName].filter(Boolean);
           projected.meetingGroup = groupZoom(published[index]?.zoomlink);
           projected.information = [event.subjectName, event.moduleName, event.teacherName].filter(Boolean);
           if(detailedTimetable)projected.teacherName=event.teacherName||'';
         }
         // Keep the shared/legacy timetable gate unchanged. The new website opens five minutes early.
-        if (user && (relevant || oversight) && event.visibilityLevel === 'DETAIL' &&
-          joinWindowOpen(projected, now) && published[index]?.zoomlink) projected.joinUrl = published[index].zoomlink;
+        if (user && (relevant || oversight) && event.visibilityLevel === 'DETAIL' && published[index]?.zoomlink) {
+          projected.joinKey = JSON.stringify(['COURSE', subject.SubjectID, run.RunID,
+            resolved.publication?.publicationid || published[index].publicationid,
+            published[index].sourcesessionid || published[index].publishedsessionid, event.date]);
+          if (joinWindowOpen(projected, now)) projected.joinUrl = published[index].zoomlink;
+        }
         sessions.push(projected);
       }
     }
@@ -221,7 +232,7 @@ export async function buildEntrance({ tables, programs, rolesByProgram, rolesByC
     student: Boolean(user && activities.some(row => row.roles.includes('STUDENT'))),
     personalTimetable,
     timetable: visibleTimetable.sort((a, b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime)),
-    activity, warnings };
+    activity, warnings, timetableComplete: !warnings.some(warning => warning.endsWith('timetable is unavailable.')) };
 }
 
 function nowInMinutes(now, timezone) {

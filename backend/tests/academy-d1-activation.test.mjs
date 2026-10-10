@@ -72,6 +72,14 @@ test('failed or stale activation leaves ownership, sessions and evidence unchang
   assert.equal(db.prepare("SELECT count(*) n FROM migration_checks WHERE dataset_key='ACTIVATION'").get().n,0);
 }));
 
+test('zero-row schema guards still fail closed when a required subscriptions view is missing',()=>use(async({env,db,queries})=>{
+  applyCoreActivationLocally(db,buildCoreActivationPlan(db,review(db)));const live=active(env,db);
+  queries.length=0;await academyD1Repository(live).ready();
+  assert.ok(!queries.some(q=>q.includes('FROM sqlite_schema')));
+  db.exec('DROP VIEW effective_course_subscriptions');
+  assert.equal((await post(live,'/api/account/check',{uniqueid:'login-0002'})).status,503);
+}));
+
 test('core Library mode exposes only public material and rejects every compatibility private-file path',()=>use(async({env,db})=>{
   const live=active(env,db),plan=buildCoreActivationPlan(db,review(db));applyCoreActivationLocally(db,plan);
   Object.assign(env,live); // The coordinator receives the deployed Worker's environment too.

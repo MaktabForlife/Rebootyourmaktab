@@ -89,7 +89,7 @@ export function d1Learning(repository,auth,now=()=>new Date()) {
       if(action==='recover')return {recovered:false};
       if(!['get','history','published','preview','validate','manage-get'].includes(action))throw managementError('Unknown timetable action.',404);
       const result=await timetable(loaded).read(action,input);
-      return {...(action==='manage-get'?await subjectView(result,auth.state.account.global_admin):result),program:loaded.program,store:'D1',coordinatorAvailable:true,managementEditable:loaded.a.lifecycle!=='ARCHIVED',globalProfilesAvailable:Boolean(auth.state.account.global_admin),learningWorkflowsReady:true};
+      return {...(action==='manage-get'?await subjectView(result,auth.state.account.global_admin):result),...(action==='manage-get'&&loaded.data.academyModules?{sharedModules:loaded.data.academyModules.map(m=>({id:m.module_id,name:m.name,subjectId:loaded.data.subjects.find(s=>same(s.subject_key,m.subject_key))?.subject_id||'',active:Boolean(m.active)}))}:{}),program:loaded.program,store:'D1',coordinatorAvailable:true,managementEditable:loaded.a.lifecycle!=='ARCHIVED',globalProfilesAvailable:Boolean(auth.state.account.global_admin),learningWorkflowsReady:true};
     },
     async attendance(action,input) {
       await ready();

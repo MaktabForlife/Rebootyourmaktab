@@ -1,3 +1,4 @@
+import {moduleCatalogueQueries,catalogueNameKey} from './module-catalogue.js';
 import {subjectView} from './subjects.js';
 import { definition,programId } from '../../programs/model.js';
 import { MANAGEMENT_KINDS,managementView,managementRowRevision,studentClassRevision,applyManagementChange } from '../../programs/management-model.js';
@@ -50,10 +51,10 @@ export function d1Programs(repository,auth) {
     const current={snapshot,revision:rev?.source_revision||'',sequence:rev?.source_sequence||0};
     const tables={...snapshot,ProgramManagementState:current.sequence?[{CourseID:program.id,Revision:current.revision,Sequence:current.sequence,SnapshotJSON:JSON.stringify(snapshot)}]:[]};
     const accounts=data.accounts.map(account=>({AccountID:account.account_id,DisplayName:account.display_name,Active:Boolean(account.active),Roles:liveRoles(data,account.account_id,a.activity_key).map(role=>role==='PROGRAM_ADMIN'?'ADMIN':role)})).filter(a=>auth.state.account.global_admin||a.Roles.length);
-    const shared={subjects:data.subjects.map(s=>({SubjectID:s.subject_id,SubjectName:s.name,Active:Boolean(s.active),Legacy:s.source_namespace!=='ACADEMY'})),accounts,grantedTeachers:accounts.filter(a=>a.Active&&a.Roles.some(r=>['TEACHER','ADMIN'].includes(r))).map(a=>({AccountID:a.AccountID}))};
+    const shared={...(all.academyModules?{academyModules:all.academyModules,moduleUsage:all.moduleUsage}:{}),subjects:data.subjects.map(s=>({SubjectID:s.subject_id,SubjectName:s.name,Active:Boolean(s.active),Legacy:s.source_namespace!=='ACADEMY'})),accounts,grantedTeachers:accounts.filter(a=>a.Active&&a.Roles.some(r=>['TEACHER','ADMIN'].includes(r))).map(a=>({AccountID:a.AccountID}))};
     return {data,a,program,current,viewData:{tables,prepared:true,libraryPrepared:true},shared};
   }
-  async function loadManagement(id,extra={}) {return projectManagement(await store.load({...queriesFor(`PROGRAM:${id}`),...extra}),id);}
+  async function loadManagement(id,extra={}) {const c=await moduleCatalogueQueries(repository);return projectManagement(await store.load({...queriesFor(`PROGRAM:${id}`),...(c.available?c.queries:{}),...extra}),id);}
   async function persist(loaded,snapshot) {
     const statements=[],activity=loaded.a.activity_key;
     for(const [name,spec] of Object.entries(shape))for(const record of snapshot[name]) {
@@ -89,7 +90,7 @@ export function d1Programs(repository,auth) {
   }
   return {
     load:loadManagement,
-    async loadAll(extra={}) {const data=await store.load({...queriesFor(null),...extra});return {data,programs:data.activities.filter(a=>a.kind==='PROGRAM').map(a=>projectManagement(data,a.activity_id))};},
+    async loadAll(extra={}) {const c=await moduleCatalogueQueries(repository);const data=await store.load({...queriesFor(null),...(c.available?c.queries:{}),...extra});return {data,programs:data.activities.filter(a=>a.kind==='PROGRAM').map(a=>projectManagement(data,a.activity_id))};},
     async registry(action,input) {
       if(action==='list') {const data=await store.load();return {programs:data.activities.filter(a=>a.kind==='PROGRAM'&&(auth.state.account.global_admin||liveRoles(data,auth.user.accountid,a.activity_key).includes('PROGRAM_ADMIN'))).map(a=>dto(data,a)),platformPrepared:true,store:'D1',learningWorkflowsReady:await learningAvailable(repository.db),statuses:['DRAFT','ACTIVE','ARCHIVED']};}
       if(['prepare','readiness'].includes(action)) {selected(await store.load(),input.id);return {prepared:true,message:'Program records are ready.',checks:[{label:'Program records ready',ok:true}]};}
@@ -118,7 +119,7 @@ export function d1Programs(repository,auth) {
       if(action==='manage-get') {
         const loaded=await loadManagement(input.id);
         const view=await managementView(loaded.viewData,{managementReferences:async()=>loaded.shared},loaded.program);
-        return {...await subjectView(view,auth.state.account.global_admin),store:'D1',coordinatorAvailable:true,managementEditable:loaded.a.lifecycle!=='ARCHIVED',globalProfilesAvailable:Boolean(auth.state.account.global_admin),overview:{timetable:null,preview:null,error:{error:'Timetable editing is awaiting migration.',retryable:false}}};
+        return {...await subjectView(view,auth.state.account.global_admin),...(loaded.data.academyModules?{sharedModules:loaded.data.academyModules.map(m=>({id:m.module_id,name:m.name,subjectId:loaded.data.subjects.find(s=>same(s.subject_key,m.subject_key))?.subject_id||'',active:Boolean(m.active)}))}:{}),store:'D1',coordinatorAvailable:true,managementEditable:loaded.a.lifecycle!=='ARCHIVED',globalProfilesAvailable:Boolean(auth.state.account.global_admin),overview:{timetable:null,preview:null,error:{error:'Timetable editing is awaiting migration.',retryable:false}}};
       }
       if(action!=='manage-save')throw managementError('This operation is awaiting migration.',501,'OPERATION_NOT_MIGRATED');
       const library=['resources','library-root'].includes(input.kind);
@@ -150,6 +151,14 @@ export function d1Programs(repository,auth) {
           ...(input.kind==='student-class'?{rowRevision:await studentClassRevision(snapshot.ProgramEnrollments,input.record.AccountID)}:MANAGEMENT_KINDS[input.kind]?{rowRevision:await managementRowRevision(record)}:{})};
         if(input.kind==='modules'&&record.LevelID)result.level=snapshot.ProgramLevels.find(r=>r.LevelID===record.LevelID);
         const statements=await persist(loaded,snapshot);
+        if(input.kind==='modules'&&data.academyModules){
+          const subjectId=snapshot.ProgramSubjects.find(s=>s.ProgramSubjectID===record.ProgramSubjectID)?.SubjectID,subject=data.subjects.find(s=>same(s.subject_id,subjectId)&&s.source_namespace==='ACADEMY');
+          const selected=data.academyModules.find(m=>same(m.subject_key,subject?.subject_key)&&catalogueNameKey(m.name)===catalogueNameKey(record.Name));
+          const previous=current.snapshot.ProgramModules.find(m=>m.ProgramModuleID===record.ProgramModuleID),existingUse=data.moduleUsage.find(u=>same(u.activity_key,loaded.a.activity_key)&&same(u.module_id,record.ProgramModuleID));
+          if(!selected&&(input.creating||previous?.Name!==record.Name||existingUse))throw managementError('Choose a shared Academy Module under this Subject. Add new Modules in Subjects & Modules.');
+          if(selected){if(record.Name!==selected.name)throw managementError('Choose the Module name from the shared Academy list.');if(record.Active&&!selected.active&&!same(existingUse?.academy_module_id,selected.module_id))throw managementError('Choose an active Academy Module.');statements.push(p('INSERT INTO academy_module_usage(activity_key,module_id,academy_module_id) VALUES(?,?,?) ON CONFLICT(activity_key,module_id) DO UPDATE SET academy_module_id=excluded.academy_module_id',loaded.a.activity_key,record.ProgramModuleID,selected.module_id));}
+        }
+
         statements.push(p(`INSERT INTO management_revisions(activity_key,source_revision,source_sequence,source_snapshot_sha256,modified_at,modified_by_source_id) VALUES(?,?,?,?,?,?)
           ON CONFLICT(activity_key) DO UPDATE SET source_revision=excluded.source_revision,source_sequence=excluded.source_sequence,source_snapshot_sha256=excluded.source_snapshot_sha256,modified_at=excluded.modified_at,modified_by_source_id=excluded.modified_by_source_id`,loaded.a.activity_key,revision,current.sequence+1,await payloadHash(snapshot),new Date().toISOString(),auth.user.accountid));
         return {data,statements,result,fields:[input.kind]};
