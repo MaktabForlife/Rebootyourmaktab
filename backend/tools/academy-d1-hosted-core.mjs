@@ -4,6 +4,7 @@ import {readFileSync,writeFileSync,mkdirSync,openSync,closeSync,chmodSync} from 
 import {resolve,join} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {flowFixture} from '../tests/fixtures/academy-d1-fixture.mjs';
+import {peakFixture} from '../tests/fixtures/academy-d1-peak-fixture.mjs';
 import {withLearningSource} from '../tests/fixtures/academy-d1-learning-fixture.mjs';
 import {fixtureTab} from '../tests/fixtures/academy-migration-fixture.mjs';
 import {buildOperationalImport,importOperationalPlan,operationalSQL,migrations} from './academy-migration/operational.mjs';
@@ -21,13 +22,14 @@ export function validateHostedCoreTarget({databaseId,workerName}) {
 
 // Prepares an already activated, locally verified SYNTHETIC fixture. This is
 // installation into a new empty test DB, never an activation of an existing DB.
-export async function prepareHostedCore({directory,databaseId,workerName,accountId,repo=process.cwd()}) {
+export async function prepareHostedCore({directory,databaseId,workerName,accountId,repo=process.cwd(),fixture='core'}) {
   validateHostedCoreTarget({databaseId,workerName});
+  if(!['core','peak'].includes(fixture))throw Error('UNKNOWN_SYNTHETIC_FIXTURE');
   if(!/^[a-f0-9]{32}$/.test(accountId||''))throw Error('TEST_ACCOUNT_REQUIRED');
   directory=resolve(directory);mkdirSync(directory,{recursive:true,mode:0o700});
   const save=(name,value)=>writeFileSync(join(directory,name),value,{mode:0o600,flag:'wx'});
   const secrets={PIN_SECRET:randomBytes(32).toString('base64url'),SESSION_SECRET:randomBytes(32).toString('base64url')};
-  const {snapshot,policy}=await flowFixture(200);snapshot.environment='development';policy.environment='development';withLearningSource(snapshot);
+  const {snapshot,policy}=await (fixture==='peak'?peakFixture(200):flowFixture(200));snapshot.environment='development';policy.environment='development';if(fixture==='core')withLearningSource(snapshot);
   const accounts=fixtureTab(snapshot,'UserAccounts'),headers=accounts.rows[0],prefix=randomUUID();
   const hash=await createSaltedPinHash('1234',secrets.PIN_SECRET);
   for(const row of accounts.rows.slice(1).filter(r=>r.length)) {row[headers.indexOf('PINHash')]=hash;row[headers.indexOf('UniqueID')]=prefix+'-'+row[headers.indexOf('UniqueID')];}
@@ -64,7 +66,7 @@ export async function prepareHostedCore({directory,databaseId,workerName,account
       migrations:[{tag:'core-test-only-v1',new_sqlite_classes:['ProgramTimetableCoordinator']}],
       ratelimits:[{name:'AUTH_LOGIN_RATE_LIMITER',namespace_id:String(1000000+randomBytes(3).readUIntBE(0,3)),simple:{limit:5,period:60}}]};
     save('wrangler.json',JSON.stringify(config,null,2));
-    save('test-input.json',JSON.stringify({databaseId,workerName,runId:base.runId,accounts:base.tables.accounts.map(a=>({id:a.account_id,login:a.login_link_id})),syntheticOnly:true},null,2));
+    save('test-input.json',JSON.stringify({databaseId,workerName,runId:base.runId,fixture,accounts:base.tables.accounts.map(a=>({id:a.account_id,login:a.login_link_id})),syntheticOnly:true},null,2));
     return {prepared:true,syntheticAccounts:base.tables.accounts.length,tables:activationFacts(db).names.length,workerName,databaseId,mainDatabaseChanged:false};
   }finally{db.close();chmodSync(databasePath,0o600);}
 }
@@ -127,7 +129,7 @@ if(process.argv[1]&&pathToFileURL(resolve(process.argv[1])).href===import.meta.u
     const options=Object.fromEntries(Array.from({length:args.length/2},(_,i)=>[args[i*2],args[i*2+1]]));
     if(mode==='prepare') {
       if(!options['--directory'])throw Error('PRIVATE_DIRECTORY_REQUIRED');
-      console.log(JSON.stringify(await prepareHostedCore({directory:options['--directory'],databaseId:options['--database-id'],workerName:options['--worker-name'],accountId:options['--account-id']})));
+      console.log(JSON.stringify(await prepareHostedCore({directory:options['--directory'],databaseId:options['--database-id'],workerName:options['--worker-name'],accountId:options['--account-id'],fixture:options['--fixture']||'core'})));
     }else if(mode==='exercise') {
       if(!options['--input']||!options['--report'])throw Error('INPUT_AND_PRIVATE_REPORT_REQUIRED');
       const report=await exerciseHostedCore(options['--origin'],JSON.parse(readFileSync(options['--input'],'utf8')));

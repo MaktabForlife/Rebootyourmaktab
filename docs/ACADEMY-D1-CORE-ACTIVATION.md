@@ -1,6 +1,6 @@
 # Core D1 activation preparation — 10 October 2026
 
-**Later hosted verification:** The owner supplied a new empty test database. The separate test Worker passed 200/200 and 100/100 complete hosted flows plus representative core saves and permissions. Peak latency needs profiling; the test Worker is now paused. The initial creation failure described below no longer prevents testing with that owner-created target. No main application switch occurred. See [hosted results and remaining work](ACADEMY-D1-HOSTED-CORE-2026-10-10.md).
+**Later hosted verification:** The owner-created isolated test database passed hosted core workflows and a matched five-Program/two-Course peak comparison. Login/Home round trips fell from 24 to 10; p95 improved to 4.5 s at 100 simultaneous learners and 7.9 s at 200, with every flow passing. All 121 regression files pass. The test Worker is paused; the main website remains on Sheets. The initial creation failure described below no longer prevents testing with that target. See [peak results and remaining work](ACADEMY-D1-PEAK-2026-10-10.md) and [earlier hosted workflow checks](ACADEMY-D1-HOSTED-CORE-2026-10-10.md).
 
 The core application now has a tested activation contract and a public-only Library mode. **This is local preparation, not a completed live switch.** No feature push, Worker deployment, main database migration or storage flag change was performed. The current application remains `devrebootworker`; `rebootworker` remains legacy.
 

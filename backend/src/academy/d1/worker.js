@@ -71,7 +71,7 @@ async function dispatch(request,env) {
       if(path==='/api/account/setup-pin'&&input.pinConfirmation!==input.pin)throw rehearsalError('PIN confirmation must match the 4-digit PIN.',400,'PIN_CONFIRMATION_MISMATCH');
       await rateLimit(env,login);
     }
-    let state=await repository.byLogin(login);requireActive(state);
+    let state=await (path==='/api/account/check'?repository.accountByLogin(login):repository.byLogin(login));requireActive(state);
     if(path==='/api/account/check')return {success:true,account:{...publicAccount(state),pinsetup:Boolean(state.account.pin_setup)},unifiedLoginStage:'CENTRAL_CONTEXT_VERIFICATION'};
     if(path==='/api/account/setup-pin') {
       if(state.account.pin_setup||String(state.account.pin_hash || '').trim())throw rehearsalError('PIN is already set. An authorised administrator must reset it before a new PIN can be created.',409,'PIN_ALREADY_SET');

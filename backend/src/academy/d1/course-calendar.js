@@ -47,7 +47,9 @@ function project(data) {
     GlobalSubjectList:data.activities.filter(course).map(a=>({SubjectID:a.activity_id,SubjectName:a.name,Active:Boolean(a.active&&a.lifecycle==='ACTIVE')})),
     GlobalModuleList:data.modules.filter(r=>r.activity_key.startsWith('COURSE:')).map(r=>({ModuleID:r.module_id,SubjectID:scope(r),ModuleName:r.name,SortOrder:r.sort_order,Active:Boolean(r.active)})),
     GlobalTaskList:data.tasks.filter(r=>r.activity_key.startsWith('COURSE:')).map(r=>({TaskID:r.task_id,SubjectID:scope(r),ModuleID:r.module_id||'',TaskName:r.name,Active:Boolean(r.active)})),
-    GlobalSubjectAccessPolicy:data.coursePolicies.map(r=>({SubjectPolicyID:r.activity_key,SubjectID:scope(r),AccessModel:r.legacy_access_model==='FREE'?'FREE':'SUBSCRIPTION',Active:true})),
+    // Preserve an unreviewed model so an explicit Subscription save is not
+    // mistaken for a no-op. Public projections still default to paid access.
+    GlobalSubjectAccessPolicy:data.coursePolicies.map(r=>({SubjectPolicyID:r.activity_key,SubjectID:scope(r),AccessModel:({FREE:'FREE',PAID:'SUBSCRIPTION'})[r.legacy_access_model]||'UNKNOWN',Active:true})),
     GlobalSubjectAccessMatrix:data.accounts.map(a=>({AccountID:a.account_id,_accountActive:Boolean(a.active),
       _subjectAccess:Object.fromEntries(data.subscriptions.filter(e=>same(e.account_id,a.account_id)&&e.activity_key.startsWith('COURSE:')).map(e=>[scope(e).toUpperCase(),true]))})),
     GlobalSubjectRuns:data.runs.map(r=>({RunID:r.run_id,SubjectID:scope(r),RunName:r.name,Timezone:r.timezone,StartDate:r.start_date||'',EndDate:r.end_date||'',ScheduleMode:r.schedule_mode||'EXPLICIT',ScheduleDefinition:r.schedule_definition||'[]',AccessModel:data.access.find(a=>same(a.activity_key,r.activity_key)&&same(a.run_id,r.run_id))?.access_model||'PAID',Active:Boolean(r.active)})),

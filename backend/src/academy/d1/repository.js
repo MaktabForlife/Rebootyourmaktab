@@ -13,7 +13,7 @@ export function academyD1Repository(env) {
     throw rehearsalError('Academy activation configuration is incomplete.',503,'ACTIVATION_REQUIRED');
   const db=env.ACADEMY_DB.withSession('first-primary');
   const prepare=(sql,...values)=>db.prepare(sql).bind(...values);
-  let schemas;
+  let schemas,activation;
   async function schemaNames(){
     schemas??=prepare("SELECT name FROM sqlite_schema WHERE name IN ('role_mapping_decisions','effective_course_subscriptions') AND type IN ('table','view')").all();
     return (await schemas).results.map(r=>r.name);
@@ -24,22 +24,24 @@ export function academyD1Repository(env) {
   const accountSQL=`SELECT a.*,c.pin_hash,c.pin_setup,c.credential_epoch,
     EXISTS(SELECT 1 FROM global_role_assignments g WHERE g.account_id=a.account_id AND g.role='GLOBAL_ADMIN' AND g.active=1 AND g.review_state='CONFIRMED') AS global_admin
     FROM accounts a JOIN account_credentials c ON c.account_id=a.account_id`;
-  async function stateFor(account) {
-    if(!account)return null;
+  async function stateFor(where,values) {
     const mapped=(await schemaNames()).includes('role_mapping_decisions');
     const subscriptionsTable=await subscriptionSource();
+    const target=`(SELECT a.account_id FROM accounts a JOIN account_credentials c USING(account_id) WHERE ${where})`;
     const results=await db.batch([
+      prepare(`${accountSQL} WHERE ${where}`,...values),
       prepare(`SELECT a.*,cs.legacy_access_model FROM activities a LEFT JOIN course_settings cs USING(activity_key)
         WHERE a.active=1 AND a.lifecycle='ACTIVE' AND a.kind IN ('PROGRAM','COURSE')`),
       prepare(`SELECT r.activity_key,r.role FROM effective_activity_roles r JOIN activities a USING(activity_key)
-        WHERE r.account_id=? AND a.active=1 AND a.lifecycle='ACTIVE'
+        WHERE r.account_id=${target} AND a.active=1 AND a.lifecycle='ACTIVE'
         UNION SELECT e.activity_key,${mapped?'m.target_role':'e.source_role'} AS role FROM legacy_access_evidence e
         JOIN activities a USING(activity_key) JOIN role_import_reviews v ON v.account_id=e.account_id AND v.activity_key=e.activity_key AND v.source_value=e.source_role
         ${mapped?'JOIN role_mapping_decisions m ON m.source_role=e.source_role':''}
-        WHERE e.account_id=? AND e.source_role IN ('ADMIN','SENIOR') AND e.source_effective=1 AND v.status='REQUIRED' AND a.active=1 AND a.lifecycle='ACTIVE'`,account.account_id,account.account_id),
-      prepare(`SELECT activity_key FROM ${subscriptionsTable} WHERE account_id=?`,account.account_id)
+        WHERE e.account_id=${target} AND e.source_role IN ('ADMIN','SENIOR') AND e.source_effective=1 AND v.status='REQUIRED' AND a.active=1 AND a.lifecycle='ACTIVE'`,...values,...values),
+      prepare(`SELECT activity_key FROM ${subscriptionsTable} WHERE account_id=${target}`,...values)
     ]);
-    const [activities,roles,subscriptions]=results.map(r=>r.results);
+    const [accounts,activities,roles,subscriptions]=results.map(r=>r.results),account=accounts[0];
+    if(!account)return null;
     const contexts=[];
     if(account.global_admin)contexts.push({scope:'PLATFORM',courseId:'',courseName:'M4L Platform',role:'GLOBAL_ADMIN'});
     for(const activity of activities.filter(a=>a.kind==='PROGRAM')) {
@@ -65,9 +67,15 @@ export function academyD1Repository(env) {
     ownershipForNewActivity:activity=>newActivityOwnership(activity,env),
     subscriptionSource,
     publicAccount,
+    async homeConfiguration(){
+      if(activation)return {setting_value:activation.timezone,courseWorkflows:true};
+      return prepare("SELECT setting_value FROM academy_settings WHERE setting_key='PlatformTimezone'").first();
+    },
     async ready(){
       if(env.ACADEMY_D1_MODE==='ACTIVE') {
-        const result=await prepare(`SELECT m.run_id FROM migration_runs m
+        const result=await prepare(`SELECT m.run_id,
+          EXISTS(SELECT 1 FROM sqlite_schema WHERE name='role_mapping_decisions' AND type='table') AS mapped_roles,
+          (SELECT setting_value FROM academy_settings WHERE setting_key='PlatformTimezone') AS timezone FROM migration_runs m
           JOIN learning_imports l ON l.base_run_id=m.run_id AND l.singleton=1 AND l.source_sha256=m.source_snapshot_sha256
           JOIN course_workflow_imports c ON c.base_run_id=m.run_id AND c.singleton=1 AND c.source_sha256=m.source_snapshot_sha256
           WHERE m.run_id=? AND m.state='CUTOVER' AND m.environment IN ('LOCAL','DEVELOPMENT')
@@ -83,6 +91,10 @@ export function academyD1Repository(env) {
               (o.authoritative_store<>'D1' OR o.phase<>'ACTIVE' OR o.verified_run_id<>m.run_id OR o.switched_at IS NULL))`,
           env.ACADEMY_D1_RUN_ID,JSON.stringify(CORE_ACTIVATION_CHECKS),CORE_ACTIVATION_CHECKS.length).first();
         if(!result)throw rehearsalError('Academy activation has not been verified.',503,'ACTIVATION_REQUIRED');
+        // Reuse only facts verified in THIS request. Never retain readiness,
+        // account permissions or subscriptions across requests.
+        activation=result;
+        schemas=Promise.resolve({results:[...(result.mapped_roles?[{name:'role_mapping_decisions'}]:[]),{name:'effective_course_subscriptions'}]});
         return;
       }
       const result=await prepare(`SELECT run_id FROM migration_runs WHERE state='IMPORTED' AND environment IN ('LOCAL','DEVELOPMENT')
@@ -91,8 +103,9 @@ export function academyD1Repository(env) {
           WHERE a.active=1 AND (o.scope_key IS NULL OR o.authoritative_store<>'SHEETS' OR o.phase<>'STAGING'))`).first();
       if(!result)throw rehearsalError('A development import is required.');
     },
-    async byLogin(login){return stateFor(await prepare(`${accountSQL} WHERE a.login_link_id=? COLLATE NOCASE`,login).first());},
-    async byId(accountId){return stateFor(await prepare(`${accountSQL} WHERE a.account_id=? COLLATE NOCASE`,accountId).first());},
+    async accountByLogin(login){const account=await prepare(`${accountSQL} WHERE a.login_link_id=? COLLATE NOCASE`,login).first();return account?{account}:null;},
+    async byLogin(login){return stateFor('a.login_link_id=? COLLATE NOCASE',[login]);},
+    async byId(accountId){return stateFor('a.account_id=? COLLATE NOCASE',[accountId]);},
     async createSession(state,context,now=new Date()) {
       const sid=crypto.randomUUID(),created=now.toISOString(),expires=new Date(now.getTime()+7*86400000).toISOString();
       const result=await db.batch([
@@ -105,10 +118,9 @@ export function academyD1Repository(env) {
       return {sid,expires,context};
     },
     async session(sid,accountId,epoch,now=new Date()) {
-      const row=await prepare(`SELECT s.session_id FROM account_sessions s JOIN accounts a USING(account_id) JOIN account_credentials c USING(account_id)
-        WHERE s.session_id=? AND s.account_id=? AND s.credential_epoch=? AND c.credential_epoch=s.credential_epoch
-        AND a.active=1 AND c.pin_setup=1 AND length(trim(c.pin_hash))>0 AND s.revoked_at IS NULL AND s.expires_at>?`,sid,accountId,epoch,now.toISOString()).first();
-      return row?this.byId(accountId):null;
+      return stateFor(`a.account_id=? AND a.active=1 AND c.pin_setup=1 AND length(trim(c.pin_hash))>0 AND c.credential_epoch=?
+        AND EXISTS(SELECT 1 FROM account_sessions s WHERE s.session_id=? AND s.account_id=a.account_id AND s.credential_epoch=c.credential_epoch
+          AND s.revoked_at IS NULL AND s.expires_at>?)`,[accountId,epoch,sid,now.toISOString()]);
     },
     async revoke(sid,accountId){await prepare('UPDATE account_sessions SET revoked_at=? WHERE session_id=? AND account_id=?',new Date().toISOString(),sid,accountId).run();},
     async setCredential(state,newHash,action,actor=state.account.account_id) {
@@ -141,7 +153,8 @@ export function academyD1Repository(env) {
         `SELECT * FROM class_memberships WHERE active=1 AND account_id=?`,
         `SELECT r.*${courseWorkflows?',ca.access_model AS run_access_model':''} FROM course_runs r JOIN activities a USING(activity_key) ${courseWorkflows?'JOIN course_run_access ca USING(activity_key,run_id)':''} WHERE r.active=1 AND a.active=1 AND a.lifecycle='ACTIVE'`,
         `SELECT s.* FROM course_run_state s JOIN course_runs r USING(activity_key,run_id) WHERE r.active=1`,
-        `SELECT * FROM lesson_lifecycle`
+        `SELECT * FROM lesson_lifecycle`,
+        ...(courseWorkflows?[`SELECT * FROM academy_calendar_events`,`SELECT * FROM academy_calendar_suppressions`]:[])
       ];
       const results=await db.batch(queries.map((sql,i)=>i===1?prepare(sql,end,start):i===5?prepare(sql,state?.account.account_id || ''):prepare(sql)));
       return results.map(r=>r.results);

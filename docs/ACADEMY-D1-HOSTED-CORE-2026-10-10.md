@@ -1,5 +1,7 @@
 # Hosted core D1 verification — 10 October 2026
 
+**Follow-up completed:** A matched larger fixture now verifies the efficiency changes, with p95 4.5 s at 100 simultaneous learners and 7.9 s at 200. All flows pass; the test Worker is paused again. The results below describe the earlier source and fixture. See [the peak comparison, final state and remaining work](ACADEMY-D1-PEAK-2026-10-10.md).
+
 **The isolated hosted test passed 200 simultaneous complete login/Home flows and the representative core workflow checks.** A second 100-user burst also passed. Peak completion time remains high enough to warrant profiling before live activation. The main application still uses Sheets; no main database migration, main Worker deployment, feature push or live switch occurred.
 
 ## Isolated target and verified installation
@@ -56,7 +58,7 @@ Private input, random test secrets, complete hosted readback, workflow/latency h
 
 ## Before live activation
 
-Profile the busy login/Home path, reduce confirmed unnecessary database work and repeat peak testing with a fixture representative of all five Programs and two Courses. The completed synthetic tests support the migration, but their latency and smaller learning dataset do not justify declaring the real website ready to switch.
+The follow-up profiling and five-Program/two-Course peak comparison are complete; see the linked report above. The remaining latency and outstanding acceptance/recovery checks still prevent declaring the real website ready to switch.
 
 Browser acceptance remains outstanding because the previous native browser connection security-policy failure is unresolved. Hosted cover upload/streaming with separate test storage, a final source write freeze/reconciliation, recovery for new D1 writes, a reviewed remote atomic activation executor and approval of the concrete live transition also remain outstanding. The existing local 120/120 regression result remains applicable; no implementation code changed in this documentation-only increment.
 

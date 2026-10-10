@@ -1,18 +1,19 @@
 import { buildEntrance, addDays } from '../entrance.js';
 import { dateInTimezone } from '../../lib/global-subject-delivery.js';
 import { rehearsalError } from './repository.js';
-import {courseCalendarAvailable,d1CalendarEvents} from './course-calendar.js';
+import {courseCalendarAvailable,calendarRows} from './course-calendar.js';
+import {buildAcademyCalendarEvents} from '../../lib/academy-calendar.js';
 
 // Adapt normalized D1 records at the repository boundary. Reuse the established
 // timetable projection so privacy, class membership and timed joining are shared.
 export async function d1Entrance(repository,state,user,input={},now=new Date(),{days=7,detailed=false}={}) {
-  const config=await repository.db.prepare("SELECT setting_value FROM academy_settings WHERE setting_key='PlatformTimezone'").first();
+  const config=await repository.homeConfiguration();
   if(!config?.setting_value)throw rehearsalError('Academy timezone needs migration.');
   const start=input.startDate || dateInTimezone(now,config.setting_value);
   if(!/^\d{4}-\d{2}-\d{2}$/.test(start)||Number.isNaN(Date.parse(start))||addDays(start,0)!==start)throw rehearsalError('Choose a valid timetable date.',400,'INVALID_DATE');
-  const courseWorkflows=await courseCalendarAvailable(repository.db,true);
+  const courseWorkflows=config.courseWorkflows??await courseCalendarAvailable(repository.db,true);
   const end=addDays(start,days-1);
-  const [activities,publications,subjects,modules,classes,memberships,runs,runStates,lifecycles]=await repository.homeData(state,start,end,courseWorkflows);
+  const [activities,publications,subjects,modules,classes,memberships,runs,runStates,lifecycles,calendar,suppressions]=await repository.homeData(state,start,end,courseWorkflows);
   const programs=activities.filter(a=>a.kind==='PROGRAM').map(a=>({id:a.activity_id,name:a.name,mode:'PROGRAM',status:'ACTIVE',timezone:a.timezone,capabilities:{attendance:true}}));
   const tables={UserAccounts:state?[repository.publicAccount(state.account)]:[],PlatformConfig:[{ConfigKey:'PlatformTimezone',ConfigValue:config.setting_value}],
     GlobalSubjectList:activities.filter(a=>a.kind==='COURSE').map(a=>({SubjectID:a.activity_id,SubjectName:a.name,Active:true})),
@@ -39,5 +40,5 @@ export async function d1Entrance(repository,state,user,input={},now=new Date(),{
       ProgramTeachers:[],ProgramResources:[],ProgramTasks:[],ProgramModuleProgress:[],ProgramLibraryRoots:[],
       ProgramTimetablePublications:scope(publications).map(p=>({PublicationID:p.publication_id,VersionNo:p.version_no,SnapshotJSON:p.snapshot_json,PublishedDate:p.published_at,PublishedByAccountID:p.published_by_source_id}))}};
   }});
-  return courseWorkflows?{...result,calendarEvents:await d1CalendarEvents(repository.db,start,end)}:result;
+  return courseWorkflows?{...result,calendarEvents:buildAcademyCalendarEvents(calendarRows(calendar,suppressions),start,end)}:result;
 }

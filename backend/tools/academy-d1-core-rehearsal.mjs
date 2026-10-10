@@ -19,7 +19,7 @@ const databaseId='00000000-0000-4000-8000-000000000009';
 const save=(name,value)=>writeFileSync(join(directory,name),value,{mode:0o600,flag:'wx'});
 let mf,outboundRequests=0,step='PREPARE';
 try {
-  const prepared=await prepareHostedCore({directory,databaseId,workerName,accountId:'0'.repeat(32),repo});
+  const prepared=await prepareHostedCore({directory,databaseId,workerName,accountId:'0'.repeat(32),repo,fixture:options['--fixture']||'core'});
   const config=JSON.parse(readFileSync(join(directory,'wrangler.json'),'utf8'));
   const secrets=JSON.parse(readFileSync(join(directory,'test-secrets.json'),'utf8'));
   const input=JSON.parse(readFileSync(join(directory,'test-input.json'),'utf8'));
@@ -51,7 +51,7 @@ try {
     result=await exerciseHostedCore('https://'+workerName+'.local.workers.dev',input);
   }finally{globalThis.fetch=original;}
   result.runtime='LOCAL_WORKERS_D1';result.compatibilityDate=compatibilityDate;result.outboundRequests=outboundRequests;result.syntheticTables=prepared.tables;
-  result.mainDatabaseChanged=false;result.hostedCapacityVerified=false;
+  result.mainDatabaseChanged=false;result.hostedCapacityVerified=false;result.fixture=input.fixture;
   if(result.failedFlows||outboundRequests||result.coreRoleAndSecurityChecks!=='PASS')throw Error('LOCAL_ACTIVE_CORE_FAILED');
   save('verification.json',JSON.stringify(result,null,2));
   console.log(JSON.stringify({directory,...result}));
