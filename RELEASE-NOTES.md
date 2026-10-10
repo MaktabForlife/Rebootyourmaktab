@@ -1,4 +1,12 @@
-# Unreleased — D1 management, learning and Course workflows
+# V106.1 — D1 core migration release candidate
+
+Prepare the coordinated website/backend release for the five active Programs, two current Courses and 73 active accounts. Include D1 account, scoped management, timetable, attendance and Course/calendar workflows, reviewed role mapping, current permissions and server-side sign-out. The matched hosted login/Home test reduces database round trips from 24 to 10. Browser checks cover four roles and saved attendance/profile changes; the owner confirms test logins.
+
+Synchronize current website/Worker version markers and refresh every changed frontend asset URL. Preserve existing deployment bindings and dashboard variables. Publishing this candidate keeps the main application on Sheets: it does not run migrations or enable D1. The separate coordinated switch uses a guarded 45→62-table upgrade plus ownership activation in one transaction, with private backups and tested recovery. A final source freeze/reconciliation and owner approval remain required.
+
+At D1 activation, retain the public Library and use PUBLIC_ONLY for Academy media. Individual Module subscriptions and permanent media entitlements remain unbuilt; this release grants no new private media access. The production-named legacy Worker is outside the switch. [Release scope and live switch](docs/ACADEMY-D1-RELEASE-106.1.md).
+
+## Recorded implementation and preparation evidence
 
 Prepare an offline main-database upgrade from 45 to 62 tables, preserving all 1,683 existing rows, accounts, PIN hashes and authority evidence. Verify fresh main readback, independent recovery files, guarded additive SQL and a combined upgrade/activation batch with complete rollback and retry replay. All 124 regression files pass; local Workers/D1 checks have zero external traffic. The owner confirms test logins and defers wording cleanup. Main V106.0 remains on Sheets; final source reconciliation and release approval are pending. [Main switch package and sequence](docs/ACADEMY-D1-MAIN-SWITCH-PREPARATION-2026-10-10.md).
 

@@ -9,7 +9,7 @@ const accountUi = fs.readFileSync(new URL("../../js/m4l-account.js", import.meta
 
 assert.match(admin, /Academic Calendar/);
 assert.match(admin, /data-academy-calendar-action="open"/);
-assert.match(admin, /m4l-academy-calendar\.js\?v=102\.12\.8/);
+assert.match(admin, /m4l-academy-calendar\.js\?v=106\.1/);
 assert.match(ui, /<h3>Holidays<\/h3>/);
 assert.match(ui, /Islamic Dates/);
 assert.match(ui, /data-academy-calendar-action="add-term"/);

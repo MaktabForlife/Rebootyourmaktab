@@ -6,7 +6,7 @@ const [adminHtml, scheduler] = await Promise.all([
   readFile(new URL("../../js/m4l-global-course-scheduler.js", import.meta.url), "utf8")
 ]);
 
-assert.match(adminHtml, /m4l-global-course-scheduler\.js\?v=104\.5\.4/);
+assert.match(adminHtml, /m4l-global-course-scheduler\.js\?v=106\.1/);
 assert.match(scheduler, /publishstart: String\(run\.draftpublishstartdate \|\| ""\)/,
   "Course reload must use the authoritative saved ONGOING draft Publish From date");
 assert.match(scheduler, /publishend: String\(run\.draftpublishenddate \|\| ""\)/,

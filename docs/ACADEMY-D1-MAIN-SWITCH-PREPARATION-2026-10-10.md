@@ -1,5 +1,7 @@
 # Main D1 switch preparation — 10 October 2026
 
+The subsequent [V106.1 release candidate and concrete live operation](ACADEMY-D1-RELEASE-106.1.md) package this preparation with synchronized release labels and refreshed asset URLs. The observations below describe the earlier V106.0 preparation stage.
+
 The owner confirms that the test logins work and that no source data has been changed. Wording updates will continue with website development and are **not a migration prerequisite**. This confirmation does not claim every device or feature has been accepted, and it is not a source write freeze or live activation approval.
 
 The main database has been backed up again through read-only queries and an additive upgrade has been rehearsed on private copies. **The main application still uses Sheets. No main schema, data, ownership, configuration, deployment or credential secret was changed.** No feature push or release-version change occurred.
