@@ -3,7 +3,7 @@
   const $ = id => document.getElementById(id);
   const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
   const token = () => localStorage.getItem('m4l_account_token') || '';
-  const state = { home: null, activity: null, personalTimetable: [], personalStartDate: '', activityTimer: null, generation: 0, scheduleGeneration: 0, activityGeneration: 0, information: {}, startDate: '' };
+  const state = { home: null, activity: null, personalTimetable: [], scheduleTimetable: [], personalStartDate: '', activityTimer: null, generation: 0, scheduleGeneration: 0, activityGeneration: 0, information: {}, startDate: '' };
   const pageCache = { epoch: 0, snapshot: null, pending: new Map() };
   const PAGE_CACHE_MS = 60000;
   const titles = { overview: 'Academy home', timetable: 'Academy timetable', learning: 'Programs and Courses', workshops: 'Workshops', activity: 'Activity',
@@ -68,9 +68,6 @@
       year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date(now)).map(part => [part.type, part.value]));
     if (result.startDate !== `${clock.year}-${clock.month}-${clock.day}` || result.personalTimetable.some(row =>
       [row.joinAvailableAt, row.startsAt, row.endsAt].some(time => time > snapshot.at && time <= now))) return null;
-    // Home responses intentionally contain no joining URLs. Recheck with the server
-    // if a lesson is already open before using one as a detailed page snapshot.
-    if (!result.activity && result.personalTimetable.some(row => now >= row.joinAvailableAt && now < row.endsAt)) return null;
     const activity = result.activityPages.find(row => row.id === id && !row.unavailable);
     return activity ? { ...result, activity } : null;
   }
@@ -85,6 +82,7 @@
       rememberPages(result);
       state.home = result;
       state.startDate = result.startDate;
+      state.scheduleTimetable = scheduleRows(result);
       $('schedule-date').value = result.startDate;
       $('schedule-range').textContent = `${formatDate(result.startDate)} – ${formatDate(result.endDate)}`;
       renderCalendar(result);
@@ -96,7 +94,15 @@
       if (generation !== state.generation) return;
       $('entrance-message').textContent = error.message;
       $('entrance-retry').hidden = false;
-      if (!state.home) {
+      if (!state.home || state.home.signedIn) {
+        clearTimeout(state.activityTimer);
+        state.scheduleTimetable = [];
+        state.information['academy-preview-sessions'] = [];
+        state.information['academy-sessions'] = [];
+        if (state.home) state.home = { ...state.home, personalTimetable: [] };
+        $('academy-preview-sessions').replaceChildren();
+        $('academy-sessions').replaceChildren();
+        $('lesson-information').close();
         $('academy-preview-sessions').textContent = 'The Academy timetable is currently unavailable.';
         $('academy-sessions').textContent = 'The Academy timetable is currently unavailable.';
       }
@@ -115,12 +121,15 @@
       renderCalendar(result);
       $('schedule-message').textContent = result.warnings.join(' ');
       renderSchedule('academy-sessions', scheduleRows(result));
+      state.scheduleTimetable = scheduleRows(result);
+      armScheduleRefresh();
     } catch (error) {
       if (generation !== state.scheduleGeneration) return;
       $('schedule-message').textContent = error.message;
       $('academy-sessions').replaceChildren();
       renderCalendar({});
       state.information['academy-sessions'] = [];
+      state.scheduleTimetable = [];
     }
   }
 
@@ -152,9 +161,10 @@
     const personalSchedule = scheduleRows(data);
     $('schedule-title').textContent = data.signedIn && !data.globalAdmin ? 'My Academy timetable' : 'Academy timetable';
     $('full-timetable-title').textContent = data.signedIn && !data.globalAdmin ? 'My Academy timetable' : 'Full Academy timetable';
-    const preview = upcomingItems(data.timetable);
+    const preview = data.signedIn ? personalSchedule : upcomingItems(data.timetable);
     renderSchedule('academy-preview-sessions', preview, false, true);
-    if (!preview.length) $('academy-preview-sessions').textContent = 'No upcoming published lessons in the next seven days.';
+    if (!preview.length) $('academy-preview-sessions').textContent = data.signedIn
+      ? 'No lessons are scheduled for you in this date range.' : 'No upcoming published lessons in the next seven days.';
     $('preview-timetable-link').hidden = !data.signedIn;
     $('schedule-message').textContent = '';
     renderSchedule('academy-sessions', personalSchedule);
@@ -210,30 +220,20 @@
     return new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' }).format(new Date(`${value}T12:00:00Z`));
   }
 
-  function timetableColour(row) {
-    // Use the whole Academy registry, not the current week, account role or selected Program.
-    const programs = [...new Set((state.home?.activities || []).filter(item => item.kind === 'PROGRAM').map(item => item.id))].sort();
-    const index = programs.indexOf(row.activityId);
-    const fallback = [...String(row.activityId || row.activityName)].reduce((hash, char) => (hash * 31 + char.charCodeAt(0)) >>> 0, 0);
-    const hue = row.kind === 'COURSE' ? 28 : Math.round((272 + (index < 0 ? fallback : index) * 137.508) % 360);
-    const saturation = row.kind === 'COURSE' ? 60 : 45;
-    return { fill: `hsl(${hue} ${saturation}% 92%)`, line: `hsl(${hue} ${saturation}% 78%)`, accent: `hsl(${hue} 42% 38%)` };
-  }
-
-  function timetableStyle(rows) {
-    const identities = new Map(rows.map(row => [row.kind === 'COURSE' ? 'COURSE' : `PROGRAM:${row.activityId}`, row]));
-    const colours = [...identities].sort(([a], [b]) => a.localeCompare(b)).map(([, row]) => timetableColour(row));
-    // A shared room may span activities: retain each participating Program/Course shade.
-    const fill = colours.length === 1 ? colours[0].fill : `linear-gradient(135deg,${colours.map((colour, index) => `${colour.fill} ${index * 100 / colours.length}% ${(index + 1) * 100 / colours.length}%`).join(',')})`;
-    return `style="--timetable-fill:${fill};--timetable-line:${colours[0].line};--timetable-accent:${colours[0].accent}"`;
+  function summarizeLesson(row) {
+    if (typeof row.summarize === 'boolean') return row.summarize;
+    // Retain the same presentation during a staggered frontend/backend release.
+    return Boolean(state.home?.globalAdmin || state.home?.personalActivities.some(activity =>
+      activity.kind === 'PROGRAM' && row.kind === activity.kind && activity.id === row.activityId &&
+      activity.roles.some(role => ['PROGRAM_ADMIN', 'ADMIN'].includes(role))));
   }
 
   function renderSchedule(id, rows, detailed = false, compact = false) {
     state.information[id] = rows.slice();
-    const personal = detailed || id === 'academy-sessions' && state.home?.signedIn;
+    const personal = detailed || state.home?.signedIn;
     if (!rows.length) { $(id).textContent = personal && !state.home?.globalAdmin ? 'No lessons are scheduled for you in this date range.' : 'No published lessons in this date range.'; return; }
     const now = new Date().getTime();
-    const next = detailed ? rows.findIndex(row => row.status === 'SCHEDULED' && row.endsAt > now) : -1;
+    const next = personal ? rows.findIndex(row => row.status === 'SCHEDULED' && row.endsAt > now) : -1;
     if (personal) { renderPersonalWeek(id, rows, detailed, next, now); return; }
     if (compact) {
       const days = new Map();
@@ -245,7 +245,7 @@
         const label = esc(row.activityName || row.title);
         const title = state.home?.signedIn ? `<a href="${activityHref({ kind: row.kind, id: row.activityId })}">${label}</a>` : label;
         const info = state.home?.signedIn && row.information?.length ? `<button type="button" class="information-button" data-information="${id}:${index}" aria-label="More information about ${label}">i</button>` : '';
-        return `<li class="upcoming-item ${row.involvement === 'teacher' ? 'teacher' : row.involvement === 'student' ? 'student' : ''}" ${timetableStyle([row])}><span class="upcoming-status"></span><div class="upcoming-name" title="${label}">${title}</div><div class="upcoming-summary"><span class="upcoming-time">${esc(row.startTime)}–${esc(row.endTime)}</span></div><div class="upcoming-actions">${info}</div></li>`;
+        return `<li class="upcoming-item ${row.involvement === 'teacher' ? 'teacher' : row.involvement === 'student' ? 'student' : ''}"><span class="upcoming-status"></span><div class="upcoming-name" title="${label}">${title}</div><div class="upcoming-summary"><span class="upcoming-time">${esc(row.startTime)}–${esc(row.endTime)}</span></div><div class="upcoming-actions">${info}</div></li>`;
       }).join('')}</ul></li>`).join('')}</ol>`;
       return;
     }
@@ -253,6 +253,7 @@
   }
 
   function renderPersonalWeek(id, rows, detailed, next, now) {
+    const scrollLeft = $(id).scrollLeft || 0;
     const timezone = state.home?.timezone || rows[0].timezone;
     const formatter = new Intl.DateTimeFormat('en-GB', { timeZone: timezone,
       year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
@@ -261,7 +262,7 @@
       return { date: `${parts.year}-${parts.month}-${parts.day}`, time: `${parts.hour}:${parts.minute}` };
     };
     const days = new Map();
-    const start = (id === 'academy-sessions' ? state.startDate : state.personalStartDate) || rows[0].date;
+    const start = (id === 'academy-sessions' ? state.startDate : id === 'academy-preview-sessions' ? state.home?.startDate : state.personalStartDate) || rows[0].date;
     for (let offset = 0; offset < 7; offset++)
       days.set(new Date(Date.parse(`${start}T12:00:00Z`) + offset * 86400000).toISOString().slice(0, 10), new Map());
     rows.map((original, index) => ({ original, index })).sort((a, b) => a.original.startsAt - b.original.startsAt).forEach(({ original, index }) => {
@@ -270,7 +271,7 @@
       if (!days.has(row.date)) days.set(row.date, new Map());
       const groups = days.get(row.date);
       // Missing room information must never combine unrelated lessons.
-      const key = row.meetingGroup ? `room:${row.meetingGroup}` : `lesson:${index}`;
+      const key = summarizeLesson(row) && row.meetingGroup ? `room:${row.meetingGroup}` : `lesson:${index}`;
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key).push({ row, index });
     });
@@ -280,6 +281,7 @@
     };
     const renderGroup = entries => {
       const first = entries[0].row;
+      const summary = summarizeLesson(first);
       const activities = [...new Set(entries.map(entry => entry.row.activityName))];
       const subjects = [...new Set(entries.map(entry => entry.row.subjectName || entry.row.title))];
       const label = esc(activities.join(' · '));
@@ -287,11 +289,20 @@
       const title = !detailed && singleActivity ? `<a href="${activityHref({ kind: first.kind, id: first.activityId })}">${label}</a>` : label;
       const nextEntry = entries.find(entry => entry.index === next);
       const infoIndex = state.information[id].push({ title: activities.join(' · '), lessons: entries.map(entry => entry.row) }) - 1;
-      const joinable = entries.find(({ row }) => detailed && row.status === 'SCHEDULED' && now >= row.joinAvailableAt && now < row.endsAt && safeLink(row.joinUrl));
+      const joinable = entries.find(({ row }) => row.status === 'SCHEDULED' && now >= row.joinAvailableAt && now < row.endsAt && safeLink(row.joinUrl));
       const join = joinable ? `<a class="button small" href="${esc(joinable.row.joinUrl)}" target="_blank" rel="noopener noreferrer">Join lesson</a>` : '';
-      return `<li class="upcoming-item ${nextEntry ? 'next-lesson ' : ''}${participation(entries)}" ${timetableStyle(entries.map(entry => entry.row))}><span class="upcoming-status next-lesson-label">${nextEntry ? nextEntry.row.startsAt <= now ? 'In progress' : 'Next lesson' : ''}</span><div class="upcoming-name" title="${label}">${title}</div><div class="upcoming-summary">${entries.length > 1 ? `<small>${entries.length} lessons</small>` : subjects[0] !== activities[0] ? `<small title="${esc(subjects[0])}">${esc(subjects[0])}</small>` : ''}${entries.length === 1 ? `<span class="upcoming-time">${esc(first.startTime)}–${esc(first.endTime)}${first.endDate !== first.date ? ' (+1 day)' : ''}</span>` : ''}</div><div class="upcoming-actions"><button type="button" class="information-button" data-information="${id}:${infoIndex}" aria-label="Lesson details for ${label}">i</button>${join}</div></li>`;
+      const status = nextEntry ? nextEntry.row.startsAt <= now ? 'In progress' : 'Next lesson' : '';
+      if (!summary) {
+        const lessonTitle = first.moduleName || first.subjectName || first.title || first.activityName;
+        const details = [...new Set([first.subjectName, first.moduleName, ...(first.information || [])])]
+          .filter(detail => detail && detail !== lessonTitle && detail !== first.activityName);
+        const joiningNote = now >= first.endsAt ? 'Lesson ended' : first.meetingGroup ? 'Joining opens 5 minutes before the lesson' : '';
+        return `<li class="upcoming-item ${nextEntry ? 'next-lesson ' : ''}${participation(entries)} lesson-card${joinable ? ' join-open' : ''}"><span class="upcoming-status next-lesson-label">${status}</span><div class="lesson-activity">${title}</div><h3 class="lesson-title">${esc(lessonTitle)}</h3><div class="lesson-details">${details.map(detail => `<p>${esc(detail)}</p>`).join('')}</div><span class="upcoming-time">${esc(first.startTime)}–${esc(first.endTime)}${first.endDate !== first.date ? ' (+1 day)' : ''}</span><div class="upcoming-actions">${join || `<span class="lesson-join-note">${joiningNote}</span>`}</div></li>`;
+      }
+      return `<li class="upcoming-item ${nextEntry ? 'next-lesson ' : ''}${participation(entries)}${joinable ? ' join-open' : ''}"><span class="upcoming-status next-lesson-label">${status}</span><div class="upcoming-name" title="${label}">${title}</div><div class="upcoming-summary">${entries.length > 1 ? `<small>${entries.length} lessons</small>` : subjects[0] !== activities[0] ? `<small title="${esc(subjects[0])}">${esc(subjects[0])}</small>` : ''}${entries.length === 1 ? `<span class="upcoming-time">${esc(first.startTime)}–${esc(first.endTime)}${first.endDate !== first.date ? ' (+1 day)' : ''}</span>` : ''}</div><div class="upcoming-actions"><button type="button" class="information-button" data-information="${id}:${infoIndex}" aria-label="Lesson details for ${label}">i</button>${join}</div></li>`;
     };
     $(id).innerHTML = `<ol class="upcoming-days timetable-days">${[...days].sort(([a], [b]) => a.localeCompare(b)).map(([date, groups]) => `<li class="upcoming-day"><time datetime="${esc(date)}">${esc(formatDate(date))}</time><ul class="upcoming-items">${groups.size ? [...groups.values()].map(renderGroup).join('') : '<li class="timetable-empty">No lessons</li>'}</ul></li>`).join('')}</ol>`;
+    $(id).scrollLeft = scrollLeft;
   }
 
   async function loadActivity(id, refresh = false) {
@@ -386,17 +397,39 @@
   }
 
   function armActivityRefresh(id) {
+    if (!location.hash.startsWith('#activity/')) return;
+    armTimetableRefresh(state.personalTimetable, () => loadActivity(id, true), () => {
+      renderSchedule('activity-sessions', state.personalTimetable, true);
+    });
+  }
+
+  function armScheduleRefresh() {
+    const view = location.hash.slice(1).split('/')[0];
+    if (view === 'timetable') {
+      armTimetableRefresh(state.scheduleTimetable, () => loadSchedule(), () => {
+        renderSchedule('academy-sessions', state.scheduleTimetable);
+      });
+    } else if (!view || ['overview', 'learning'].includes(view)) {
+      const rows = state.home?.signedIn ? scheduleRows(state.home) : [];
+      armTimetableRefresh(rows, () => loadHome(), () => {
+        renderSchedule('academy-preview-sessions', rows, false, true);
+        renderSchedule('academy-sessions', rows);
+      });
+    }
+  }
+
+  function armTimetableRefresh(rows, refresh, render) {
     clearTimeout(state.activityTimer);
-    if (document.visibilityState !== 'visible' || !location.hash.startsWith('#activity/')) return;
-    const generation = state.activityGeneration, session = token(), hash = location.hash;
+    if (document.visibilityState !== 'visible' || !token() || !rows.length) return;
+    const generation = state.activityGeneration, epoch = pageCache.epoch, session = token(), hash = location.hash;
     const now = new Date().getTime();
-    const transitions = state.personalTimetable.flatMap(row => [row.joinAvailableAt, row.startsAt, row.endsAt]).filter(time => time > now);
+    const transitions = rows.flatMap(row => [row.joinAvailableAt, row.startsAt, row.endsAt]).filter(time => time > now);
     const delay = Math.max(250, Math.min(60000, ...transitions.map(time => time - now)));
     state.activityTimer = setTimeout(() => {
-      if (!session || token() !== session || document.visibilityState !== 'visible' || generation !== state.activityGeneration || location.hash !== hash) return;
+      if (token() !== session || epoch !== pageCache.epoch || document.visibilityState !== 'visible' || generation !== state.activityGeneration || location.hash !== hash) return;
       // Remove expired links immediately, then ask the server to recheck membership and the opening window.
-      renderSchedule('activity-sessions', state.personalTimetable, true);
-      void loadActivity(id, true);
+      render();
+      void refresh();
     }, delay);
   }
 
@@ -416,6 +449,7 @@
     if (name === 'activity' && encodedId && state.home) { try { void loadActivity(decodeURIComponent(encodedId)); } catch { $('activity-status').textContent = 'This activity link is invalid.'; } }
     if (name === 'recorder') $('recorder-card').innerHTML = state.home?.student ? '<p>Select an existing lesson image, record your voice, then preview and share your video.</p><a class="button" href="/recorder/?academy=1">Open Voice Recorder →</a>' : '<p>Voice Recorder is available to signed-in Academy students.</p>';
     if (name === 'administration') renderAdministration();
+    if (requested !== 'activity') armScheduleRefresh();
   }
 
   function renderAdministration() {
@@ -435,6 +469,7 @@
     state.home = null;
     state.activity = null;
     state.personalTimetable = [];
+    state.scheduleTimetable = [];
     state.personalStartDate = '';
     clearTimeout(state.activityTimer);
     state.information = {};

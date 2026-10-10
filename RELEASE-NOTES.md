@@ -1,3 +1,9 @@
+# V106.2 — Complete Academy timetables
+
+Keep the same complete, authorised Academy timetable on Home, the full timetable and every Program/Course page. Students and Teachers receive one card per directly involved lesson with its details shown inline. Program Admins receive their Programs’ full schedules grouped by meeting link and day; Global Admins receive the entire Academy grouped the same way. Accounts with mixed roles retain direct participation outside their administered Programs.
+
+Restore one timetable colour, darken cards while their joining links are available, open joins five minutes before the lesson, and display the signed-in name in the top bar. Recheck joining windows on every timetable and clear protected content on failed refresh. D1 remains the live Academy store; no database migration is needed. [Release details](docs/ACADEMY-TIMETABLE-106.2.md).
+
 # V106.1 — D1 core migration release candidate
 
 Prepare the coordinated website/backend release for the five active Programs, two current Courses and 73 active accounts. Include D1 account, scoped management, timetable, attendance and Course/calendar workflows, reviewed role mapping, current permissions and server-side sign-out. The matched hosted login/Home test reduces database round trips from 24 to 10. Browser checks cover four roles and saved attendance/profile changes; the owner confirms test logins.

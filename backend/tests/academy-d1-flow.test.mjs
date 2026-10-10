@@ -14,6 +14,33 @@ async function call(env,path,body={},token='',extra={}) {
 const login=(env,id='0002')=>call(env,'/api/account/login',{uniqueid:`login-${id}`,pin:'1234'});
 const use=async fn=>{const f=await fixtureDatabase();try{await fn(f);}finally{f.db.close();}};
 
+test('D1 timetables retain direct lessons across pages and scope administrator rollups to current roles',()=>use(async({env,db})=>{
+  const admin=await login(env,'0001'),student=await login(env,'0002'),teacher=await login(env,'0003');
+  const overview=async token=>(await call(env,'/api/academy/entrance',{startDate:'2026-10-09'},token)).body;
+  const entire=await overview(admin.body.token);
+  assert.ok(entire.personalTimetable.length);
+  assert.ok(entire.personalTimetable.every(row=>row.summarize));
+  for(const signed of [student,teacher]) {
+    const home=await overview(signed.body.token);
+    assert.ok(home.personalTimetable.length);
+    assert.ok(home.personalTimetable.every(row=>row.relevant&&!row.summarize));
+    const page=await call(env,'/api/academy/entrance',{id:home.personalActivities[0].id,startDate:'2026-10-09'},signed.body.token);
+    assert.equal(page.status,200);
+    assert.deepEqual(page.body.personalTimetable,home.personalTimetable,'Selecting an activity retains the complete personal timetable');
+  }
+  const program=entire.activities.find(row=>row.kind==='PROGRAM').id;
+  db.prepare("INSERT INTO role_assignments(assignment_id,account_id,activity_key,role,active,review_state) VALUES('timetable-program-admin','account-0008',?,'PROGRAM_ADMIN',1,'CONFIRMED')").run(`PROGRAM:${program}`);
+  const scoped=await login(env,'0008'),home=await overview(scoped.body.token);
+  const grouped=home.personalTimetable.filter(row=>row.summarize);
+  assert.equal(grouped.length,entire.personalTimetable.filter(row=>row.kind==='PROGRAM'&&row.activityId===program).length);
+  assert.ok(grouped.length);
+  assert.ok(grouped.every(row=>row.kind==='PROGRAM'&&row.activityId===program));
+  assert.ok(home.personalTimetable.filter(row=>!row.summarize).every(row=>row.relevant));
+  db.prepare("UPDATE role_assignments SET active=0 WHERE assignment_id='timetable-program-admin'").run();
+  const after=await overview((await login(env,'0008')).body.token);
+  assert.ok(after.personalTimetable.every(row=>row.relevant&&!row.summarize),'Revoking Program Admin removes its wider timetable immediately');
+}));
+
 test('login, session, context switching and home use D1 and keep private links gated',()=>use(async({env,db,queries})=>{
   const check=await call(env,'/api/account/check',{uniqueid:'LOGIN-0002'});assert.equal(check.status,200);assert.equal(check.body.account.pinsetup,true);
   const signed=await login(env);assert.equal(signed.status,200);assert.ok(signed.body.token);assert.equal(signed.body.context.role,'STUDENT');

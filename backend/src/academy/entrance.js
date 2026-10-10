@@ -86,7 +86,7 @@ export function programProjection(program, data, user, roles, start, end, now, d
           ...(row.classNames || []), ...(row.teacherNames || [row.teacherName])].filter(Boolean);
         if(compatibilityDetails){event.teacherName=(row.teacherNames||[row.teacherName]).filter(Boolean).join(', ');event.group=(row.classNames||[]).join(', ');}
       }
-      if (detailed && mayView && (involved || oversight) && joinWindowOpen(event, now) && row.zoomLink)
+      if (mayView && (involved || oversight) && joinWindowOpen(event, now) && row.zoomLink)
         event.joinUrl = row.zoomLink;
       timetable.push(event);
     }
@@ -179,7 +179,7 @@ export async function buildEntrance({ tables, programs, rolesByProgram, loadProg
           if(detailedTimetable)projected.teacherName=event.teacherName||'';
         }
         // Keep the shared/legacy timetable gate unchanged. The new website opens five minutes early.
-        if ((requestedId||detailedTimetable) && user && (relevant || globalAdmin(user)) && event.visibilityLevel === 'DETAIL' &&
+        if (user && (relevant || globalAdmin(user)) && event.visibilityLevel === 'DETAIL' &&
           joinWindowOpen(projected, now) && published[index]?.zoomlink) projected.joinUrl = published[index].zoomlink;
         sessions.push(projected);
       }
@@ -199,9 +199,13 @@ export async function buildEntrance({ tables, programs, rolesByProgram, loadProg
     warnings.push('Reboot is coming soon. Its new Program registration is unavailable.');
   const activity = requestedId ? [...programViews, ...courseViews].find(row => key(row.id) === key(requestedId)) : null;
   if (requestedId && !activity) throw problem('This Academy activity is unavailable.', 404);
-  // Global Admin sees the entire Academy schedule without claiming learner/teacher participation.
-  const personalTimetable = user ? timetable.filter(row => (globalAdmin(user) || row.relevant) && row.status === 'SCHEDULED')
-    .map(row => ({ ...row, ...lessonTimes(row) }))
+  // Oversight is scoped to the verified Program roles, independently of the
+  // current page. Direct teaching/enrolment in another activity stays personal.
+  const administeredPrograms = new Set(programViews.filter(view => view.roles.some(role =>
+    ['PROGRAM_ADMIN', 'ADMIN'].includes(role))).map(view => key(view.id)));
+  const summarize = row => globalAdmin(user) || row.kind === 'PROGRAM' && administeredPrograms.has(key(row.activityId));
+  const personalTimetable = user ? timetable.filter(row => (summarize(row) || row.relevant) && row.status === 'SCHEDULED')
+    .map(row => ({ ...row, title: row.moduleName || row.subjectName || row.title, ...lessonTimes(row), summarize: summarize(row) }))
     .filter(row => Number.isFinite(row.startsAt) && Number.isFinite(row.endsAt))
     .sort((a, b) => a.startsAt - b.startsAt || a.activityId.localeCompare(b.activityId)) : [];
   const visibleTimetable = requestedId ? timetable.filter(row => key(row.activityId) === key(requestedId)) : timetable;

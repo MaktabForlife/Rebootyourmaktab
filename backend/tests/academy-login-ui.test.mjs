@@ -11,7 +11,7 @@ assert.match(html, /id="academy-sign-out" type="button" hidden/);
 assert.match(html, /id="academy-library-nav" href="\/academy\/open-library\/"/);
 assert.doesNotMatch(html, /academy-personal-library-nav|>My Library<\/a>/);
 assert.doesNotMatch(html, /Open Academy Library/);
-assert.match(html, /Website V106\.1/);
+assert.match(html, /Website V106\.2/);
 assert.doesNotMatch(html, /ABCDEFG/);
 assert.match(redirects, /^\/academy\/:uniqueid \/academy\/#overview 302$/m);
 
@@ -19,7 +19,7 @@ async function loadPage({ id = '', pin = '', replies = {}, storedToken = '', aca
   const elements = new Map();
   for (const name of ['login-preview', 'demo-username', 'demo-pin', 'demo-pin-toggle', 'login-status',
     'academy-session-loading', 'academy-session-message', 'academy-session-retry', 'academy-home-card', 'academy-account-name', 'academy-maktab-link',
-    'academy-sign-out', 'academy-avatar', 'academy-library-nav']) {
+    'academy-sign-out', 'academy-avatar', 'academy-header-name', 'academy-library-nav']) {
     elements.set(name, {
       value: '', textContent: '', href: '', hidden: ['academy-home-card', 'academy-sign-out',
         'academy-session-loading', 'login-status'].includes(name),
@@ -116,6 +116,8 @@ const signedIn = await loadPage({ academyId: 'TEST-USER', storedToken: 'NEW_SESS
 assert.equal(signedIn.elements.get('login-preview').hidden, true, 'Signed-in users must not see ID and PIN fields');
 assert.equal(signedIn.elements.get('academy-home-card').hidden, false);
 assert.equal(signedIn.elements.get('academy-sign-out').hidden, false);
+assert.equal(signedIn.elements.get('academy-header-name').textContent, 'Test Learner');
+assert.equal(signedIn.elements.get('academy-header-name').hidden, false);
 assert.doesNotMatch(html, /id="academy-maktab-link"/, 'The home must not link to a legacy account screen');
 assert.equal(signedIn.elements.get('academy-library-nav').href, '/academy/library/');
 signedIn.signOut();
@@ -126,6 +128,8 @@ assert.equal(signedIn.hash, 'overview');
 assert.equal(signedIn.elements.get('login-preview').hidden, false);
 assert.equal(signedIn.elements.get('academy-home-card').hidden, true);
 assert.equal(signedIn.elements.get('academy-sign-out').hidden, true);
+assert.equal(signedIn.elements.get('academy-header-name').textContent, '');
+assert.equal(signedIn.elements.get('academy-header-name').hidden, true);
 assert.equal(signedIn.elements.get('academy-library-nav').href, '/academy/open-library/');
 
 const otherTab = await loadPage({ academyId: 'TEST-USER', storedToken: 'NEW_SESSION', replies: {

@@ -69,10 +69,10 @@ assert(student.activityPages.every(row=>!row.timetable), 'Shared page metadata d
 assert.deepEqual(student.personalActivities.find(row => row.id === first.program.id).roles, ['STUDENT']);
 assert.deepEqual(student.personalActivities.find(row => row.id === second.program.id).roles, ['TEACHER']);
 assert(student.timetable.some(row => row.kind === 'PROGRAM' && row.involvement === 'student'));
-assert(student.timetable.every(row => !row.joinUrl), 'Home must never contain joining links');
+assert(student.timetable.every(row => !row.joinUrl || row.relevant), 'Home joining links require direct involvement and the server opening window');
 assert(student.personalTimetable.some(row => row.kind === 'PROGRAM'));
 assert(student.personalTimetable.some(row => row.kind === 'COURSE'));
-assert(student.personalTimetable.every(row => row.relevant && row.status === 'SCHEDULED' && !row.joinUrl));
+assert(student.personalTimetable.every(row => row.relevant && row.status === 'SCHEDULED' && !row.summarize));
 assert(!student.personalTimetable.some(row => row.activityId === second.program.id), 'An unassigned teaching role does not make every lesson personal');
 for (let i = 1; i < student.personalTimetable.length; i++) assert(student.personalTimetable[i - 1].startsAt <= student.personalTimetable[i].startsAt);
 
@@ -160,7 +160,21 @@ assert.deepEqual(new Set(admin.personalTimetable.map(row => row.activityId)), ne
 assert(admin.personalTimetable.every(row => row.information?.length && !row.involvement), 'Global oversight includes detail without labelling the admin as a participant');
 const adminOtherPage = await buildEntrance({ ...args, user: account('ADMIN', 'GLOBAL_ADMIN'), input: { id: second.program.id } });
 assert.deepEqual(adminOtherPage.personalTimetable, admin.personalTimetable, 'Global Admin retains the entire schedule across Program pages');
-assert.deepEqual(hod.personalTimetable, [], 'Program Admin oversight remains limited to enrolled or assigned lessons');
+assert(hod.personalTimetable.length > 0, 'Program Admin sees every scheduled lesson in their administered Program');
+assert(hod.personalTimetable.every(row => row.activityId === first.program.id && row.summarize && !row.involvement),
+  'Program oversight cannot expose another Program or mislabel the administrator as a participant');
+assert.equal(hod.personalTimetable.length, admin.personalTimetable.filter(row => row.activityId === first.program.id).length);
+const hodOtherPage = await buildEntrance({ ...args, user: account('HOD'), input: { id: second.program.id } });
+assert.deepEqual(hodOtherPage.personalTimetable, hod.personalTimetable, 'Program Admin retains the same authorised overview on every page');
+const scopedAdmin = await buildEntrance({ ...args, user: account('HOD'), rolesByProgram: {
+  ...rolesByProgram, [first.program.id]: [{ AccountID: 'HOD', Active: true, Roles: ['PROGRAM_ADMIN'] }]
+}, input: { id: first.program.id } });
+assert.deepEqual(scopedAdmin.personalTimetable, hod.personalTimetable, 'The current Program Admin role has the same scoped oversight');
+const revokedAdmin = await buildEntrance({ ...args, user: account('HOD'), rolesByProgram: {
+  ...rolesByProgram, [first.program.id]: [{ AccountID: 'HOD', Active: false, Roles: ['PROGRAM_ADMIN'] }]
+}, input: { id: first.program.id } });
+assert.deepEqual(revokedAdmin.personalTimetable, [], 'A revoked Program Admin assignment removes the overview');
+assert(admin.personalTimetable.every(row => row.summarize), 'Global Admin overview is grouped for every activity');
 for (const target of [admin.personalTimetable.find(row => row.kind === 'PROGRAM'), admin.personalTimetable.find(row => row.kind === 'COURSE')]) {
   for (const [offset, canJoin] of [[-300001, false], [-300000, true], [0, true], [3599999, true], [3600000, false]]) {
     const view = await buildEntrance({ ...args, now: new Date(target.startsAt + offset), user: account('ADMIN', 'GLOBAL_ADMIN'),
