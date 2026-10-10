@@ -60,3 +60,5 @@ Private evidence is under `.academy-migration/d1-open-library-20261010/`, its re
 5. Release the reviewed changes with a fresh feature version and changed asset URLs, then perform the separately reviewed live ownership/routing transition. Keep the production-named legacy Worker separate.
 
 The preceding [Course subscription stage](ACADEMY-D1-COURSE-SUBSCRIPTIONS.md), [Course resource stage](ACADEMY-D1-COURSE-RESOURCES.md) and [terminology](ACADEMY-TERMINOLOGY.md) remain applicable.
+
+The subsequent [10 October reconciliation and recovery check](ACADEMY-D1-RECONCILIATION-2026-10-10.md) refreshes the active candidate, verifies the main cloud readback/restore, inventories public Open Library records/covers and defines the next hosted/activation boundary.

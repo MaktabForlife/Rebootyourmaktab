@@ -69,3 +69,37 @@ can edit the new folder.
 
 Do not maintain an independent dashboard version. Copy any emergency dashboard
 edit back into the repository before the next change.
+
+## D1 device uploads (unreleased)
+
+The repository bridge also accepts the signed `m4l-library-start-d1` purpose.
+For that purpose, the Worker supplies the destination verified against D1;
+Apps Script does not look it up in Sheets. The existing signed Sheets purpose
+retains its current destination check. Neither path accepts an unsigned folder
+or exposes the deploying account's Drive OAuth token to the browser.
+
+Before enabling D1 uploads:
+
+1. Synchronize the complete repository `code.gs` and `appsscript.json` to the
+   correct Apps Script project and deploy that version. Verify that the current
+   Worker's `APPS_SCRIPT_URL` identifies that deployment. The development-named
+   Worker is the current main website; keep the legacy project separate.
+2. Verify the existing `M4L_LIBRARY_BRIDGE_SECRET` matches between Worker and
+   Script properties and is at least 32 characters. Do not put it into Git,
+   a browser form, an example configuration or diagnostic output.
+3. Have a Global Admin select each Program's D1 Library destination. The
+   deploying Google account and Worker's Drive service account must have the
+   required access. `authorizeM4LServices` checks its configured legacy folder;
+   it does not establish access to every independently selected D1 folder.
+4. In the isolated hosted test target, set
+   `ACADEMY_D1_UPLOAD_BRIDGE=D1_V1` only after deploying the updated bridge.
+   Verify a real Program Admin/Global Admin upload, its saved resource and
+   protected reopening. Check rejection after account/authority revocation or
+   a destination change. Use test folders for synthetic files.
+5. Enable the same flag on the current main Worker only with the reviewed live
+   D1 rollout. Without it, D1 device uploads remain disabled and existing Drive
+   files can still be selected. Open Library cover uploads use R2 separately.
+
+The [10 October reconciliation report](../docs/ACADEMY-D1-RECONCILIATION-2026-10-10.md)
+records the current folder/deployment verification status. Source support and
+passing bridge tests do not confirm that the hosted Apps Script has been updated.
