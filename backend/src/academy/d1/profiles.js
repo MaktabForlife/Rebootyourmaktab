@@ -6,19 +6,25 @@ const editableRoles=['STUDENT','TEACHER','PROGRAM_ADMIN'];
 const scopeOf=a=>({type:a.kind==='PROGRAM'?'PROGRAM':'SUBJECT',id:a.activity_id});
 function assignment(data,account,a) {
   const scope=scopeOf(a),pending=pendingRoles(data,account.account_id,a.activity_key).map(r=>r.source_value).sort();
+  const inheritedStudent=a.kind==='COURSE'&&data.subscriptions.some(s=>same(s.account_id,account.account_id)&&same(s.activity_key,a.activity_key));
   return {accountId:account.account_id,scopeType:scope.type,scopeId:scope.id,
-    roles:editableRoles.filter(r=>liveRoles(data,account.account_id,a.activity_key).includes(r)),
+    roles:editableRoles.filter(r=>liveRoles(data,account.account_id,a.activity_key).includes(r)||r==='STUDENT'&&inheritedStudent),
     reviewStatus:pending.length?'REQUIRED':'CONFIRMED',pendingRoles:pending};
 }
 async function assignmentDTO(data,account,a) {
   const result=assignment(data,account,a);
   const subscription=data.subscriptions.some(s=>same(s.account_id,account.account_id)&&same(s.activity_key,a.activity_key));
-  return {...result,revision:await payloadHash(result),accessAllowed:Boolean(account.active&&a.active&&a.lifecycle==='ACTIVE'&&(profileDTO(data,account).academyAdmin||result.roles.length||accessModel(data,a)==='FREE'||subscription))};
+  const academyAdmin=profileDTO(data,account).academyAdmin;
+  // Display effective authority without materializing inherited grants or
+  // adding automatic Program Admin grants to the roles that this editor saves.
+  const inheritedRoles=academyAdmin?['PROGRAM_ADMIN']:[];
+  const displayRoles=[...new Set([...inheritedRoles,...result.roles,...(a.kind==='COURSE'&&subscription?['STUDENT']:[])])];
+  return {...result,inheritedRoles,displayRoles,revision:await payloadHash(result),accessAllowed:Boolean(account.active&&a.active&&a.lifecycle==='ACTIVE'&&(academyAdmin||result.roles.length||accessModel(data,a)==='FREE'||subscription))};
 }
 function accessModel(data,a){return (a.kind==='COURSE'?data.coursePolicies.find(p=>same(p.activity_key,a.activity_key))?.legacy_access_model:undefined)||data.policies.find(p=>same(p.activity_key,a.activity_key))?.source_access_model||'UNKNOWN';}
 async function scopeDTO(data,a) {
   const result={...scopeOf(a),name:a.name,active:Boolean(a.active&&a.lifecycle==='ACTIVE'),prepared:true,
-    accessModel:accessModel(data,a),reviewStatus:'REQUIRED',stage:'SETUP',policyEditable:false,rolesEditable:a.kind==='PROGRAM'};
+    accessModel:accessModel(data,a),reviewStatus:'REQUIRED',stage:'SETUP',policyEditable:false,rolesEditable:true};
   return {...result,revision:await payloadHash(result)};
 }
 
@@ -49,18 +55,29 @@ export function d1Profiles(repository,auth) {
     return planned.result;
   }
   async function roles(data,input,statements) {
-    if(input.scopeType!=='PROGRAM')throw managementError('Manage Course subscriptions from the Course access controls.',501,'ACCESS_POLICY_REVIEW_REQUIRED');
-    const a=data.activities.find(a=>a.kind==='PROGRAM'&&same(a.activity_id,input.scopeId));
+    if(!['PROGRAM','SUBJECT'].includes(input.scopeType))throw managementError('Choose a Program or Course.');
+    const a=data.activities.find(a=>a.kind===(input.scopeType==='PROGRAM'?'PROGRAM':'COURSE')&&same(a.activity_id,input.scopeId));
     const account=data.accounts.find(a=>same(a.account_id,input.accountId));
-    if(!a||!account)throw managementError('Choose an existing Program and account.',404);
+    if(!a||!account)throw managementError('Choose an existing Program or Course and account.',404);
     const current=await assignmentDTO(data,account,a),scope=await scopeDTO(data,a);
     if(input.baseRevision!==current.revision)throw rowChanged(current,current.revision);
     if(input.scopeRevision!==scope.revision)throw rowChanged({...current,scopeRevision:scope.revision,accessModel:scope.accessModel},current.revision);
     if(!Array.isArray(input.roles)||input.roles.some(r=>!editableRoles.includes(r))||new Set(input.roles).size!==input.roles.length)
       throw managementError('Choose Student, Teacher or Program Admin. Global Admin is a separate Academy-wide authority.',400,'INVALID_ROLE');
     const selected=editableRoles.filter(r=>input.roles.includes(r));
-    if(selected.some(r=>!current.roles.includes(r))&&(!account.active||!a.active||a.lifecycle!=='ACTIVE'))throw managementError('Reactivate the account and Program before adding roles.');
+    if(selected.some(r=>!current.roles.includes(r))&&(!account.active||!a.active||a.lifecycle!=='ACTIVE'))throw managementError('Reactivate the account and learning area before adding roles.');
     const now=new Date().toISOString();
+    if(a.kind==='COURSE') {
+      if(await repository.subscriptionSource()!=='effective_course_subscriptions')throw managementError('Course role editing needs its database upgrade.',503,'COURSE_ACCESS_SCHEMA_REQUIRED');
+      const student=selected.includes('STUDENT'),subscribed=data.subscriptions.some(s=>same(s.account_id,account.account_id)&&same(s.activity_key,a.activity_key));
+      // Reconcile the earlier Course access switch with the editable Student
+      // role. Revocation must override imported evidence, which stays intact.
+      if(student!==subscribed)statements.push(p(`INSERT INTO course_subscription_decisions(account_id,activity_key,active,updated_at,updated_by_account_id)
+        VALUES(?,?,?,?,?) ON CONFLICT(account_id,activity_key) DO UPDATE SET active=excluded.active,updated_at=excluded.updated_at,
+        updated_by_account_id=excluded.updated_by_account_id,revision=course_subscription_decisions.revision+1`,account.account_id,a.activity_key,Number(student),now,auth.user.accountid));
+      data.subscriptions=data.subscriptions.filter(s=>!same(s.account_id,account.account_id)||!same(s.activity_key,a.activity_key));
+      if(student)data.subscriptions.push({account_id:account.account_id,activity_key:a.activity_key});
+    }
     statements.push(p("UPDATE role_assignments SET active=0,revision=revision+1 WHERE account_id=? AND activity_key=? AND role IN ('STUDENT','TEACHER','PROGRAM_ADMIN')",account.account_id,a.activity_key));
     for(const role of selected)statements.push(p('INSERT INTO role_assignments(assignment_id,account_id,activity_key,role,active,review_state,granted_at,granted_by_account_id,revision) VALUES(?,?,?,?,1,?,?,?,1)',crypto.randomUUID(),account.account_id,a.activity_key,role,'CONFIRMED',now,auth.user.accountid));
     for(const row of data.roles.filter(r=>same(r.account_id,account.account_id)&&same(r.activity_key,a.activity_key)&&editableRoles.includes(r.role)))row.active=0;
@@ -90,7 +107,7 @@ export function d1Profiles(repository,auth) {
           try {results.push({entryKey:entryKey(entry),...await (entry.mode==='profile'?profile:roles)(data,entry,statements)});}
           catch(error){error.entryKey=entryKey(entry);throw error;}
         }
-        return {data:{...data,accounts:guardAccounts},statements,result:input.mode==='batch'?{results}:Object.fromEntries(Object.entries(results[0]).filter(([key])=>key!=='entryKey')),fields:['DisplayName','Active','ProgramRoleAssignments']};
+        return {data:{...data,accounts:guardAccounts},statements,result:input.mode==='batch'?{results}:Object.fromEntries(Object.entries(results[0]).filter(([key])=>key!=='entryKey')),fields:['DisplayName','Active','ActivityRoleAssignments']};
       });
     }
   };

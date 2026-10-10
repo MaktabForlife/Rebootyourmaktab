@@ -63,6 +63,11 @@ test('concurrent edits to one class cannot overwrite each other; unrelated rows 
 test('new profiles, role grants and class assignment use existing UI contracts',()=>use(async({env,db})=>{
   const token=(await signIn(env)).body.token,directory=(await post(env,profilePath+'get',{},token)).body;
   assert.deepEqual(directory.roles,['STUDENT','TEACHER','PROGRAM_ADMIN']);assert.equal(directory.reviewCount,1,'an unconfirmed mixed-role source cell remains pending');
+  const owner=directory.accounts.find(a=>a.accountId==='account-0001');
+  assert.equal(owner.academyAdmin,true);
+  assert.ok(owner.assignments.every(a=>a.displayRoles.length===1&&a.displayRoles[0]==='PROGRAM_ADMIN'),'Academy-wide authority is visible in every Program and Course');
+  assert.ok(!directory.roles.includes('GLOBAL_ADMIN'),'Global Admin cannot be granted or removed through a Program role editor');
+  assert.ok(directory.accounts.find(a=>a.accountId==='account-0004').assignments.some(a=>a.displayRoles.includes('PROGRAM_ADMIN')),'scoped administrators retain their Program role label');
   assert.ok(!JSON.stringify(directory).includes('pin_hash'));assert.ok(!JSON.stringify(directory).includes('login-0002'));
   const id=crypto.randomUUID(),create={mode:'profile',accountId:id,displayName:'New learner',active:true,creating:true,baseRevision:directory.emptyRevision,operationId:crypto.randomUUID()};
   const created=await post(env,profilePath+'save',create,token);assert.equal(created.status,200,JSON.stringify(created.body));assert.match(created.body.loginPath,/^\/account\/[0-9a-f]{32}$/);
@@ -190,6 +195,19 @@ test('the existing profile, Program setup and management screens work with the D
   assert.match(profiles.element('up-users').innerHTML,/input data-name data-account="account-0002"/);
   assert.match(profiles.element('up-users').innerHTML,/select data-active data-account="account-0002"/);
   assert.equal(profiles.element('up-save-all').disabled,true,'opening the sheet must not stage profile writes');
+  assert.match(profiles.element('up-users').innerHTML,/Global Admin/);
+  assert.match(profiles.element('up-users').innerHTML,/>None ▾<\/button>/);
+  const globalBefore=db.prepare("SELECT * FROM global_role_assignments WHERE account_id='account-0001'").all();
+  const ownerDirectory=(await post(env,profilePath+'get',{},token)).body,ownerScope=ownerDirectory.scopes.find(s=>s.type==='PROGRAM');
+  profiles.element('up-users').onclick({target:{closest:()=>({dataset:{editScope:`PROGRAM:${ownerScope.id}`,account:'account-0001'}})}});
+  assert.match(profiles.element('up-users').innerHTML,/Program Admin is automatic for Global Admins/);
+  assert.ok(!profiles.element('up-users').innerHTML.includes('data-role="GLOBAL_ADMIN"'));
+  profiles.element('up-users').onchange({target:{dataset:{role:'TEACHER',account:'account-0001',scope:`PROGRAM:${ownerScope.id}`},checked:true}});
+  await profiles.element('up-save-all').onclick();await settle();
+  const latestOwner=(await post(env,profilePath+'get',{},token)).body.accounts.find(a=>a.accountId==='account-0001');
+  assert.ok(latestOwner.assignments.find(a=>a.scopeId===ownerScope.id).roles.includes('TEACHER'));
+  assert.deepEqual(latestOwner.assignments.find(a=>a.scopeId===ownerScope.id).displayRoles,['PROGRAM_ADMIN','TEACHER']);
+  assert.deepEqual(db.prepare("SELECT * FROM global_role_assignments WHERE account_id='account-0001'").all(),globalBefore,'saving an additional Program role must preserve Academy-wide authority');
   // Existing cells can be edited immediately, without opening a separate editor.
   const directName=(account,value)=>profiles.element('up-users').oninput({target:{dataset:{name:'',account},value}});
   const directStatus=(account,value)=>profiles.element('up-users').onchange({target:{dataset:{active:'',account},value}});

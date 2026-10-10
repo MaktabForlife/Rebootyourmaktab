@@ -478,7 +478,7 @@ export function buildGlobalCourseEvents(platform, account, options) {
     ).trim();
     for (const session of resolved.sessions) {
       if (session.sessiondate < options.week.start || session.sessiondate > options.week.end) continue;
-      const assignedTeacher = normalizePlatformIdentifier(session.teacheraccountid) === normalizePlatformIdentifier(account.AccountID);
+      const assignedTeacher = options.allowAssignedTeacher !== false && normalizePlatformIdentifier(session.teacheraccountid) === normalizePlatformIdentifier(account.AccountID);
       const detail = options.isGlobalAdmin || policyAccess || assignedTeacher;
       const lifecycle = lifecycleBySession.get(normalizePlatformIdentifier(session.sourcesessionid));
       const status = normalizePlatformIdentifier(lifecycle?.status || "SCHEDULED") || "SCHEDULED";

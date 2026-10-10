@@ -19,7 +19,7 @@ export async function d1Entrance(repository,state,user,input={},now=new Date(),{
     GlobalSubjectList:activities.filter(a=>a.kind==='COURSE').map(a=>({SubjectID:a.activity_id,SubjectName:a.name,Active:true})),
     GlobalModuleList:modules.filter(m=>m.activity_key.startsWith('COURSE:')).map(m=>({ModuleID:m.module_id,SubjectID:m.activity_key.slice(7),ModuleName:m.name,Active:true})),
     GlobalSubjectAccessPolicy:activities.filter(a=>a.kind==='COURSE').map(a=>({SubjectPolicyID:a.activity_key,SubjectID:a.activity_id,AccessModel:a.legacy_access_model==='FREE'?'FREE':'SUBSCRIPTION',Active:true})),
-    GlobalSubjectAccessMatrix:state?[{AccountID:state.account.account_id,_subjectAccess:Object.fromEntries(state.subscriptions.map(s=>[s.activity_key.slice(7).toUpperCase(),true]))}]:[],
+    GlobalSubjectAccessMatrix:state?[{AccountID:state.account.account_id,_subjectAccess:Object.fromEntries([...state.subscriptions,...state.roles.filter(r=>r.activity_key.startsWith('COURSE:')&&r.role==='STUDENT')].map(s=>[s.activity_key.slice(7).toUpperCase(),true]))}]:[],
     GlobalSubjectRuns:runs.map(r=>({RunID:r.run_id,SubjectID:r.activity_key.slice(7),RunName:r.name,Timezone:r.timezone,StartDate:r.start_date || '',EndDate:r.end_date || '',ScheduleMode:r.schedule_mode,ScheduleDefinition:r.schedule_definition,...(courseWorkflows?{AccessModel:r.run_access_model}:{}),Active:true})),
     GlobalTimetableRunState:runStates.map(r=>({RunID:r.run_id,Stage:r.stage,CurrentPublicationID:r.current_publication_id || ''})),
     GlobalTimetablePublications:[],PublishedGlobalTimetableSessions:[],
@@ -30,7 +30,8 @@ export async function d1Entrance(repository,state,user,input={},now=new Date(),{
     tables.PublishedGlobalTimetableSessions.push(...snapshot.sessions);
   }
   const rolesByProgram=Object.fromEntries(programs.map(p=>[p.id,state?[{AccountID:state.account.account_id,Active:true,Roles:state.roles.filter(r=>r.activity_key.toUpperCase()===`PROGRAM:${p.id}`.toUpperCase()).map(r=>r.role)}]:[]]));
-  const result=await buildEntrance({tables,programs,rolesByProgram,user,input,now,programLifecycle:'ACTIVE',rangeDays:days,detailedTimetable:detailed,loadProgram:async program=>{
+  const rolesByCourse=courseWorkflows?Object.fromEntries(activities.filter(a=>a.kind==='COURSE').map(a=>[a.activity_id.toUpperCase(),state?.roles.filter(r=>r.activity_key.toUpperCase()===a.activity_key.toUpperCase()).map(r=>r.role)||[]])):null;
+  const result=await buildEntrance({tables,programs,rolesByProgram,rolesByCourse,user,input,now,programLifecycle:'ACTIVE',rangeDays:days,detailedTimetable:detailed,loadProgram:async program=>{
     const activity=`PROGRAM:${program.id}`,scope=rows=>rows.filter(r=>r.activity_key===activity);
     return {prepared:true,subjects:scope(subjects).map(s=>({SubjectID:s.subject_id,SubjectName:s.subject_name})),tables:{
       ProgramSubjects:scope(subjects).map(s=>({ProgramSubjectID:s.program_subject_id,CourseID:program.id,SubjectID:s.subject_id,Active:true})),

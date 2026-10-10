@@ -8,11 +8,11 @@
   <link rel="icon" href="/admin-favicon-32x32.png">
   <link rel="stylesheet" href="/css/m4l-program-builder.css?v=106.1">
   <link rel="stylesheet" href="/css/m4l-academy-navigation.css?v=106.1">
-  <link rel="stylesheet" href="/css/m4l-user-profiles.css?v=106.4">
+  <link rel="stylesheet" href="/css/m4l-user-profiles.css?v=106.5">
 </head>
 <body class="user-profiles-sheet">
 <main>
-  <header class="up-titlebar"><h1>User profiles</h1><a id="up-back" href="/programs/">Programs</a><span class="pb-version">V106.4</span></header>
+  <header class="up-titlebar"><h1>User profiles</h1><a id="up-back" href="/programs/">Programs</a><span class="pb-version">V106.5</span></header>
   <p id="up-message" class="pb-message" role="status" aria-live="polite">Loading users…</p>
   <p id="up-wait" class="up-notice" role="status" hidden></p>
   <div id="up-pending" class="up-notice" hidden><span>Your change is kept until its save is confirmed.</span><button id="up-retry">Retry same change</button></div>
@@ -35,12 +35,12 @@
   </section>
   <footer class="up-sheet-footer">
     <div id="up-draft-notice" hidden><span>Your unfinished entry is kept.</span><button id="up-return" class="pb-secondary">Find edits</button></div>
-    <details class="up-help"><summary>Editing help</summary><p>Edit names and status directly in the sheet. Select a Program role cell to change roles. Save all or Ctrl/⌘ + Enter saves your changes.</p><p>Inactive keeps the account and its roles. Course access is managed separately in Course administration.</p><p id="up-review-count"></p><button id="up-setup" hidden>Set up / update matrix</button></details>
+    <details class="up-help"><summary>Editing help</summary><p>Edit names and status directly in the sheet. Select a Program or Course role cell to change Student, Teacher and Program Admin roles. Save all or Ctrl/⌘ + Enter saves your changes.</p><p>Global Admin applies to every Program and Course. Role cells edit additional scoped roles; they cannot remove Academy-wide authority. Existing Course subscribers appear as Students. None means no assigned role or Course subscription; access to a Free Course is separate.</p><p>Inactive keeps the account and its roles. Course Student changes also update the existing Course access control. Module media subscriptions are separate and are not available yet.</p><p id="up-review-count"></p><button id="up-setup" hidden>Set up / update matrix</button></details>
   </footer>
   <dialog id="up-profile-dialog"><h2 id="up-profile-title"></h2><div id="up-profile-body"></div><button id="up-profile-close" class="pb-secondary">Close</button></dialog>
 </main>
 <script src="/js/m4l-config.js?v=102.4"></script>
-<script src="/js/m4l-user-profiles.js?v=106.4"></script>
+<script src="/js/m4l-user-profiles.js?v=106.5"></script>
 <script src="/js/m4l-academy-navigation.js?v=106.1"></script>
 </body>
 </html>

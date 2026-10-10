@@ -211,8 +211,12 @@
     byId('academy-home-title').textContent=isProgram?'Library':'Timetable';
     byId('academy-timetable-card')?.classList.toggle('hidden',isProgram);
     byId('academy-refresh')?.classList.toggle('hidden',isProgram);
-    byId("program-builder-link")?.classList.toggle("hidden", state.context?.role !== "GLOBAL_ADMIN");
-    byId("user-profiles-link")?.classList.toggle("hidden", state.context?.role !== "GLOBAL_ADMIN");
+    const globalAdmin = state.contexts.some(context => context.scope === "PLATFORM" && context.role === "GLOBAL_ADMIN");
+    for (const id of ["program-builder-link", "user-profiles-link", "academy-library-management-link"]) {
+      byId(id)?.classList.toggle("hidden", !globalAdmin);
+    }
+    const courseAdmin=globalAdmin||state.contexts.some(context=>context.scope==='GLOBAL'&&context.role==='PROGRAM_ADMIN'&&context.courseId);
+    for(const id of ['course-management-link','course-scheduling-link'])byId(id)?.classList.toggle('hidden',!courseAdmin);
     byId("context-account-name").textContent = state.account?.displayName || "Account";
     byId("current-course").textContent = state.context?.courseName || "M4L Platform";
     byId("current-scope").textContent = contextScopeLabel(state.context?.scope);

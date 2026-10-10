@@ -34,6 +34,9 @@ test('Course grants preserve source evidence and Program roles; only Global Admi
   assert.equal(db.prepare('SELECT count(*) n FROM course_subscription_decisions').get().n,0);
   assert.equal((await change(env,token,true,initial.workflowRevision)).body.code,'FREE_COURSE_ACCESS');
   paid(db);
+  const beforeDirectory=ok(await post(env,profiles+'get',{},token));
+  const courseGrant=data=>data.accounts.find(a=>a.accountId==='account-0002').assignments.find(a=>a.scopeId==='subject-1');
+  assert.deepEqual(courseGrant(beforeDirectory).displayRoles,[],'a paid Course with no subscription shows no student role');
   for(const id of ['0003','0004'])assert.equal((await change(env,await login(env,id),true,initial.workflowRevision)).status,403);
   assert.equal((await change(env,token,'true',initial.workflowRevision)).status,400);
   assert.equal((await change(env,token,true,initial.workflowRevision,{accountId:'missing'})).status,404);
@@ -45,9 +48,14 @@ test('Course grants preserve source evidence and Program roles; only Global Admi
   assert.equal(directory.scopes.find(s=>s.id==='subject-1').accessModel,'PAID');
   assert.equal(directory.accounts.find(a=>a.accountId==='account-0001').assignments.find(a=>a.scopeId==='subject-1').accessAllowed,true);
   assert.equal(directory.accounts.find(a=>a.accountId==='account-0002').assignments.find(a=>a.scopeId==='subject-1').accessAllowed,true);
+  assert.deepEqual(directory.accounts.find(a=>a.accountId==='account-0001').assignments.find(a=>a.scopeId==='subject-1').displayRoles,['PROGRAM_ADMIN']);
+  assert.deepEqual(courseGrant(directory).displayRoles,['STUDENT'],'a Course subscriber is visibly a Student');
+  assert.deepEqual(courseGrant(directory).roles,['STUDENT'],'Course subscribers can now be edited through the same role controls as Programs');
+  assert.notEqual(courseGrant(directory).revision,courseGrant(beforeDirectory).revision,'a concurrent access change must invalidate a stale Course role edit');
   assert.equal((await change(env,token,false,initial.workflowRevision)).body.code,'WORKFLOW_CHANGED');
   const revoked=ok(await change(env,token,false,current.workflowRevision));assert.equal(revoked.changed,true);
   assert.equal(ok(await post(env,profiles+'get',{},token)).accounts.find(a=>a.accountId==='account-0002').assignments.find(a=>a.scopeId==='subject-1').accessAllowed,false);
+  assert.deepEqual(courseGrant(ok(await post(env,profiles+'get',{},token))).displayRoles,[],'revoked subscriptions no longer display Student');
   assert.deepEqual(evidence(db),before);assert.deepEqual(db.prepare('SELECT * FROM role_assignments').all(),roles);
   assert.equal(db.prepare('SELECT count(*) n FROM academy_admissions').get().n,0);
   assert.ok(!JSON.stringify(saved).includes('pin_hash'));

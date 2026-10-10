@@ -112,6 +112,7 @@ test('older account timetable shares paid privacy, timed joining and a bounded 1
   const own=current.sessions.find(s=>s.kind==='PROGRAM'&&s.relevant);assert.equal(own.visibilityLevel,'DETAIL');assert.equal(own.canOpenZoom,true);assert.ok(own.zoomLink);
   assert.ok(current.sessions.filter(s=>!s.relevant).every(s=>!s.zoomLink));
   for(const instant of ['2026-10-09T07:54:00Z','2026-10-09T09:00:00Z'])assert.ok((await d1AccountTimetable(repository,auth,{startDate:'2026-10-09'},new Date(instant))).sessions.every(s=>!s.zoomLink));
+  db.exec("INSERT INTO role_assignments(assignment_id,account_id,activity_key,role,active,review_state) VALUES('account-timetable-course-teacher','account-0003','COURSE:subject-1','TEACHER',1,'CONFIRMED')");
   const teacherState=await repository.byLogin('login-0003');
   const teaching=await d1AccountTimetable(repository,{state:teacherState,user:{type:'account',accountid:'account-0003',role:'TEACHER'}},{startDate:'2026-10-09'},new Date('2026-10-09T08:30:00Z'));
   assert.ok(teaching.sessions.some(s=>s.kind==='GLOBAL'&&s.relevant&&s.canOpenZoom));

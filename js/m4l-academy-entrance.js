@@ -190,7 +190,7 @@
   function renderWorkshops() {
     const courses = state.home?.signedIn ? state.home.personalActivities.filter(row => row.kind === 'COURSE') : [];
     $('workshop-pills').innerHTML = courses.map(row => activityPill(activityHref(row), row.name, row.roles)).join('');
-    $('workshop-management').hidden = !state.home?.globalAdmin;
+    $('workshop-management').hidden = !(state.home?.globalAdmin||state.home?.personalActivities.some(a=>a.kind==='COURSE'&&a.roles.includes('PROGRAM_ADMIN')));
     $('workshops-message').textContent = courses.length ? '' : state.home?.signedIn
       ? 'No workshops are currently assigned to your account.' : 'Sign in to open your workshops.';
   }
@@ -225,7 +225,7 @@
     if (typeof row.summarize === 'boolean') return row.summarize;
     // Retain the same presentation during a staggered frontend/backend release.
     return Boolean(state.home?.globalAdmin || state.home?.personalActivities.some(activity =>
-      activity.kind === 'PROGRAM' && row.kind === activity.kind && activity.id === row.activityId &&
+      row.kind === activity.kind && activity.id === row.activityId &&
       activity.roles.some(role => ['PROGRAM_ADMIN', 'ADMIN'].includes(role))));
   }
 
@@ -339,14 +339,14 @@
         !row.roles.length ? 'Sign in with an authorised Academy account to open protected lessons and tools.' : '';
       $('activity-status').textContent = [activityMessage, ...result.warnings].filter(Boolean).join(' ');
       const staff = row.roles.some(role => ['TEACHER', 'PROGRAM_ADMIN', 'ADMIN', 'SENIOR', 'GLOBAL_ADMIN'].includes(role));
-      const administrator = row.kind === 'PROGRAM' && row.roles.some(role => ['PROGRAM_ADMIN', 'ADMIN', 'GLOBAL_ADMIN'].includes(role));
+      const administrator = row.roles.some(role => ['PROGRAM_ADMIN', 'ADMIN', 'GLOBAL_ADMIN'].includes(role));
       const globalAdmin = row.roles.includes('GLOBAL_ADMIN');
       const resources = globalAdmin ? row.tools?.resources : '';
       const manage = administrator ? row.tools?.manage : '';
       const users = globalAdmin ? row.tools?.users : '';
       const menu = [['Library', row.tools?.library], ['Mark attendance', staff && row.tools?.attendance], ['Program management', manage],
-        ['Course management', globalAdmin && row.kind === 'COURSE' && '/academy/courses/manage/'],
-        ['Course scheduling', globalAdmin && row.kind === 'COURSE' && '/academy/courses/manage/?view=scheduling'],
+        ['Course management', administrator && row.kind === 'COURSE' && '/academy/courses/manage/'],
+        ['Course scheduling', administrator && row.kind === 'COURSE' && '/academy/courses/manage/?view=scheduling'],
         ['User management', users], ['Timetable builder', globalAdmin && row.tools?.timetableBuilder], ['Library management', resources]];
       $('activity-menu').innerHTML = menu.filter(([, href]) => safeLink(href)).map(([label, href]) => `<a href="${esc(href)}">${label}</a>`).join('') + '<a href="/academy/open-library/">Explore the Public Library</a>';
       $('activity-timetable-title').textContent = result.globalAdmin ? 'Academy timetable' : 'My Academy timetable';

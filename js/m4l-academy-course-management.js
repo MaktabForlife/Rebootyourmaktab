@@ -15,7 +15,7 @@ function lockCourseWorkspace(message) {
 async function apiPost(path, input = {}, token = state.token) {
   const generation = courseAccessGeneration;
   if (!token || token !== courseAccountToken() || (path !== '/api/account/session' && !state.user)) {
-    throw new Error('Sign in with your Global Admin Academy account to manage Courses.');
+    throw new Error('Sign in with an authorised Academy administrator account to manage Courses.');
   }
   const response = await fetch(`${String(window.M4L_CONFIG?.API_BASE || '').replace(/\/$/, '')}${path}`, {
     method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(input)
@@ -23,7 +23,7 @@ async function apiPost(path, input = {}, token = state.token) {
   const result = await response.json();
   if (generation !== courseAccessGeneration || token !== courseAccountToken()) throw new Error('Your Academy account changed. Open this page again.');
   if (!response.ok || !result.success) {
-    if ([401,403].includes(response.status)) lockCourseWorkspace('Course administration requires a current Global Admin Academy account. Return to Academy home to sign in.');
+    if ([401,403].includes(response.status)) lockCourseWorkspace('Course administration requires a current Global Admin or assigned Course Program Admin account. Return to Academy home to sign in.');
     throw Object.assign(new Error(result.error || 'The Course request could not be completed.'), result, { status: response.status });
   }
   if (path.startsWith('/api/admin/platform/global/') && !path.endsWith('/get') && !path.endsWith('/browse')) window.M4LGlobalCourseScheduler?.invalidate();
@@ -37,15 +37,19 @@ async function openCourseWorkspace() {
   lockCourseWorkspace('Checking your Academy account…');
   const retry = document.getElementById('course-access-retry');
   retry.hidden = true;
-  if (!token) { lockCourseWorkspace('Sign in with your Global Admin Academy account, then open Course administration.'); return; }
+  if (!token) { lockCourseWorkspace('Sign in with an authorised Academy administrator account, then open Course administration.'); return; }
   try {
     const session = await apiPost('/api/account/session', {}, token);
     if (generation !== courseAccessGeneration) return;
-    if (!session.contexts?.some(context => context.scope === 'PLATFORM' && context.role === 'GLOBAL_ADMIN')) {
-      lockCourseWorkspace('Course administration is available to Global Admins.'); return;
+    const globalAdmin=session.contexts?.some(context => context.scope === 'PLATFORM' && context.role === 'GLOBAL_ADMIN');
+    if (!globalAdmin && !session.courseManagement) {
+      lockCourseWorkspace('Course administration is available to Global Admins and assigned Course Program Admins.'); return;
     }
     state.token = token;
-    state.user = { type: 'account', role: 'GLOBAL_ADMIN', platformrole: 'GLOBAL_ADMIN' };
+    state.user = { type: 'account', role: globalAdmin?'GLOBAL_ADMIN':'PROGRAM_ADMIN', platformrole: globalAdmin?'GLOBAL_ADMIN':'' };
+    const back=document.getElementById('course-management-back');
+    back.textContent=globalAdmin?'← Academy administration':'← My Courses';
+    back.href=globalAdmin?'/academy/#administration':'/academy/#workshops';
     document.getElementById('course-account-name').textContent = session.account?.displayName || '';
     document.getElementById('course-access-message').textContent = '';
     document.getElementById('global-curriculum-screen').hidden = false;

@@ -1,3 +1,9 @@
+# V106.5 — Course roles and automatic Academy administration
+
+Edit Course roles in User profiles using the same None, Student, Teacher and Program Admin choices as Programs. Course Teachers see their assigned lessons; Course Program Admins can manage and schedule their assigned Courses. Navigation, permissions and revocation follow the saved roles.
+
+Global Admins automatically have Program Admin authority in every Program and Course, including newly created ones. User profiles keeps the Global Admin designation by their name and shows the automatic Program Admin role in each learning area. No database migration is required. [Release details](docs/ACADEMY-COURSE-ROLES-106.5.md).
+
 # V106.4 — Compact editable user sheet
 
 User profiles uses the full page width, compact rows and frozen name/status columns. Names and Active/Inactive status can be edited directly, with changes retained until Save all. Large introductory and migration notices are replaced by collapsed editing help. Real conflicts remain visible for explicit review, and profile edits can continue while a role conflict is open.

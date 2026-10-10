@@ -67,12 +67,28 @@ test('Students, Teachers and Program Admins cannot open the Course-wide editors'
   }}finally{fixture.db.close();}
 });
 
+test('an assigned Course Program Admin opens both editors with scoped authority and cannot create Courses',async()=>{
+  const fixture=await courseFixture();
+  try {
+    fixture.db.exec("INSERT INTO role_assignments(assignment_id,account_id,activity_key,role,active,review_state) VALUES('course-admin-ui','account-0004','COURSE:subject-1','PROGRAM_ADMIN',1,'CONFIRMED')");
+    const page=await screen(fixture.env,'0004');
+    assert.equal(page.element('global-curriculum-screen').hidden,false);
+    assert.equal(vm.runInContext('state.user.role',page.context),'PROGRAM_ADMIN');
+    assert.equal(vm.runInContext('state.user.platformrole',page.context),'');
+    assert.ok(!page.element('global-curriculum-content').innerHTML.includes('data-gcm-action="add-subject-inline"'));
+    await page.context.window.M4LGlobalCourseScheduler.show();
+    assert.ok(page.requests.includes('/api/admin/platform/global/delivery/get'));
+    assert.ok(page.requests.includes('/api/admin/platform/global/timetable/get'));
+    assert.equal(page.element('global-curriculum-screen').hidden,false);
+  }finally{fixture.db.close();}
+});
+
 test('Course destinations retain management and scheduling and omit the unbuilt private media editor',()=>{
   assert.match(markup,/data-gcm-tab="subjects"/);
   assert.match(markup,/data-gcm-course-action="show"/);
   assert.ok(!markup.includes('data-gcm-tab="resources"'));
   const entrance=source('m4l-academy-entrance.js');
-  assert.match(entrance,/globalAdmin && row.kind === 'COURSE'/);
+  assert.match(entrance,/administrator && row.kind === 'COURSE'/);
   assert.match(entrance,/Course management/);
   assert.match(entrance,/Course scheduling/);
 });

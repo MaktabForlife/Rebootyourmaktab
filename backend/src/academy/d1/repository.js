@@ -52,6 +52,10 @@ export function academyD1Repository(env) {
       for(const role of [...new Set(assigned)].filter(r=>['PROGRAM_ADMIN','ADMIN','SENIOR','TEACHER','STUDENT'].includes(r)))
         contexts.push({scope:'COURSE',courseId:activity.activity_id,courseName:activity.name,role,programLibrary:true});
     }
+    if(!account.global_admin)for(const activity of activities.filter(a=>a.kind==='COURSE')) {
+      for(const role of [...new Set(roles.filter(r=>key(r.activity_key)===key(activity.activity_key)).map(r=>r.role))].filter(r=>['PROGRAM_ADMIN','TEACHER','STUDENT'].includes(r)))
+        contexts.push({scope:'GLOBAL',courseId:activity.activity_id,courseName:activity.name,role,activityKind:'COURSE'});
+    }
     const rank=role=>role==='PROGRAM_ADMIN'?1:authorityRank(role);
     contexts.sort((a,b)=>rank(a.role)-rank(b.role)||a.courseName.localeCompare(b.courseName)||a.role.localeCompare(b.role));
     if(!account.global_admin&&activities.some(a=>a.kind==='COURSE'&&(a.legacy_access_model==='FREE'||subscriptions.some(s=>key(s.activity_key)===key(a.activity_key)))))

@@ -31,7 +31,7 @@ const submit=async()=>element('up-save').hidden?click('up-save-all'):click('up-s
 const editProfile=async()=>rowClick({profile:'PERSON'});
 const runTimer=async()=>{assert(timers.length);timers.shift().fn();await settled();};
 vm.runInNewContext(source,context);await settled();
-assert.match(element('up-users').innerHTML,/Active/);assert.match(element('up-users').innerHTML,/User/);assert.match(element('up-head').innerHTML,/Free|Paid/);
+assert.match(element('up-users').innerHTML,/Active/);assert.match(element('up-users').innerHTML,/>None ▾<\/button>/);assert.match(element('up-head').innerHTML,/Free|Paid/);
 assert.equal(requests.filter(r=>r.action==='get').length,1);
 await editProfile();name('Kept across navigation');element('up-search').oninput({target:{value:'No match'}});
 assert.equal(element('up-draft-notice').hidden,false);await click('up-return');assert.match(element('up-users').innerHTML,/Kept across navigation/);
@@ -135,3 +135,33 @@ directory=await service.read('get');
 assert(!directory.accounts[1].assignments.find(g=>g.scopeId==='PRG-DEMO').roles.includes('TEACHER'));
 assert(directory.accounts[0].assignments.find(g=>g.scopeId==='PRG-DEMO').roles.includes('STUDENT'));
 console.log('Profiles UI: one Save all resolves a shared policy revision for multiple role drafts.');
+
+// Global Admin always carries Program Admin in every scope. Additional roles
+// stay editable without copying the automatic grant into a scoped save.
+{
+  const elements=new Map(),requests=[],storage=new Map();
+  const data={prepared:true,reviewCount:0,policyEditable:false,roles:['STUDENT','TEACHER','PROGRAM_ADMIN'],
+    scopes:[{type:'PROGRAM',id:'P',name:'Program',prepared:true,rolesEditable:true,policyEditable:false,active:true,revision:'scope-p'},
+      {type:'SUBJECT',id:'C',name:'Course',prepared:true,rolesEditable:true,policyEditable:false,active:true,revision:'scope-c'}],
+    accounts:[{accountId:'GLOBAL',displayName:'Synthetic Global Admin',active:true,academyAdmin:true,revision:'profile',
+      assignments:['PROGRAM','SUBJECT'].map((scopeType,i)=>({accountId:'GLOBAL',scopeType,scopeId:i?'C':'P',roles:[],inheritedRoles:['PROGRAM_ADMIN'],displayRoles:['PROGRAM_ADMIN'],revision:'grant-'+i}))}]};
+  const element=id=>{if(!elements.has(id))elements.set(id,{hidden:false,disabled:false,value:'',textContent:'',innerHTML:'',classList:{toggle(){}}});return elements.get(id);};
+  vm.runInNewContext(source,{...context,document:{getElementById:element},sessionStorage:{getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)},fetch:async(url,options)=>{
+    const action=url.split('/').at(-1),body=JSON.parse(options.body);requests.push({action,body});
+    if(action==='save'){const g=data.accounts[0].assignments.find(g=>g.scopeType===body.scopeType);g.roles=[...body.roles];return {ok:true,status:200,json:async()=>({success:true,assignment:g})};}
+    return {ok:true,status:200,json:async()=>({success:true,...data})};
+  }});await settled();
+  assert.equal((element('up-users').innerHTML.match(/>Program Admin ▾/g)||[]).length,2);
+  for(const scope of ['PROGRAM:P','SUBJECT:C']) {
+    element('up-users').onclick({target:{closest:()=>({dataset:{editScope:scope,account:'GLOBAL'}})}});await settled();
+    assert.match(element('up-users').innerHTML,/data-role="PROGRAM_ADMIN" checked[^>]*disabled/);
+    assert(!element('up-users').innerHTML.includes('data-default-user'));
+    const [scopeType]=scope.split(':');
+    element('up-users').onchange({target:{dataset:{role:'TEACHER',account:'GLOBAL',scope},checked:true}});
+    element('up-save-all').onclick();await settled();
+    assert.equal(requests.filter(r=>r.action==='save').at(-1).body.scopeType,scopeType);
+    assert.deepEqual(requests.filter(r=>r.action==='save').at(-1).body.roles,['TEACHER']);
+    assert.match(element('up-users').innerHTML,/>Program Admin · Teacher ▾/);
+  }
+}
+console.log('Profiles UI: automatic Program Admin for Global Admins survives additional Program and Course role edits.');

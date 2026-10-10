@@ -12,6 +12,7 @@ import {insertRecords} from './insert-records.js';
 import {requireLearning} from './learning-state.js';
 import {newActivityOwnership} from './activation-policy.js';
 import {extractDriveFileId,requireItemInsideRoot,validateFileForResourceType,getResourceConfig} from '../../routes/drive-library.js';
+import {courseManagementData,managedCourseScopes} from './course-authority.js';
 
 export async function courseCalendarAvailable(db,failIncomplete=false) {
   if(!await db.prepare("SELECT 1 FROM sqlite_schema WHERE type='table' AND name='course_workflow_imports'").first())return false;
@@ -51,7 +52,7 @@ function project(data) {
     // mistaken for a no-op. Public projections still default to paid access.
     GlobalSubjectAccessPolicy:data.coursePolicies.map(r=>({SubjectPolicyID:r.activity_key,SubjectID:scope(r),AccessModel:({FREE:'FREE',PAID:'SUBSCRIPTION'})[r.legacy_access_model]||'UNKNOWN',Active:true})),
     GlobalSubjectAccessMatrix:data.accounts.map(a=>({AccountID:a.account_id,_accountActive:Boolean(a.active),
-      _subjectAccess:Object.fromEntries(data.subscriptions.filter(e=>same(e.account_id,a.account_id)&&e.activity_key.startsWith('COURSE:')).map(e=>[scope(e).toUpperCase(),true]))})),
+      _subjectAccess:Object.fromEntries([...data.subscriptions,...data.roles.filter(r=>r.active&&r.review_state==='CONFIRMED'&&r.role==='STUDENT')].filter(e=>same(e.account_id,a.account_id)&&e.activity_key.startsWith('COURSE:')).map(e=>[scope(e).toUpperCase(),true]))})),
     GlobalSubjectRuns:data.runs.map(r=>({RunID:r.run_id,SubjectID:scope(r),RunName:r.name,Timezone:r.timezone,StartDate:r.start_date||'',EndDate:r.end_date||'',ScheduleMode:r.schedule_mode||'EXPLICIT',ScheduleDefinition:r.schedule_definition||'[]',AccessModel:data.access.find(a=>same(a.activity_key,r.activity_key)&&same(a.run_id,r.run_id))?.access_model||'PAID',Active:Boolean(r.active)})),
     GlobalTimetableSessions:data.sessions.map(r=>({SessionID:r.session_id,RunID:r.run_id,SubjectID:scope(r),ModuleID:r.module_id||'',TeacherAccountID:r.teacher_account_id||'',SessionDate:r.session_date,StartTime:r.start_time,EndTime:r.end_time,ZoomLink:r.zoom_link||'',SessionKind:r.session_kind==='LESSON'?'EXPLICIT':r.session_kind,ScheduleRuleKey:r.schedule_rule_key||'',OccurrenceDate:r.occurrence_date||'',SessionDescription:r.description||'',Active:Boolean(data.sessionState.find(s=>same(s.activity_key,r.activity_key)&&same(s.run_id,r.run_id)&&same(s.session_id,r.session_id))?.active)})),
     GlobalTimetableRunState:data.states.map(r=>({RunID:r.run_id,Stage:r.stage||'DEVELOPMENT',CurrentPublicationID:r.current_publication_id||'',DraftPublishStartDate:r.draft_publish_start_date||'',DraftPublishEndDate:r.draft_publish_end_date||''})),
@@ -219,7 +220,7 @@ async function statementsFor(store,data,tables,changes,auth,env) {
   }
   statements.push(...insertRecords(p,'lesson_lifecycle',publishedLife),...upsert(p,'course_draft_lifecycle',draftLife,['activity_key','run_id','session_id']));
   statements.push(...upsert(p,'academy_calendar_events',records('AcademyCalendar').map(r=>({event_id:r.CalendarEventID,event_type:r.EventType,description:r.Description,start_date:r.StartDate,end_date:r.EndDate,alternate_date:nullable(r.AlternateDate),teaching_impact:r.TeachingImpact||'INFORMATION',active:Number(r.Active)})),['event_id']));
-  statements.push(...insertRecords(p,'audit_events',records('PlatformAuditLog').map(r=>({event_id:r.AuditID,occurred_at:r.DateStamp,actor_account_id:auth.user.accountid,actor_name_snapshot:auth.user.username,authority:'GLOBAL_ADMIN',scope_key:'ACADEMY',action:r.Action,record_kind:r.RecordType,record_id:r.RecordID,changed_fields_json:r.ChangedFields}))));
+  statements.push(...insertRecords(p,'audit_events',records('PlatformAuditLog').map(r=>({event_id:r.AuditID,occurred_at:r.DateStamp,actor_account_id:auth.user.accountid,actor_name_snapshot:auth.user.username,authority:auth.state.account.global_admin?'GLOBAL_ADMIN':'PROGRAM_ADMIN',scope_key:'ACADEMY',action:r.Action,record_kind:r.RecordType,record_id:r.RecordID,changed_fields_json:r.ChangedFields}))));
   return statements;
 }
 function cleanRecord(r){return Object.fromEntries(Object.entries(r).filter(([name])=>!name.startsWith('_')));}
@@ -228,7 +229,10 @@ export function d1CourseCalendar(repository,auth,env={}) {
   const store=managementStore(repository,auth),p=store.p;
   async function load(){return store.load(Object.fromEntries(Object.entries({subscriptions:await repository.subscriptionSource(),runs:'course_runs',sessions:'course_draft_sessions',states:'course_run_state',publications:'timetable_publications WHERE pattern=\'COURSE\'',lifecycles:'lesson_lifecycle',modules:'modules',tasks:'tasks',resources:'course_resources',access:'course_run_access',sessionState:'course_session_state',draftLifecycle:'course_draft_lifecycle',calendar:'academy_calendar_events',suppressions:'academy_calendar_suppressions',settings:'academy_settings',coursePolicies:'course_settings'}).map(([name,table])=>[name,p(`SELECT * FROM ${table}`)])));}
   async function execute(action,input,data,request){
-    const tables=project(data),changes=new Map(),storage=plannedStorage(tables,auth,changes);
+    // ADMIN is the older domain service's scoped-admin name. The D1 boundary
+    // supplies filtered records and checks each Course again in its transaction.
+    const domainAuth=auth.state.account.global_admin?auth:{...auth,user:{...auth.user,role:'ADMIN'}};
+    const tables=project(data),changes=new Map(),storage=plannedStorage(tables,domainAuth,changes);
     windowLimit(action,input,tables);
     validateCalendarInput(action,input,tables);
     const endpoints={...createGlobalDeliveryEndpoints(storage),...createGlobalTimetableEndpoints(storage),...createAcademyCalendarEndpoints(storage),...createGlobalManagementEndpoints(storage)};
@@ -245,16 +249,23 @@ export function d1CourseCalendar(repository,auth,env={}) {
     return {tables,changes,body};
   }
   return {async run(action,input={},request){
-    if(!auth.state.account.global_admin)throw managementError('This action requires a Global Admin.',403,'FORBIDDEN');
+    if(!auth.state.account.global_admin&&(!managedCourseScopes(auth.state).length||action.startsWith('calendar/')||action.startsWith('drive')))
+      throw managementError('This action requires an authorised Course administrator.',403,'FORBIDDEN');
     await requireCourseCalendar(repository.db);
-    if(readEndpoints[action]){const data=await load();const {body}=await execute(action,input,data,request);return {...body,workflowStore:'D1',workflowRevision:String(data.version),...(action==='get'?{capabilities:{curriculum:true,resourceManagement:true,subscriptionManagement:await repository.subscriptionSource()==='effective_course_subscriptions'}}:{})};}
+    if(readEndpoints[action]){const data=courseManagementData(await load(),auth);const {body}=await execute(action,input,data,request);return {...body,workflowStore:'D1',workflowRevision:String(data.version),...(action==='get'?{capabilities:{curriculum:true,courseCreation:Boolean(auth.state.account.global_admin),resourceManagement:true,subscriptionManagement:await repository.subscriptionSource()==='effective_course_subscriptions'}}:{})};}
     if(!writeEndpoints[action])throw managementError('This Course action is unavailable.',501,'OPERATION_NOT_MIGRATED');
     const dataset=action.startsWith('calendar/')?'ACADEMY_CALENDAR':'COURSE_MANAGEMENT';
     return store.change(dataset,'ACADEMY',action,input,async()=>{
       const data=await load();
       if(input.workflowRevision!==String(data.version))throw managementError('Courses or calendar records changed elsewhere. Your draft is kept; refresh and review the saved records.',409,'WORKFLOW_CHANGED');
-      const {tables,changes,body}=await execute(action,input,data,request);
-      return {data,statements:await statementsFor(store,data,tables,changes,auth,env),result:{...body,workflowStore:'D1',workflowRevision:String(data.version+1)},fields:[...changes.keys()].filter(n=>!['PlatformAuditLog','PlatformConfig'].includes(n))};
+      const scoped=courseManagementData(data,auth),{tables,changes,body}=await execute(action,input,scoped,request);
+      if(!auth.state.account.global_admin) {
+        for(const r of changes.get('GlobalSubjectList')?.values()||[])if(!scoped.activities.some(a=>a.kind==='COURSE'&&same(a.activity_id,r.SubjectID)))
+          throw managementError('Only a Global Admin can create Courses.',403,'FORBIDDEN');
+        if(changes.has('AcademyCalendar')||[...(changes.get('PlatformConfig')?.values()||[])].some(r=>!['GlobalCurriculumVersion','GlobalTimetableVersion'].includes(r.ConfigKey)))
+          throw managementError('Academy settings require a Global Admin.',403,'FORBIDDEN');
+      }
+      return {data,authorityScopes:scoped.activities.filter(a=>a.kind==='COURSE').map(a=>a.activity_key),statements:await statementsFor(store,data,tables,changes,auth,env),result:{...body,workflowStore:'D1',workflowRevision:String(data.version+1)},fields:[...changes.keys()].filter(n=>!['PlatformAuditLog','PlatformConfig'].includes(n))};
     });
   }};
 }

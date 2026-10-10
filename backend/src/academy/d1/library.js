@@ -15,7 +15,7 @@ const clean=v=>String(v??'').trim(),TTL=300;
 const typeConfig=type=>{const config=getResourceConfig(type);if(!config)throw managementError('Choose a Library category.');return config;};
 export const d1LibraryAreaRefs=state=>state.activities.filter(a=>state.account.global_admin||
   (a.kind==='PROGRAM'?state.roles.some(r=>same(r.activity_key,a.activity_key)):
-    a.legacy_access_model==='FREE'||state.subscriptions.some(s=>same(s.activity_key,a.activity_key))||state.roles.some(r=>same(r.activity_key,a.activity_key)&&r.role==='TEACHER')))
+    a.legacy_access_model==='FREE'||state.subscriptions.some(s=>same(s.activity_key,a.activity_key))||state.roles.some(r=>same(r.activity_key,a.activity_key)&&['STUDENT','TEACHER','PROGRAM_ADMIN'].includes(r.role))))
   .map(a=>`${a.kind==='PROGRAM'?'PROGRAM':'GLOBAL'}:${a.activity_id}`);
 export function d1Library(repository,auth,env) {
   const store=managementStore(repository,auth),p=store.p,programs=d1Programs(repository,auth);

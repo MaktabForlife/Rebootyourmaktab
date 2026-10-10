@@ -47,7 +47,7 @@ const joinWindowOpen = (event, now) => {
 
 export function programRoles(user, accounts = []) {
   if (!user) return [];
-  if (globalAdmin(user)) return ['GLOBAL_ADMIN'];
+  if (globalAdmin(user)) return ['GLOBAL_ADMIN', 'PROGRAM_ADMIN'];
   const matches = accounts.filter(row => key(row.AccountID) === key(user.accountid) && row.Active);
   return matches.length === 1 ? matches[0].Roles.filter(role => ['PROGRAM_ADMIN', 'ADMIN', 'SENIOR', 'TEACHER', 'STUDENT'].includes(role)) : [];
 }
@@ -110,7 +110,7 @@ export function programProjection(program, data, user, roles, start, end, now, d
       resources: globalAdmin(user) ? `/programs/library.html?program=${encodeURIComponent(program.id)}` : '' } };
 }
 
-export async function buildEntrance({ tables, programs, rolesByProgram, loadProgram, user, input = {}, now = new Date(), programLifecycle = 'DRAFT', rangeDays = 7, detailedTimetable = false }) {
+export async function buildEntrance({ tables, programs, rolesByProgram, rolesByCourse = null, loadProgram, user, input = {}, now = new Date(), programLifecycle = 'DRAFT', rangeDays = 7, detailedTimetable = false }) {
   const timezone = tables.PlatformConfig.find(row => key(row.ConfigKey) === 'PLATFORMTIMEZONE')?.ConfigValue || 'Africa/Johannesburg';
   const start = clean(input.startDate) || dateInTimezone(now, timezone);
   if (!validDate(start)) throw problem('Choose a valid timetable date.');
@@ -149,6 +149,9 @@ export async function buildEntrance({ tables, programs, rolesByProgram, loadProg
     PublishedGlobalTimetableSessions: tables.PublishedGlobalTimetableSessions };
   const courseViews = [];
   for (const subject of subjects) {
+    const assignedRoles=user?rolesByCourse?.[key(subject.SubjectID)]||[]:[];
+    const oversight=globalAdmin(user)||assignedRoles.includes('PROGRAM_ADMIN');
+    const mayTeach=rolesByCourse===null||oversight||assignedRoles.includes('TEACHER');
     const allowed = Boolean(user && (globalAdmin(user) || canAccountAccessGlobalSubject({ account, subject,
       policyRows: platform.policies, accessRows: platform.matrix })));
     const sessions = [];
@@ -162,10 +165,10 @@ export async function buildEntrance({ tables, programs, rolesByProgram, loadProg
       const published = (resolved.sessions || []).filter(row => row.sessiondate >= start && row.sessiondate <= end);
       const runTimezone = resolved.sessions?.[0]?.timezone || run.Timezone || timezone;
       const events = buildGlobalCourseEvents({ ...platform, runs: [run] }, account || { AccountID: '', Active: true }, {
-        isGlobalAdmin: globalAdmin(user), week: { start, end, today: dateInTimezone(now, timezone) },
+        isGlobalAdmin: oversight, allowAssignedTeacher:mayTeach, week: { start, end, today: dateInTimezone(now, timezone) },
         currentDate: dateInTimezone(now, runTimezone), currentMinutes: nowInMinutes(now, runTimezone) });
       for (const [index, event] of events.entries()) {
-        const teaching = Boolean(user && key(published[index]?.teacheraccountid) === key(user.accountid));
+        const teaching = Boolean(user && mayTeach && key(published[index]?.teacheraccountid) === key(user.accountid));
         const relevant = Boolean(user && event.relevant);
         const projected = { kind: 'COURSE', activityId: subject.SubjectID, offeringId: run.RunID,
           activityName: subject.SubjectName, date: event.date, startTime: event.startTime, endTime: event.endTime,
@@ -179,14 +182,14 @@ export async function buildEntrance({ tables, programs, rolesByProgram, loadProg
           if(detailedTimetable)projected.teacherName=event.teacherName||'';
         }
         // Keep the shared/legacy timetable gate unchanged. The new website opens five minutes early.
-        if (user && (relevant || globalAdmin(user)) && event.visibilityLevel === 'DETAIL' &&
+        if (user && (relevant || oversight) && event.visibilityLevel === 'DETAIL' &&
           joinWindowOpen(projected, now) && published[index]?.zoomlink) projected.joinUrl = published[index].zoomlink;
         sessions.push(projected);
       }
     }
     const teacher = Boolean(user && sessions.some(row => row.relevant && row.involvement === 'teacher'));
     const learner = allowed || Boolean(user && sessions.some(row => row.involvement === 'student'));
-    const roles = globalAdmin(user) ? ['GLOBAL_ADMIN'] : [...(learner ? ['STUDENT'] : []), ...(teacher ? ['TEACHER'] : [])];
+    const roles = globalAdmin(user) ? ['GLOBAL_ADMIN', 'PROGRAM_ADMIN'] : [...new Set([...assignedRoles,...(learner ? ['STUDENT'] : []), ...(teacher ? ['TEACHER'] : [])])];
     const view = { id: subject.SubjectID, name: subject.SubjectName, kind: 'COURSE', roles, timetable: sessions, unavailable,
       curriculum: roles.length ? tables.GlobalModuleList.filter(row => key(row.SubjectID) === key(subject.SubjectID) && active(row.Active))
         .map(row => ({ id: row.ModuleID, name: row.ModuleName, modules: [] })) : [], classes: [],
@@ -201,9 +204,9 @@ export async function buildEntrance({ tables, programs, rolesByProgram, loadProg
   if (requestedId && !activity) throw problem('This Academy activity is unavailable.', 404);
   // Oversight is scoped to the verified Program roles, independently of the
   // current page. Direct teaching/enrolment in another activity stays personal.
-  const administeredPrograms = new Set(programViews.filter(view => view.roles.some(role =>
-    ['PROGRAM_ADMIN', 'ADMIN'].includes(role))).map(view => key(view.id)));
-  const summarize = row => globalAdmin(user) || row.kind === 'PROGRAM' && administeredPrograms.has(key(row.activityId));
+  const administeredActivities = new Set([...programViews,...courseViews].filter(view => view.roles.some(role =>
+    ['PROGRAM_ADMIN', 'ADMIN'].includes(role))).map(view => `${view.kind}:${key(view.id)}`));
+  const summarize = row => globalAdmin(user) || administeredActivities.has(`${row.kind}:${key(row.activityId)}`);
   const personalTimetable = user ? timetable.filter(row => (summarize(row) || row.relevant) && row.status === 'SCHEDULED')
     .map(row => ({ ...row, title: row.moduleName || row.subjectName || row.title, ...lessonTimes(row), summarize: summarize(row) }))
     .filter(row => Number.isFinite(row.startsAt) && Number.isFinite(row.endsAt))

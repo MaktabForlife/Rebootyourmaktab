@@ -60,7 +60,7 @@
   function hasGlobalCurriculumAuthority() {
     const user = appState()?.user || {};
     return String(user.platformrole || "").trim().toUpperCase() === "GLOBAL_ADMIN" ||
-      String(user.role || "").trim().toUpperCase() === "ADMIN";
+      ["ADMIN","PROGRAM_ADMIN"].includes(String(user.role || "").trim().toUpperCase());
   }
 
   function syncAccess() {
@@ -254,7 +254,7 @@
         <div class="global-subject-editor-list">
           ${model.subjectDrafts.length ? model.subjectDrafts.map(renderSubjectDraft).join("") : '<p class="global-curriculum-empty-list">No Global Subjects found.</p>'}
         </div>
-        <button type="button" class="global-inline-add-action" data-gcm-action="add-subject-inline">+ Add a Global Subject</button>
+        ${model.data.capabilities?.courseCreation === false ? '' : '<button type="button" class="global-inline-add-action" data-gcm-action="add-subject-inline">+ Add a Global Subject</button>'}
       </section>
     `);
   }
@@ -635,6 +635,7 @@
   }
 
   function addSubjectInline() {
+    if(model.data.capabilities?.courseCreation === false)return;
     const key = `new-subject-${++model.subjectDraftSequence}`;
     const draft = {
       key,

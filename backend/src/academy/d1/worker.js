@@ -10,11 +10,12 @@ import {learningAvailable} from './learning-state.js';
 import {d1Library,d1LibraryStream,d1LibraryAreaRefs} from './library.js';
 import {d1CourseCalendar} from './course-calendar.js';
 import {d1CourseSubscriptions} from './course-subscriptions.js';
+import {managedCourseScopes} from './course-authority.js';
 import {authenticatedD1Account as authenticated,d1Audience as audience,d1ContextEqual as contextEqual} from './session.js';
 import {openLibraryMetadataEndpoint} from '../../routes/open-library-metadata.js';
 
 const publicAccount=state=>({displayName:state.account.display_name,uniqueid:state.account.login_link_id});
-const sessionResponse=(state,context,token)=>({account:publicAccount(state),context,contexts:state.contexts,sessionStore:'D1',operationalAccessActive:['COURSE','GLOBAL'].includes(context.scope),...(token?{token}:{})});
+const sessionResponse=(state,context,token)=>({account:publicAccount(state),context,contexts:state.contexts,courseManagement:state.account.global_admin||managedCourseScopes(state).length>0,sessionStore:'D1',operationalAccessActive:['COURSE','GLOBAL'].includes(context.scope),...(token?{token}:{})});
 const requireActive=state=>{if(!state)throw rehearsalError('Invalid account link',404,'ACCOUNT_NOT_FOUND');if(!state.account.active)throw rehearsalError('Account disabled',403,'ACCOUNT_DISABLED');};
 
 async function boundedBody(request,limit=4096) {
@@ -45,7 +46,7 @@ async function dispatch(request,env) {
   const path=new URL(request.url).pathname;
   await repository.ready();
   const publicLibraryOnly=env.ACADEMY_LIBRARY_MODE==='PUBLIC_ONLY';
-  if(['/','/api/health'].includes(path)&&request.method==='GET')return {success:true,service:'rebootworker',version:'106.4',
+  if(['/','/api/health'].includes(path)&&request.method==='GET')return {success:true,service:'rebootworker',version:'106.5',
     store:env.ACADEMY_D1_MODE==='ACTIVE'?'D1_ACTIVE':'D1_REHEARSAL',cutoverReady:env.ACADEMY_D1_MODE==='ACTIVE',
     libraryMode:publicLibraryOnly?'PUBLIC_ONLY':'COMPATIBILITY',mediaSubscriptionsAvailable:false};
   const openLibraryAction=path.match(/^\/api\/academy\/open-library\/metadata\/(public|cover|list|save|options)$/)?.[1];
@@ -100,7 +101,7 @@ async function dispatch(request,env) {
   if(['/api/account/workspace','/api/account/global-workspace'].includes(path)){
     const expected=path.endsWith('/global-workspace')?'GLOBAL':'COURSE';
     if(auth.context.scope!==expected)throw rehearsalError('Choose an authorised Academy context.',403,'FORBIDDEN_CONTEXT');
-    return {success:true,sessionStore:'D1',workspace:{portalType:'academy',path:expected==='GLOBAL'?'/academy/':'/academy/#activity/PROGRAM/'+encodeURIComponent(auth.context.courseId)}};
+    return {success:true,sessionStore:'D1',workspace:{portalType:'academy',path:expected==='GLOBAL'?'/academy/'+(auth.context.courseId?'#activity/COURSE/'+encodeURIComponent(auth.context.courseId):''):'/academy/#activity/PROGRAM/'+encodeURIComponent(auth.context.courseId)}};
   }
   const subjectAction=path.match(/^\/api\/admin\/platform\/academy-subjects\/(get|save|recover|import-preview)$/)?.[1];
   if(subjectAction)return {success:true,...await d1Subjects(repository,auth).run(subjectAction,input)};
