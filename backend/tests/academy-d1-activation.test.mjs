@@ -128,6 +128,7 @@ test('maintenance pauses requests before authentication, database access or Shee
 test('hosted rehearsal tooling rejects main targets and installs only a verified synthetic fixture',async()=>{
   const workerName='academy-d1-core-test-20261010-12345678',databaseId='00000000-0000-4000-8000-000000000009';
   assert.throws(()=>validateHostedCoreTarget({workerName,databaseId:'7e732b79-a72f-4da6-be83-524919c49ba4'}),/TEST_DATABASE_REQUIRED/);
+  assert.throws(()=>validateHostedCoreTarget({workerName,databaseId:'7E732B79-A72F-4DA6-BE83-524919C49BA4'}),/TEST_DATABASE_REQUIRED/);
   for(const name of ['devrebootworker','rebootworker','academy-d1-core-test'])assert.throws(()=>validateHostedCoreTarget({workerName:name,databaseId}),/TEST_WORKER_REQUIRED/);
   const directory=mkdtempSync(join(tmpdir(),'maktab-hosted-core-test-')),original=globalThis.fetch;let db;
   try {

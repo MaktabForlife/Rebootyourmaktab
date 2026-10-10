@@ -1,5 +1,6 @@
 import {createHash,randomUUID} from 'node:crypto';
 import {CORE_ACTIVATION_CHECKS} from '../../src/academy/d1/activation-policy.js';
+import {atomicSnapshotGuard} from './atomic-snapshot.mjs';
 
 const sha=value=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const identifier=name=>'"'+name.replaceAll('"','""')+'"';
@@ -7,8 +8,9 @@ const required=['academy_write_state','operation_receipts','role_mapping_decisio
   'course_workflow_imports','course_subscription_decisions','attendance_registers','attendance_marks'];
 const uuid=value=>/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value||'');
 
-// Offline administration only. Reports and plans contain no credential values.
-// Serialized bound statements are private artifacts, not browser/API payloads.
+// Offline administration only. Plans include exact-state comparisons containing
+// credential hashes and account data: serialized plans are PRIVATE artifacts,
+// never browser/API payloads, repository files or logged review reports.
 export function activationFacts(db) {
   const schema=db.prepare("SELECT type,name,tbl_name,sql FROM sqlite_schema WHERE name NOT LIKE 'sqlite_%' AND name NOT LIKE '_cf_%' AND sql IS NOT NULL ORDER BY type,name").all();
   const names=schema.filter(r=>r.type==='table').map(r=>r.name);
@@ -47,8 +49,11 @@ export function buildCoreActivationPlan(db,review={}) {
     evidence:Object.fromEntries(CORE_ACTIVATION_CHECKS.map(check=>[check,review.evidence?.[check]||{status:'PENDING'}]))};
   const plan={...basis,reviewSha256:sha(basis),readyToApply:blockers.length===0,blockers,tableCounts:facts.tableCounts,statements:[]};
   if(blockers.length)return plan;
-  const now=new Date().toISOString(),guard=randomUUID(),statements=plan.statements;
+  let snapshot;
+  try{snapshot=atomicSnapshotGuard(db);}catch{plan.blockers.push('ATOMIC_SNAPSHOT_LIMIT_EXCEEDED');plan.readyToApply=false;return plan;}
+  const now=new Date().toISOString(),guard=randomUUID(),snapshotGuard=randomUUID(),statements=plan.statements;
   const add=(sql,...params)=>statements.push({sql,params});
+  add(`INSERT INTO academy_write_guards(guard_id,accepted) VALUES(?,${snapshot.condition})`,snapshotGuard,...snapshot.params);
   add(`INSERT INTO academy_write_guards(guard_id,accepted) VALUES(?,
     (SELECT version=? FROM academy_write_state WHERE singleton=1)
     AND EXISTS(SELECT 1 FROM migration_runs WHERE run_id=? AND state='IMPORTED' AND source_snapshot_sha256=?)
@@ -71,6 +76,7 @@ export function buildCoreActivationPlan(db,review={}) {
     VALUES('CORE_ACTIVATION','ACADEMY',?,?,?,?)`,review.reviewId,plan.reviewSha256,JSON.stringify(result),now);
   add('UPDATE academy_write_state SET version=version+1 WHERE singleton=1');
   add('DELETE FROM academy_write_guards WHERE guard_id=?',guard);
+  add('DELETE FROM academy_write_guards WHERE guard_id=?',snapshotGuard);
   plan.statementsSha256=sha(statements);
   return plan;
 }

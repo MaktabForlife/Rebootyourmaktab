@@ -16,15 +16,16 @@ import {createSaltedPinHash} from '../src/lib/auth.js';
 
 const MAIN_DATABASE='7e732b79-a72f-4da6-be83-524919c49ba4';
 export function validateHostedCoreTarget({databaseId,workerName}) {
-  if(databaseId===MAIN_DATABASE||!/^([0-9a-f]{8}-)([0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(databaseId||''))throw Error('DEDICATED_TEST_DATABASE_REQUIRED');
+  if(String(databaseId).toLowerCase()===MAIN_DATABASE||!/^([0-9a-f]{8}-)([0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(databaseId||''))throw Error('DEDICATED_TEST_DATABASE_REQUIRED');
   if(!/^academy-d1-core-test-\d{8}-[a-f0-9]{8}$/.test(workerName||''))throw Error('DEDICATED_TEST_WORKER_REQUIRED');
 }
 
-// Prepares an already activated, locally verified SYNTHETIC fixture. This is
-// installation into a new empty test DB, never an activation of an existing DB.
-export async function prepareHostedCore({directory,databaseId,workerName,accountId,repo=process.cwd(),fixture='core'}) {
+// Installation into an EMPTY disposable test DB. Staging fixtures support
+// testing the remote activation transaction; they contain no live approval.
+export async function prepareHostedCore({directory,databaseId,workerName,accountId,repo=process.cwd(),fixture='core',activation='active'}) {
   validateHostedCoreTarget({databaseId,workerName});
   if(!['core','peak'].includes(fixture))throw Error('UNKNOWN_SYNTHETIC_FIXTURE');
+  if(!['active','staging'].includes(activation))throw Error('UNKNOWN_SYNTHETIC_ACTIVATION');
   if(!/^[a-f0-9]{32}$/.test(accountId||''))throw Error('TEST_ACCOUNT_REQUIRED');
   directory=resolve(directory);mkdirSync(directory,{recursive:true,mode:0o700});
   const save=(name,value)=>writeFileSync(join(directory,name),value,{mode:0o600,flag:'wx'});
@@ -43,7 +44,7 @@ export async function prepareHostedCore({directory,databaseId,workerName,account
     importLearningPlan(db,learning);db.exec(migration('0006_course_calendar_workflows.sql'));importCourseCalendarPlan(db,course);db.exec(migration('0007_course_subscriptions.sql'));
     const review={reviewId:randomUUID(),sourceSha256:base.tables.migration_runs[0].source_snapshot_sha256,codeCommit:'0'.repeat(40),libraryMode:'PUBLIC_ONLY',
       evidence:Object.fromEntries(CORE_ACTIVATION_CHECKS.map(check=>[check,{status:'PASS',reference:'SYNTHETIC FIXTURE ONLY; NOT LIVE APPROVAL: '+check}]))};
-    applyCoreActivationLocally(db,buildCoreActivationPlan(db,review));
+    if(activation==='active')applyCoreActivationLocally(db,buildCoreActivationPlan(db,review));
     const finalBase={...base,tables:{...base.tables}};
     for(const table of ['migration_runs','data_ownership','audit_events','migration_checks'])finalBase.tables[table]=db.prepare('SELECT * FROM '+table).all();
     // Operational imports deliberately exclude runtime receipts. Preserve the
@@ -52,7 +53,7 @@ export async function prepareHostedCore({directory,databaseId,workerName,account
     const receipts=db.prepare('SELECT * FROM operation_receipts').all().map(row=>
       `INSERT INTO operation_receipts (${Object.keys(row).join(',')}) VALUES (${Object.values(row).map(literal).join(',')});`).join('\n');
     const sql=[...migrations.map(m=>m.sql),operationalSQL(finalBase),migration('0004_management_transactions.sql'),
-      'UPDATE academy_write_state SET version=1 WHERE singleton=1;',migration('0005_learning_workflows.sql'),learningSQL(learning),
+      `UPDATE academy_write_state SET version=${activation==='active'?1:0} WHERE singleton=1;`,migration('0005_learning_workflows.sql'),learningSQL(learning),
       migration('0006_course_calendar_workflows.sql'),courseCalendarSQL(course),migration('0007_course_subscriptions.sql'),receipts].join('\n');
     const roundtrip=new DatabaseSync(':memory:');
     try{roundtrip.exec('PRAGMA foreign_keys=ON');roundtrip.exec(sql);if(activationFacts(roundtrip).fingerprint!==activationFacts(db).fingerprint)throw Error('SYNTHETIC_INSTALL_ROUNDTRIP_FAILED');}
@@ -60,13 +61,13 @@ export async function prepareHostedCore({directory,databaseId,workerName,account
     save('synthetic-install.sql',sql);save('test-secrets.json',JSON.stringify(secrets));
     const config={name:workerName,account_id:accountId,main:resolve(repo,'backend/src/worker-runtime.js'),compatibility_date:'2026-10-10',workers_dev:true,preview_urls:false,
       observability:{enabled:true,head_sampling_rate:1},secrets:{required:['PIN_SECRET','SESSION_SECRET']},
-      vars:{ENVIRONMENT:'development',ACADEMY_D1_MODE:'ACTIVE',ACADEMY_D1_RUN_ID:base.runId,ACADEMY_LIBRARY_MODE:'PUBLIC_ONLY',PLATFORM_SPREADSHEET_ID:'synthetic-'+prefix},
+      vars:{ENVIRONMENT:'development',ACADEMY_D1_MODE:activation==='active'?'ACTIVE':'REHEARSAL',ACADEMY_D1_RUN_ID:base.runId,ACADEMY_LIBRARY_MODE:'PUBLIC_ONLY',PLATFORM_SPREADSHEET_ID:'synthetic-'+prefix},
       d1_databases:[{binding:'ACADEMY_DB',database_name:workerName,database_id:databaseId}],
       durable_objects:{bindings:[{name:'PROGRAM_TIMETABLE_COORDINATOR',class_name:'ProgramTimetableCoordinator'}]},
       migrations:[{tag:'core-test-only-v1',new_sqlite_classes:['ProgramTimetableCoordinator']}],
       ratelimits:[{name:'AUTH_LOGIN_RATE_LIMITER',namespace_id:String(1000000+randomBytes(3).readUIntBE(0,3)),simple:{limit:5,period:60}}]};
     save('wrangler.json',JSON.stringify(config,null,2));
-    save('test-input.json',JSON.stringify({databaseId,workerName,runId:base.runId,fixture,accounts:base.tables.accounts.map(a=>({id:a.account_id,login:a.login_link_id})),syntheticOnly:true},null,2));
+    save('test-input.json',JSON.stringify({databaseId,workerName,runId:base.runId,fixture,activation,accounts:base.tables.accounts.map(a=>({id:a.account_id,login:a.login_link_id})),syntheticOnly:true},null,2));
     return {prepared:true,syntheticAccounts:base.tables.accounts.length,tables:activationFacts(db).names.length,workerName,databaseId,mainDatabaseChanged:false};
   }finally{db.close();chmodSync(databasePath,0o600);}
 }
@@ -129,7 +130,7 @@ if(process.argv[1]&&pathToFileURL(resolve(process.argv[1])).href===import.meta.u
     const options=Object.fromEntries(Array.from({length:args.length/2},(_,i)=>[args[i*2],args[i*2+1]]));
     if(mode==='prepare') {
       if(!options['--directory'])throw Error('PRIVATE_DIRECTORY_REQUIRED');
-      console.log(JSON.stringify(await prepareHostedCore({directory:options['--directory'],databaseId:options['--database-id'],workerName:options['--worker-name'],accountId:options['--account-id'],fixture:options['--fixture']||'core'})));
+      console.log(JSON.stringify(await prepareHostedCore({directory:options['--directory'],databaseId:options['--database-id'],workerName:options['--worker-name'],accountId:options['--account-id'],fixture:options['--fixture']||'core',activation:options['--activation']||'active'})));
     }else if(mode==='exercise') {
       if(!options['--input']||!options['--report'])throw Error('INPUT_AND_PRIVATE_REPORT_REQUIRED');
       const report=await exerciseHostedCore(options['--origin'],JSON.parse(readFileSync(options['--input'],'utf8')));

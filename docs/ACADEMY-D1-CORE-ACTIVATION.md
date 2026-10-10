@@ -1,8 +1,10 @@
 # Core D1 activation preparation — 10 October 2026
 
+**Latest transition/recovery verification:** The administrative binding executor now passes hosted atomic activation, stale-content rejection, rollback and receipt replay in the separate synthetic database. New D1 application writes survive two local restores and an exact hosted restore; post-restore credentials, revocations and Home checks pass. All **122 regression files pass**. The temporary controller is deleted and the test application is paused. Main storage remains Sheets; browser acceptance and final live review remain pending. See [transition and recovery results](ACADEMY-D1-TRANSITION-RECOVERY-2026-10-10.md).
+
 **Later hosted verification:** The owner-created isolated test database passed hosted core workflows and a matched five-Program/two-Course peak comparison. Login/Home round trips fell from 24 to 10; p95 improved to 4.5 s at 100 simultaneous learners and 7.9 s at 200, with every flow passing. All 121 regression files pass. The test Worker is paused; the main website remains on Sheets. The initial creation failure described below no longer prevents testing with that target. See [peak results and remaining work](ACADEMY-D1-PEAK-2026-10-10.md) and [earlier hosted workflow checks](ACADEMY-D1-HOSTED-CORE-2026-10-10.md).
 
-The core application now has a tested activation contract and a public-only Library mode. **This is local preparation, not a completed live switch.** No feature push, Worker deployment, main database migration or storage flag change was performed. The current application remains `devrebootworker`; `rebootworker` remains legacy.
+The core application has a tested activation contract and a public-only Library mode. **This is preparation for a live switch.** Subsequent hosted tests use separate synthetic storage and Workers; no main deployment, database migration, storage flag change or feature push was performed. The current application remains `devrebootworker`; `rebootworker` remains legacy.
 
 The working sequence is to finish the core migration separately from the new Module media subscription feature. That feature is still unbuilt. The [agreed Library model](ACADEMY-LIBRARY-ACCESS-MODEL.md) remains the specification; existing Course access and Program enrolments do not create Module media entitlements.
 
@@ -38,11 +40,11 @@ Missing evidence produces blockers and **zero executable statements**. Earlier r
 
 The local apply function checks that both the database and plan are unchanged, then commits ownership, evidence, import state, staging-session revocation, audit history and a retry receipt in one transaction. Retrying the same completed review replays its result. A failed transaction rolls back completely. Account credentials and existing authority records are preserved.
 
-**A remote main-database activation executor is not implemented or used in this increment.** A future executor must pause writers, recheck the exact target and fingerprint, and apply the reviewed statements in one [D1 binding batch](https://developers.cloudflare.com/d1/worker-api/d1-database/#batch). Do not execute them individually or use a potentially chunked SQL-file import for an existing database's activation. A flag change alone cannot activate the staging import.
+The administrative executor in `backend/tools/academy-migration/remote-activation.mjs` now applies a pinned artifact in one [D1 binding batch](https://developers.cloudflare.com/d1/worker-api/d1-database/#batch), with an exact SQL snapshot guard inside the transaction. Hosted verification is restricted to the separate synthetic target; no main controller or application administration route has been deployed. Main execution still requires paused writers, verified target identity, refreshed data/code and all eight review checks. Do not execute the statements individually or use a potentially chunked SQL-file import for an existing database's activation. A flag change alone cannot activate the staging import. Plans contain private account data and credential hashes; never publish them.
 
-After D1 accepts live writes, restoring a backup or setting `OFF` is not a safe automatic rollback to Sheets. Recovery must account for those new writes and preserve them through reviewed reverse reconciliation.
+After D1 accepts live writes, restoring an older backup or setting `OFF` is not a safe automatic rollback to Sheets. [Latest-state D1 recovery](ACADEMY-D1-TRANSITION-RECOVERY-2026-10-10.md) now preserves new writes and passes an isolated hosted trial. Returning to Sheets would still require separately reviewed reverse reconciliation, which is not implemented.
 
-## Verification completed
+## Initial local verification (earlier stage)
 
 | Check | Result |
 | --- | --- |
