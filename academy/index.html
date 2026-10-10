@@ -243,7 +243,7 @@
     @media(max-width:700px){.nav .library-link{width:auto;white-space:nowrap;padding:9px 10px;font-size:13px}.topbar{flex-wrap:wrap}.top-actions{flex-wrap:wrap;justify-content:flex-start}}
     @media(max-width:700px){body.academy-signed-in .topbar{flex-wrap:wrap}body.academy-signed-in .top-actions{width:100%;justify-content:flex-end}body.academy-signed-in .demo-pill{margin-right:auto}}
   </style>
-<link rel="stylesheet" href="/css/m4l-academy-entrance.css?v=106.2">
+<link rel="stylesheet" href="/css/m4l-academy-entrance.css?v=106.7">
 </head>
 <body>
 <a class="skip-link" href="#main">Skip to content</a>
@@ -263,24 +263,12 @@
 <a class="text-link" href="https://ummabbadacademy.com" target="_blank" rel="noopener noreferrer">Original Academy site ↗</a>
 </aside>
 <main id="main">
-<header class="topbar"><div class="breadcrumbs">Umm Abbad Academy / <strong id="current-view">Academy home</strong></div><div class="top-actions"><span class="academy-header-name" id="academy-header-name" hidden></span><span class="site-version">Website V106.6</span><button class="academy-sign-out" id="academy-sign-out" type="button" hidden>Sign out</button><div class="avatar" id="academy-avatar" aria-label="Academy account">A</div></div></header>
+<header class="topbar"><div class="breadcrumbs">Umm Abbad Academy / <strong id="current-view">Academy home</strong></div><div class="top-actions"><span class="academy-header-name" id="academy-header-name" hidden></span><span class="site-version">Website V106.7</span><button class="academy-sign-out" id="academy-sign-out" type="button" hidden>Sign out</button><div class="avatar" id="academy-avatar" aria-label="Academy account">A</div></div></header>
 <div class="academy-global-strip"><nav class="activity-pills activity-switcher" id="activity-switcher" aria-label="Your subscribed Programs and Courses" hidden></nav></div>
 <div class="container">
 <div class="entrance-status" id="entrance-status" role="status" aria-live="polite"><span id="entrance-message">Loading Academy information…</span><button type="button" class="button secondary small" id="entrance-retry" hidden>Try again</button></div>
 <section id="overview" class="view active" aria-labelledby="overview-title">
 <section class="academy-intro" aria-labelledby="overview-title">
-          <div class="intro-feature">
-            <div class="intro-greeting" lang="ar" dir="rtl" aria-label="Bismillah">﷽</div>
-            <section class="card card-pad coming-card academy-news" aria-labelledby="academy-news-title">
-              <span class="eyebrow">From the Academy</span><h2 id="academy-news-title">Announcements and inspiration</h2>
-              <span class="tag neutral">Coming soon</span><p>General announcements, motivational posts and updates from the Academy.</p>
-            </section>
-            <section class="card card-pad" id="academy-preview" aria-labelledby="preview-title">
-              <div class="upcoming-heading"><h2 id="preview-title">Coming up</h2><div class="upcoming-controls" aria-label="Browse upcoming dates"><button type="button" id="upcoming-previous" aria-label="Previous upcoming date">←</button><button type="button" id="upcoming-next" aria-label="Next upcoming date">→</button></div></div>
-              <div id="academy-preview-sessions" class="upcoming-strip" tabindex="0" role="region" aria-label="Upcoming Academy lessons. Swipe or use the arrow buttons to browse dates." aria-live="polite">Loading Academy timetable…</div>
-              <a class="text-link" id="preview-timetable-link" href="#timetable" hidden>View full timetable →</a>
-            </section>
-          </div>
           <div class="intro-next">
             <div class="intro-identity">
               <div class="intro-kicker">ONE ACCOUNT · EVERY PROGRAM</div>
@@ -305,7 +293,20 @@
             </div>
             <div class="intro-actions"><a class="text-link" href="https://ummabbadacademy.com" target="_blank" rel="noopener noreferrer">Visit the original Academy site ↗</a></div>
           </div>
+          <div class="intro-feature">
+            <div class="intro-greeting" lang="ar" dir="rtl" aria-label="Bismillah">﷽</div>
+            <section class="card card-pad coming-card academy-news" aria-labelledby="academy-news-title">
+              <span class="eyebrow">From the Academy</span><h2 id="academy-news-title">Announcements and inspiration</h2>
+              <span class="tag neutral">Coming soon</span><p>General announcements, motivational posts and updates from the Academy.</p>
+            </section>
+          </div>
         </section>
+
+            <section class="card card-pad" id="academy-preview" aria-labelledby="preview-title">
+              <div class="upcoming-heading"><div><span class="eyebrow">Academy timetable</span><h2 id="preview-title">Coming up</h2></div><div class="upcoming-controls" aria-label="Browse upcoming dates"><button type="button" id="upcoming-previous" aria-label="Previous upcoming date">←</button><button type="button" id="upcoming-next" aria-label="Next upcoming date">→</button></div></div>
+              <div id="academy-preview-sessions" class="upcoming-strip" tabindex="0" role="region" aria-label="Upcoming Academy lessons. Swipe or use the arrow buttons to browse dates." aria-live="polite">Loading Academy timetable…</div>
+              <a class="text-link" id="preview-timetable-link" href="#timetable" hidden>View full timetable →</a>
+            </section>
 
 <section id="learning" aria-labelledby="learning-title"><div class="page-heading"><h2 id="learning-title">Explore our programs and courses</h2><div class="upcoming-controls" aria-label="Browse Programs and Courses"><button type="button" id="learning-previous" aria-label="Previous Program or Course">←</button><button type="button" id="learning-next" aria-label="Next Program or Course">→</button></div></div><div id="learning-catalogue" class="learning-strip" tabindex="0" role="region" aria-label="Programs and Courses. Swipe or use the arrow buttons to browse."></div></section>
             <article class="prospectus-banner"><div class="prospectus-copy"><span class="eyebrow" style="color:var(--rose-soft)">2026 prospectus</span><h2>See this year’s courses and teachers</h2><p>Six listed courses, monthly workshops, schedules, fees, and the academy team.</p></div><button class="button secondary" type="button" data-nav="prospectus">Explore the prospectus →</button></article>
@@ -395,7 +396,7 @@
 </div></main></div>
 <dialog id="lesson-information" aria-labelledby="lesson-information-title"><div class="section-title"><h2 id="lesson-information-title">Lesson information</h2><button class="button secondary small" id="lesson-information-close" type="button">Close</button></div><div id="lesson-information-body"></div></dialog>
 <script src="/js/m4l-config.js?v=102.4"></script>
-<script src="/js/m4l-academy-entrance.js?v=106.6"></script>
+<script src="/js/m4l-academy-entrance.js?v=106.7"></script>
 <script src="/js/m4l-academy-catalogue.js?v=106.1"></script>
 <script src="/js/m4l-academy-login.js?v=106.2"></script>
 </body></html>

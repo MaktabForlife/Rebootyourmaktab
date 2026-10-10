@@ -221,6 +221,13 @@
     return new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' }).format(new Date(`${value}T12:00:00Z`));
   }
 
+  function previewTime(value) {
+    const [hour, minute] = value.split(':').map(Number);
+    const clock = `${hour % 12 || 12}${minute ? `:${String(minute).padStart(2, '0')}` : ''}`;
+    const period = hour < 12 ? 'am' : 'pm';
+    return `<time class="preview-clock" datetime="${esc(value)}" aria-label="${clock}${period}"><span>${clock}</span><small>${period}</small></time>`;
+  }
+
   function summarizeLesson(row) {
     if (typeof row.summarize === 'boolean') return row.summarize;
     // Retain the same presentation during a staggered frontend/backend release.
@@ -238,15 +245,13 @@
     if (personal) { renderPersonalWeek(id, rows, detailed, next, now); return; }
     if (compact) {
       const days = new Map();
-      rows.forEach((row, index) => {
+      rows.forEach(row => {
         if (!days.has(row.date)) days.set(row.date, []);
-        days.get(row.date).push({ row, index });
+        days.get(row.date).push(row);
       });
-      $(id).innerHTML = `<ol class="upcoming-days">${[...days].map(([date, lessons]) => `<li class="upcoming-day"><time datetime="${esc(date)}">${esc(formatDate(date))}</time><ul class="upcoming-items">${lessons.map(({ row, index }) => {
+      $(id).innerHTML = `<ol class="upcoming-days preview-days">${[...days].map(([date, lessons]) => `<li class="upcoming-day"><time datetime="${esc(date)}">${esc(formatDate(date))}</time><ul class="upcoming-items">${lessons.map(row => {
         const label = esc(row.activityName || row.title);
-        const title = state.home?.signedIn ? `<a href="${activityHref({ kind: row.kind, id: row.activityId })}">${label}</a>` : label;
-        const info = state.home?.signedIn && row.information?.length ? `<button type="button" class="information-button" data-information="${id}:${index}" aria-label="More information about ${label}">i</button>` : '';
-        return `<li class="upcoming-item ${row.involvement === 'teacher' ? 'teacher' : row.involvement === 'student' ? 'student' : ''}"><span class="upcoming-status"></span><div class="upcoming-name" title="${label}">${title}</div><div class="upcoming-summary"><span class="upcoming-time">${esc(row.startTime)}–${esc(row.endTime)}</span></div><div class="upcoming-actions">${info}</div></li>`;
+        return `<li class="preview-pill">${previewTime(row.startTime)}<span class="preview-name" title="${label}">${label}</span></li>`;
       }).join('')}</ul></li>`).join('')}</ol>`;
       return;
     }

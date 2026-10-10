@@ -1,3 +1,9 @@
+# V106.7 — Sign-in first and compact public timetable
+
+Place sign-in at the top of Academy home, ahead of announcements on smaller screens. Give the public timetable its own full-width strip with compact pills showing only a stylised start time and Program/Course title. Show five days across where space permits and keep swipe/arrow browsing on smaller screens. Whole hours display as 4am; non-hour times retain their minutes, such as 7:30am.
+
+Signed-in timetables retain complete authorised lesson details, administrator rollups and the five-minute joining window. This presentation change reuses existing entrance requests and caching; no database migration is required.
+
 # V106.6 — Course delivery workspace
 
 Manage fixed-duration Courses in a compact searchable workspace with Details, Sessions, Participants, Media and publication review. Save a draft with only its name, generate or edit individual sessions, review Academy holidays and teacher clashes, and validate the saved draft before publishing. Subject/Module links classify the Course without changing its content or access.

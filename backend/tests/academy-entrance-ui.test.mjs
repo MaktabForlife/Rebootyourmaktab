@@ -63,9 +63,9 @@ const fetch = async (_url, options) => {
   const base = row.timetable[0];
   const homeTimetable = [base, {...base,title:'Earlier item',date:'2026-10-04'},
     {...base,title:'Ended item',startTime:'10:00',endTime:'11:00'},
-    {...base,title:'Later Program item',date:'2026-10-06'},
-    {...base,kind:'COURSE',activityId:'COURSE-TEST',activityName:'Course item',title:'Course item',date:'2026-10-06'},
-    {...base,kind:'COURSE',activityId:'COURSE-TEST',title:'Later Course offering',date:'2026-10-07'},
+    {...base,title:'Later Program item',date:'2026-10-06',...(!signedIn?{startTime:'04:00',endTime:'06:00'}:{})},
+    {...base,kind:'COURSE',activityId:'COURSE-TEST',activityName:'Course item',title:'Course item',date:'2026-10-06',...(!signedIn?{startTime:'12:00',endTime:'13:00'}:{})},
+    {...base,kind:'COURSE',activityId:'COURSE-TEST',title:'Later Course offering',date:'2026-10-07',...(!signedIn?{startTime:'07:30',endTime:'08:30'}:{})},
     {...base,activityId:'CANCELLED',title:'Cancelled item',status:'CANCELLED'}];
   const result = { success:true,signedIn,globalAdmin:signedIn&&globalAdmin,student:signedIn&&activities.some(item=>item.roles.includes('STUDENT')),startDate:body.startDate||'2026-10-05',endDate:'2026-10-11',warnings:[],
     activities,personalActivities:signedIn?activities.filter(item=>item.roles.length):[],timetable:homeTimetable.map(event=>{const publicEvent={...event};delete publicEvent.joinUrl;return publicEvent;}),activity:body.id?activities.find(item=>item.id===body.id):null };
@@ -142,7 +142,14 @@ assert.doesNotMatch($('academy-preview-sessions').innerHTML, /<a |Earlier item|E
 assert.match($('academy-preview-sessions').innerHTML,/Course item/);
 assert.doesNotMatch($('academy-preview-sessions').innerHTML,/Africa\/Johannesburg/);
 assert.doesNotMatch($('academy-sessions').innerHTML,/Africa\/Johannesburg/);
-assert.equal(($('academy-preview-sessions').innerHTML.match(/<li class="upcoming-item /g)||[]).length,4);
+assert.equal(($('academy-preview-sessions').innerHTML.match(/<li class="preview-pill"/g)||[]).length,4);
+assert.match($('academy-preview-sessions').innerHTML,/aria-label="4am"/);
+assert.match($('academy-preview-sessions').innerHTML,/aria-label="12pm"/);
+assert.match($('academy-preview-sessions').innerHTML,/aria-label="7:30am"/,'Keep non-hour start times accurate');
+assert.match($('academy-preview-sessions').innerHTML,/aria-label="1pm"/);
+assert.doesNotMatch($('academy-preview-sessions').innerHTML,/upcoming-summary|upcoming-actions|class="upcoming-item |–|Teacher A|Teacher B|zoom\.test/,'Public marketing pills show only a start time and title');
+assert.ok(html.indexOf('id="login-preview"')<html.indexOf('class="intro-feature"'),'Sign-in comes first on stacked and keyboard layouts');
+assert.ok(html.indexOf('id="academy-preview"')>html.indexOf('class="intro-feature"'));
 assert.equal($('preview-timetable-link').hidden,true);
 assert.match(html,/id="academy-library-nav" href="\/academy\/open-library\/"/);
 assert.doesNotMatch(html,/Browse Open Library|Open my Library|class="intro-logo"|Sign in <span>Academy account|class="login-note"/);
