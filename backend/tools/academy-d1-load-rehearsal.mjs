@@ -54,7 +54,8 @@ try {
   step='START_LOCAL_WORKER';
   mf=new miniflare.Miniflare(miniflare.convertV4MiniflareOptions({name:'academy-d1-load-local',modules:true,scriptPath:bundle,compatibilityDate,
     resourcePersistencePath:join(state,'v3'),d1Databases:{ACADEMY_DB:'00000000-0000-4000-8000-000000000003'},
-    bindings:{ENVIRONMENT:'local',ACADEMY_D1_MODE:'REHEARSAL',PIN_SECRET:'synthetic-pin-secret',SESSION_SECRET:'synthetic-session-secret',GOOGLE_SERVICE_ACCOUNT_JSON:driveCredentials},
+    durableObjects:{PROGRAM_TIMETABLE_COORDINATOR:{className:'ProgramTimetableCoordinator',useSQLite:true}},r2Buckets:['MEDIA_BUCKET'],
+    bindings:{ENVIRONMENT:'local',ACADEMY_D1_MODE:'REHEARSAL',PIN_SECRET:'synthetic-pin-secret',SESSION_SECRET:'synthetic-session-secret',GOOGLE_SERVICE_ACCOUNT_JSON:driveCredentials,PLATFORM_SPREADSHEET_ID:'synthetic-existing-platform'},
     ratelimits:{AUTH_LOGIN_RATE_LIMITER:{namespace_id:'100102',simple:{limit:5,period:60}}},
     outboundService:request=>{
       const url=new URL(request.url);
@@ -74,7 +75,7 @@ try {
     const response=await mf.dispatchFetch(`http://localhost${path}`,{method:'POST',headers:{'Content-Type':'application/json',...(token?{Authorization:`Bearer ${token}`}:{})},body:JSON.stringify(body)});
     return {status:response.status,body:await response.json(),retryAfter:response.headers.get('Retry-After')};
   }
-  const ensure=(response,status=200)=>{if(response.status!==status){const error=Error('Unexpected flow response');error.status=response.status;error.code=response.body.code;throw error;}return response.body;};
+  const ensure=(response,status=200)=>{if(response.status!==status){const error=Error(`Unexpected synthetic flow response${response.body.error?': '+response.body.error:''}`);error.status=response.status;error.code=response.body.code;throw error;}return response.body;};
   step='BURST_200';
   const started=performance.now(),tokens=[];
   const results=await Promise.all(Array.from({length:200},async(_,index)=>{
@@ -229,10 +230,35 @@ try {
   if((await mf.dispatchFetch(subscribedFile.url)).status!==403)throw Error('Revoked Course subscription retained a file ticket');
   const unsubscribedHome=ensure(await post('/api/academy/entrance',{startDate:'2026-10-10'},tokens[13]));
   if(unsubscribedHome.personalTimetable.some(s=>s.offeringId===courseView.run.runid))throw Error('Revoked Course subscription retained lesson details');
+  step='OPEN_LIBRARY_OPTIONS';
+  const openLibrary='/api/academy/open-library/metadata/';
+  const options=ensure(await post(openLibrary+'options',{},admin));
+  if(!options.subjects.some(s=>s.id==='GLOBAL:subject-1')||options.learningAreas.some(a=>a.id.startsWith('REBOOT:')))throw Error('Open Library D1 taxonomy failed');
+  ensure(await post(openLibrary+'list',{},scopedAdmin),403);ensure(await post(openLibrary+'list',{},tokens[13]),403);
+  const book={id:'EXTERNAL:INTERNET_ARCHIVE:runtime-book',title:'Runtime Open Library book',resourceType:'EBOOK',subjectRef:'GLOBAL:subject-1',moduleRef:'GLOBAL:module-1',learningAreaRefs:['PROGRAM:'+program.id],baseRevision:0};
+  step='OPEN_LIBRARY_CREATE';
+  const savedBook=ensure(await post(openLibrary+'save',book,teacher));
+  if(savedBook.record.module!=='Synthetic module')throw Error('Open Library saved the wrong D1 taxonomy');
+  step='OPEN_LIBRARY_CONCURRENT_SAVE';
+  const bookRaces=await Promise.all(['First','Second'].map(title=>post(openLibrary+'save',{...book,title,baseRevision:1},teacher)));
+  if(bookRaces.map(r=>r.status).sort().join(',')!=='200,409')throw Error('Open Library stale-save guard failed');
+  const png=new Uint8Array([137,80,78,71,13,10,26,10,0,0,0,0]),form=new FormData();
+  form.append('details',JSON.stringify({...book,baseRevision:2}));form.append('cover',new Blob([png],{type:'image/png'}),'cover.png');
+  step='OPEN_LIBRARY_COVER_UPLOAD';
+  // Serialize native Node FormData at the runtime boundary; Miniflare uses its
+  // own fetch implementation and must receive the matching multipart bytes.
+  const coverRequest=new Request('http://localhost'+openLibrary+'save',{method:'POST',headers:{Authorization:'Bearer '+teacher},body:form});
+  const upload=await mf.dispatchFetch(coverRequest.url,{method:'POST',headers:Object.fromEntries(coverRequest.headers),body:await coverRequest.arrayBuffer()});
+  const coverBook=ensure({status:upload.status,body:await upload.json()}).record;
+  if(!coverBook.hasUploadedCover||coverBook.coverKey)throw Error('Open Library cover metadata privacy failed');
+  const cover=await mf.dispatchFetch(coverBook.coverUrl);if(cover.status!==200||new Uint8Array(await cover.arrayBuffer()).length!==png.length)throw Error('Open Library R2 cover stream failed');
+  const publicBooks=await mf.dispatchFetch('http://localhost'+openLibrary+'public');
+  if(publicBooks.status!==200||(await publicBooks.json()).records.length!==1)throw Error('Open Library public metadata failed');
+  ensure(await post('/api/account/logout',{},teacher));ensure(await post(openLibrary+'save',{...book,baseRevision:3},teacher),401);
   if((await db.prepare('SELECT count(*) AS n FROM academy_write_guards').first()).n!==0)throw Error('Management guard left behind');
   if(outboundRequests!==0)throw Error('Unexpected external request');
   const report={success:true,runtime:'LOCAL_WORKERS_D1',workerEntrypoint:'backend/src/worker-runtime.js',compatibilityDate,syntheticAccounts:true,...burst,securitySmokeChecks:'PASS',externalRequests:outboundRequests,
-    managementSmokeChecks:'PASS',learningSmokeChecks:'PASS',courseCalendarSmokeChecks:'PASS',curriculumAccountSmokeChecks:'PASS',courseResourceSmokeChecks:'PASS',courseSubscriptionSmokeChecks:'PASS',mockedDriveRequests,simultaneousLibraryReads:learningReadResults.length,cloudPerformanceMeasured:false,cutoverReady:false};
+    managementSmokeChecks:'PASS',learningSmokeChecks:'PASS',courseCalendarSmokeChecks:'PASS',curriculumAccountSmokeChecks:'PASS',courseResourceSmokeChecks:'PASS',courseSubscriptionSmokeChecks:'PASS',openLibrarySmokeChecks:'PASS',mockedDriveRequests,simultaneousLibraryReads:learningReadResults.length,cloudPerformanceMeasured:false,cutoverReady:false};
   save('report.json',JSON.stringify(report,null,2));
   console.log(JSON.stringify({step:'COMPLETE',...report,privateReport:join(directory,'report.json')}));
 }catch(error){console.error(JSON.stringify({success:false,step,code:'LOCAL_D1_FLOW_REHEARSAL_FAILED',status:error.status || null,message:error.message}));process.exitCode=1;}

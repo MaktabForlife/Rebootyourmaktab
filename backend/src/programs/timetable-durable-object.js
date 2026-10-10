@@ -84,9 +84,10 @@ export class ProgramTimetableCoordinator extends DurableObject {
     return record?.kind === 'LINK' && record.active === false ? '' : record?.coverKey || '';
   }
   async openLibraryMetadataSave(input, authorization, uploadedCoverKey = '') {
-    const user = await openLibraryMetadataUser(new Request('https://internal.invalid/open-library-metadata', {
+    const request=new Request('https://internal.invalid/open-library-metadata', {
       headers: { Authorization: authorization }
-    }), createRequestEnvironment(this.env));
+    });
+    let user=await openLibraryMetadataUser(request,createRequestEnvironment(this.env));
     const taxonomy = await loadOpenLibraryTaxonomy(createRequestEnvironment(this.env));
     const creatingLink = input?.kind === 'LINK' && !input.id;
     const id = creatingLink ? `EXTERNAL:ACADEMY_LINK:${crypto.randomUUID()}` : input?.id;
@@ -94,6 +95,9 @@ export class ProgramTimetableCoordinator extends DurableObject {
       ...resolveOpenLibraryTaxonomySelection(input, taxonomy) });
     const expected = Number(input?.baseRevision);
     if (!Number.isInteger(expected) || expected < 0) throw problem('Refresh the book details before saving.', 409);
+    // Taxonomy loading yields. Recheck the D1 session after it, immediately
+    // before the existing synchronous metadata compare-and-set write.
+    if(this.env.ACADEMY_D1_MODE && this.env.ACADEMY_D1_MODE!=='OFF')user=await openLibraryMetadataUser(request,createRequestEnvironment(this.env));
     const sql = this.ctx.storage.sql;
     const current = sql.exec('SELECT metadata, revision FROM open_library_metadata WHERE id = ?', record.id).toArray()[0];
     const revision = Number(current?.revision || 0);

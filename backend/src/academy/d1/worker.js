@@ -1,6 +1,6 @@
 import {d1Subjects} from './subjects.js';
 import {d1AccountTimetable} from './account-timetable.js';
-import { createAuthRateLimitKey, createSaltedPinHash, createSessionToken, verifySessionToken, isValidFourDigitPin, verifyPin } from '../../lib/auth.js';
+import { createAuthRateLimitKey, createSaltedPinHash, createSessionToken, isValidFourDigitPin, verifyPin } from '../../lib/auth.js';
 import { academyD1Repository, rehearsalError } from './repository.js';
 import { d1Entrance } from './entrance.js';
 import { d1Profiles } from './profiles.js';
@@ -10,9 +10,9 @@ import {learningAvailable} from './learning-state.js';
 import {d1Library,d1LibraryStream} from './library.js';
 import {d1CourseCalendar} from './course-calendar.js';
 import {d1CourseSubscriptions} from './course-subscriptions.js';
+import {authenticatedD1Account as authenticated,d1Audience as audience,d1ContextEqual as contextEqual} from './session.js';
+import {openLibraryMetadataEndpoint} from '../../routes/open-library-metadata.js';
 
-const audience='academy-d1-rehearsal';
-const contextEqual=(a,b)=>a.scope===b.scope&&a.courseId.toUpperCase()===b.courseId.toUpperCase()&&a.role===b.role;
 const publicAccount=state=>({displayName:state.account.display_name,uniqueid:state.account.login_link_id});
 const sessionResponse=(state,context,token)=>({account:publicAccount(state),context,contexts:state.contexts,sessionStore:'D1',operationalAccessActive:['COURSE','GLOBAL'].includes(context.scope),...(token?{token}:{})});
 const requireActive=state=>{if(!state)throw rehearsalError('Invalid account link',404,'ACCOUNT_NOT_FOUND');if(!state.account.active)throw rehearsalError('Account disabled',403,'ACCOUNT_DISABLED');};
@@ -25,17 +25,6 @@ async function boundedBody(request,limit=4096) {
   let body;try{body=JSON.parse(raw || '{}');}catch{throw rehearsalError('Invalid request.',400,'INVALID_REQUEST');}
   if(!body||typeof body!=='object'||Array.isArray(body))throw rehearsalError('Invalid request.',400,'INVALID_REQUEST');
   return body;
-}
-async function authenticated(request,env,repository) {
-  const header=request.headers.get('Authorization') || '';
-  if(!header.startsWith('Bearer ')||header.length>4096)throw rehearsalError('Your Academy session has ended.',401,'SESSION_ENDED');
-  const token=await verifySessionToken(header.slice(7),env);
-  if(!token||token.aud!==audience||token.sv!==3||typeof token.sid!=='string'||typeof token.accountid!=='string'||!Number.isInteger(token.epoch))throw rehearsalError('Your Academy session has ended.',401,'SESSION_ENDED');
-  const state=await repository.session(token.sid,token.accountid,token.epoch);
-  const context=state?.contexts.find(c=>contextEqual(c,{scope:String(token.scope || ''),courseId:String(token.courseid || ''),role:String(token.role || '')}));
-  if(!state||!context)throw rehearsalError('Your Academy session has ended.',401,'SESSION_ENDED');
-  // Name, account identity and authority always come from fresh database state.
-  return {state,sid:token.sid,context,user:{type:'account',accountid:state.account.account_id,uniqueid:state.account.login_link_id,username:state.account.display_name,role:state.account.global_admin?'GLOBAL_ADMIN':context.role,scope:context.scope,courseid:context.courseId}};
 }
 async function issueSession(env,repository,state,context) {
   if(!context)throw rehearsalError('No authorised Academy context is available.',403,'NO_CONTEXT');
@@ -56,6 +45,8 @@ async function dispatch(request,env) {
   const path=new URL(request.url).pathname;
   if(path==='/api/health'&&request.method==='GET')return {success:true,store:'D1_REHEARSAL',cutoverReady:false};
   await repository.ready();
+  const openLibraryAction=path.match(/^\/api\/academy\/open-library\/metadata\/(public|cover|list|save|options)$/)?.[1];
+  if(openLibraryAction)return openLibraryMetadataEndpoint(openLibraryAction)(request,env);
   if(path==='/api/academy/d1/library/file'&&['GET','HEAD'].includes(request.method))return d1LibraryStream(request,repository,env);
   if(request.method!=='POST')throw rehearsalError('Use POST.',405,'METHOD_NOT_ALLOWED');
   if(path==='/api/admin/platform/program-library/upload-chunk') {
@@ -88,7 +79,7 @@ async function dispatch(request,env) {
   }
   if(path==='/api/academy/entrance') {
     const auth=request.headers.has('Authorization')?await authenticated(request,env,repository):null;
-    return {success:true,...await d1Entrance(repository,auth?.state,auth?.user,input)};
+    return {success:true,sessionStore:'D1',...await d1Entrance(repository,auth?.state,auth?.user,input)};
   }
   const auth=await authenticated(request,env,repository);
   if(path==='/api/academy/timetable')return {success:true,...await d1AccountTimetable(repository,auth,input)};

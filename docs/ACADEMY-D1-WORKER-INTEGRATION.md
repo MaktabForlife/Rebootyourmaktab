@@ -57,3 +57,5 @@ The subsequent [Course/calendar stage](ACADEMY-D1-COURSES-CALENDAR.md) adds run 
 The subsequent [curriculum/account stage](ACADEMY-D1-CURRICULUM-ACCOUNT.md) adds Academy-wide catalogue authoring, Global Curriculum editing and the older account timetable locally. It keeps live routing and imported subscription evidence unchanged.
 
 The subsequent [Course resource stage](ACADEMY-D1-COURSE-RESOURCES.md) adds resource/Drive administration and compatibility file access locally. [Academy terminology](ACADEMY-TERMINOLOGY.md) distinguishes current Courses from the outdated Global Subject name and confirms Global Admin authority across all Programs and Courses.
+
+The subsequent [route review and Open Library stage](ACADEMY-D1-ROUTE-AUDIT.md) connects existing Cloudflare metadata/covers to D1 account and taxonomy checks, fixes shared-sidebar D1 logout and records current coverage and remaining cutover work.

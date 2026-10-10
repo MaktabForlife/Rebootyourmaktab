@@ -19,6 +19,7 @@ test('login, session, context switching and home use D1 and keep private links g
   const signed=await login(env);assert.equal(signed.status,200);assert.ok(signed.body.token);assert.equal(signed.body.context.role,'STUDENT');
   const session=await call(env,'/api/account/session',{},signed.body.token);assert.equal(session.status,200);assert.ok(!session.body.token);
   const home=await call(env,'/api/academy/entrance',{startDate:'2026-10-09'},signed.body.token);assert.equal(home.status,200);assert.equal(home.body.signedIn,true);assert.ok(home.body.personalTimetable.length);
+  assert.equal(home.body.sessionStore,'D1');
   assert.ok(!JSON.stringify(home.body).includes('pin_hash'));assert.ok(!JSON.stringify(home.body).includes('zoom.us'));
   assert.ok(queries.filter(q=>/FROM accounts a JOIN account_credentials/.test(q)).every(q=>/WHERE a\.(account_id|login_link_id)=\?/.test(q)));
   assert.equal(db.prepare("SELECT count(*) AS n FROM role_assignments WHERE role='PROGRAM_ADMIN'").get().n,0);

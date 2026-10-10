@@ -8,6 +8,7 @@ import { batchReadGoogleSheetValues } from './google-sheets.js';
 import { readPlatformSheets } from './platform-sheet.js';
 import { isActivePlatformValue as active } from './platform-schema.js';
 import { problem } from '../programs/model.js';
+import {d1OpenLibraryTaxonomySource} from '../academy/d1/open-library-taxonomy.js';
 
 const clean = value => String(value ?? '').trim();
 const sort = (a, b) => a.name.localeCompare(b.name, undefined, { numeric: true });
@@ -67,6 +68,7 @@ export function buildOpenLibraryTaxonomy({ academy = [], globalSubjects = [], gl
 }
 
 export async function loadOpenLibraryTaxonomy(env, { includeLegacy = false } = {}) {
+  if(env.ACADEMY_D1_MODE && env.ACADEMY_D1_MODE!=='OFF')return {...buildOpenLibraryTaxonomy(await d1OpenLibraryTaxonomySource(env)),warnings:[]};
   const [shared, platform, listed] = await Promise.all([
     academySubjectRepository(env).load(),
     readPlatformSheets(env, ['CourseRegistry', 'GlobalSubjectList', 'GlobalModuleList']),

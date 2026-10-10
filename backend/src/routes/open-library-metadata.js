@@ -5,6 +5,8 @@ import { problem } from '../programs/model.js';
 import { programFailure } from '../programs/errors.js';
 import { isOpenLibraryMetadataId, openLibraryMetadataForClient } from '../lib/open-library-metadata.js';
 import { loadOpenLibraryTaxonomy } from '../lib/open-library-taxonomy.js';
+import {academyD1Repository} from '../academy/d1/repository.js';
+import {authenticatedD1Account} from '../academy/d1/session.js';
 
 const MAX_COVER_BYTES = 5 * 1024 * 1024;
 async function limitedBytes(request, limit) {
@@ -36,7 +38,13 @@ function imageType(bytes) {
 }
 
 export async function openLibraryMetadataUser(request, env) {
-  const user = await getAuthUser(request, env, { allowProgram: true });
+  let user;
+  if(env.ACADEMY_D1_MODE && env.ACADEMY_D1_MODE!=='OFF'){
+    try{
+      const repository=academyD1Repository(env);await repository.ready();
+      user=(await authenticatedD1Account(request,env,repository)).user;
+    }catch(error){throw problem(error.status===401?'Your Academy session has ended.':'Academy account information is temporarily unavailable.',error.status===401?401:503);}
+  }else user=await getAuthUser(request, env, { allowProgram: true });
   if (!user) throw problem('Sign in through your personal Academy account link.', 401);
   if (user.type !== 'account' ||
       !(user.role === 'GLOBAL_ADMIN' || (user.role === 'TEACHER' && user.scope === 'COURSE'))) {

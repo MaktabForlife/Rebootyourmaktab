@@ -18,6 +18,10 @@ export function d1Library(repository,auth,env) {
   let readiness,subscriptionsTable;
   const ready=()=>readiness??=requireLearning(repository.db).then(async()=>{subscriptionsTable=await repository.subscriptionSource();});
   const accountPath=`/account/${encodeURIComponent(auth.user.uniqueid)}`;
+  const learningAreaRefs=()=>auth.state.activities.filter(a=>auth.state.account.global_admin||
+    (a.kind==='PROGRAM'?auth.state.roles.some(r=>same(r.activity_key,a.activity_key)):
+      a.legacy_access_model==='FREE'||auth.state.subscriptions.some(s=>same(s.activity_key,a.activity_key))||auth.state.roles.some(r=>same(r.activity_key,a.activity_key)&&r.role==='TEACHER')))
+    .map(a=>`${a.kind==='PROGRAM'?'PROGRAM':'GLOBAL'}:${a.activity_id}`);
   const extras=activity=>({destination:p('SELECT * FROM program_library_destinations WHERE activity_key=?',activity),
     accessPolicies:p('SELECT * FROM library_access_policies'),exclusions:p('SELECT * FROM library_exclusions'),courseSettings:p('SELECT * FROM course_settings'),
     subscriptions:p(`SELECT account_id,activity_key FROM ${subscriptionsTable}`)});
@@ -120,7 +124,7 @@ export function d1Library(repository,auth,env) {
         if(rows.length!==1)throw managementError('Choose an available Course resource.',rows.length?409:404);
         const r=rows[0];return access(`${r.activity_key}:${r.resource_type}:${r.resource_id}`,false,request);
       }
-      if(academy&&action==='catalogue')return {resources:(await catalogue()).map(r=>({id:r.key,source:r.source,sourceName:r.sourceName,type:r.type,name:r.name,description:r.description,subject:r.subject,module:r.module,author:r.author||'',publisher:r.publisher||'',hasCover:r.hasCover,accessState:r.decision.state,locked:Boolean(r.decision.locked),forYou:Boolean(r.decision.forYou||r.decision.open)})),warnings:[],learningAreaRefs:[],store:'D1'};
+      if(academy&&action==='catalogue')return {resources:(await catalogue()).map(r=>({id:r.key,source:r.source,sourceName:r.sourceName,type:r.type,name:r.name,description:r.description,subject:r.subject,module:r.module,author:r.author||'',publisher:r.publisher||'',hasCover:r.hasCover,accessState:r.decision.state,locked:Boolean(r.decision.locked),forYou:Boolean(r.decision.forYou||r.decision.open)})),warnings:[],learningAreaRefs:learningAreaRefs(),store:'D1'};
       if(['access','cover'].includes(action))return access(academy?input.resourceId:`PROGRAM:${input.id}:${input.resourceId}`,action==='cover',request,admin);
       const loaded=await load(input.id);
       if(action==='catalogue')return {program:loaded.program,role:role(loaded),canManage:['GLOBAL_ADMIN','PROGRAM_ADMIN'].includes(role(loaded)),accountPath,resources:entries(loaded).filter(r=>r.decision.open).map(({key,loaded,decision,...r})=>r)};

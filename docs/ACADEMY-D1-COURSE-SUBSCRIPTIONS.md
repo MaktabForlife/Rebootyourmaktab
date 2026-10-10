@@ -37,3 +37,5 @@ Private evidence is under `.academy-migration/d1-course-subscriptions-20261010/`
 Finish the route/authority review, including Academy-wide Global Admin administration and any remaining admission/access-policy decisions. Configure the updated upload bridge and Program destinations, refresh and reconcile the source, then verify complete hosted workflows and realistic peak usage. Review the concrete backup, rollback and ownership transition before enabling live D1. Keep the production-named legacy Worker separate.
 
 A future feature push requires a fresh release version and new URLs for changed assets. This local increment keeps V106.0 and Sheets routing unchanged.
+
+The subsequent [route review and Open Library stage](ACADEMY-D1-ROUTE-AUDIT.md) records current website coverage, closes Open Library/shared-sidebar gaps and clarifies that new Global Admin grant administration is a separate feature.

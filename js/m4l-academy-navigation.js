@@ -23,6 +23,7 @@
   if (isLibrary) $('ac-library').setAttribute('aria-current', 'page');
   if (location.pathname.startsWith('/recorder/')) $('ac-recorder').setAttribute('aria-current', 'page');
   let generation = 0;
+  let d1Session = '';
 
   function clear() {
     strip.replaceChildren();
@@ -36,6 +37,7 @@
 
   async function refresh() {
     const pending = ++generation, session = token();
+    if (d1Session !== session) d1Session = '';
     clear();
     if (!session) return;
     try {
@@ -44,6 +46,7 @@
       });
       const result = await response.json();
       if (pending !== generation || session !== token() || !response.ok || !result.success || !result.signedIn) return;
+      d1Session = result.sessionStore === 'D1' ? session : '';
       $('ac-library').href = '/academy/library/';
       $('ac-progress').hidden = !result.student;
       $('ac-recorder').hidden = !result.student;
@@ -59,8 +62,16 @@
   }
 
   $('ac-signout').addEventListener('click', () => {
+    const session = token(), revoke = session && d1Session === session;
+    d1Session = '';
     ++generation;
     clear();
+    if (revoke) {
+      void fetch(`${window.M4L_CONFIG?.API_BASE || ''}/api/account/logout`, {
+        method: 'POST', keepalive: true,
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session}` }, body: '{}'
+      }).catch(() => { /* Browser sign-out still completes if the connection is unavailable. */ });
+    }
     sessionStorage.removeItem('m4l_academy_signed_in');
     for (const key of ['m4l_account_token', 'm4l_account_context', 'm4l_account_contexts', 'm4l_account_workspace', 'maktab_token', 'maktab_user_type']) localStorage.removeItem(key);
     for (let index = localStorage.length - 1; index >= 0; index--) {

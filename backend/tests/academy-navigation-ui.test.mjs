@@ -24,11 +24,11 @@ function fixture(path='/academy/open-library/',search='') {
   let result={success:true,signedIn:true,student:true,personalActivities:[
     {id:'Pilot-actual-id',name:'Reboot',kind:'PROGRAM',roles:['STUDENT']},
     {id:'Course-actual-id',name:'Barakah <course>',kind:'COURSE',roles:['TEACHER']}
-  ]}, hold=false,release,ok=true;
-  const fetch=async(url,options)=>{requests.push({url,options});const snapshot=structuredClone(result);if(hold){hold=false;await new Promise(resolve=>{release=resolve;});}return{ok,json:async()=>snapshot};};
+  ]}, hold=false,release,ok=true,logoutFailure=false;
+  const fetch=async(url,options)=>{requests.push({url,options});if(url.endsWith('/api/account/logout')){if(logoutFailure)throw Error('Synthetic connection failure');return {ok:true,json:async()=>({success:true})};}const snapshot=structuredClone(result);if(hold){hold=false;await new Promise(resolve=>{release=resolve;});}return{ok,json:async()=>snapshot};};
   runInNewContext(script,{document,window,location,localStorage,sessionStorage,fetch,URLSearchParams,encodeURIComponent,Event});
   return {nodes,handlers,requests,children,localStorage,sessionStorage,location,forYou,
-    setResult:value=>{result=value;},setOk:value=>{ok=value;},defer:()=>{hold=true;},release:()=>release(),
+    setResult:value=>{result=value;},setOk:value=>{ok=value;},setLogoutFailure:value=>{logoutFailure=value;},defer:()=>{hold=true;},release:()=>release(),
     refresh:()=>handlers.get('m4l-academy-session')()};
 }
 const app=fixture();
@@ -72,6 +72,18 @@ assert.equal(app.localStorage.getItem('m4l_account_token'),null);
 assert.equal(app.localStorage.getItem('m4l_app_cache_test'),null);
 assert.equal(app.sessionStorage.length,0);
 assert.equal(app.children[1].hidden,true);
+assert.equal(app.requests.filter(r=>r.url.endsWith('/api/account/logout')).length,0,'Sheets sign-out must keep its existing behavior');
+for(const fail of [false,true]) {
+  const d1=fixture();d1.localStorage.setItem('m4l_account_token','current-d1-account');
+  d1.setResult({success:true,signedIn:true,sessionStore:'D1',personalActivities:[]});d1.refresh();await flush();
+  d1.setLogoutFailure(fail);d1.nodes.get('ac-signout').handlers.get('click')();await flush();
+  const request=d1.requests.find(r=>r.url.endsWith('/api/account/logout'));
+  assert.equal(request.options.headers.Authorization,'Bearer current-d1-account');assert.equal(request.options.keepalive,true);assert.equal(request.options.body,'{}');
+  assert.equal(d1.localStorage.getItem('m4l_account_token'),null);assert.equal(d1.location.href,'/academy/#overview');
+}
+const replaced=fixture();replaced.localStorage.setItem('m4l_account_token','old-d1-account');replaced.setResult({success:true,signedIn:true,sessionStore:'D1'});replaced.refresh();await flush();
+replaced.localStorage.setItem('m4l_account_token','replacement-account');replaced.nodes.get('ac-signout').handlers.get('click')();await flush();
+assert.equal(replaced.requests.filter(r=>r.url.endsWith('/api/account/logout')).length,0,'A prior account cannot select the replacement account’s sign-out store');
 const standalone=fixture('/recorder/');assert.equal(standalone.children.length,0,'Recorder use outside Academy keeps its existing interface');
 const recorder=fixture('/recorder/','?academy=1');assert.equal(recorder.children.length,2);
 const program=fixture('/programs/attendance.html','?program=Pilot-actual-id');program.localStorage.setItem('m4l_account_token','staff');program.refresh();await flush();
