@@ -13,15 +13,16 @@ import {startLibraryUpload,openLibraryUploadTicket,forwardLibraryUploadChunk,LIB
 
 const clean=v=>String(v??'').trim(),TTL=300;
 const typeConfig=type=>{const config=getResourceConfig(type);if(!config)throw managementError('Choose a Library category.');return config;};
+export const d1LibraryAreaRefs=state=>state.activities.filter(a=>state.account.global_admin||
+  (a.kind==='PROGRAM'?state.roles.some(r=>same(r.activity_key,a.activity_key)):
+    a.legacy_access_model==='FREE'||state.subscriptions.some(s=>same(s.activity_key,a.activity_key))||state.roles.some(r=>same(r.activity_key,a.activity_key)&&r.role==='TEACHER')))
+  .map(a=>`${a.kind==='PROGRAM'?'PROGRAM':'GLOBAL'}:${a.activity_id}`);
 export function d1Library(repository,auth,env) {
   const store=managementStore(repository,auth),p=store.p,programs=d1Programs(repository,auth);
   let readiness,subscriptionsTable;
   const ready=()=>readiness??=requireLearning(repository.db).then(async()=>{subscriptionsTable=await repository.subscriptionSource();});
   const accountPath=`/account/${encodeURIComponent(auth.user.uniqueid)}`;
-  const learningAreaRefs=()=>auth.state.activities.filter(a=>auth.state.account.global_admin||
-    (a.kind==='PROGRAM'?auth.state.roles.some(r=>same(r.activity_key,a.activity_key)):
-      a.legacy_access_model==='FREE'||auth.state.subscriptions.some(s=>same(s.activity_key,a.activity_key))||auth.state.roles.some(r=>same(r.activity_key,a.activity_key)&&r.role==='TEACHER')))
-    .map(a=>`${a.kind==='PROGRAM'?'PROGRAM':'GLOBAL'}:${a.activity_id}`);
+  const learningAreaRefs=()=>d1LibraryAreaRefs(auth.state);
   const extras=activity=>({destination:p('SELECT * FROM program_library_destinations WHERE activity_key=?',activity),
     accessPolicies:p('SELECT * FROM library_access_policies'),exclusions:p('SELECT * FROM library_exclusions'),courseSettings:p('SELECT * FROM course_settings'),
     subscriptions:p(`SELECT account_id,activity_key FROM ${subscriptionsTable}`)});

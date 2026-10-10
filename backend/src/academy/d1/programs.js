@@ -107,7 +107,7 @@ export function d1Programs(repository,auth) {
           p('UPDATE program_settings SET duration_years=?,timezone=?,revision=revision+1 WHERE activity_key=?',config.durationYears===''?null:config.durationYears,config.timezone,activity));
         else statements.push(p("INSERT INTO activities(activity_key,activity_id,kind,name,active,lifecycle,website_visible,created_at,updated_at,revision) VALUES(?,?,'PROGRAM',?,0,'DRAFT',0,?,?,1)",activity,id,config.name,now,now),
           p('INSERT INTO program_settings(activity_key,duration_years,timezone,revision) VALUES(?,?,?,1)',activity,config.durationYears===''?null:config.durationYears,config.timezone),
-          p("INSERT INTO data_ownership(dataset_key,scope_key,authoritative_store,phase,revision) VALUES('ACADEMY',?,'SHEETS','STAGING',1)",activity));
+          p('INSERT INTO data_ownership(dataset_key,scope_key,authoritative_store,phase,verified_run_id,switched_at,revision) VALUES(?,?,?,?,?,?,?)',...Object.values(repository.ownershipForNewActivity(activity))));
         const updated={activity_key:activity,activity_id:id,name:config.name,active:Number(status==='ACTIVE'),lifecycle:status,revision:(existing?.revision||0)+1};
         const next={...data,programs:[...data.programs.filter(s=>!same(s.activity_key,activity)),{activity_key:activity,duration_years:config.durationYears,timezone:config.timezone}]};
         return {data,statements,result:{program:dto(next,updated)},fields:['Name','DurationYears','Timezone','Lifecycle']};

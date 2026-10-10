@@ -1,5 +1,7 @@
 # Academy source reconciliation and recovery check — 10 October 2026
 
+**Subsequent activation preparation:** A tested local activation contract and public-only Library mode are now available. Live ownership remains staging, and creation of the separate hosted test database failed with Cloudflare authentication error 10000. The main database and candidate remain unchanged. See the [activation preparation](ACADEMY-D1-CORE-ACTIVATION.md); the historical checks below do not constitute final activation approval.
+
 **Subsequent Library decision:** The owner replaced Program-specific upload folders with public Archive.org material and one shared private Academy media store. Module subscriptions and permanent completion entitlements have not been built. The four missing Program destinations recorded below are historical findings, not outstanding requirements for the new Library. See the [agreed Library model](ACADEMY-LIBRARY-ACCESS-MODEL.md).
 
 A fresh read-only source capture and a new private D1 candidate are verified. **No source records, main cloud database rows, deployment or live storage routing were changed.** Both public version endpoints still report V106.0, and the website still uses Sheets.

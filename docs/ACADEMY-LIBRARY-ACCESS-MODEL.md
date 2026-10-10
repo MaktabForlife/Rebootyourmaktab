@@ -69,6 +69,6 @@ The existing active-only operational migration remains useful for accounts, Prog
 
 ## Migration boundary and next decision
 
-Core D1 migration work can continue independently of this new feature. Its sequencing is being clarified with the owner: build Module subscriptions during migration, or finish the core migration first. If core migration goes first, protected media must remain unavailable to learners until the new access controls are ready. The old per-Course/Program Library permissions must not silently serve as the new Module media model.
+Core D1 migration work is continuing independently of this new feature, using core-first as the working sequence while the sequencing question remains open. The new activation contract requires a public-only Library mode: protected media remains unavailable until the new access controls are ready. The old per-Course/Program Library permissions must not silently serve as the new Module media model. See the [core activation preparation and remaining checks](ACADEMY-D1-CORE-ACTIVATION.md); this preparation has not changed live routing or granted private-media access.
 
 The shared private storage choice is also pending. No further Program-specific Drive folder links are requested. There is only an unapplied, private schema proposal at this point; no `0008` runtime migration or new entitlement service has been added.

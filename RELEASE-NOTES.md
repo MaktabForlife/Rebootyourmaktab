@@ -1,5 +1,7 @@
 # Unreleased — D1 management, learning and Course workflows
 
+Prepare reviewed core D1 activation with a pinned import, maintenance mode and a public-only Library boundary while Module media subscriptions remain unbuilt. All 120 regression test files and 200 simultaneous local active-mode login/Home flows pass. Creation of the isolated hosted test database is blocked by Cloudflare authentication error 10000; no hosted peak test, live switch, push or deployment occurred. [Activation preparation and remaining checks](docs/ACADEMY-D1-CORE-ACTIVATION.md).
+
 Record the owner's revised Library model: public Archive.org material, one shared private Academy media store, individual Module subscriptions and permanent account entitlements at completion. These subscriptions and lifetime grants are not implemented; prior Program-folder requirements are superseded. Existing per-Course access must not be inferred as Module media access. No runtime or live data changes accompany this clarification. [Agreed model](docs/ACADEMY-LIBRARY-ACCESS-MODEL.md).
 
 Add atomic D1 account/profile, Program-role, registry, curriculum, class and enrolment management behind the isolated rehearsal mode. Apply the owner-approved Senior-to-Teacher and Admin-to-Program-Admin rules without changing original evidence or Global Admin grants. Preserve Student access.

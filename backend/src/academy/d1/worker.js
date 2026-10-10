@@ -7,7 +7,7 @@ import { d1Profiles } from './profiles.js';
 import { d1Programs } from './programs.js';
 import {d1Learning} from './learning.js';
 import {learningAvailable} from './learning-state.js';
-import {d1Library,d1LibraryStream} from './library.js';
+import {d1Library,d1LibraryStream,d1LibraryAreaRefs} from './library.js';
 import {d1CourseCalendar} from './course-calendar.js';
 import {d1CourseSubscriptions} from './course-subscriptions.js';
 import {authenticatedD1Account as authenticated,d1Audience as audience,d1ContextEqual as contextEqual} from './session.js';
@@ -43,10 +43,18 @@ async function dispatch(request,env) {
     throw rehearsalError('Academy authentication is not configured.');
   const repository=academyD1Repository(env);
   const path=new URL(request.url).pathname;
-  if(path==='/api/health'&&request.method==='GET')return {success:true,store:'D1_REHEARSAL',cutoverReady:false};
   await repository.ready();
+  const publicLibraryOnly=env.ACADEMY_LIBRARY_MODE==='PUBLIC_ONLY';
+  if(['/','/api/health'].includes(path)&&request.method==='GET')return {success:true,service:'rebootworker',version:'106.0',
+    store:env.ACADEMY_D1_MODE==='ACTIVE'?'D1_ACTIVE':'D1_REHEARSAL',cutoverReady:env.ACADEMY_D1_MODE==='ACTIVE',
+    libraryMode:publicLibraryOnly?'PUBLIC_ONLY':'COMPATIBILITY',mediaSubscriptionsAvailable:false};
   const openLibraryAction=path.match(/^\/api\/academy\/open-library\/metadata\/(public|cover|list|save|options)$/)?.[1];
   if(openLibraryAction)return openLibraryMetadataEndpoint(openLibraryAction)(request,env);
+  if(publicLibraryOnly&&path!=='/api/academy/library/catalogue'&&(
+    /^\/api\/(?:admin\/platform\/program-library|program-library|academy\/library|academy\/d1\/library)\//.test(path)||
+    path==='/api/platform/global/resources/access'||path==='/api/admin/platform/program-timetable/prepare-library'||
+    /^\/api\/admin\/platform\/global\/(?:resources?|drive(?:-root)?)\//.test(path)))
+    throw rehearsalError('Private Academy media is not available yet.',403,'PRIVATE_MEDIA_NOT_ENABLED');
   if(path==='/api/academy/d1/library/file'&&['GET','HEAD'].includes(request.method))return d1LibraryStream(request,repository,env);
   if(request.method!=='POST')throw rehearsalError('Use POST.',405,'METHOD_NOT_ALLOWED');
   if(path==='/api/admin/platform/program-library/upload-chunk') {
@@ -82,6 +90,9 @@ async function dispatch(request,env) {
     return {success:true,sessionStore:'D1',...await d1Entrance(repository,auth?.state,auth?.user,input)};
   }
   const auth=await authenticated(request,env,repository);
+  if(publicLibraryOnly&&path==='/api/academy/library/catalogue')return {success:true,resources:[],
+    warnings:['Private Academy media will appear when Module subscriptions are available.'],learningAreaRefs:d1LibraryAreaRefs(auth.state),
+    libraryMode:'PUBLIC_ONLY',mediaSubscriptionsAvailable:false,store:'D1'};
   if(path==='/api/academy/timetable')return {success:true,...await d1AccountTimetable(repository,auth,input)};
   if(['/api/account/workspace','/api/account/global-workspace'].includes(path)){
     const expected=path.endsWith('/global-workspace')?'GLOBAL':'COURSE';
@@ -106,6 +117,8 @@ async function dispatch(request,env) {
   const profileAction=path.match(/^\/api\/admin\/platform\/user-profiles\/(get|link|save|recover)$/)?.[1];
   const registryAction=path.match(/^\/api\/admin\/platform\/programs\/(list|create|save|readiness|prepare)$/)?.[1];
   const managementAction=path.match(/^\/api\/admin\/platform\/program-timetable\/(manage-get|manage-save|recover)$/)?.[1];
+  if(publicLibraryOnly&&managementAction==='manage-save'&&['resources','library-root'].includes(input.kind))
+    throw rehearsalError('Private Academy media is not available yet.',403,'PRIVATE_MEDIA_NOT_ENABLED');
   if(profileAction||registryAction||managementAction) {
     const programAdmin=(managementAction||registryAction==='list')&&auth.state.roles.some(r=>r.role==='PROGRAM_ADMIN'&&(registryAction==='list'||r.activity_key.toUpperCase()===`PROGRAM:${String(input.id||'')}`.toUpperCase()));
     if(!auth.state.account.global_admin&&!programAdmin)throw rehearsalError('This action requires an authorised administrator.',403,'FORBIDDEN');
@@ -157,7 +170,7 @@ export default {
       const unavailable=status>=500&&status!==501;
       if(status===429)headers['Retry-After']='60';
       return new Response(JSON.stringify({success:false,error:unavailable?'Academy information is temporarily unavailable. Please try again.':error.message,
-        code:unavailable?(['MANAGEMENT_SCHEMA_REQUIRED','LEARNING_IMPORT_REQUIRED','COURSE_IMPORT_REQUIRED','COURSE_ACCESS_SCHEMA_REQUIRED','UPLOAD_BRIDGE_REQUIRED'].includes(error.code)?error.code:'ACADEMY_D1_UNAVAILABLE'):error.code,retryable:unavailable||status===429,...(status===429?{retryAfterMs:60000}:{}),
+        code:unavailable?(['ACTIVATION_REQUIRED','MANAGEMENT_SCHEMA_REQUIRED','LEARNING_IMPORT_REQUIRED','COURSE_IMPORT_REQUIRED','COURSE_ACCESS_SCHEMA_REQUIRED','UPLOAD_BRIDGE_REQUIRED'].includes(error.code)?error.code:'ACADEMY_D1_UNAVAILABLE'):error.code,retryable:unavailable||status===429,...(status===429?{retryAfterMs:60000}:{}),
         ...(status===409?Object.fromEntries(['currentRecord','rowRevision','entryKey'].filter(k=>error[k]!==undefined).map(k=>[k,error[k]])):{} )}),{status,headers});}
   }
 };

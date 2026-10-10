@@ -10,12 +10,13 @@ import {payloadHash} from '../../programs/timetable-model.js';
 import {managementStore,managementError,same} from './management-store.js';
 import {insertRecords} from './insert-records.js';
 import {requireLearning} from './learning-state.js';
+import {newActivityOwnership} from './activation-policy.js';
 import {extractDriveFileId,requireItemInsideRoot,validateFileForResourceType,getResourceConfig} from '../../routes/drive-library.js';
 
 export async function courseCalendarAvailable(db,failIncomplete=false) {
   if(!await db.prepare("SELECT 1 FROM sqlite_schema WHERE type='table' AND name='course_workflow_imports'").first())return false;
   const ready=Boolean(await db.prepare(`SELECT 1 FROM course_workflow_imports c JOIN learning_imports l ON l.base_run_id=c.base_run_id
-    JOIN migration_runs m ON m.run_id=c.base_run_id WHERE c.singleton=1 AND m.state='IMPORTED'
+    JOIN migration_runs m ON m.run_id=c.base_run_id WHERE c.singleton=1 AND m.state IN ('IMPORTED','VERIFIED','CUTOVER')
     AND m.source_snapshot_sha256=c.source_sha256 AND l.source_sha256=c.source_sha256`).first());
   if(!ready&&failIncomplete)throw managementError('Course and calendar records need their verified database import.',503,'COURSE_IMPORT_REQUIRED');
   return ready;
@@ -158,7 +159,7 @@ async function statementsFor(store,data,tables,changes,auth,env) {
   for(const r of records('GlobalSubjectList')){
     const old=data.activities.find(a=>a.kind==='COURSE'&&same(a.activity_id,r.SubjectID)),key=activity(r.SubjectID);
     subjectRows.push({activity_key:key,activity_id:r.SubjectID,kind:'COURSE',name:r.SubjectName,active:Number(r.Active),lifecycle:r.Active?'ACTIVE':'ARCHIVED',website_visible:old?.website_visible??1,created_at:old?old.created_at:now,updated_at:now,revision:(old?.revision||0)+1});
-    if(!old){newSubjects.push({dataset_key:'ACADEMY',scope_key:key,authoritative_store:'SHEETS',phase:'STAGING',revision:1});policyRows.set(key,{activity_key:key,legacy_access_model:'PAID',policy_review_state:'CONFIRMED'});}
+    if(!old){newSubjects.push(newActivityOwnership(key,env));policyRows.set(key,{activity_key:key,legacy_access_model:'PAID',policy_review_state:'CONFIRMED'});}
   }
   for(const r of records('GlobalSubjectAccessPolicy')){const key=activity(r.SubjectID);policyRows.set(key,{activity_key:key,legacy_access_model:r.AccessModel==='FREE'?'FREE':'PAID',policy_review_state:'CONFIRMED'});}
   statements.push(...upsert(p,'activities',subjectRows,['activity_key']),...upsert(p,'course_settings',[...policyRows.values()],['activity_key']),...insertRecords(p,'data_ownership',newSubjects));

@@ -1,4 +1,5 @@
 import { authorityRank, normalizePlatformIdentifier as key } from '../../lib/platform-schema.js';
+import {CORE_ACTIVATION_CHECKS,newActivityOwnership} from './activation-policy.js';
 
 export const rehearsalError = (message, status=503, code='ACADEMY_D1_UNAVAILABLE') => Object.assign(new Error(message), {status,code});
 const publicAccount = row => ({AccountID:row.account_id,DisplayName:row.display_name,UniqueID:row.login_link_id,Active:Boolean(row.active),PlatformRole:row.global_admin?'GLOBAL_ADMIN':''});
@@ -6,8 +7,10 @@ const publicAccount = row => ({AccountID:row.account_id,DisplayName:row.display_
 // One primary-anchored session per HTTP request. Never cache account permissions,
 // credentials or database handles in module-level request state.
 export function academyD1Repository(env) {
-  if (!['local','development'].includes(env.ENVIRONMENT) || env.ACADEMY_D1_MODE !== 'REHEARSAL' || !env.ACADEMY_DB)
+  if (!['local','development'].includes(env.ENVIRONMENT) || !['REHEARSAL','ACTIVE'].includes(env.ACADEMY_D1_MODE) || !env.ACADEMY_DB)
     throw rehearsalError('Academy database rehearsal is not enabled.');
+  if(env.ACADEMY_D1_MODE==='ACTIVE'&&(!String(env.ACADEMY_D1_RUN_ID||'').trim()||env.ACADEMY_LIBRARY_MODE!=='PUBLIC_ONLY'))
+    throw rehearsalError('Academy activation configuration is incomplete.',503,'ACTIVATION_REQUIRED');
   const db=env.ACADEMY_DB.withSession('first-primary');
   const prepare=(sql,...values)=>db.prepare(sql).bind(...values);
   let schemas;
@@ -55,13 +58,33 @@ export function academyD1Repository(env) {
   }
   function audit(actor,target,action,fields,conditional=false) {
     return prepare(`INSERT INTO audit_events(event_id,occurred_at,actor_account_id,authority,scope_key,action,record_kind,record_id,changed_fields_json)
-      SELECT ?,?,?,?,?,?,?,?,? ${conditional?'WHERE changes()=1':''}`,crypto.randomUUID(),new Date().toISOString(),actor,'D1_REHEARSAL','ACADEMY',action,'USER_ACCOUNT',target,JSON.stringify(fields));
+      SELECT ?,?,?,?,?,?,?,?,? ${conditional?'WHERE changes()=1':''}`,crypto.randomUUID(),new Date().toISOString(),actor,env.ACADEMY_D1_MODE==='ACTIVE'?'D1_ACCOUNT':'D1_REHEARSAL','ACADEMY',action,'USER_ACCOUNT',target,JSON.stringify(fields));
   }
   return {
     db,
+    ownershipForNewActivity:activity=>newActivityOwnership(activity,env),
     subscriptionSource,
     publicAccount,
     async ready(){
+      if(env.ACADEMY_D1_MODE==='ACTIVE') {
+        const result=await prepare(`SELECT m.run_id FROM migration_runs m
+          JOIN learning_imports l ON l.base_run_id=m.run_id AND l.singleton=1 AND l.source_sha256=m.source_snapshot_sha256
+          JOIN course_workflow_imports c ON c.base_run_id=m.run_id AND c.singleton=1 AND c.source_sha256=m.source_snapshot_sha256
+          WHERE m.run_id=? AND m.state='CUTOVER' AND m.environment IN ('LOCAL','DEVELOPMENT')
+            AND EXISTS(SELECT 1 FROM academy_write_state WHERE singleton=1)
+            AND EXISTS(SELECT 1 FROM sqlite_schema WHERE name='effective_course_subscriptions' AND type='view')
+            AND (SELECT count(*) FROM migration_checks WHERE run_id=m.run_id AND dataset_key='ACTIVATION' AND scope_key='ACADEMY'
+              AND check_name IN (SELECT value FROM json_each(?)) AND status='PASS' AND findings_count=0 AND checked_at IS NOT NULL)=?
+            AND NOT EXISTS(SELECT 1 FROM migration_checks WHERE run_id=m.run_id AND status='FAIL')
+            AND EXISTS(SELECT 1 FROM activities)
+            AND NOT EXISTS(SELECT 1 FROM activities a LEFT JOIN data_ownership o ON o.dataset_key='ACADEMY' AND o.scope_key=a.activity_key
+              WHERE o.scope_key IS NULL OR o.authoritative_store<>'D1' OR o.phase<>'ACTIVE' OR o.verified_run_id<>m.run_id OR o.switched_at IS NULL)
+            AND NOT EXISTS(SELECT 1 FROM data_ownership o WHERE o.dataset_key='ACADEMY' AND
+              (o.authoritative_store<>'D1' OR o.phase<>'ACTIVE' OR o.verified_run_id<>m.run_id OR o.switched_at IS NULL))`,
+          env.ACADEMY_D1_RUN_ID,JSON.stringify(CORE_ACTIVATION_CHECKS),CORE_ACTIVATION_CHECKS.length).first();
+        if(!result)throw rehearsalError('Academy activation has not been verified.',503,'ACTIVATION_REQUIRED');
+        return;
+      }
       const result=await prepare(`SELECT run_id FROM migration_runs WHERE state='IMPORTED' AND environment IN ('LOCAL','DEVELOPMENT')
         AND NOT EXISTS (SELECT 1 FROM activities a LEFT JOIN data_ownership o
           ON o.dataset_key='ACADEMY' AND o.scope_key=a.activity_key

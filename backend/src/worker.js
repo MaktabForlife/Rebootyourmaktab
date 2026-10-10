@@ -9,10 +9,15 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
-    // The complete request stays in one store. This opt-in rehearsal uses the
-    // application's entrypoint; unmigrated operations must not reach Sheets.
-    if (env.ACADEMY_D1_MODE === "REHEARSAL") {
+    // The complete request stays in one store. Rehearsal and reviewed activation
+    // use this entrypoint; unmigrated operations must never reach Sheets.
+    if (["REHEARSAL", "ACTIVE"].includes(env.ACADEMY_D1_MODE)) {
       return academyD1Worker.fetch(request, env);
+    }
+    if (env.ACADEMY_D1_MODE === "PAUSED") {
+      const response=json({ success: false, error: "Academy is temporarily paused for maintenance. Please try again shortly.",
+        code: "ACADEMY_STORAGE_PAUSED", retryable: true }, 503);
+      response.headers.set('Retry-After','60');return response;
     }
     if (env.ACADEMY_D1_MODE && env.ACADEMY_D1_MODE !== "OFF") {
       return json({ success: false, error: "Academy storage configuration is unavailable.",
